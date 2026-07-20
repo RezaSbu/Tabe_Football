@@ -21,9 +21,9 @@ if (!ADMIN_PASSWORD || ADMIN_PASSWORD.length < 8) {
   console.warn("[SECURITY] ⚠ ADMIN_PASSWORD تنظیم نشده یا ضعیف است. از رمز پیش‌فرض توسعه استفاده می‌شود.");
 }
 
-export const JWT_SECRET_VALUE = JWT_SECRET || "tabe-football-jwt-secret-change-in-production-2026";
+export const JWT_SECRET_VALUE = JWT_SECRET || "dev-only-fallback-not-for-production";
 export const JWT_EXPIRES_IN = "24h";
-export const ADMIN_PASSWORD_HASH = bcrypt.hashSync(ADMIN_PASSWORD || "pass123", 10);
+export const ADMIN_PASSWORD_HASH = bcrypt.hashSync(ADMIN_PASSWORD, 10);
 
 export function generateToken(payload: { username: string; role: string }): string {
   return jwt.sign(payload, JWT_SECRET_VALUE, { expiresIn: JWT_EXPIRES_IN });
@@ -52,13 +52,13 @@ export function authMiddleware(req: express.Request, res: express.Response, next
 
 export function centralAuthGuard(req: express.Request, res: express.Response, next: express.NextFunction) {
   if (req.method === "GET" || req.method === "OPTIONS") return next();
-  const p = req.path;
+  const p = req.originalUrl.split("?")[0];
   const isPublic =
     p === "/api/auth/login" ||
     p === "/api/contact" ||
     p.startsWith("/api/predictions/") ||
-    (req.method === "POST" && p.match(/^\/api\/news\/[^/]+\/view$/)) ||
-    (req.method === "POST" && p.match(/^\/api\/images\/[^/]+\/view$/));
+    (req.method === "POST" && /^\/api\/news\/[^/]+\/view$/.test(p)) ||
+    (req.method === "POST" && /^\/api\/images\/[^/]+\/view$/.test(p));
   if (isPublic) return next();
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
