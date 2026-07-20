@@ -1,0 +1,29 @@
+node_modules/
+build/
+dist/
+coverage/
+uploads/
+nginx/certbot/
+
+# Environment files
+.env
+.env.local
+
+# Keep these
+!.env.example
+!.env.production
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temp
+check_matches.mjs

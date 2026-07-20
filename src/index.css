@@ -1,0 +1,50 @@
+@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@100..905&family=JetBrains+Mono:wght@100..800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Vazirmatn", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-red-650: #d91b23;
+  --color-red-655: #be1218;
+  --color-red-800: #991b1b;
+  --color-red-900: #7f1d1d;
+  --color-red-950: #450a0a;
+
+  --color-gray-805: #1e293b;
+  --color-gray-850: #1b202e;
+  --color-gray-855: #181d29;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: #030712; /* gray-950 dark background */
+}
+
+/* Custom RTL styling helper rules */
+input, textarea, select {
+  font-family: var(--font-sans);
+}
+
+.text-justify {
+  text-align: justify;
+}
+
+/* Webkit scrollbar for premium dark-mode feeling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #030712;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1f2937;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #374151;
+}
