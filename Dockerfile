@@ -3,6 +3,9 @@
 # ============================================
 FROM node:20-alpine AS frontend-builder
 
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
 WORKDIR /app
 
 COPY package.json package-lock.json ./
@@ -17,6 +20,9 @@ RUN npm run build
 # Stage 2: Build Backend (esbuild)
 # ============================================
 FROM node:20-alpine AS backend-builder
+
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 
 WORKDIR /app
 
@@ -37,6 +43,9 @@ RUN npx esbuild src/server/index.ts \
 # Stage 3: Production Runtime
 # ============================================
 FROM node:20-alpine AS runtime
+
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 
 RUN apk add --no-cache tzdata
 

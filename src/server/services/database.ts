@@ -4,7 +4,7 @@ import { logMessage } from "../utils/logger";
 import { dbLock } from "../utils/concurrency";
 import { runDatabaseMigrationsAndTransitions } from "./migrations";
 import { recalculateAndSyncDatabase } from "./stats";
-import { normalizePersianString } from "../utils/persian";
+import { normalizePersianString, fixMojibake } from "../utils/persian";
 
 let constraintsMigrated = false;
 
@@ -120,12 +120,12 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
     if (dbNews) {
       parsed.news = dbNews.map((n: any) => ({
         id: n.id,
-        title: n.title,
-        summary: n.summary,
-        content: n.content,
+        title: fixMojibake(n.title || ""),
+        summary: fixMojibake(n.summary || ""),
+        content: fixMojibake(n.content || ""),
         image: n.image,
         category: n.category,
-        tags: n.tags || [],
+        tags: Array.isArray(n.tags) ? n.tags.map((t: any) => fixMojibake(String(t))) : (typeof n.tags === 'string' ? n.tags.replace(/[{}]/g, '').split(',').map((x: any) => fixMojibake(x.trim())).filter(Boolean) : []),
         viewCount: n.view_count || 0,
         createdAt: n.created_at
       }));
@@ -134,12 +134,12 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
     if (dbTeams) {
       parsed.teams = dbTeams.map((t: any) => ({
         id: t.id,
-        name: t.name,
+        name: fixMojibake(t.name || ""),
         logo: t.logo,
         stats: t.stats,
-        coach: t.stats?.coach || t.coach || "",
-        city: t.stats?.city || t.city || "",
-        stadium: t.stats?.stadium || t.stadium || "",
+        coach: fixMojibake(t.stats?.coach || t.coach || ""),
+        city: fixMojibake(t.stats?.city || t.city || ""),
+        stadium: fixMojibake(t.stats?.stadium || t.stadium || ""),
         stadiumCapacity: t.stats?.stadiumCapacity || t.stats?.stadium_capacity || t.stadiumCapacity || "",
         founded: t.stats?.founded || t.founded || "",
         basePlayed: t.base_played || 0,
@@ -161,9 +161,9 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
         const sStats = p.season_stats || {};
         return {
           id: p.id,
-          name: p.name,
+          name: fixMojibake(p.name || ""),
           teamId: p.team_id,
-          teamName: p.team_name,
+          teamName: fixMojibake(p.team_name || ""),
           position: p.position,
           rating: p.rating,
           averageRating: p.average_rating ? parseFloat(p.average_rating) : 0.0,
@@ -194,11 +194,11 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
         const sStats = c.season_stats || {};
         return {
           id: c.id,
-          name: c.name,
+          name: fixMojibake(c.name || ""),
           image: c.image,
           teamId: c.team_id,
-          teamName: c.team_name,
-          nationality: c.nationality,
+          teamName: fixMojibake(c.team_name || ""),
+          nationality: fixMojibake(c.nationality || ""),
           age: c.age || null,
           biography: c.biography || "",
           seasonStats: sStats,
@@ -271,20 +271,20 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
     if (dbTransfers) {
       parsed.transfers = dbTransfers.map((t: any) => ({
         id: t.id,
-        playerName: t.player_name,
+        playerName: fixMojibake(t.player_name || ""),
         playerImage: t.player_image,
-        fromTeam: t.from_team,
+        fromTeam: fixMojibake(t.from_team || ""),
         fromTeamLogo: t.from_team_logo,
-        toTeam: t.to_team,
+        toTeam: fixMojibake(t.to_team || ""),
         toTeamLogo: t.to_team_logo,
         type: t.type,
         fee: t.fee,
         date: t.date,
-        details: t.description || t.details || "",
-        description: t.description || t.details || "",
+        details: fixMojibake(t.description || t.details || ""),
+        description: fixMojibake(t.description || t.details || ""),
         viewCount: t.view_count || 0,
         createdAt: t.created_at || null,
-        tags: Array.isArray(t.tags) ? t.tags.map((x: any) => String(x)) : (typeof t.tags === 'string' ? t.tags.replace(/[{}]/g, '').split(',').map((x: any) => x.trim()).filter(Boolean) : [])
+        tags: Array.isArray(t.tags) ? t.tags.map((x: any) => fixMojibake(String(x))) : (typeof t.tags === 'string' ? t.tags.replace(/[{}]/g, '').split(',').map((x: any) => fixMojibake(x.trim())).filter(Boolean) : [])
       }));
     }
 
@@ -293,22 +293,22 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
     if (dbLegionnaires) {
       parsed.legionnaires = dbLegionnaires.map((l: any) => ({
         id: l.id,
-        name: l.name,
+        name: fixMojibake(l.name || ""),
         image: l.image,
-        league: l.league,
-        team: l.team,
+        league: fixMojibake(l.league || ""),
+        team: fixMojibake(l.team || ""),
         teamLogo: l.team_logo,
         matchRating: l.match_rating,
         goals: l.goals || 0,
         assists: l.assists || 0,
         minutesPlayed: l.minutes_played || 0,
-        matchStatus: l.match_status,
+        matchStatus: fixMojibake(l.match_status || ""),
         logo: l.logo,
-        performance: l.description || l.performance || "",
-        description: l.description || l.performance || "",
+        performance: fixMojibake(l.description || l.performance || ""),
+        description: fixMojibake(l.description || l.performance || ""),
         viewCount: l.view_count || 0,
         createdAt: l.created_at || null,
-        tags: Array.isArray(l.tags) ? l.tags.map((x: any) => String(x)) : (typeof l.tags === 'string' ? l.tags.replace(/[{}]/g, '').split(',').map((x: any) => x.trim()).filter(Boolean) : [])
+        tags: Array.isArray(l.tags) ? l.tags.map((x: any) => fixMojibake(String(x))) : (typeof l.tags === 'string' ? l.tags.replace(/[{}]/g, '').split(',').map((x: any) => fixMojibake(x.trim())).filter(Boolean) : [])
       }));
     }
 
@@ -334,10 +334,10 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
         return {
           id: img.id,
           url: img.url,
-          title: img.title || img.caption || "",
-          caption: img.caption || img.title || "",
-          description: img.description || "",
-          tags: parsedTags,
+          title: fixMojibake(img.title || img.caption || ""),
+          caption: fixMojibake(img.caption || img.title || ""),
+          description: fixMojibake(img.description || ""),
+          tags: parsedTags.map((t: string) => fixMojibake(t)),
           createdAt: img.created_at,
           viewCount: img.view_count || 0
         };

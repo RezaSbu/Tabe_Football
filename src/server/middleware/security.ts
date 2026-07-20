@@ -24,6 +24,23 @@ export function setupSecurityMiddleware(app: express.Application) {
   app.use(express.json({ limit: "5mb" }));
   app.use(express.urlencoded({ limit: "5mb", extended: true }));
 
+  app.use((_req, res, next) => {
+    const origJson = res.json.bind(res);
+    res.json = (body: any) => {
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      return origJson(body);
+    };
+    const origSend = res.send.bind(res);
+    res.send = (body: any) => {
+      const ct = res.getHeader("Content-Type");
+      if (typeof ct === "string" && !ct.includes("charset")) {
+        res.setHeader("Content-Type", ct + "; charset=utf-8");
+      }
+      return origSend(body);
+    };
+    next();
+  });
+
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 200,

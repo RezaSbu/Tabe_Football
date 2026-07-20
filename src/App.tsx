@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, Suspense } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { 
   NewsItem, 
   MatchItem, 
@@ -94,11 +94,11 @@ export default function App() {
 
   const [livescoreFilter, setLivescoreFilter] = useState<string>("all");
   const [adConfig, setAdConfig] = useState<any>({
-    adTitle: "Ø³Ø§Ù…Ø§Ù†Ù‡ Ø®Ø¯Ù…Ø§Øª Ø¢Ù†Ù„Ø§ÛŒÙ† Ø§Ø³Ù†Ù¾ØŒ Ø­Ø§Ù…ÛŒ Ù„ÛŒÚ¯ Ø¨Ø±ØªØ±",
+    adTitle: "سامانه خدمات آنلاین اسنپ، حامی لیگ برتر",
     adPromo: "F360",
-    adDesc: "Ø¨Ø§ Ø«Ø¨Øª Ù†Ø§Ù… Ø¨Ø§ Ú©Ø¯ ØªØ®ÙÛŒÙ F360ØŒ Ø§ÙˆÙ„ÛŒÙ† Ø³ÙØ± Ø®ÙˆØ¯ Ø±Ø§ Ú©Ø§Ù…Ù„Ø§ Ù…ÛŒÙ‡Ù…Ø§Ù† Ø§Ø³Ù†Ù¾ Ø¨Ø§Ø´ÛŒØ¯!",
+    adDesc: "با ثبت نام با کد تخفیف F360، اولین سفر خود را کاملأ رایگان اسنپ باشید!",
     adLink: "https://snapp.ir",
-    adBtnText: "Ù†ØµØ¨ Ø§Ø³Ù†Ù¾",
+    adBtnText: "نصب اسنپ",
     customBannerUrl: ""
   });
 
@@ -165,23 +165,23 @@ export default function App() {
 
   const triggerMockGoalNotification = () => {
     const firstMatch = matches[0];
-    const teamHome = firstMatch ? firstMatch.teamHome : "ØªÛŒÙ… Ù…ÛŒØ²Ø¨Ø§Ù†";
-    const teamAway = firstMatch ? firstMatch.teamAway : "ØªÛŒÙ… Ù…ÛŒÙ‡Ù…Ø§Ù†";
+    const teamHome = firstMatch ? firstMatch.teamHome : "تیم میزبان";
+    const teamAway = firstMatch ? firstMatch.teamAway : "تیم مهمان";
 
     const mockGoal = {
       id: `mock-${Date.now()}`,
       teamHome,
       teamAway,
       scoringTeam: teamHome,
-      scorerName: "Ù…Ù‡Ø§Ø¬Ù… Ú¯Ù„Ø²Ù†",
+      scorerName: "گلزن",
       scoreHome: 1,
       scoreAway: 0,
-      minute: "Û¸Û¸'",
+      minute: "۷۷'",
       timestamp: Date.now()
     };
     setActiveGoalEvent(mockGoal);
     playGoalSound();
-    showSystemNotification(`âš½ Ú¯Ù„ Ø·Ù„Ø§ÛŒÛŒ Ø¨Ø±Ø§ÛŒ ${teamHome}!`, `ÛŒÚ© Ú¯Ù„ ØªÙ…Ø§Ø´Ø§ÛŒÛŒ Ø¯Ø± Ø¯Ù‚ÛŒÙ‚Ù‡ Û¸Û¸ ÙˆØ§Ø±Ø¯ Ø¯Ø±ÙˆØ§Ø²Ù‡ Ø­Ø±ÛŒÙ Ø´Ø¯! ${teamHome} Û± - Û° ${teamAway}`);
+    showSystemNotification(`⚽ گل طلایی برای ${teamHome}!`, `یک گل تماشایی در دقیقه ۷۷ وارد دروازه شد! ${teamHome} ۱ - ۰ ${teamAway}`);
   };
 
   const applyFetchedData = (data: any) => {
@@ -286,8 +286,8 @@ export default function App() {
               setActiveGoalEvent(targetGoal);
               playGoalSound();
               showSystemNotification(
-                `âš½ Ú¯Ù„ Ø¨Ø±Ø§ÛŒ ${targetGoal.scoringTeam}!`,
-                `${targetGoal.scorerName} Ø¯Ù‚ÛŒÙ‚Ù‡ ${targetGoal.minute} Ú¯Ù„Ø²Ù†ÛŒ Ú©Ø±Ø¯! Ù†ØªÛŒØ¬Ù‡: ${targetGoal.teamHome} ${targetGoal.scoreHome} - ${targetGoal.scoreAway} ${targetGoal.teamAway}`
+                `⚽ گل برای ${targetGoal.scoringTeam}!`,
+                `${targetGoal.scorerName} دقیقه ${targetGoal.minute} گلزنی کرد! نتیجه: ${targetGoal.teamHome} ${targetGoal.scoreHome} - ${targetGoal.scoreAway} ${targetGoal.teamAway}`
               );
             }
             const maxTs = Math.max(...freshGoals.map((g: any) => g.timestamp));
@@ -306,14 +306,14 @@ export default function App() {
 
     const newsItem: NewsItem = {
       id: `legionnaire-det-${leg.id}`,
-      title: `Ø±Ø³Ù…ÛŒØ› Ø¢Ù†Ø§Ù„ÛŒØ² Ø¹Ù…Ù„Ú©Ø±Ø¯ Ø³ØªØ§Ø±Ù‡ Ù…Ù„ÛŒâ€ŒÙ¾ÙˆØ´: ${leg.name} Ø¯Ø± Ù„ÛŒÚ¯ ${leg.league}`,
-      summary: `Ø¨Ø±Ø±Ø³ÛŒ Ø¹Ù…Ù„Ú©Ø±Ø¯ Ú©ÛŒÙÛŒ Ùˆ Ø´Ø±Ø§ÛŒØ· ÙÙ†ÛŒ ${leg.name} Ø¯Ø± Ø¨Ø§Ø´Ú¯Ø§Ù‡ ${leg.team} (${leg.league}) Ø¨Ù‡ Ù‡Ù…Ø±Ø§Ù‡ Ø§Ø±Ø²ÛŒØ§Ø¨ÛŒ Ú©Ø§Ø±Ø´Ù†Ø§Ø³Ø§Ù† ÙÙˆØªØ¨Ø§Ù„ Ø¨Ø±ØªØ±.`,
+      title: `گزارش: آنالیز عملکرد ستاره لیگ‌پوش: ${leg.name} در لیگ ${leg.league}`,
+      summary: `بررسی عملکرد کیفی و شایسته فنی ${leg.name} در باشگاه ${leg.team} (${leg.league}) به همراه ارزیابی کارشناسان فوتبال برتر.`,
       content: perf,
       image: leg.image || "https://images.unsplash.com/photo-1543351611-58f69d7c1781?auto=format&fit=crop&w=800",
       category: "legionnaires",
       createdAt: leg.createdAt || leg.created_at || new Date().toISOString(),
       viewCount: leg.viewCount || 0,
-      tags: (leg.tags && leg.tags.length > 0) ? leg.tags : [leg.name, leg.team, leg.league, "Ù„Ú˜ÛŒÙˆÙ†Ø±Ù‡Ø§"]
+      tags: (leg.tags && leg.tags.length > 0) ? leg.tags : [leg.name, leg.team, leg.league, "لژیونرها"]
     };
     setActiveArticle(newsItem);
   };
@@ -509,14 +509,14 @@ export default function App() {
 
   const getPersianCategory = (cat: string) => {
     switch (cat) {
-      case "pro-league": return "Ù„ÛŒÚ¯ Ø¨Ø±ØªØ±";
-      case "league-1": return "Ù„ÛŒÚ¯ Ø¢Ø²Ø§Ø¯Ú¯Ø§Ù†";
-      case "league-2": return "Ù„ÛŒÚ¯ Ø¯Ø³ØªÙ‡ Ø¯Ùˆ";
-      case "hazfi-cup": return "Ø¬Ø§Ù… Ø­Ø°ÙÛŒ";
-      case "futsal": return "ÙÙˆØªØ³Ø§Ù„";
-      case "legionnaires": return "Ù„Ú˜ÛŒÙˆÙ†Ø±Ù‡Ø§";
-      case "transfers": return "Ù†Ù‚Ù„ Ùˆ Ø§Ù†ØªÙ‚Ø§Ù„Ø§Øª";
-      default: return "ÙˆØ±Ø²Ø´ÛŒ";
+      case "pro-league": return "لیگ برتر";
+      case "league-1": return "لیگ آزادگان";
+      case "league-2": return "لیگ دسته دو";
+      case "hazfi-cup": return "جام حذفی";
+      case "futsal": return "فوتسال";
+      case "legionnaires": return "لژیونرها";
+      case "transfers": return "نقل و انتقالات";
+      default: return "ورزشی";
     }
   };
 
@@ -630,31 +630,31 @@ export default function App() {
         for (const [posKey, player] of Object.entries(c.players)) {
           if (player && (String((player as any).id) === String(id) || String((player as any).name) === String(id))) {
             const positionMap: Record<string, string> = {
-              gk: "Ø¯Ø±ÙˆØ§Ø²Ù‡â€ŒØ¨Ø§Ù†",
-              cb1: "Ù…Ø¯Ø§ÙØ¹ ÙˆØ³Ø·",
-              cb2: "Ù…Ø¯Ø§ÙØ¹ ÙˆØ³Ø·",
-              cb3: "Ù…Ø¯Ø§ÙØ¹ ÙˆØ³Ø·",
-              lm: "Ù‡Ø§ÙØ¨Ú© Ú†Ù¾",
-              cm1: "Ù‡Ø§ÙØ¨Ú© ÙˆØ³Ø·",
-              cm2: "Ù‡Ø§ÙØ¨Ú© Ù‡Ø¬ÙˆÙ…ÛŒ",
-              cm3: "Ù‡Ø§ÙØ¨Ú© ÙˆØ³Ø·",
-              rm: "Ù‡Ø§ÙØ¨Ú© Ø±Ø§Ø³Øª",
-              st1: "Ù…Ù‡Ø§Ø¬Ù…",
-              st2: "Ù…Ù‡Ø§Ø¬Ù…"
+              gk: "دروازه‌بان",
+              cb1: "مدافع وسط",
+              cb2: "مدافع وسط",
+              cb3: "مدافع وسط",
+              lm: "هافبک چپ",
+              cm1: "هافبک وسط",
+              cm2: "هافبک هجومی",
+              cm3: "هافبک وسط",
+              rm: "هافبک راست",
+              st1: "مهاجم",
+              st2: "مهاجم"
             };
             return {
               id: (player as any).id || `player-mock-${Date.now()}`,
               name: (player as any).name,
-              teamName: (player as any).teamName || "ØªÛŒÙ… Ù…Ù†ØªØ®Ø¨",
-              position: positionMap[posKey.toLowerCase()] || "Ø¨Ø§Ø²ÛŒÚ©Ù†",
+              teamName: (player as any).teamName || "تیم منتخب",
+              position: positionMap[posKey.toLowerCase()] || "بازیکن",
               image: (player as any).image || "https://images.unsplash.com/photo-1540747737956-378724044602?auto=format&fit=crop&q=80&w=800",
               averageRating: Number((player as any).rating) || 7.5,
               rating: Number((player as any).rating) || 7.5,
-              age: "Û²Û´",
-              nationality: "Ø§ÛŒØ±Ø§Ù†ÛŒ",
-              foot: "Ø±Ø§Ø³Øª",
-              height: "Û±Û¸Û° Ø³Ø§Ù†ØªÛŒâ€ŒÙ…ØªØ±",
-              number: "Û±Û°",
+              age: "۲۴",
+              nationality: "ایرانی",
+              foot: "راست",
+              height: "۱۸۰ سانتی‌متر",
+              number: "۱۰",
               seasonStats: {
                 matches: 12,
                 goals: posKey.toLowerCase().startsWith("st") ? 4 : 1,
@@ -664,7 +664,7 @@ export default function App() {
                 redCards: 0
               },
               ratingsHistory: [
-                { matchId: "f-1", matchOpponent: "ØªÛŒÙ… Ø­Ø±ÛŒÙ", rating: Number((player as any).rating) || 7.5, date: "Û±Û´Û°Û²/Û°Û·/Û±Û°", isMvp: true }
+                { matchId: "f-1", matchOpponent: "تیم حریف", rating: Number((player as any).rating) || 7.5, date: "۱۴۰۴/۰۷/۱۰", isMvp: true }
               ]
             };
           }
@@ -1146,24 +1146,24 @@ export default function App() {
           >
             <div className="flex items-start gap-4">
               <div className="h-10 w-10 rounded-full bg-red-600/10 flex items-center justify-center text-red-500 shrink-0 border border-red-500/20">
-                <span className="text-lg font-bold">âš½</span>
+                <span className="text-lg font-bold">⚽</span>
               </div>
               
               <div className="flex-1 space-y-1">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-red-400 flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping inline-block" />
-                    Ø®Ø¨Ø± Ú¯Ù„ Ø²Ù†Ø¯Ù‡!
+                    خبر گل زده!
                   </span>
-                  <span className="text-[10px] text-gray-550 font-sans font-medium">{activeGoalEvent.minute || "Ø¯Ù‚ÛŒÙ‚Ù‡ Ø²Ù†Ø¯Ù‡"}</span>
+                  <span className="text-[10px] text-gray-550 font-sans font-medium">{activeGoalEvent.minute || "دقیقه زده"}</span>
                 </div>
                 
                 <h4 className="text-sm font-bold text-white">
-                  Ú¯Ù„ Ø¨Ø±Ø§ÛŒ {activeGoalEvent.scoringTeam}!
+                  گل برای {activeGoalEvent.scoringTeam}!
                 </h4>
                 
                 <p className="text-xs text-slate-300 leading-snug">
-                  ØªÙˆØ³Ø· Ù…Ù‡Ø§Ø¬Ù… Ø®Ù„Ø§Ù‚ <span className="font-bold text-yellow-400">{activeGoalEvent.scorerName}</span> Ø¯Ø±ÙˆØ§Ø²Ù‡ Ø¨Ø§Ø² Ú¯Ø±Ø¯ÛŒØ¯.
+                  توسط مهاجم خلاق <span className="font-bold text-yellow-400">{activeGoalEvent.scorerName}</span> دروازه باز گردید.
                 </p>
                 
                 <div className="pt-2 text-xs font-bold font-sans text-gray-305 bg-slate-950/50 px-2.5 py-1 rounded flex justify-between">
@@ -1179,7 +1179,7 @@ export default function App() {
                 onClick={() => setActiveGoalEvent(null)}
                 className="text-[10px] font-bold text-gray-300 hover:text-white bg-slate-800 hover:bg-slate-700/85 px-2.5 py-1 rounded-lg transition cursor-pointer"
               >
-                Ø¨Ø³ØªÙ† Ø§Ø¹Ù„Ø§Ù†
+                بستن اعلان
               </button>
             </div>
           </motion.div>

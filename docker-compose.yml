@@ -8,6 +8,8 @@ services:
       POSTGRES_DB: ${DB_NAME:-tabe_football}
       POSTGRES_USER: ${DB_USER:-tabe_admin}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --lc-collate=C --lc-ctype=C"
+    command: postgres -c client_encoding=UTF8 -c default_text_search_config=pg_catalog.simple
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./sql/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro

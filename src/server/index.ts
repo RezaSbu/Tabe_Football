@@ -67,7 +67,17 @@ async function startServer() {
     const distPath = path.join(process.cwd(), "dist");
     const uploadsPath = path.join(process.cwd(), "uploads");
     app.use("/uploads", express.static(uploadsPath));
-    app.use(express.static(distPath));
+    app.use(express.static(distPath, {
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith(".js")) {
+          res.setHeader("Content-Type", "application/javascript; charset=utf-8");
+        } else if (filePath.endsWith(".css")) {
+          res.setHeader("Content-Type", "text/css; charset=utf-8");
+        } else if (filePath.endsWith(".html")) {
+          res.setHeader("Content-Type", "text/html; charset=utf-8");
+        }
+      }
+    }));
     app.get("*", (_req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
     });
