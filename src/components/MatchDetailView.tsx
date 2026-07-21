@@ -28,7 +28,7 @@ export default function MatchDetailView({
   const isPlayed = match.status === "live" || match.status === "finished";
 
   // --- 1. DYNAMIC DATA NORMALIZATION & FALLBACKS ---
-  const defaultTimeline = (match.timeline || match.events?.map(ev => {
+  const defaultTimeline = (match.timeline || match.events?.map((ev: any) => {
     const p1 = ev.playerName || "";
     const p2 = ev.player2Name || ev.assistPlayerName || "";
     const details = ev.details || "";

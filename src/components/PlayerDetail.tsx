@@ -145,14 +145,14 @@ export default function PlayerDetail({
       return pl && (normalize(pl.id) === normalize(player.id) || normalize(pl.name) === normalize(player.name));
     };
 
-    let lpHome = homeLineup.find(isMatch);
-    let lpAway = awayLineup.find(isMatch);
+    const lpHome = homeLineup.find(isMatch);
+    const lpAway = awayLineup.find(isMatch);
 
     let playerGoals = 0;
     let playerAssists = 0;
     let playerYellow = 0;
     let playerRed = 0;
-    let playerRating = lpHome?.rating || lpAway?.rating || player.averageRating || 7.0;
+    const playerRating = lpHome?.rating || lpAway?.rating || player.averageRating || 7.0;
 
     // Sum from events:
     const matchEvents = match.events || [];

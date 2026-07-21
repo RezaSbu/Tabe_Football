@@ -489,7 +489,7 @@ export default function FutsalPage({
               <h3 className="font-black text-sm text-white">گلزنان برتر (آقای گل)</h3>
             </div>
             <div className="space-y-2.5 font-bold">
-              {futsalTopScorers.map((p, idx) => (
+              {futsalTopScorers.map((p: any, idx: number) => (
                 <div
                   key={p.id}
                   onClick={() => p.id && onSelectPlayer(p.id)}
@@ -515,7 +515,7 @@ export default function FutsalPage({
               <h3 className="font-black text-sm text-white">مهندسان پاسِ گل</h3>
             </div>
             <div className="space-y-2.5 font-bold">
-              {futsalTopAssists.map((p, idx) => (
+              {futsalTopAssists.map((p: any, idx: number) => (
                 <div
                   key={p.id}
                   onClick={() => p.id && onSelectPlayer(p.id)}
@@ -544,7 +544,7 @@ export default function FutsalPage({
               {futsalTopGoalkeepers.length === 0 ? (
                 <p className="text-center text-xs text-gray-500 py-4 font-normal">آماری ثبت نشده است.</p>
               ) : (
-                futsalTopGoalkeepers.map((p, idx) => (
+                futsalTopGoalkeepers.map((p: any, idx: number) => (
                   <div
                     key={p.id}
                     onClick={() => p.id && onSelectPlayer(p.id)}

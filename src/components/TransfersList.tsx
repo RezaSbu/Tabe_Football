@@ -164,7 +164,7 @@ export default function TransfersList({ transfers, teamTransfersList = [], teams
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             {filteredTransfers.map((item) => {
-              const hasDesc = !!((item.description || item.details) && (item.description || item.details).trim() !== "");
+              const hasDesc = !!((item.description || item.details) && (item.description || item.details)!.trim() !== "");
               return (
                 <div 
                   key={item.id} 

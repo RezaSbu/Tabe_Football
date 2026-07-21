@@ -18,7 +18,7 @@ const pool = new Pool({
   options: "-c client_encoding=UTF8",
 });
 
-pool.on("error", (err) => {
+pool.on("error", (err: Error) => {
   console.error("[DB] Unexpected pool error:", err.message);
 });
 

@@ -326,8 +326,8 @@ export default function AdminCoachProfiles({
                   type="number"
                   value={editingItem?.seasonStats?.matches ?? 0}
                   onChange={e => setEditingItem({
-                    ...editingItem,
-                    seasonStats: { ...(editingItem.seasonStats || { matches: 0, wins: 0, draws: 0, losses: 0, winRate: 0, goalsFor: 0, goalsAgainst: 0 }), matches: parseInt(e.target.value, 10) || 0 }
+                    ...editingItem!,
+                    seasonStats: { ...(editingItem!.seasonStats || { matches: 0, wins: 0, draws: 0, losses: 0, winRate: 0, goalsFor: 0, goalsAgainst: 0 }), matches: parseInt(e.target.value, 10) || 0 }
                   })}
                   className="w-full bg-slate-950 border border-white/5 rounded-lg px-2.5 py-2 text-white font-mono text-center"
                 />
@@ -338,8 +338,8 @@ export default function AdminCoachProfiles({
                   type="number"
                   value={editingItem?.seasonStats?.wins ?? 0}
                   onChange={e => setEditingItem({
-                    ...editingItem,
-                    seasonStats: { ...(editingItem.seasonStats || { matches: 0, wins: 0, draws: 0, losses: 0, winRate: 0, goalsFor: 0, goalsAgainst: 0 }), wins: parseInt(e.target.value, 10) || 0 }
+                    ...editingItem!,
+                    seasonStats: { ...(editingItem!.seasonStats || { matches: 0, wins: 0, draws: 0, losses: 0, winRate: 0, goalsFor: 0, goalsAgainst: 0 }), wins: parseInt(e.target.value, 10) || 0 }
                   })}
                   className="w-full bg-slate-950 border border-white/5 rounded-lg px-2.5 py-2 text-white font-mono text-center"
                 />
@@ -350,8 +350,8 @@ export default function AdminCoachProfiles({
                   type="number"
                   value={editingItem?.seasonStats?.draws ?? 0}
                   onChange={e => setEditingItem({
-                    ...editingItem,
-                    seasonStats: { ...(editingItem.seasonStats || { matches: 0, wins: 0, draws: 0, losses: 0, winRate: 0, goalsFor: 0, goalsAgainst: 0 }), draws: parseInt(e.target.value, 10) || 0 }
+                    ...editingItem!,
+                    seasonStats: { ...(editingItem!.seasonStats || { matches: 0, wins: 0, draws: 0, losses: 0, winRate: 0, goalsFor: 0, goalsAgainst: 0 }), draws: parseInt(e.target.value, 10) || 0 }
                   })}
                   className="w-full bg-slate-950 border border-white/5 rounded-lg px-2.5 py-2 text-white font-mono text-center"
                 />
@@ -362,8 +362,8 @@ export default function AdminCoachProfiles({
                   type="number"
                   value={editingItem?.seasonStats?.losses ?? 0}
                   onChange={e => setEditingItem({
-                    ...editingItem,
-                    seasonStats: { ...(editingItem.seasonStats || { matches: 0, wins: 0, draws: 0, losses: 0, winRate: 0, goalsFor: 0, goalsAgainst: 0 }), losses: parseInt(e.target.value, 10) || 0 }
+                    ...editingItem!,
+                    seasonStats: { ...(editingItem!.seasonStats || { matches: 0, wins: 0, draws: 0, losses: 0, winRate: 0, goalsFor: 0, goalsAgainst: 0 }), losses: parseInt(e.target.value, 10) || 0 }
                   })}
                   className="w-full bg-slate-950 border border-white/5 rounded-lg px-2.5 py-2 text-white font-mono text-center"
                 />

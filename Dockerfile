@@ -56,7 +56,10 @@ RUN npm ci --omit=dev
 
 COPY --from=backend-builder /app/dist/ dist/
 
-RUN mkdir -p uploads
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+RUN mkdir -p uploads && chown -R appuser:appgroup /app
+
+USER appuser
 
 ENV NODE_ENV=production
 ENV PORT=3000

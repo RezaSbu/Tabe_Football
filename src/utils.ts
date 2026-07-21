@@ -146,7 +146,7 @@ export function computeDynamicAppletStats(
             // Live game
             const elapsedMins = Math.floor(elapsedMs / (60 * 1000)) || 1;
             let scHome = match.scoreHome ?? 0;
-            let scAway = match.scoreAway ?? 0;
+            const scAway = match.scoreAway ?? 0;
             if (scHome === 0 && scAway === 0 && elapsedMins > 45) {
               scHome = 1; // dynamically make it look alive if not initialized
             }
@@ -532,7 +532,7 @@ export function convertShamsiToGregorian(shamsiStr: string): string {
     const jm = parseInt(parts[1], 10);
     const jd = parseInt(parts[2], 10);
 
-    let jy_epoch = jy - 979;
+    const jy_epoch = jy - 979;
     let j_days = 365 * jy_epoch + Math.floor(jy_epoch / 33) * 8 + Math.floor(((jy_epoch % 33) + 3) / 4);
     
     for (let i = 0; i < jm - 1; ++i) {
@@ -541,7 +541,7 @@ export function convertShamsiToGregorian(shamsiStr: string): string {
     }
     j_days += jd - 1;
 
-    let g_days = j_days + 79;
+    const g_days = j_days + 79;
     let gy = 1600 + 400 * Math.floor(g_days / 146097);
     let rem = g_days % 146097;
 

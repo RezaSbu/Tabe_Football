@@ -355,8 +355,8 @@ export default function AdminPlayerProfiles({
                   type="number"
                   value={editingItem?.seasonStats?.matches ?? 0}
                   onChange={e => setEditingItem({
-                    ...editingItem,
-                    seasonStats: { ...(editingItem.seasonStats || { matches: 0, goals: 0, assists: 0, cleanSheets: 0 }), matches: parseInt(e.target.value, 10) || 0 }
+                    ...editingItem!,
+                    seasonStats: { ...(editingItem!.seasonStats || { matches: 0, goals: 0, assists: 0, cleanSheets: 0 }), matches: parseInt(e.target.value, 10) || 0 }
                   })}
                   className="w-full bg-slate-950 border border-white/5 rounded-lg px-2.5 py-2 text-white font-mono text-center"
                 />
@@ -368,8 +368,8 @@ export default function AdminPlayerProfiles({
                   type="number"
                   value={editingItem?.seasonStats?.goals ?? 0}
                   onChange={e => setEditingItem({
-                    ...editingItem,
-                    seasonStats: { ...(editingItem.seasonStats || { matches: 0, goals: 0, assists: 0, cleanSheets: 0 }), goals: parseInt(e.target.value, 10) || 0 }
+                    ...editingItem!,
+                    seasonStats: { ...(editingItem!.seasonStats || { matches: 0, goals: 0, assists: 0, cleanSheets: 0 }), goals: parseInt(e.target.value, 10) || 0 }
                   })}
                   className="w-full bg-slate-950 border border-white/5 rounded-lg px-2.5 py-2 text-white font-mono text-center"
                 />
@@ -381,8 +381,8 @@ export default function AdminPlayerProfiles({
                   type="number"
                   value={editingItem?.seasonStats?.assists ?? 0}
                   onChange={e => setEditingItem({
-                    ...editingItem,
-                    seasonStats: { ...(editingItem.seasonStats || { matches: 0, goals: 0, assists: 0, cleanSheets: 0 }), assists: parseInt(e.target.value, 10) || 0 }
+                    ...editingItem!,
+                    seasonStats: { ...(editingItem!.seasonStats || { matches: 0, goals: 0, assists: 0, cleanSheets: 0 }), assists: parseInt(e.target.value, 10) || 0 }
                   })}
                   className="w-full bg-slate-950 border border-white/5 rounded-lg px-2.5 py-2 text-white font-mono text-center"
                 />
@@ -394,8 +394,8 @@ export default function AdminPlayerProfiles({
                   type="number"
                   value={editingItem?.seasonStats?.cleanSheets ?? 0}
                   onChange={e => setEditingItem({
-                    ...editingItem,
-                    seasonStats: { ...(editingItem.seasonStats || { matches: 0, goals: 0, assists: 0, cleanSheets: 0 }), cleanSheets: parseInt(e.target.value, 10) || 0 }
+                    ...editingItem!,
+                    seasonStats: { ...(editingItem!.seasonStats || { matches: 0, goals: 0, assists: 0, cleanSheets: 0 }), cleanSheets: parseInt(e.target.value, 10) || 0 }
                   })}
                   className="w-full bg-slate-950 border border-white/5 rounded-lg px-2.5 py-2 text-white font-mono text-center"
                 />

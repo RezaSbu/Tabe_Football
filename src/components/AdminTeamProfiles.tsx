@@ -361,8 +361,8 @@ export default function AdminTeamProfiles({
                   type="number"
                   value={editingItem?.stats?.played ?? 0}
                   onChange={e => setEditingItem({
-                    ...editingItem,
-                    stats: { ...(editingItem.stats || { played: 0, won: 0, drawn: 0, lost: 0, points: 0 }), played: parseInt(e.target.value, 10) || 0 }
+                    ...editingItem!,
+                    stats: { ...(editingItem!.stats || { played: 0, won: 0, drawn: 0, lost: 0, points: 0 }), played: parseInt(e.target.value, 10) || 0 }
                   })}
                   className="w-full bg-slate-950 border border-white/5 rounded-lg px-2.5 py-2 text-white font-mono text-center"
                 />
@@ -374,8 +374,8 @@ export default function AdminTeamProfiles({
                   type="number"
                   value={editingItem?.stats?.won ?? 0}
                   onChange={e => setEditingItem({
-                    ...editingItem,
-                    stats: { ...(editingItem.stats || { played: 0, won: 0, drawn: 0, lost: 0, points: 0 }), won: parseInt(e.target.value, 10) || 0 }
+                    ...editingItem!,
+                    stats: { ...(editingItem!.stats || { played: 0, won: 0, drawn: 0, lost: 0, points: 0 }), won: parseInt(e.target.value, 10) || 0 }
                   })}
                   className="w-full bg-slate-950 border border-white/5 rounded-lg px-2.5 py-2 text-white font-mono text-center"
                 />
@@ -387,8 +387,8 @@ export default function AdminTeamProfiles({
                   type="number"
                   value={editingItem?.stats?.drawn ?? 0}
                   onChange={e => setEditingItem({
-                    ...editingItem,
-                    stats: { ...(editingItem.stats || { played: 0, won: 0, drawn: 0, lost: 0, points: 0 }), drawn: parseInt(e.target.value, 10) || 0 }
+                    ...editingItem!,
+                    stats: { ...(editingItem!.stats || { played: 0, won: 0, drawn: 0, lost: 0, points: 0 }), drawn: parseInt(e.target.value, 10) || 0 }
                   })}
                   className="w-full bg-slate-950 border border-white/5 rounded-lg px-2.5 py-2 text-white font-mono text-center"
                 />
@@ -400,8 +400,8 @@ export default function AdminTeamProfiles({
                   type="number"
                   value={editingItem?.stats?.lost ?? 0}
                   onChange={e => setEditingItem({
-                    ...editingItem,
-                    stats: { ...(editingItem.stats || { played: 0, won: 0, drawn: 0, lost: 0, points: 0 }), lost: parseInt(e.target.value, 10) || 0 }
+                    ...editingItem!,
+                    stats: { ...(editingItem!.stats || { played: 0, won: 0, drawn: 0, lost: 0, points: 0 }), lost: parseInt(e.target.value, 10) || 0 }
                   })}
                   className="w-full bg-slate-950 border border-white/5 rounded-lg px-2.5 py-2 text-white font-mono text-center"
                 />
@@ -413,8 +413,8 @@ export default function AdminTeamProfiles({
                   type="number"
                   value={editingItem?.stats?.points ?? 0}
                   onChange={e => setEditingItem({
-                    ...editingItem,
-                    stats: { ...(editingItem.stats || { played: 0, won: 0, drawn: 0, lost: 0, points: 0 }), points: parseInt(e.target.value, 10) || 0 }
+                    ...editingItem!,
+                    stats: { ...(editingItem!.stats || { played: 0, won: 0, drawn: 0, lost: 0, points: 0 }), points: parseInt(e.target.value, 10) || 0 }
                   })}
                   className="w-full bg-slate-950 border border-white/5 rounded-lg px-2.5 py-2 text-white font-mono text-center"
                 />

@@ -64,7 +64,7 @@ export default function AdminAiPressroom({
       }
 
       let narrativeText = "";
-      let title = `گزارش رسانه‌ای بازی بزرگ: ${home} ${sh} - ${sa} ${away}`;
+      const title = `گزارش رسانه‌ای بازی بزرگ: ${home} ${sh} - ${sa} ${away}`;
 
       if (sh > sa) {
         narrativeText = `به گزارش پورتال فوتبال ایران، در یک روز به یاد ماندنی در تاریخ ${date}، باشگاه سرافراز ${home} موفق شد در حضور پرشور هواداران پرانرژی خود در ${venue}، با پیروزی مقتدرانه ${sh} بر ${sa} برابر رقیب دیرینه خود ${away} به پیروزی برسد.\n\n` +

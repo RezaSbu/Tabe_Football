@@ -351,7 +351,7 @@ export function registerArchiveRoutes(app: Express) {
         upsertArchive("matches", JSON.parse(JSON.stringify(activeMatches)));
 
       } else if (type === "bracket") {
-        let bracketData = JSON.parse(JSON.stringify(currentDB.bracket));
+        const bracketData = JSON.parse(JSON.stringify(currentDB.bracket));
 
         if (currentDB.stats && currentDB.stats["hazfi-cup"]) {
           bracketData.stats = JSON.parse(JSON.stringify(currentDB.stats["hazfi-cup"]));

@@ -390,7 +390,7 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
 
         if (sc.id && sc.id.startsWith("sc-")) {
           const parts = sc.id.split("-");
-          const wPart = parts.find(p => p.startsWith("w") && !isNaN(parseInt(p.slice(1), 10)));
+          const wPart = parts.find((p: string) => p.startsWith("w") && !isNaN(parseInt(p.slice(1), 10)));
           if (wPart) {
             week = parseInt(wPart.slice(1), 10);
             if (parts.includes("pro") && parts.includes("league")) {

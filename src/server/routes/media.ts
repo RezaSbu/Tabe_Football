@@ -117,7 +117,7 @@ export function registerMediaRoutes(app: Express) {
       const currentDB = loadDB();
       if (!currentDB.media_files) currentDB.media_files = [];
 
-      const index = currentDB.media_files.findIndex(item => item.id === id);
+      const index = currentDB.media_files.findIndex((item: any) => item.id === id);
       if (index === -1) {
         return res.status(404).json({ success: false, message: "فایل رسانه‌ای یافت نشد." });
       }
@@ -143,7 +143,7 @@ export function registerMediaRoutes(app: Express) {
       const currentDB = loadDB();
       if (!currentDB.media_files) currentDB.media_files = [];
 
-      const item = currentDB.media_files.find(item => item.id === id);
+      const item = currentDB.media_files.find((item: any) => item.id === id);
       if (!item) {
         return res.status(404).json({ success: false, message: "فایل رسانه‌ای یافت نشد." });
       }
@@ -158,7 +158,7 @@ export function registerMediaRoutes(app: Express) {
         logMessage("warn", "general", `هشدار: خطای حذف از استوریج: ${deleteStorageError.message}`);
       }
 
-      currentDB.media_files = currentDB.media_files.filter(item => item.id !== id);
+      currentDB.media_files = currentDB.media_files.filter((item: any) => item.id !== id);
       await saveDB();
 
       res.json({ success: true, message: "فایل و رکورد با موفقیت حذف شدند." });
@@ -179,7 +179,7 @@ export function registerMediaRoutes(app: Express) {
       const currentDB = loadDB();
       if (!currentDB.media_files) currentDB.media_files = [];
 
-      const index = currentDB.media_files.findIndex(item => item.id === id);
+      const index = currentDB.media_files.findIndex((item: any) => item.id === id);
       if (index === -1) {
         return res.status(404).json({ success: false, message: "رکورد رسانه یافت نشد." });
       }
@@ -412,11 +412,11 @@ export function registerMediaRoutes(app: Express) {
           const fileSize = buffer.length;
 
           const urlObj = new URL(url);
-          let pathname = urlObj.pathname;
+          const pathname = urlObj.pathname;
           let ext = path.extname(pathname).toLowerCase();
           if (!ext) ext = ".jpg";
 
-          let mimeType = response.headers.get("content-type") || "image/jpeg";
+          const mimeType = response.headers.get("content-type") || "image/jpeg";
 
           let file_name = path.basename(pathname);
           if (!file_name || file_name.length < 3) {

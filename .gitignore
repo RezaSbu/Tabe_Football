@@ -27,3 +27,7 @@ npm-debug.log*
 
 # Temp
 check_matches.mjs
+check_encoding.mjs
+
+# Backups
+backups/

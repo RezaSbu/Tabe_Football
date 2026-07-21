@@ -129,7 +129,7 @@ export default function StatsPage({
                   اطلاعاتی ثبت نشده
                 </p>
               ) : (
-                activeStatsData.scorers.map((p, idx) => (
+                activeStatsData.scorers.map((p: any, idx: number) => (
                   <div
                     key={`${p.name}-${idx}`}
                     className="flex justify-between items-center text-xs text-gray-300 border-b border-white/5 pb-2 last:border-0 last:pb-0"
@@ -167,7 +167,7 @@ export default function StatsPage({
                   اطلاعاتی ثبت نشده
                 </p>
               ) : (
-                activeStatsData.assists.map((p, idx) => (
+                activeStatsData.assists.map((p: any, idx: number) => (
                   <div
                     key={`${p.name}-${idx}`}
                     className="flex justify-between items-center text-xs text-gray-300 border-b border-white/10 pb-2 last:border-0 last:pb-0"
@@ -204,7 +204,7 @@ export default function StatsPage({
                   اطلاعاتی ثبت نشده
                 </p>
               ) : (
-                activeStatsData.cleansheets.map((p, idx) => (
+                activeStatsData.cleansheets.map((p: any, idx: number) => (
                   <div
                     key={`${p.name}-${idx}`}
                     className="flex justify-between items-center text-xs text-gray-300 border-b border-white/5 pb-2 last:border-0 last:pb-0"

@@ -210,11 +210,11 @@ export default function TeamDetail({
   const topMvp = Object.values(mvpLeaderboard).sort((a, b) => b.count - a.count)[0];
 
   // Dynamic Squad top scorers from match scoring events
-  let bestScorer = teamPlayers
+  const bestScorer = teamPlayers
     .filter(p => (p.seasonStats?.goals || 0) > 0)
     .sort((a, b) => (b.seasonStats?.goals || 0) - (a.seasonStats?.goals || 0))[0];
 
-  let bestAssister = teamPlayers
+  const bestAssister = teamPlayers
     .filter(p => (p.seasonStats?.assists || 0) > 0)
     .sort((a, b) => (b.seasonStats?.assists || 0) - (a.seasonStats?.assists || 0))[0];
 
