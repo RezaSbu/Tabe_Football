@@ -224,7 +224,7 @@ export default function TeamDetail({
       {/* Cover Banner Graphic Area */}
       <div className="relative h-48 sm:h-64 w-full bg-[#18181c] overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-t from-[#121215] via-transparent to-black/40 z-10" />
-        <img
+        <img loading="lazy" decoding="async" 
           src={getSafeImageUrl(coverImage)}
           alt={team.name}
           className="w-full h-full object-cover opacity-80"
@@ -605,7 +605,7 @@ export default function TeamDetail({
                       <div className="flex items-center gap-3 min-w-0">
                         <div className="relative h-10 w-10 rounded-xl shrink-0 overflow-hidden bg-slate-800 flex items-center justify-center border border-white/5">
                           {player.image ? (
-                            <img 
+                            <img loading="lazy" decoding="async" 
                               src={getSafeImageUrl(player.image)} 
                               alt={player.name}
                               className="w-full h-full object-cover"

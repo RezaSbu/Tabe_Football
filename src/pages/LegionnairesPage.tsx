@@ -66,8 +66,7 @@ function LegionnairesPage({
               title={hasDesc ? "کلیک برای مشاهده جزئیات عملکرد کامل" : undefined}
             >
               <div className="h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-gray-950 border border-white/5">
-                <img
-                  src={getSafeImageUrl(leg.image || "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=300")}
+                <img loading="lazy" decoding="async"                   src={getSafeImageUrl(leg.image || "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=300")}
                   alt={leg.name}
                   referrerPolicy="no-referrer"
                   className="h-full w-full object-cover transition group-hover:scale-104"

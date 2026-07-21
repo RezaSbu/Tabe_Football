@@ -15,7 +15,7 @@ export default function Footer({ setActiveTab }: FooterProps) {
           <div className="md:col-span-1.5 space-y-4">
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-lg overflow-hidden bg-slate-900 flex items-center justify-center">
-                <img 
+                <img loading="lazy" decoding="async" 
                   src="https://mfkpmjknckfrdwvmmizs.supabase.co/storage/v1/object/public/media_assets/general/1782058553909_sports360-photo-gallery-1782053249175.jpg" 
                   alt="تب فوتبال" 
                   className="h-full w-full object-cover"

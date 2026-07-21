@@ -260,7 +260,7 @@ export default function FanPredictions({
                   <div className="flex items-center justify-between text-center py-1">
                     <div className="flex-1 flex flex-col items-center">
                       {matchedMatch.teamHomeLogo && (matchedMatch.teamHomeLogo.startsWith("http") || matchedMatch.teamHomeLogo.startsWith("/") || matchedMatch.teamHomeLogo.includes(".")) ? (
-                        <img referrerPolicy="no-referrer" src={getSafeImageUrl(matchedMatch.teamHomeLogo)} alt={matchedMatch.teamHome} className="w-8 h-8 object-contain mb-1" />
+                        <img loading="lazy" decoding="async" referrerPolicy="no-referrer" src={getSafeImageUrl(matchedMatch.teamHomeLogo)} alt={matchedMatch.teamHome} className="w-8 h-8 object-contain mb-1" />
                       ) : (
                         <span className="text-xl mb-1">{matchedMatch.teamHomeLogo || "⚽"}</span>
                       )}
@@ -277,7 +277,7 @@ export default function FanPredictions({
 
                     <div className="flex-1 flex flex-col items-center">
                       {matchedMatch.teamAwayLogo && (matchedMatch.teamAwayLogo.startsWith("http") || matchedMatch.teamAwayLogo.startsWith("/") || matchedMatch.teamAwayLogo.includes(".")) ? (
-                        <img referrerPolicy="no-referrer" src={getSafeImageUrl(matchedMatch.teamAwayLogo)} alt={matchedMatch.teamAway} className="w-8 h-8 object-contain mb-1" />
+                        <img loading="lazy" decoding="async" referrerPolicy="no-referrer" src={getSafeImageUrl(matchedMatch.teamAwayLogo)} alt={matchedMatch.teamAway} className="w-8 h-8 object-contain mb-1" />
                       ) : (
                         <span className="text-xl mb-1">{matchedMatch.teamAwayLogo || "⚽"}</span>
                       )}

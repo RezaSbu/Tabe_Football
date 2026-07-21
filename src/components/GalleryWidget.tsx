@@ -51,8 +51,7 @@ export default function GalleryWidget({ images = [], onSelectImage }: GalleryWid
               onClick={() => onSelectImage?.(img)}
               className="break-inside-avoid relative rounded-xl overflow-hidden border border-white/5 bg-black hover:border-emerald-500/25 cursor-pointer group shadow transition-all duration-300"
             >
-              <img
-                src={img.url}
+              <img loading="lazy" decoding="async"                 src={img.url}
                 alt={img.caption}
                 className="w-full object-cover rounded-xl group-hover:scale-102 transition-transform duration-500"
                 referrerPolicy="no-referrer"

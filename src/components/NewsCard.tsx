@@ -34,8 +34,7 @@ export default function NewsCard({ newsItem, onClick }: NewsCardProps) {
           <span className="absolute top-2 right-2 z-10 rounded bg-[#121215]/85 backdrop-blur px-2.5 py-1 text-[10px] font-bold text-emerald-400">
             {getPersianCategory(newsItem.category)}
           </span>
-          <img
-            src={getSafeImageUrl(newsItem.image)}
+          <img loading="lazy" decoding="async"             src={getSafeImageUrl(newsItem.image)}
             alt={newsItem.title}
             className="w-full h-full object-cover group-hover:scale-103 transition duration-500"
             referrerPolicy="no-referrer"

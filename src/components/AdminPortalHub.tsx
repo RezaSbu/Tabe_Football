@@ -1205,7 +1205,7 @@ export default function AdminPortalHub({
             {legionnaires.map(leg => (
               <div key={leg.id} className="p-3 bg-white/[0.01] border border-white/5 rounded-xl hover:bg-white/[0.03] transition flex justify-between items-center text-xs">
                 <div className="flex items-center gap-3">
-                  {leg.image && <img src={leg.image} alt={leg.name} referrerPolicy="no-referrer" className="w-10 h-10 rounded-full object-cover border border-white/10" />}
+                  {leg.image && <img loading="lazy" decoding="async" src={leg.image} alt={leg.name} referrerPolicy="no-referrer" className="w-10 h-10 rounded-full object-cover border border-white/10" />}
                   <div>
                     <span className="font-extrabold text-white text-xs block">{leg.name}</span>
                     <span className="text-[10px] text-slate-400 mt-0.5 block">باشگاه {leg.team} | {leg.league}</span>
@@ -1269,7 +1269,7 @@ export default function AdminPortalHub({
           <div className="grid gap-4 md:grid-cols-4 max-h-[500px] overflow-y-auto">
             {images.map(img => (
               <div key={img.id} className="bg-slate-950 border border-white/5 p-2 rounded-xl relative group">
-                <img src={img.url} alt={img.caption} referrerPolicy="no-referrer" className="h-28 w-full object-cover rounded-lg" />
+                <img loading="lazy" decoding="async" src={img.url} alt={img.caption} referrerPolicy="no-referrer" className="h-28 w-full object-cover rounded-lg" />
                 <div className="flex justify-between items-start mt-2">
                   <span className="text-[10px] text-slate-400 block truncate max-w-[120px]">{img.caption}</span>
                   <div className="flex gap-1.5">

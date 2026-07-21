@@ -173,8 +173,7 @@ export default function HomePage({
                       className="group flex flex-col sm:flex-row gap-4 rounded-xl bg-gray-900 border border-white/5 p-3.5 hover:border-gray-800 transition cursor-pointer shadow hover:shadow-lg"
                     >
                       <div className="sm:w-48 h-32 w-full shrink-0 overflow-hidden rounded-lg bg-gray-950 border border-white/5">
-                        <img
-                          src={getSafeImageUrl(art.image)}
+                        <img loading="lazy" decoding="async"                           src={getSafeImageUrl(art.image)}
                           alt={art.title}
                           referrerPolicy="no-referrer"
                           className="h-full w-full object-cover transition group-hover:scale-102"

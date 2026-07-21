@@ -94,8 +94,7 @@ const ArticleDetailPage: React.FC<ArticleDetailPageProps> = ({
 
         <div className="md:col-span-4 space-y-4">
           <div className="overflow-hidden rounded-xl bg-gray-950 border border-white/5 shadow-lg sm:h-64 h-48 w-full">
-            <img
-              src={getSafeImageUrl(article.image)}
+            <img loading="lazy" decoding="async"               src={getSafeImageUrl(article.image)}
               alt={article.title}
               referrerPolicy="no-referrer"
               className="h-full w-full object-cover"

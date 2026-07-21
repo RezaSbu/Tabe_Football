@@ -156,7 +156,7 @@ export default function AdminTeamProfiles({
                   className="flex items-center justify-between p-3.5 rounded-xl bg-gray-950/40 border border-white/5 hover:border-red-550/20 transition"
                 >
                   <div className="flex items-center gap-3">
-                    <img 
+                    <img loading="lazy" decoding="async" 
                       src={getSafeImageUrl(t.logo)} 
                       alt={t.name}
                       className="w-10 h-10 rounded-xl object-contain bg-slate-900 border border-white/10 p-1 shrink-0"

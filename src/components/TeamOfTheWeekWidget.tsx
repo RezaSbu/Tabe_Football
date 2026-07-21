@@ -202,7 +202,7 @@ export default function TeamOfTheWeekWidget({ combinations = [], allPlayers = []
                   >
                     <div className="flex items-center gap-3">
                       <div className="relative shrink-0">
-                        <img 
+                        <img loading="lazy" decoding="async" 
                           src={getSafeImageUrl(player.image)} 
                           alt={player.name}
                           className="w-10 h-10 rounded-full border border-white/10 object-cover"
@@ -310,7 +310,7 @@ export default function TeamOfTheWeekWidget({ combinations = [], allPlayers = []
 
                           {/* Clipped headshot frame */}
                           <div className="w-[26px] h-[26px] xs:w-8 xs:h-8 sm:w-[40px] sm:h-[40px] rounded-full overflow-hidden bg-slate-900 border border-white/5 relative z-10 mx-auto mt-0.5">
-                            <img 
+                            <img loading="lazy" decoding="async" 
                               src={getSafeImageUrl(player.image)} 
                               alt={player.name}
                               className="w-full h-full object-cover"

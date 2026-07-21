@@ -793,8 +793,7 @@ export default function LeagueTables({
                   className={`group rounded-2xl border border-white/5 bg-gray-900 overflow-hidden hover:border-emerald-500/20 transition shadow cursor-pointer flex flex-col justify-between`}
                 >
                   <div className="relative aspect-video w-full bg-slate-950 overflow-hidden">
-                    <img
-                      src={item.image}
+                    <img loading="lazy" decoding="async"                       src={item.image}
                       alt={item.title}
                       referrerPolicy="no-referrer"
                       className="w-full h-full object-cover transition duration-500 group-hover:scale-104"

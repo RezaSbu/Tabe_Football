@@ -445,8 +445,7 @@ export default function AdminMediaFiles() {
 
                   {/* Thumbnail Frame */}
                   <div className="aspect-video w-full bg-slate-950 relative overflow-hidden flex items-center justify-center border-b border-white/5">
-                    <img
-                      src={item.image_url}
+                    <img loading="lazy" decoding="async"                       src={item.image_url}
                       alt={item.title}
                       referrerPolicy="no-referrer"
                       className="object-cover max-h-full max-w-full transition group-hover:scale-105"

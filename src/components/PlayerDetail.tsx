@@ -405,7 +405,7 @@ export default function PlayerDetail({
               <div className="absolute -inset-1.5 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full blur opacity-15" />
               <div className="relative h-28 w-28 sm:h-32 sm:w-32 rounded-full overflow-hidden border-2 border-white/10 bg-slate-900 flex items-center justify-center">
                 {!imageError && player.image ? (
-                  <img 
+                  <img loading="lazy" decoding="async" 
                     src={getSafeImageUrl(player.image)} 
                     alt={player.name}
                     className="h-full w-full object-cover"

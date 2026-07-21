@@ -1,78 +1,48 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React from "react";
 
 interface Props {
-  children: ReactNode;
+  children: React.ReactNode;
 }
 
-interface ErrorBoundaryState {
+interface State {
   hasError: boolean;
   error: Error | null;
 }
 
-export class ErrorBoundary extends Component<Props, ErrorBoundaryState> {
+export class ErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props);
     this.state = { hasError: false, error: null };
   }
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+  static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('[ErrorBoundary]', error.message, errorInfo.componentStack);
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("[ErrorBoundary]", error, errorInfo);
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        <div
-          dir="rtl"
-          style={{
-            minHeight: '100vh',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: '#0f172a',
-            color: '#f1f5f9',
-            fontFamily: 'system-ui, sans-serif',
-            padding: '2rem',
-          }}
-        >
-          <div style={{ textAlign: 'center', maxWidth: 500 }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>⚠</div>
-            <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 12 }}>
-              خطایی رخ داد
-            </h1>
-            <p style={{ fontSize: 14, color: '#94a3b8', marginBottom: 24, lineHeight: 1.8 }}>
-              صفحه مورد نظر بارگذاری نشد. لطفاً دوباره تلاش کنید.
+        <div className="flex min-h-[50vh] flex-col items-center justify-center p-8 text-center" dir="rtl">
+          <div className="mx-auto max-w-md space-y-4">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-900/30">
+              <svg className="h-8 w-8 text-red-400" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold text-white">خطایی رخ داد</h2>
+            <p className="text-sm text-gray-400">
+              بخشی از سایت با مشکل مواجه شد. لطفاً صفحه را رفرش کنید.
             </p>
             <button
-              onClick={() => {
-                this.setState({ hasError: false, error: null });
-                window.location.reload();
-              }}
-              style={{
-                background: '#2563eb',
-                color: 'white',
-                border: 'none',
-                padding: '10px 24px',
-                borderRadius: 8,
-                fontSize: 14,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
+              onClick={() => window.location.reload()}
+              className="rounded-lg bg-red-600 px-6 py-2 text-sm font-medium text-white hover:bg-red-500 transition-colors"
             >
-              بارگذاری مجدد
+              رفرش صفحه
             </button>
-            {this.state.error && (
-              <details style={{ marginTop: 24, fontSize: 12, color: '#64748b', direction: 'ltr', textAlign: 'left' }}>
-                <summary style={{ cursor: 'pointer' }}>جزئیات خطا</summary>
-                <pre style={{ marginTop: 8, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                  {this.state.error.message}
-                </pre>
-              </details>
-            )}
           </div>
         </div>
       );

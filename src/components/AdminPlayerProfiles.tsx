@@ -168,7 +168,7 @@ export default function AdminPlayerProfiles({
                   className="flex items-center justify-between p-3.5 rounded-xl bg-gray-950/40 border border-white/5 hover:border-red-550/20 transition"
                 >
                   <div className="flex items-center gap-3">
-                    <img 
+                    <img loading="lazy" decoding="async" 
                       src={getSafeImageUrl(p.image)} 
                       alt={p.name}
                       className="w-10 h-10 rounded-full object-cover border border-white/10 shrink-0"

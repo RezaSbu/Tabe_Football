@@ -26,8 +26,7 @@ export default function LegionnaireWidget({
             className="p-3 bg-black/35 rounded-xl border border-white/5 flex gap-3 hover:border-emerald-550 hover:border-emerald-500/20 cursor-pointer transition-all items-center"
           >
             {leg.image && (
-              <img
-                src={leg.image}
+              <img loading="lazy" decoding="async"                 src={leg.image}
                 alt={leg.name}
                 className="h-11 w-11 rounded-full object-cover border border-white/10 shrink-0"
                 referrerPolicy="no-referrer"

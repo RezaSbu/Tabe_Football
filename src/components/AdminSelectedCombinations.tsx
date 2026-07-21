@@ -425,7 +425,7 @@ export default function AdminSelectedCombinations({
                               }}
                               className="w-13 h-13 sm:w-16 sm:h-16 rounded-full bg-slate-950 border-2 border-amber-500/80 shadow-md transform hover:scale-105 hover:border-amber-400 transition cursor-pointer overflow-hidden p-0.5"
                             >
-                              <img 
+                              <img loading="lazy" decoding="async" 
                                 src={getSafeImageUrl(player.image)} 
                                 alt={player.name}
                                 className="w-full h-full rounded-full object-cover bg-slate-900"
@@ -502,7 +502,7 @@ export default function AdminSelectedCombinations({
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-slate-900 border border-dashed border-white/10 flex items-center justify-center text-gray-500 shrink-0">
                           {player ? (
-                            <img 
+                            <img loading="lazy" decoding="async" 
                               src={getSafeImageUrl(player.image)} 
                               alt={player.name}
                               className="w-full h-full rounded-full object-cover"
@@ -633,8 +633,7 @@ export default function AdminSelectedCombinations({
                       className="group flex items-center justify-between p-2 rounded-xl bg-gray-950/20 hover:bg-gray-950/80 border border-white/5 hover:border-amber-500/20 transition cursor-pointer"
                     >
                       <div className="flex items-center gap-2.5">
-                        <img
-                          src={getSafeImageUrl(p.image)}
+                        <img loading="lazy" decoding="async"                           src={getSafeImageUrl(p.image)}
                           alt={p.name}
                           className="w-8 h-8 rounded-full border border-white/10 object-cover"
                           referrerPolicy="no-referrer"

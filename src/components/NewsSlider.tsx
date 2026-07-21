@@ -105,8 +105,7 @@ export default function NewsSlider({ news, transfers = [], onSelectNews }: NewsS
     <div className="relative overflow-hidden rounded-2xl bg-[#121215] border border-white/5 shadow-xl group" dir="rtl" id="news-hero-slider">
       {/* Slide Image Background with overlay */}
       <div className="relative h-[280px] sm:h-[380px] w-full overflow-hidden">
-        <img
-          src={getSafeImageUrl(currentArticle.image)}
+        <img loading="lazy" decoding="async"           src={getSafeImageUrl(currentArticle.image)}
           alt={currentArticle.title}
           referrerPolicy="no-referrer"
           className="h-full w-full object-cover transition-all duration-700 ease-out transform scale-102 group-hover:scale-105"

@@ -83,8 +83,7 @@ export default function PhotoGallery({ images, initialSearchTag = "" }: PhotoGal
           {/* Main Visual Image */}
           <div className="lg:col-span-8 space-y-4">
             <div className="overflow-hidden rounded-2xl bg-black border border-white/5 flex items-center justify-center p-1.5 shadow-lg group">
-              <img
-                src={getSafeImageUrl(selectedImage.url)}
+              <img loading="lazy" decoding="async"                 src={getSafeImageUrl(selectedImage.url)}
                 alt={truncatedCaption}
                 referrerPolicy="no-referrer"
                 className="max-h-[64vh] object-contain w-full rounded-xl group-hover:scale-101 transition duration-500"
@@ -244,8 +243,7 @@ export default function PhotoGallery({ images, initialSearchTag = "" }: PhotoGal
             >
               {/* Image box */}
               <div className="h-48 w-full overflow-hidden sm:h-52">
-                <img
-                  src={getSafeImageUrl(img.url)}
+                <img loading="lazy" decoding="async"                   src={getSafeImageUrl(img.url)}
                   alt={img.caption}
                   referrerPolicy="no-referrer"
                   className="h-full w-full object-cover transition duration-500 group-hover:scale-104"

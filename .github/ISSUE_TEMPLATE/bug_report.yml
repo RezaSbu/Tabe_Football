@@ -1,0 +1,42 @@
+name: "\U0001F41B \u06AF\u0632\u0627\u0631\u0634 \u0628\u0627\u06AF"
+description: "\u06af\u0632\u0627\u0631\u0634 \u062e\u0631\u0627\u0628 \u0627\u0632 \u0633\u0627\u06cc\u062a"
+labels: ["\u0628\u0627\u06AF", "\u062a\u0648\u0636\u062d"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: "\u062a\u0648\u0636\u06cc\u062d \u0628\u0627\u06AF"
+      description: "\u0628\u0627\u06AF \u0631\u0627 \u062a\u0648\u0636\u06cc\u062d \u062f\u0647\u06cc\u062f"
+      placeholder: "\u0645\u062b\u0644\u0627...\u0627\u0635\u0644\u0627\u062d \u0635\u0641\u062d\u0647 \u062e\u0631\u0627\u0628 \u0631\u0627 \u062a\u0648\u0636\u06cc\u062d \u06a9\u0646\u06cc\u062f"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: "\u0645\u0631\u0627\u062d\u0644 \u062a\u06a9\u0631\u0627\u0631"
+      description: "\u0645\u0631\u0627\u062d\u0644 \u06af\u0632\u0627\u0631\u0634 \u0628\u0627\u0631\u062f\u0647"
+      placeholder: |
+        1. برید به صفحه ...
+        2. روی دکمه ... کلیک کنید
+        3. ببینید خطا میده
+    validations:
+      required: false
+  - type: dropdown
+    id: browser
+    attributes:
+      label: "\u0645\u0631\u0648\u0631\u06af\u0631\u0646\u0631"
+      options:
+        - Chrome
+        - Firefox
+        - Safari
+        - Edge
+        - سایر
+    validations:
+      required: false
+  - type: textarea
+    id: additional
+    attributes:
+      label: "\u0627\u0637\u0644\u0627\u0639\u0627\u062a \u0627\u0636\u0627\u0641\u06cc"
+      description: "\u0627\u0637\u0644\u0627\u0639\u0627\u062a \u0627\u0636\u0627\u0641\u06cc \u062f\u0631\u0628\u0627\u0631\u0647 \u0628\u0627\u06af"
+    validations:
+      required: false

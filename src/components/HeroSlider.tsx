@@ -72,8 +72,7 @@ export default function HeroSlider({ news = [], onSelectArticle }: HeroSliderPro
         >
           {/* Overlay gradient shroud for crisp text contrast */}
           <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent z-10" />
-          <img
-            src={getSafeImageUrl(activeArticle.image)}
+          <img loading="lazy" decoding="async"             src={getSafeImageUrl(activeArticle.image)}
             alt={activeArticle.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
             referrerPolicy="no-referrer"

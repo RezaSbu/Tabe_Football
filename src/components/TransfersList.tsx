@@ -306,7 +306,7 @@ export default function TransfersList({ transfers, teamTransfersList = [], teams
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border shadow-sm transition hover:scale-[1.02] bg-emerald-950/20 border-emerald-500/30 text-emerald-300"
                           >
                             {p.playerImage ? (
-                              <img
+                              <img loading="lazy" decoding="async" 
                                 src={p.playerImage}
                                 alt={p.playerName}
                                 referrerPolicy="no-referrer"
@@ -336,7 +336,7 @@ export default function TransfersList({ transfers, teamTransfersList = [], teams
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border shadow-sm transition hover:scale-[1.02] bg-rose-950/20 border-rose-500/30 text-rose-300"
                           >
                             {p.playerImage ? (
-                              <img
+                              <img loading="lazy" decoding="async" 
                                 src={p.playerImage}
                                 alt={p.playerName}
                                 referrerPolicy="no-referrer"
@@ -366,7 +366,7 @@ export default function TransfersList({ transfers, teamTransfersList = [], teams
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border shadow-sm transition hover:scale-[1.02] bg-slate-900/50 border-slate-700/30 text-slate-300"
                           >
                             {p.playerImage ? (
-                              <img
+                              <img loading="lazy" decoding="async" 
                                 src={p.playerImage}
                                 alt={p.playerName}
                                 referrerPolicy="no-referrer"

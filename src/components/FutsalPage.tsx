@@ -582,7 +582,7 @@ export default function FutsalPage({
                   className="group rounded-2xl border border-white/5 bg-gray-900 overflow-hidden hover:border-red-500/30 transition shadow cursor-pointer flex flex-col justify-between"
                 >
                   <div className="relative aspect-video w-full bg-slate-950 overflow-hidden">
-                    <img
+                    <img loading="lazy" decoding="async" 
                       src={item.image}
                       alt={item.title}
                       referrerPolicy="no-referrer"
