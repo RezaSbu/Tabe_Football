@@ -534,6 +534,7 @@ export default function AdminPortalHub({
       width: 728,
       height: 90,
       isActive: true,
+      type: "text" as const,
       adTitle: "",
       adPromo: "",
       adDesc: "",
@@ -1400,10 +1401,18 @@ export default function AdminPortalHub({
                     </button>
                   </div>
 
-                  <div className="grid gap-3 md:grid-cols-2">
+                  <div className="grid gap-3 md:grid-cols-3">
                     <div>
                       <label className="block text-[10px] text-slate-500 mb-1 font-bold">نام جایگاه</label>
                       <input type="text" value={slot.name || ""} onChange={e => handleUpdateAdSlot(idx, "name", e.target.value)} placeholder="مثلاً: بنر بالای صفحه" className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white placeholder-slate-600" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-500 mb-1 font-bold">نوع تبلیغ</label>
+                      <select value={slot.type || "text"} onChange={e => handleUpdateAdSlot(idx, "type", e.target.value)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white">
+                        <option value="text">📝 متنی</option>
+                        <option value="image">🖼️ تصویری</option>
+                        <option value="mixed">🔀 متن + تصویر</option>
+                      </select>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
