@@ -70,7 +70,8 @@ export function useAppData() {
     adDesc: "با ثبت نام با کد تخفیف F360، اولین سفر خود را کاملأ رایگان اسنپ باشید!",
     adLink: "https://snapp.ir",
     adBtnText: "نصب اسنپ",
-    customBannerUrl: ""
+    customBannerUrl: "",
+    adSlots: []
   });
 
   const applyFetchedData = (data: any) => {

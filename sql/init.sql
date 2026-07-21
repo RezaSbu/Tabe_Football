@@ -19,6 +19,7 @@ CREATE TABLE public.config (
   ad_link text,
   ad_btn_text text,
   custom_banner_url text,
+  ad_slots jsonb DEFAULT '[]'::jsonb,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),
   CONSTRAINT config_pkey PRIMARY KEY (id)
