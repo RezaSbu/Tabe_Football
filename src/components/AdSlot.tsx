@@ -5,6 +5,9 @@ interface AdSlotData {
   height: number;
   isActive: boolean;
   type: "text" | "image" | "mixed";
+  priority: number;
+  startDate: string;
+  endDate: string;
   adTitle: string;
   adPromo: string;
   adDesc: string;
@@ -18,8 +21,22 @@ interface AdSlotProps {
   className?: string;
 }
 
+function isWithinSchedule(slot: AdSlotData): boolean {
+  const now = Date.now();
+  if (slot.startDate) {
+    const start = new Date(slot.startDate).getTime();
+    if (now < start) return false;
+  }
+  if (slot.endDate) {
+    const end = new Date(slot.endDate).getTime();
+    if (now > end) return false;
+  }
+  return true;
+}
+
 export default function AdSlot({ slot, className = "" }: AdSlotProps) {
   if (!slot || !slot.isActive) return null;
+  if (!isWithinSchedule(slot)) return null;
 
   const maxWidth = `${slot.width}px`;
   const ratio = `${slot.width} / ${slot.height}`;

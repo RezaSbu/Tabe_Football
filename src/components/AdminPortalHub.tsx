@@ -535,6 +535,9 @@ export default function AdminPortalHub({
       height: 90,
       isActive: true,
       type: "text" as const,
+      priority: 0,
+      startDate: "",
+      endDate: "",
       adTitle: "",
       adPromo: "",
       adDesc: "",
@@ -1425,6 +1428,31 @@ export default function AdminPortalHub({
                       </div>
                     </div>
                   </div>
+
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <div>
+                      <label className="block text-[10px] text-slate-500 mb-1 font-bold">اولویت (بزرگتر = بالاتر)</label>
+                      <input type="number" value={slot.priority ?? 0} onChange={e => handleUpdateAdSlot(idx, "priority", parseInt(e.target.value) || 0)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-500 mb-1 font-bold">تاریخ شروع (اختیاری)</label>
+                      <input type="date" value={slot.startDate || ""} onChange={e => handleUpdateAdSlot(idx, "startDate", e.target.value)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-500 mb-1 font-bold">تاریخ پایان (اختیاری)</label>
+                      <input type="date" value={slot.endDate || ""} onChange={e => handleUpdateAdSlot(idx, "endDate", e.target.value)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                    </div>
+                  </div>
+                  {slot.startDate && new Date(slot.endDate || "2099-01-01").getTime() < Date.now() && (
+                    <p className="text-[10px] text-red-400 font-bold flex items-center gap-1">
+                      ⚠️ این تبلیغ منقضی شده و در سایت نمایش داده نمی‌شود
+                    </p>
+                  )}
+                  {slot.startDate && new Date(slot.startDate).getTime() > Date.now() && (
+                    <p className="text-[10px] text-amber-400 font-bold flex items-center gap-1">
+                      ⏳ این تبلیغ هنوز شروع نشده
+                    </p>
+                  )}
 
                   <div className="grid gap-3 md:grid-cols-2">
                     <div>

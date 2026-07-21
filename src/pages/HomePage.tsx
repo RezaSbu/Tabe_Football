@@ -248,7 +248,7 @@ export default function HomePage({
           {/* In-feed ad slot */}
           {(adConfig.adSlots || []).filter((s: any) => s.isActive && s.name?.toLowerCase().includes("feed")).length > 0 && (
             <div className="space-y-4 bg-[#121215] p-4.5 rounded-2xl border border-white/5">
-              {(adConfig.adSlots || []).filter((s: any) => s.isActive && s.name?.toLowerCase().includes("feed")).map((slot: any) => (
+              {(adConfig.adSlots || []).filter((s: any) => s.isActive && s.name?.toLowerCase().includes("feed")).sort((a: any, b: any) => (b.priority || 0) - (a.priority || 0)).map((slot: any) => (
                 <AdSlot key={slot.id} slot={slot} />
               ))}
             </div>
@@ -512,7 +512,7 @@ export default function HomePage({
           {/* Sidebar ad slot */}
           {(adConfig.adSlots || []).filter((s: any) => s.isActive && s.name?.toLowerCase().includes("sidebar")).length > 0 && (
             <div className="space-y-4 bg-[#121215] p-4.5 rounded-2xl border border-white/5">
-              {(adConfig.adSlots || []).filter((s: any) => s.isActive && s.name?.toLowerCase().includes("sidebar")).map((slot: any) => (
+              {(adConfig.adSlots || []).filter((s: any) => s.isActive && s.name?.toLowerCase().includes("sidebar")).sort((a: any, b: any) => (b.priority || 0) - (a.priority || 0)).map((slot: any) => (
                 <AdSlot key={slot.id} slot={slot} />
               ))}
             </div>
