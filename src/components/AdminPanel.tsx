@@ -452,6 +452,8 @@ export default function AdminPanel({
             images={images}
             submissions={submissions}
             legionnaires={legionnaires}
+            adConfig={adConfig}
+            onUpdateAdConfig={onUpdateAdConfig}
             onRefreshData={onRefreshData}
           />
         )}

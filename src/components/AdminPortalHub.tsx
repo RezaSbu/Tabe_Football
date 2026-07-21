@@ -23,6 +23,8 @@ interface AdminPortalHubProps {
   images: ImageItem[];
   submissions: ContactSubmission[];
   legionnaires?: LegionnaireItem[];
+  adConfig?: { adTitle: string; adPromo: string; adDesc: string; adLink: string; adBtnText: string; customBannerUrl: string };
+  onUpdateAdConfig?: (configData: any) => Promise<boolean>;
   onRefreshData: () => void;
 }
 
@@ -33,6 +35,8 @@ export default function AdminPortalHub({
   images = [],
   submissions = [],
   legionnaires = [],
+  adConfig,
+  onUpdateAdConfig,
   onRefreshData
 }: AdminPortalHubProps) {
   const [subTab, setSubTab] = useState<"news" | "transfers" | "teamTransfers" | "legionnaires" | "gallery" | "submissions" | "banner">("news");
@@ -108,12 +112,12 @@ export default function AdminPortalHub({
   const [legTags, setLegTags] = useState("");
   const [imgTags, setImgTags] = useState("");
 
-  // AD CONFIG EXTRA STATE (Initialized from DB/Local storage or general inputs)
-  const [adTitle, setAdTitle] = useState("تاکسی اینترنتی تپسی اسپانسر رسمی");
-  const [adPromo, setAdPromo] = useState("TABFOOTBALL");
-  const [adBtnText, setAdBtnText] = useState("نصب برنامه");
-  const [adDesc, setAdDesc] = useState("هر سفر اول رایگان با کد تخفیف ویژه مخاطبان تب فوتبال");
-  const [adLink, setAdLink] = useState("https://tapsi.ir");
+  // AD CONFIG STATE (Initialized from DB via adConfig prop)
+  const [adTitle, setAdTitle] = useState(adConfig?.adTitle || "");
+  const [adPromo, setAdPromo] = useState(adConfig?.adPromo || "");
+  const [adBtnText, setAdBtnText] = useState(adConfig?.adBtnText || "");
+  const [adDesc, setAdDesc] = useState(adConfig?.adDesc || "");
+  const [adLink, setAdLink] = useState(adConfig?.adLink || "");
 
   // TEAM TRANSFERS FORM STATE
   const [teamTrName, setTeamTrName] = useState("");
@@ -505,19 +509,19 @@ export default function AdminPortalHub({
   // 5. AD BANNER ACTIONS
   const handleSaveAdConfig = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate/Push configuration to server state (optionally persisted)
+    if (!onUpdateAdConfig) {
+      alert("توابع ذخیره‌سازی در دسترس نیست.");
+      return;
+    }
     try {
-      const res = await fetch("/api/ads-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ adTitle, adPromo, adBtnText, adDesc, adLink })
-      });
-      if (res.ok) {
-        alert("بنر تبلیغاتی با موفقیت در هدر و میان صفحات پلاتفرم مجهز گردید!");
-        onRefreshData();
+      const success = await onUpdateAdConfig({ adTitle, adPromo, adBtnText, adDesc, adLink });
+      if (success) {
+        alert("بنر تبلیغاتی با موفقیت ذخیره شد!");
+      } else {
+        alert("ذخیره تبلیغات موفقیت‌آمیز نبود.");
       }
     } catch {
-      alert("ذخیره تبلیغات موفقیت‌آمیز نبود.");
+      alert("خطا در ارتباط با سرور.");
     }
   };
 
