@@ -23,7 +23,7 @@ interface AdminPortalHubProps {
   images: ImageItem[];
   submissions: ContactSubmission[];
   legionnaires?: LegionnaireItem[];
-  adConfig?: { adTitle: string; adPromo: string; adDesc: string; adLink: string; adBtnText: string; customBannerUrl: string };
+  adConfig?: { adTitle: string; adPromo: string; adDesc: string; adLink: string; adBtnText: string; customBannerUrl: string; adSlots?: any[] };
   onUpdateAdConfig?: (configData: any) => Promise<boolean>;
   onRefreshData: () => void;
 }
@@ -39,7 +39,8 @@ export default function AdminPortalHub({
   onUpdateAdConfig,
   onRefreshData
 }: AdminPortalHubProps) {
-  const [subTab, setSubTab] = useState<"news" | "transfers" | "teamTransfers" | "legionnaires" | "gallery" | "submissions" | "banner">("news");
+  const [subTab, setSubTab] = useState<"news" | "transfers" | "teamTransfers" | "legionnaires" | "gallery" | "submissions" | "banner" | "adSlots">("news");
+  const [adSlots, setAdSlots] = useState<any[]>(adConfig?.adSlots || []);
 
   const handleDeleteSubmission = async (id: string) => {
     if (window.confirm("آیا از حذف این پیام اطمینان دارید؟")) {
@@ -118,6 +119,7 @@ export default function AdminPortalHub({
   const [adBtnText, setAdBtnText] = useState(adConfig?.adBtnText || "");
   const [adDesc, setAdDesc] = useState(adConfig?.adDesc || "");
   const [adLink, setAdLink] = useState(adConfig?.adLink || "");
+  const [adBannerUrl, setAdBannerUrl] = useState(adConfig?.customBannerUrl || "");
 
   // TEAM TRANSFERS FORM STATE
   const [teamTrName, setTeamTrName] = useState("");
@@ -514,7 +516,7 @@ export default function AdminPortalHub({
       return;
     }
     try {
-      const success = await onUpdateAdConfig({ adTitle, adPromo, adBtnText, adDesc, adLink });
+      const success = await onUpdateAdConfig({ adTitle, adPromo, adBtnText, adDesc, adLink, customBannerUrl: adBannerUrl, adSlots });
       if (success) {
         alert("بنر تبلیغاتی با موفقیت ذخیره شد!");
       } else {
@@ -523,6 +525,34 @@ export default function AdminPortalHub({
     } catch {
       alert("خطا در ارتباط با سرور.");
     }
+  };
+
+  const handleAddAdSlot = () => {
+    const newSlot = {
+      id: `slot-${Date.now()}`,
+      name: "",
+      width: 728,
+      height: 90,
+      isActive: true,
+      adTitle: "",
+      adPromo: "",
+      adDesc: "",
+      adLink: "",
+      adBtnText: "",
+      customBannerUrl: ""
+    };
+    setAdSlots([...adSlots, newSlot]);
+  };
+
+  const handleUpdateAdSlot = (index: number, field: string, value: any) => {
+    const updated = [...adSlots];
+    updated[index] = { ...updated[index], [field]: value };
+    setAdSlots(updated);
+  };
+
+  const handleDeleteAdSlot = (index: number) => {
+    if (!window.confirm("آیا از حذف این جایگاه تبلیغاتی اطمینان دارید؟")) return;
+    setAdSlots(adSlots.filter((_: any, i: number) => i !== index));
   };
 
   return (
@@ -564,6 +594,12 @@ export default function AdminPortalHub({
           className={`px-4 py-2 font-bold rounded-lg transition ${subTab === "banner" ? "bg-red-655 text-white" : "bg-white/5 text-slate-400 hover:text-white"}`}
         >
           📢 بنرهای تجاری پورتال
+        </button>
+        <button
+          onClick={() => { setSubTab("adSlots"); setShowForm(null); }}
+          className={`px-4 py-2 font-bold rounded-lg transition ${subTab === "adSlots" ? "bg-red-655 text-white" : "bg-white/5 text-slate-400 hover:text-white"}`}
+        >
+          🎯 جایگاه‌های تبلیغاتی ({adSlots.length})
         </button>
         <button
           onClick={() => { setSubTab("submissions"); setShowForm(null); }}
@@ -1328,6 +1364,103 @@ export default function AdminPortalHub({
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* SUB-TAB: AD SLOTS MANAGEMENT */}
+      {subTab === "adSlots" && (
+        <div className="bg-[#0b0b0f] border border-white/5 p-5 rounded-2xl space-y-4">
+          <div className="flex items-center justify-between border-b border-white/5 pb-2">
+            <h3 className="font-extrabold text-sm text-white">🎯 جایگاه‌های تبلیغاتی ({adSlots.length})</h3>
+            <button onClick={handleAddAdSlot} className="flex items-center gap-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 text-[11px] font-bold text-emerald-400 hover:bg-emerald-500/20 transition">
+              <Plus className="h-3 w-3" /> افزودن جایگاه جدید
+            </button>
+          </div>
+
+          {adSlots.length === 0 ? (
+            <p className="text-xs text-slate-500 italic py-8 text-center">هیچ جایگاه تبلیغاتی تعریف نشده. جایگاه جدید اضافه کنید.</p>
+          ) : (
+            <div className="space-y-4">
+              {adSlots.map((slot: any, idx: number) => (
+                <div key={slot.id} className="border border-white/5 rounded-xl p-4 space-y-3 bg-white/[0.01]">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => handleUpdateAdSlot(idx, "isActive", !slot.isActive)}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${slot.isActive ? "bg-emerald-500" : "bg-gray-700"}`}
+                      >
+                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition ${slot.isActive ? "translate-x-4.5" : "translate-x-0.5"}`} />
+                      </button>
+                      <span className={`text-xs font-bold ${slot.isActive ? "text-emerald-400" : "text-slate-500"}`}>
+                        {slot.isActive ? "فعال" : "غیرفعال"}
+                      </span>
+                    </div>
+                    <button onClick={() => handleDeleteAdSlot(idx)} className="text-red-400 hover:text-red-300 transition p-1">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div>
+                      <label className="block text-[10px] text-slate-500 mb-1 font-bold">نام جایگاه</label>
+                      <input type="text" value={slot.name || ""} onChange={e => handleUpdateAdSlot(idx, "name", e.target.value)} placeholder="مثلاً: بنر بالای صفحه" className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white placeholder-slate-600" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] text-slate-500 mb-1 font-bold">عرض (px)</label>
+                        <input type="number" value={slot.width || 728} onChange={e => handleUpdateAdSlot(idx, "width", parseInt(e.target.value) || 728)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-500 mb-1 font-bold">ارتفاع (px)</label>
+                        <input type="number" value={slot.height || 90} onChange={e => handleUpdateAdSlot(idx, "height", parseInt(e.target.value) || 90)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div>
+                      <label className="block text-[10px] text-slate-500 mb-1 font-bold">عنوان آگهی</label>
+                      <input type="text" value={slot.adTitle || ""} onChange={e => handleUpdateAdSlot(idx, "adTitle", e.target.value)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-500 mb-1 font-bold">کد تخفیف</label>
+                      <input type="text" value={slot.adPromo || ""} onChange={e => handleUpdateAdSlot(idx, "adPromo", e.target.value)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">توضیحات</label>
+                    <input type="text" value={slot.adDesc || ""} onChange={e => handleUpdateAdSlot(idx, "adDesc", e.target.value)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div>
+                      <label className="block text-[10px] text-slate-500 mb-1 font-bold">لینک</label>
+                      <input type="text" value={slot.adLink || ""} onChange={e => handleUpdateAdSlot(idx, "adLink", e.target.value)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-500 mb-1 font-bold">متن دکمه</label>
+                      <input type="text" value={slot.adBtnText || ""} onChange={e => handleUpdateAdSlot(idx, "adBtnText", e.target.value)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">آدرس تصویر بنر (اختیاری)</label>
+                    <input type="text" value={slot.customBannerUrl || ""} onChange={e => handleUpdateAdSlot(idx, "customBannerUrl", e.target.value)} placeholder="https://example.com/banner.jpg" className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white placeholder-slate-600" />
+                    {slot.customBannerUrl && (
+                      <div className="mt-2 rounded border border-white/5 overflow-hidden">
+                        <img src={slot.customBannerUrl} alt="پیش‌نمایش" loading="lazy" decoding="async" className="w-full max-h-16 object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+
+              <button onClick={handleSaveAdConfig as any} className="bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs px-5 py-2.5 rounded-lg">
+                ذخیره تمام جایگاه‌ها
+              </button>
+            </div>
+          )}
         </div>
       )}
 

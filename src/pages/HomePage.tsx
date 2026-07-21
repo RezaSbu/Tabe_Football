@@ -3,6 +3,7 @@ import { Trophy, ChevronLeft, Newspaper, Users, Flame, Activity, Star, Zap, Tren
 import NewsSlider from "../components/NewsSlider";
 import MatchTicker from "../components/MatchTicker";
 import TeamOfTheWeekWidget from "../components/TeamOfTheWeekWidget";
+import AdSlot from "../components/AdSlot";
 
 interface HomePageProps {
   matches: any[];
@@ -225,6 +226,15 @@ export default function HomePage({
         </div>
 
         <div className="lg:col-span-4 space-y-6">
+          {/* In-feed ad slot */}
+          {(adConfig.adSlots || []).filter((s: any) => s.isActive && s.name?.toLowerCase().includes("feed")).length > 0 && (
+            <div className="space-y-4 bg-[#121215] p-4.5 rounded-2xl border border-white/5">
+              {(adConfig.adSlots || []).filter((s: any) => s.isActive && s.name?.toLowerCase().includes("feed")).map((slot: any) => (
+                <AdSlot key={slot.id} slot={slot} />
+              ))}
+            </div>
+          )}
+
           <div className="space-y-4 bg-[#121215] p-4.5 rounded-2xl border border-white/5">
             <div className="flex items-center justify-between border-b border-white/5 pb-2">
               <div className="flex items-center gap-1.5">
@@ -479,6 +489,15 @@ export default function HomePage({
               })()}
             </div>
           </div>
+
+          {/* Sidebar ad slot */}
+          {(adConfig.adSlots || []).filter((s: any) => s.isActive && s.name?.toLowerCase().includes("sidebar")).length > 0 && (
+            <div className="space-y-4 bg-[#121215] p-4.5 rounded-2xl border border-white/5">
+              {(adConfig.adSlots || []).filter((s: any) => s.isActive && s.name?.toLowerCase().includes("sidebar")).map((slot: any) => (
+                <AdSlot key={slot.id} slot={slot} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
