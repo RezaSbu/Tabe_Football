@@ -118,6 +118,7 @@ export default function AdminPortalHub({
   const [adBtnText, setAdBtnText] = useState(adConfig?.adBtnText || "");
   const [adDesc, setAdDesc] = useState(adConfig?.adDesc || "");
   const [adLink, setAdLink] = useState(adConfig?.adLink || "");
+  const [adBannerUrl, setAdBannerUrl] = useState(adConfig?.customBannerUrl || "");
 
   // TEAM TRANSFERS FORM STATE
   const [teamTrName, setTeamTrName] = useState("");
@@ -514,7 +515,7 @@ export default function AdminPortalHub({
       return;
     }
     try {
-      const success = await onUpdateAdConfig({ adTitle, adPromo, adBtnText, adDesc, adLink });
+      const success = await onUpdateAdConfig({ adTitle, adPromo, adBtnText, adDesc, adLink, customBannerUrl: adBannerUrl });
       if (success) {
         alert("بنر تبلیغاتی با موفقیت ذخیره شد!");
       } else {
@@ -1320,6 +1321,17 @@ export default function AdminPortalHub({
             <div>
               <label className="block text-xs text-slate-400 mb-1.5 font-bold">لینک ارجاع بیرونی (External URL)</label>
               <input type="text" value={adLink} onChange={e => setAdLink(e.target.value)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2.5 text-white" />
+            </div>
+
+            <div>
+              <label className="block text-xs text-slate-400 mb-1.5 font-bold">آدرس تصویر بنر تبلیغاتی (اختیاری)</label>
+              <input type="text" value={adBannerUrl} onChange={e => setAdBannerUrl(e.target.value)} placeholder="https://example.com/banner.jpg" className="w-full text-xs rounded-lg bg-black border border-white/5 p-2.5 text-white placeholder-slate-600" />
+              <p className="text-[10px] text-slate-600 mt-1">اگه تصویر وارد کنید، بنر تصویری به جای بنر متنی نمایش داده میشه. اندازه پیشنهادی: 1200x200 پیکسل.</p>
+              {adBannerUrl && (
+                <div className="mt-2 rounded-lg border border-white/5 overflow-hidden">
+                  <img src={adBannerUrl} alt="پیش‌نمایش بنر" loading="lazy" decoding="async" className="w-full h-20 object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                </div>
+              )}
             </div>
 
             <div>

@@ -84,33 +84,52 @@ export default function HomePage({
 
   return (
     <div className="space-y-6" dir="rtl" id="home-dashboard-container">
-      <div className="group overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-r from-red-950/15 via-slate-900/80 to-gray-950 px-5 py-3.5 relative shadow-lg flex flex-col sm:flex-row justify-between items-center gap-4 transition hover:border-red-950/30 animate-in fade-in duration-300">
-        <span className="absolute top-2 left-2 rounded bg-[#0a0a0c] px-1.5 py-0.5 text-[8px] font-black tracking-widest text-emerald-400 shadow uppercase">حمایت ویژه پورتال</span>
-
-        <div className="flex items-center gap-3.5">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 font-bold text-base text-black shadow shadow-emerald-900/20">
-            {adConfig.adPromo ? adConfig.adPromo.slice(0, 2) : "SN"}
-          </div>
-          <div>
-            <h4 className="font-black text-sm text-emerald-400 flex items-center gap-2">
-              <span>{adConfig.adTitle}</span>
-              <span className="rounded bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[8px] font-black text-emerald-455">تخفیف هواداران تب فوتبال</span>
-            </h4>
-            <p className="text-[11px] text-gray-400 mt-0.5">
-              {adConfig.adDesc} {adConfig.adPromo && <span>با کد اختصاصی: <strong className="text-white font-mono bg-gray-900/60 border border-white/5 px-1 py-0.5 rounded">{adConfig.adPromo}</strong></span>}
-            </p>
-          </div>
-        </div>
-
+      {/* AD BANNER — Image or Text fallback */}
+      {adConfig.customBannerUrl ? (
         <a
-          href={adConfig.adLink || "https://snapp.ir"}
+          href={adConfig.adLink || "#"}
           target="_blank"
           referrerPolicy="no-referrer"
-          className="rounded-xl bg-emerald-500 hover:bg-emerald-450 active:scale-98 text-slate-950 font-black text-xs px-5 py-2 shrink-0 shadow-md transition cursor-pointer flex items-center gap-1"
+          className="group block overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-r from-red-950/15 via-slate-900/80 to-gray-950 relative shadow-lg transition hover:border-red-950/30 animate-in fade-in duration-300"
         >
-          <span>{adConfig.adBtnText || "ورود و دریافت کد طلایی"}</span>
+          <span className="absolute top-2 left-2 z-10 rounded bg-[#0a0a0c] px-1.5 py-0.5 text-[8px] font-black tracking-widest text-emerald-400 shadow uppercase">حمایت ویژه پورتال</span>
+          <img
+            src={adConfig.customBannerUrl}
+            alt={adConfig.adTitle || "بنر تبلیغاتی"}
+            loading="lazy"
+            decoding="async"
+            className="w-full max-h-48 object-cover transition group-hover:scale-[1.01]"
+          />
         </a>
-      </div>
+      ) : (
+        <div className="group overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-r from-red-950/15 via-slate-900/80 to-gray-950 px-5 py-3.5 relative shadow-lg flex flex-col sm:flex-row justify-between items-center gap-4 transition hover:border-red-950/30 animate-in fade-in duration-300">
+          <span className="absolute top-2 left-2 rounded bg-[#0a0a0c] px-1.5 py-0.5 text-[8px] font-black tracking-widest text-emerald-400 shadow uppercase">حمایت ویژه پورتال</span>
+
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 font-bold text-base text-black shadow shadow-emerald-900/20">
+              {adConfig.adPromo ? adConfig.adPromo.slice(0, 2) : "SN"}
+            </div>
+            <div>
+              <h4 className="font-black text-sm text-emerald-400 flex items-center gap-2">
+                <span>{adConfig.adTitle}</span>
+                <span className="rounded bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[8px] font-black text-emerald-455">تخفیف هواداران تب فوتبال</span>
+              </h4>
+              <p className="text-[11px] text-gray-400 mt-0.5">
+                {adConfig.adDesc} {adConfig.adPromo && <span>با کد اختصاصی: <strong className="text-white font-mono bg-gray-900/60 border border-white/5 px-1 py-0.5 rounded">{adConfig.adPromo}</strong></span>}
+              </p>
+            </div>
+          </div>
+
+          <a
+            href={adConfig.adLink || "https://snapp.ir"}
+            target="_blank"
+            referrerPolicy="no-referrer"
+            className="rounded-xl bg-emerald-500 hover:bg-emerald-450 active:scale-98 text-slate-950 font-black text-xs px-5 py-2 shrink-0 shadow-md transition cursor-pointer flex items-center gap-1"
+          >
+            <span>{adConfig.adBtnText || "ورود و دریافت کد طلایی"}</span>
+          </a>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-12" id="home-dashboard-layout font-sans">
         <div className="lg:col-span-8 space-y-6">
