@@ -6,6 +6,7 @@ build
 .env
 .env.local
 .env.example
+.env.production
 *.log
 .DS_Store
 coverage
@@ -16,3 +17,9 @@ metadata.json
 nginx
 sql
 docker-compose.yml
+docker-compose.prod.yml
+scripts
+backups
+src/__tests__
+src/server/__tests__
+vitest.config.ts

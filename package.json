@@ -14,7 +14,11 @@
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prod:up": "docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build",
+    "prod:down": "docker compose -f docker-compose.yml -f docker-compose.prod.yml down",
+    "prod:logs": "docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f",
+    "prod:restart": "docker compose -f docker-compose.yml -f docker-compose.prod.yml restart"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
