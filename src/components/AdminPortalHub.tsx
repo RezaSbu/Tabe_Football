@@ -12,9 +12,11 @@ import {
   X,
   Upload,
   Calendar,
-  Layers
+  Layers,
+  Link2
 } from "lucide-react";
 import { NewsItem, TransferItem, ImageItem, ContactSubmission, LegionnaireItem } from "../types";
+import { getAdViews, isWithinSchedule } from "./AdSlot";
 
 interface AdminPortalHubProps {
   news: NewsItem[];
@@ -1385,8 +1387,27 @@ export default function AdminPortalHub({
             <p className="text-xs text-slate-500 italic py-8 text-center">هیچ جایگاه تبلیغاتی تعریف نشده. جایگاه جدید اضافه کنید.</p>
           ) : (
             <div className="space-y-4">
-              {adSlots.map((slot: any, idx: number) => (
-                <div key={slot.id} className="border border-white/5 rounded-xl p-4 space-y-3 bg-white/[0.01]">
+              {adSlots.map((slot: any, idx: number) => {
+                const views = getAdViews(slot.id);
+                const now = Date.now();
+                let daysLeft: number | null = null;
+                if (slot.endDate) {
+                  const diff = new Date(slot.endDate).getTime() - now;
+                  daysLeft = Math.max(0, Math.ceil(diff / 86400000));
+                }
+                let daysUntilStart: number | null = null;
+                if (slot.startDate) {
+                  const diff = new Date(slot.startDate).getTime() - now;
+                  if (diff > 0) daysUntilStart = Math.ceil(diff / 86400000);
+                }
+                const expired = !isWithinSchedule(slot);
+                const handleCopyLink = () => {
+                  const url = `${window.location.origin}?ad=${encodeURIComponent(slot.name || slot.id)}`;
+                  navigator.clipboard.writeText(url);
+                  alert("لینک کپی شد!");
+                };
+                return (
+                <div key={slot.id} className={`border rounded-xl p-4 space-y-3 bg-white/[0.01] ${expired ? "border-red-500/30 opacity-60" : "border-white/5"}`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <button
@@ -1398,10 +1419,21 @@ export default function AdminPortalHub({
                       <span className={`text-xs font-bold ${slot.isActive ? "text-emerald-400" : "text-slate-500"}`}>
                         {slot.isActive ? "فعال" : "غیرفعال"}
                       </span>
+                      {expired && <span className="text-[9px] font-bold text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded">منقضی</span>}
+                      {daysUntilStart !== null && <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">شروع {daysUntilStart} روز دیگر</span>}
+                      {daysLeft !== null && daysLeft <= 3 && daysLeft > 0 && !expired && <span className="text-[9px] font-bold text-orange-400 bg-orange-500/10 px-1.5 py-0.5 rounded">{daysLeft} روز باقی‌مانده</span>}
                     </div>
-                    <button onClick={() => handleDeleteAdSlot(idx)} className="text-red-400 hover:text-red-300 transition p-1">
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <span className="text-[9px] text-slate-600 bg-white/5 px-1.5 py-0.5 rounded font-mono" title="بازدیدها">
+                        👁 {views}
+                      </span>
+                      <button onClick={handleCopyLink} className="text-slate-500 hover:text-emerald-400 transition p-1" title="کپی لینک تبلیغاتی">
+                        <Link2 className="h-3 w-3" />
+                      </button>
+                      <button onClick={() => handleDeleteAdSlot(idx)} className="text-red-400 hover:text-red-300 transition p-1">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid gap-3 md:grid-cols-3">
@@ -1491,7 +1523,8 @@ export default function AdminPortalHub({
                     )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
 
               <button onClick={handleSaveAdConfig as any} className="bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs px-5 py-2.5 rounded-lg">
                 ذخیره تمام جایگاه‌ها

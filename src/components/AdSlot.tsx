@@ -1,3 +1,5 @@
+import { useEffect } from "react";
+
 interface AdSlotData {
   id: string;
   name: string;
@@ -21,7 +23,7 @@ interface AdSlotProps {
   className?: string;
 }
 
-function isWithinSchedule(slot: AdSlotData): boolean {
+export function isWithinSchedule(slot: AdSlotData): boolean {
   const now = Date.now();
   if (slot.startDate) {
     const start = new Date(slot.startDate).getTime();
@@ -34,9 +36,32 @@ function isWithinSchedule(slot: AdSlotData): boolean {
   return true;
 }
 
-export default function AdSlot({ slot, className = "" }: AdSlotProps) {
-  if (!slot || !slot.isActive) return null;
-  if (!isWithinSchedule(slot)) return null;
+export function trackAdView(slotId: string) {
+  try {
+    const key = `ad_views_${slotId}`;
+    const prev = parseInt(localStorage.getItem(key) || "0", 10);
+    localStorage.setItem(key, String(prev + 1));
+  } catch { /* storage unavailable */ }
+}
+
+export function getAdViews(slotId: string): number {
+  try {
+    return parseInt(localStorage.getItem(`ad_views_${slotId}`) || "0", 10);
+  } catch {
+    return 0;
+  }
+}
+
+export function resetAdViews(slotId: string) {
+  try {
+    localStorage.removeItem(`ad_views_${slotId}`);
+  } catch { /* storage unavailable */ }
+}
+
+function AdSlotInner({ slot, className = "" }: AdSlotProps) {
+  useEffect(() => {
+    trackAdView(slot.id);
+  }, [slot.id]);
 
   const maxWidth = `${slot.width}px`;
   const ratio = `${slot.width} / ${slot.height}`;
@@ -130,3 +155,5 @@ export default function AdSlot({ slot, className = "" }: AdSlotProps) {
     </div>
   );
 }
+
+export default AdSlotInner;
