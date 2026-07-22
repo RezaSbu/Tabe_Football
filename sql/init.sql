@@ -292,12 +292,6 @@ CREATE TABLE public.bracket_slots (
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),
   CONSTRAINT bracket_slots_pkey PRIMARY KEY (id),
-  CONSTRAINT fk_bracket_slots_match FOREIGN KEY (match_id)
-    REFERENCES public.matches(id) ON DELETE SET NULL
-    DEFERRABLE INITIALLY DEFERRED,
-  CONSTRAINT fk_bracket_slots_next FOREIGN KEY (next_slot_id)
-    REFERENCES public.bracket_slots(id) ON DELETE SET NULL
-    DEFERRABLE INITIALLY DEFERRED
 );
 
 CREATE TABLE public.team_transfers_list (
