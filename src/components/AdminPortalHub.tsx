@@ -575,6 +575,7 @@ export default function AdminPortalHub({
       if (success) {
         hasUnsavedAdEdits.current = false;
         hasUnsavedBannerEdits.current = false;
+        hasUnsavedOverlayEdits.current = false;
         alert("تبلیغات با موفقیت ذخیره شد!");
       } else {
         alert("ذخیره تبلیغات موفقیت‌آمیز نبود.");

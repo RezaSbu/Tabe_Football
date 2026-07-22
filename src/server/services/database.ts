@@ -103,7 +103,15 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
         adLink: dbConfig.ad_link || "",
         adBtnText: dbConfig.ad_btn_text || "",
         customBannerUrl: dbConfig.custom_banner_url || "",
-        adSlots: typeof dbConfig.ad_slots === "string" ? JSON.parse(dbConfig.ad_slots) : (dbConfig.ad_slots || [])
+        adSlots: typeof dbConfig.ad_slots === "string" ? JSON.parse(dbConfig.ad_slots) : (dbConfig.ad_slots || []),
+        bannerLabel: dbConfig.banner_label || "تخفیف هواداران تب فوتبال",
+        bannerLabelVisible: dbConfig.banner_label_visible !== false,
+        bannerTagText: dbConfig.banner_tag_text || "حمایت ویژه پورتال",
+        bannerVisible: dbConfig.banner_visible !== false,
+        popupAd: typeof dbConfig.popup_ad === "string" ? JSON.parse(dbConfig.popup_ad) : (dbConfig.popup_ad || { enabled: false }),
+        floatingAd: typeof dbConfig.floating_ad === "string" ? JSON.parse(dbConfig.floating_ad) : (dbConfig.floating_ad || { enabled: false }),
+        bottomBarAd: typeof dbConfig.bottom_bar_ad === "string" ? JSON.parse(dbConfig.bottom_bar_ad) : (dbConfig.bottom_bar_ad || { enabled: false }),
+        slideInAd: typeof dbConfig.slide_in_ad === "string" ? JSON.parse(dbConfig.slide_in_ad) : (dbConfig.slide_in_ad || { enabled: false })
       };
     }
 
@@ -836,7 +844,15 @@ export async function saveDB(): Promise<void> {
         ad_link: cfg.adLink,
         ad_btn_text: cfg.adBtnText,
         custom_banner_url: cfg.customBannerUrl,
-        ad_slots: cfg.adSlots || []
+        ad_slots: cfg.adSlots || [],
+        banner_label: cfg.bannerLabel || "",
+        banner_label_visible: cfg.bannerLabelVisible !== false,
+        banner_tag_text: cfg.bannerTagText || "",
+        banner_visible: cfg.bannerVisible !== false,
+        popup_ad: cfg.popupAd || { enabled: false },
+        floating_ad: cfg.floatingAd || { enabled: false },
+        bottom_bar_ad: cfg.bottomBarAd || { enabled: false },
+        slide_in_ad: cfg.slideInAd || { enabled: false }
       }));
     }
 
