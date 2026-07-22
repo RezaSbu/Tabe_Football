@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   FileText, 
   RefreshCw, 
@@ -43,6 +43,12 @@ export default function AdminPortalHub({
 }: AdminPortalHubProps) {
   const [subTab, setSubTab] = useState<"news" | "transfers" | "teamTransfers" | "legionnaires" | "gallery" | "submissions" | "banner" | "adSlots">("news");
   const [adSlots, setAdSlots] = useState<any[]>(adConfig?.adSlots || []);
+
+  useEffect(() => {
+    if (adConfig?.adSlots && Array.isArray(adConfig.adSlots)) {
+      setAdSlots(adConfig.adSlots);
+    }
+  }, [adConfig?.adSlots]);
 
   const handleDeleteSubmission = async (id: string) => {
     if (window.confirm("آیا از حذف این پیام اطمینان دارید؟")) {
@@ -122,6 +128,17 @@ export default function AdminPortalHub({
   const [adDesc, setAdDesc] = useState(adConfig?.adDesc || "");
   const [adLink, setAdLink] = useState(adConfig?.adLink || "");
   const [adBannerUrl, setAdBannerUrl] = useState(adConfig?.customBannerUrl || "");
+
+  useEffect(() => {
+    if (adConfig) {
+      setAdTitle(adConfig.adTitle || "");
+      setAdPromo(adConfig.adPromo || "");
+      setAdBtnText(adConfig.adBtnText || "");
+      setAdDesc(adConfig.adDesc || "");
+      setAdLink(adConfig.adLink || "");
+      setAdBannerUrl(adConfig.customBannerUrl || "");
+    }
+  }, [adConfig]);
 
   // TEAM TRANSFERS FORM STATE
   const [teamTrName, setTeamTrName] = useState("");

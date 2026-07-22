@@ -102,7 +102,7 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
         adLink: dbConfig.ad_link || "",
         adBtnText: dbConfig.ad_btn_text || "",
         customBannerUrl: dbConfig.custom_banner_url || "",
-        adSlots: dbConfig.ad_slots || []
+        adSlots: typeof dbConfig.ad_slots === "string" ? JSON.parse(dbConfig.ad_slots) : (dbConfig.ad_slots || [])
       };
     }
 
@@ -835,7 +835,7 @@ export async function saveDB(): Promise<void> {
         ad_link: cfg.adLink,
         ad_btn_text: cfg.adBtnText,
         custom_banner_url: cfg.customBannerUrl,
-        ad_slots: JSON.stringify(cfg.adSlots || [])
+        ad_slots: cfg.adSlots || []
       }));
     }
 

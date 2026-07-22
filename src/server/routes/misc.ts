@@ -171,11 +171,16 @@ export function registerMiscRoutes(app: Express) {
   });
 
   app.put("/api/config", async (req, res) => {
-    const configData = req.body;
-    const currentDB = loadDB();
-    currentDB.config = configData;
-    await saveDB();
-    res.json({ success: true });
+    try {
+      const configData = req.body;
+      const currentDB = loadDB();
+      currentDB.config = configData;
+      await saveDB();
+      res.json({ success: true });
+    } catch (err) {
+      console.error("[API] Error saving config:", err);
+      res.status(500).json({ success: false, message: "خطا در ذخیره تنظیمات" });
+    }
   });
 
   app.post("/api/auth/login", async (req, res) => {
