@@ -44,6 +44,7 @@ export default function AdminPortalHub({
   const [subTab, setSubTab] = useState<"news" | "transfers" | "teamTransfers" | "legionnaires" | "gallery" | "submissions" | "banner" | "adSlots" | "overlayAds">("news");
   const [adSlots, setAdSlots] = useState<any[]>(adConfig?.adSlots || []);
   const hasUnsavedAdEdits = useRef(false);
+  const hasUnsavedOverlayEdits = useRef(false);
 
   const syncAdSlotsFromServer = () => {
     if (adConfig?.adSlots && Array.isArray(adConfig.adSlots)) {
@@ -142,6 +143,11 @@ export default function AdminPortalHub({
   const [slideInAd, setSlideInAd] = useState<any>(adConfig?.slideInAd || { enabled: false, title: "", description: "", link: "", btnText: "", imageUrl: "", position: "right" });
   const hasUnsavedBannerEdits = useRef(false);
 
+  const updatePopupAd = (patch: Partial<any>) => { hasUnsavedOverlayEdits.current = true; setPopupAd((prev: any) => ({ ...prev, ...patch })); };
+  const updateFloatingAd = (patch: Partial<any>) => { hasUnsavedOverlayEdits.current = true; setFloatingAd((prev: any) => ({ ...prev, ...patch })); };
+  const updateBottomBarAd = (patch: Partial<any>) => { hasUnsavedOverlayEdits.current = true; setBottomBarAd((prev: any) => ({ ...prev, ...patch })); };
+  const updateSlideInAd = (patch: Partial<any>) => { hasUnsavedOverlayEdits.current = true; setSlideInAd((prev: any) => ({ ...prev, ...patch })); };
+
   useEffect(() => {
     if (adConfig && !hasUnsavedBannerEdits.current) {
       setAdTitle(adConfig.adTitle || "");
@@ -154,6 +160,8 @@ export default function AdminPortalHub({
       setBannerLabelVisible(adConfig.bannerLabelVisible !== false);
       setBannerTagText(adConfig.bannerTagText || "حمایت ویژه پورتال");
       setBannerVisible(adConfig.bannerVisible !== false);
+    }
+    if (adConfig && !hasUnsavedOverlayEdits.current) {
       setPopupAd(adConfig.popupAd || { enabled: false, title: "", description: "", link: "", btnText: "", imageUrl: "", delay: 3 });
       setFloatingAd(adConfig.floatingAd || { enabled: false, title: "", description: "", link: "", btnText: "", imageUrl: "", position: "bottom-left" });
       setBottomBarAd(adConfig.bottomBarAd || { enabled: false, title: "", description: "", link: "", btnText: "" });
@@ -614,7 +622,7 @@ export default function AdminPortalHub({
   return (
     <div className="space-y-6" dir="rtl">
       {/* Sub menu tabs row */}
-      <div className="flex border-b border-white/5 pb-2 gap-2 text-xs">
+      <div className="flex overflow-x-auto border-b border-white/5 pb-2 gap-2 text-xs scrollbar-hide">
         <button
           onClick={() => { setSubTab("news"); setShowForm(null); }}
           className={`px-4 py-2 font-bold rounded-lg transition ${subTab === "news" ? "bg-red-655 text-white" : "bg-white/5 text-slate-400 hover:text-white"}`}
@@ -1651,7 +1659,7 @@ export default function AdminPortalHub({
             <div className="border border-white/5 rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="font-bold text-xs text-white">📭 پاپ‌آپ (تبلیغ تمام‌صفحه)</h4>
-                <button type="button" onClick={() => setPopupAd({ ...popupAd, enabled: !popupAd.enabled })}
+                <button type="button" onClick={() => updatePopupAd({ enabled: !popupAd.enabled })}
                   className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${popupAd.enabled ? "bg-emerald-500" : "bg-gray-700"}`}>
                   <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition ${popupAd.enabled ? "translate-x-4.5" : "translate-x-0.5"}`} />
                 </button>
@@ -1660,27 +1668,27 @@ export default function AdminPortalHub({
                 <div className="grid gap-3 md:grid-cols-2">
                   <div>
                     <label className="block text-[10px] text-slate-500 mb-1 font-bold">عنوان</label>
-                    <input type="text" value={popupAd.title} onChange={e => setPopupAd({ ...popupAd, title: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                    <input type="text" value={popupAd.title} onChange={e => updatePopupAd({ title: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-slate-500 mb-1 font-bold">متن تبلیغ</label>
-                    <input type="text" value={popupAd.description} onChange={e => setPopupAd({ ...popupAd, description: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                    <input type="text" value={popupAd.description} onChange={e => updatePopupAd({ description: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-slate-500 mb-1 font-bold">لینک</label>
-                    <input type="text" value={popupAd.link} onChange={e => setPopupAd({ ...popupAd, link: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                    <input type="text" value={popupAd.link} onChange={e => updatePopupAd({ link: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-slate-500 mb-1 font-bold">متن دکمه</label>
-                    <input type="text" value={popupAd.btnText} onChange={e => setPopupAd({ ...popupAd, btnText: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                    <input type="text" value={popupAd.btnText} onChange={e => updatePopupAd({ btnText: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-slate-500 mb-1 font-bold">آدرس تصویر (اختیاری)</label>
-                    <input type="text" value={popupAd.imageUrl} onChange={e => setPopupAd({ ...popupAd, imageUrl: e.target.value })} placeholder="https://..." className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white placeholder-slate-600" />
+                    <input type="text" value={popupAd.imageUrl} onChange={e => updatePopupAd({ imageUrl: e.target.value })} placeholder="https://..." className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white placeholder-slate-600" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-slate-500 mb-1 font-bold">تاخیر نمایش (ثانیه)</label>
-                    <input type="number" value={popupAd.delay} onChange={e => setPopupAd({ ...popupAd, delay: parseInt(e.target.value) || 3 })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                    <input type="number" value={popupAd.delay} onChange={e => updatePopupAd({ delay: parseInt(e.target.value) || 3 })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
                   </div>
                 </div>
               )}
@@ -1690,7 +1698,7 @@ export default function AdminPortalHub({
             <div className="border border-white/5 rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="font-bold text-xs text-white">📌 تبلیغ شناور (گوشه صفحه)</h4>
-                <button type="button" onClick={() => setFloatingAd({ ...floatingAd, enabled: !floatingAd.enabled })}
+                <button type="button" onClick={() => updateFloatingAd({ enabled: !floatingAd.enabled })}
                   className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${floatingAd.enabled ? "bg-emerald-500" : "bg-gray-700"}`}>
                   <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition ${floatingAd.enabled ? "translate-x-4.5" : "translate-x-0.5"}`} />
                 </button>
@@ -1699,27 +1707,27 @@ export default function AdminPortalHub({
                 <div className="grid gap-3 md:grid-cols-2">
                   <div>
                     <label className="block text-[10px] text-slate-500 mb-1 font-bold">عنوان</label>
-                    <input type="text" value={floatingAd.title} onChange={e => setFloatingAd({ ...floatingAd, title: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                    <input type="text" value={floatingAd.title} onChange={e => updateFloatingAd({ title: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-slate-500 mb-1 font-bold">متن تبلیغ</label>
-                    <input type="text" value={floatingAd.description} onChange={e => setFloatingAd({ ...floatingAd, description: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                    <input type="text" value={floatingAd.description} onChange={e => updateFloatingAd({ description: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-slate-500 mb-1 font-bold">لینک</label>
-                    <input type="text" value={floatingAd.link} onChange={e => setFloatingAd({ ...floatingAd, link: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                    <input type="text" value={floatingAd.link} onChange={e => updateFloatingAd({ link: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-slate-500 mb-1 font-bold">متن دکمه</label>
-                    <input type="text" value={floatingAd.btnText} onChange={e => setFloatingAd({ ...floatingAd, btnText: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                    <input type="text" value={floatingAd.btnText} onChange={e => updateFloatingAd({ btnText: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-slate-500 mb-1 font-bold">آدرس تصویر (اختیاری)</label>
-                    <input type="text" value={floatingAd.imageUrl} onChange={e => setFloatingAd({ ...floatingAd, imageUrl: e.target.value })} placeholder="https://..." className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white placeholder-slate-600" />
+                    <input type="text" value={floatingAd.imageUrl} onChange={e => updateFloatingAd({ imageUrl: e.target.value })} placeholder="https://..." className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white placeholder-slate-600" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-slate-500 mb-1 font-bold">موقعیت</label>
-                    <select value={floatingAd.position} onChange={e => setFloatingAd({ ...floatingAd, position: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white">
+                    <select value={floatingAd.position} onChange={e => updateFloatingAd({ position: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white">
                       <option value="bottom-left">پایین چپ</option>
                       <option value="bottom-right">پایین راست</option>
                       <option value="top-left">بالا چپ</option>
@@ -1734,7 +1742,7 @@ export default function AdminPortalHub({
             <div className="border border-white/5 rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="font-bold text-xs text-white">⬇️ نوار پایین صفحه</h4>
-                <button type="button" onClick={() => setBottomBarAd({ ...bottomBarAd, enabled: !bottomBarAd.enabled })}
+                <button type="button" onClick={() => updateBottomBarAd({ enabled: !bottomBarAd.enabled })}
                   className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${bottomBarAd.enabled ? "bg-emerald-500" : "bg-gray-700"}`}>
                   <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition ${bottomBarAd.enabled ? "translate-x-4.5" : "translate-x-0.5"}`} />
                 </button>
@@ -1743,19 +1751,19 @@ export default function AdminPortalHub({
                 <div className="grid gap-3 md:grid-cols-2">
                   <div>
                     <label className="block text-[10px] text-slate-500 mb-1 font-bold">عنوان</label>
-                    <input type="text" value={bottomBarAd.title} onChange={e => setBottomBarAd({ ...bottomBarAd, title: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                    <input type="text" value={bottomBarAd.title} onChange={e => updateBottomBarAd({ title: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-slate-500 mb-1 font-bold">متن تبلیغ</label>
-                    <input type="text" value={bottomBarAd.description} onChange={e => setBottomBarAd({ ...bottomBarAd, description: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                    <input type="text" value={bottomBarAd.description} onChange={e => updateBottomBarAd({ description: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-slate-500 mb-1 font-bold">لینک</label>
-                    <input type="text" value={bottomBarAd.link} onChange={e => setBottomBarAd({ ...bottomBarAd, link: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                    <input type="text" value={bottomBarAd.link} onChange={e => updateBottomBarAd({ link: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-slate-500 mb-1 font-bold">متن دکمه</label>
-                    <input type="text" value={bottomBarAd.btnText} onChange={e => setBottomBarAd({ ...bottomBarAd, btnText: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                    <input type="text" value={bottomBarAd.btnText} onChange={e => updateBottomBarAd({ btnText: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
                   </div>
                 </div>
               )}
@@ -1765,7 +1773,7 @@ export default function AdminPortalHub({
             <div className="border border-white/5 rounded-xl p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="font-bold text-xs text-white">➡️ لغزنده (Slide-in از کنار صفحه)</h4>
-                <button type="button" onClick={() => setSlideInAd({ ...slideInAd, enabled: !slideInAd.enabled })}
+                <button type="button" onClick={() => updateSlideInAd({ enabled: !slideInAd.enabled })}
                   className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${slideInAd.enabled ? "bg-emerald-500" : "bg-gray-700"}`}>
                   <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition ${slideInAd.enabled ? "translate-x-4.5" : "translate-x-0.5"}`} />
                 </button>
@@ -1774,27 +1782,27 @@ export default function AdminPortalHub({
                 <div className="grid gap-3 md:grid-cols-2">
                   <div>
                     <label className="block text-[10px] text-slate-500 mb-1 font-bold">عنوان</label>
-                    <input type="text" value={slideInAd.title} onChange={e => setSlideInAd({ ...slideInAd, title: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                    <input type="text" value={slideInAd.title} onChange={e => updateSlideInAd({ title: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-slate-500 mb-1 font-bold">متن تبلیغ</label>
-                    <input type="text" value={slideInAd.description} onChange={e => setSlideInAd({ ...slideInAd, description: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                    <input type="text" value={slideInAd.description} onChange={e => updateSlideInAd({ description: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-slate-500 mb-1 font-bold">لینک</label>
-                    <input type="text" value={slideInAd.link} onChange={e => setSlideInAd({ ...slideInAd, link: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                    <input type="text" value={slideInAd.link} onChange={e => updateSlideInAd({ link: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-slate-500 mb-1 font-bold">متن دکمه</label>
-                    <input type="text" value={slideInAd.btnText} onChange={e => setSlideInAd({ ...slideInAd, btnText: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
+                    <input type="text" value={slideInAd.btnText} onChange={e => updateSlideInAd({ btnText: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-slate-500 mb-1 font-bold">آدرس تصویر (اختیاری)</label>
-                    <input type="text" value={slideInAd.imageUrl} onChange={e => setSlideInAd({ ...slideInAd, imageUrl: e.target.value })} placeholder="https://..." className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white placeholder-slate-600" />
+                    <input type="text" value={slideInAd.imageUrl} onChange={e => updateSlideInAd({ imageUrl: e.target.value })} placeholder="https://..." className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white placeholder-slate-600" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-slate-500 mb-1 font-bold">موقعیت</label>
-                    <select value={slideInAd.position} onChange={e => setSlideInAd({ ...slideInAd, position: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white">
+                    <select value={slideInAd.position} onChange={e => updateSlideInAd({ position: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white">
                       <option value="right">راست</option>
                       <option value="left">چپ</option>
                     </select>
