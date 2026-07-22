@@ -9,10 +9,10 @@ export default function Footer({ setActiveTab }: FooterProps) {
   return (
     <footer className="w-full bg-[#0a0a0c] text-slate-300 border-t border-white/5 py-10" dir="rtl">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <div className="grid gap-8 md:grid-cols-4 border-b border-white/5 pb-8">
+        <div className="grid gap-8 md:grid-cols-5 border-b border-white/5 pb-8">
           
           {/* Section 1: Brand & Bio */}
-          <div className="md:col-span-1.5 space-y-4">
+          <div className="md:col-span-2 space-y-4">
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-lg overflow-hidden bg-slate-900 flex items-center justify-center">
                 <img loading="lazy" decoding="async" 

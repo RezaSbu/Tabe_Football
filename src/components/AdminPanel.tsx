@@ -16,7 +16,9 @@ import {
   Zap,
   Power,
   Tv,
-  FileImage
+  FileImage,
+  Menu,
+  X
 } from "lucide-react";
 import AdminDashboard from "./AdminDashboard";
 import AdminMatchHub from "./AdminMatchHub";
@@ -98,6 +100,7 @@ export default function AdminPanel({
   // "dashboard" | "matches" | "overrides" | "ai" | "portal" | "selected-combination" | "players" | "teams" | "bracket" | "media" | "archive"
   const [activeMainTab, setActiveMainTab] = useState<"dashboard" | "matches" | "overrides" | "ai" | "portal" | "selected-combination" | "players" | "coaches" | "teams" | "bracket" | "media" | "archive">("dashboard");
   const [successMessage, setSuccessMessage] = useState("");
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const showShortSuccess = (msg: string) => {
     setSuccessMessage(msg);
@@ -228,9 +231,19 @@ export default function AdminPanel({
   }
 
   return (
-    <div className="grid gap-6 md:grid-cols-12" dir="rtl">
-      {/* Dynamic Sub-tab side navigation */}
-      <div className="md:col-span-3 bg-[#0b0b0f] border border-white/5 p-4 rounded-3xl h-fit space-y-4 relative">
+    <div className="space-y-4" dir="rtl">
+      {/* Mobile sidebar toggle */}
+      <button
+        onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+        className="md:hidden w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#0b0b0f] border border-white/5 text-xs font-bold text-slate-400 hover:text-white transition"
+      >
+        {isMobileSidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+        <span>{isMobileSidebarOpen ? "بستن منوی مدیریت" : "باز کردن منوی مدیریت"}</span>
+      </button>
+
+      <div className="grid gap-6 md:grid-cols-12">
+      {/* Sidebar */}
+      <div className={`${isMobileSidebarOpen ? 'block' : 'hidden'} md:block md:col-span-3 bg-[#0b0b0f] border border-white/5 p-4 rounded-3xl h-fit space-y-4 relative`}>
         <div className="absolute top-0 right-0 h-20 w-20 bg-red-655/5 rounded-full blur-2xl pointer-events-none" />
         
         <div className="flex items-center gap-2 border-b border-white/5 pb-3">
@@ -247,7 +260,7 @@ export default function AdminPanel({
         {/* Sidebar Navigation Options */}
         <div className="space-y-1 text-xs">
           <button
-            onClick={() => setActiveMainTab("dashboard")}
+            onClick={() => { setActiveMainTab("dashboard"); setIsMobileSidebarOpen(false); }}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "dashboard" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
             <Layout className="h-4 w-4" />
@@ -255,7 +268,7 @@ export default function AdminPanel({
           </button>
 
           <button
-            onClick={() => setActiveMainTab("matches")}
+            onClick={() => { setActiveMainTab("matches"); setIsMobileSidebarOpen(false); }}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "matches" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
             <Tv className="h-4 w-4" />
@@ -263,7 +276,7 @@ export default function AdminPanel({
           </button>
 
           <button
-            onClick={() => setActiveMainTab("bracket")}
+            onClick={() => { setActiveMainTab("bracket"); setIsMobileSidebarOpen(false); }}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "bracket" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
             id="tab-bracket"
           >
@@ -272,7 +285,7 @@ export default function AdminPanel({
           </button>
 
           <button
-            onClick={() => setActiveMainTab("overrides")}
+            onClick={() => { setActiveMainTab("overrides"); setIsMobileSidebarOpen(false); }}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "overrides" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
             <Sliders className="h-4 w-4" />
@@ -280,7 +293,7 @@ export default function AdminPanel({
           </button>
 
           <button
-            onClick={() => setActiveMainTab("ai")}
+            onClick={() => { setActiveMainTab("ai"); setIsMobileSidebarOpen(false); }}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "ai" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
             <Sparkles className="h-4 w-4" />
@@ -288,7 +301,7 @@ export default function AdminPanel({
           </button>
 
           <button
-            onClick={() => setActiveMainTab("portal")}
+            onClick={() => { setActiveMainTab("portal"); setIsMobileSidebarOpen(false); }}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "portal" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
             <Megaphone className="h-4 w-4" />
@@ -296,7 +309,7 @@ export default function AdminPanel({
           </button>
 
           <button
-            onClick={() => setActiveMainTab("media")}
+            onClick={() => { setActiveMainTab("media"); setIsMobileSidebarOpen(false); }}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "media" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
             <FileImage className="h-4 w-4" />
@@ -306,7 +319,7 @@ export default function AdminPanel({
           <div className="my-2 border-t border-white/5" />
 
           <button
-            onClick={() => setActiveMainTab("selected-combination")}
+            onClick={() => { setActiveMainTab("selected-combination"); setIsMobileSidebarOpen(false); }}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "selected-combination" ? "bg-amber-600 text-white shadow-md shadow-amber-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
             <Award className="h-4 w-4 text-amber-500" />
@@ -314,7 +327,7 @@ export default function AdminPanel({
           </button>
 
           <button
-            onClick={() => setActiveMainTab("players")}
+            onClick={() => { setActiveMainTab("players"); setIsMobileSidebarOpen(false); }}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "players" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
             <Users className="h-4 w-4" />
@@ -322,7 +335,7 @@ export default function AdminPanel({
           </button>
 
           <button
-            onClick={() => setActiveMainTab("coaches")}
+            onClick={() => { setActiveMainTab("coaches"); setIsMobileSidebarOpen(false); }}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "coaches" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
             <Users className="h-4 w-4" />
@@ -330,7 +343,7 @@ export default function AdminPanel({
           </button>
 
           <button
-            onClick={() => setActiveMainTab("teams")}
+            onClick={() => { setActiveMainTab("teams"); setIsMobileSidebarOpen(false); }}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "teams" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
             <ShieldCheck className="h-4 w-4" />
@@ -338,7 +351,7 @@ export default function AdminPanel({
           </button>
 
           <button
-            onClick={() => setActiveMainTab("archive")}
+            onClick={() => { setActiveMainTab("archive"); setIsMobileSidebarOpen(false); }}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "archive" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
             <Database className="h-4 w-4 text-rose-450" />
@@ -528,6 +541,7 @@ export default function AdminPanel({
             }}
           />
         )}
+      </div>
       </div>
     </div>
   );

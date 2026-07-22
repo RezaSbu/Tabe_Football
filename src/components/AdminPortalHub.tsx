@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
   FileText, 
   RefreshCw, 
@@ -43,12 +43,16 @@ export default function AdminPortalHub({
 }: AdminPortalHubProps) {
   const [subTab, setSubTab] = useState<"news" | "transfers" | "teamTransfers" | "legionnaires" | "gallery" | "submissions" | "banner" | "adSlots">("news");
   const [adSlots, setAdSlots] = useState<any[]>(adConfig?.adSlots || []);
+  const hasUnsavedAdEdits = useRef(false);
 
-  useEffect(() => {
+  const syncAdSlotsFromServer = () => {
     if (adConfig?.adSlots && Array.isArray(adConfig.adSlots)) {
       setAdSlots(adConfig.adSlots);
+      hasUnsavedAdEdits.current = false;
     }
-  }, [adConfig?.adSlots]);
+  };
+
+  const markAdDirty = () => { hasUnsavedAdEdits.current = true; };
 
   const handleDeleteSubmission = async (id: string) => {
     if (window.confirm("آیا از حذف این پیام اطمینان دارید؟")) {
@@ -128,15 +132,19 @@ export default function AdminPortalHub({
   const [adDesc, setAdDesc] = useState(adConfig?.adDesc || "");
   const [adLink, setAdLink] = useState(adConfig?.adLink || "");
   const [adBannerUrl, setAdBannerUrl] = useState(adConfig?.customBannerUrl || "");
+  const hasUnsavedBannerEdits = useRef(false);
 
   useEffect(() => {
-    if (adConfig) {
+    if (adConfig && !hasUnsavedBannerEdits.current) {
       setAdTitle(adConfig.adTitle || "");
       setAdPromo(adConfig.adPromo || "");
       setAdBtnText(adConfig.adBtnText || "");
       setAdDesc(adConfig.adDesc || "");
       setAdLink(adConfig.adLink || "");
       setAdBannerUrl(adConfig.customBannerUrl || "");
+    }
+    if (!hasUnsavedBannerEdits.current && !hasUnsavedAdEdits.current) {
+      syncAdSlotsFromServer();
     }
   }, [adConfig]);
 
@@ -528,8 +536,7 @@ export default function AdminPortalHub({
   };
 
   // 5. AD BANNER ACTIONS
-  const handleSaveAdConfig = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveAdConfig = async () => {
     if (!onUpdateAdConfig) {
       alert("توابع ذخیره‌سازی در دسترس نیست.");
       return;
@@ -537,7 +544,9 @@ export default function AdminPortalHub({
     try {
       const success = await onUpdateAdConfig({ adTitle, adPromo, adBtnText, adDesc, adLink, customBannerUrl: adBannerUrl, adSlots });
       if (success) {
-        alert("بنر تبلیغاتی با موفقیت ذخیره شد!");
+        hasUnsavedAdEdits.current = false;
+        hasUnsavedBannerEdits.current = false;
+        alert("تبلیغات با موفقیت ذخیره شد!");
       } else {
         alert("ذخیره تبلیغات موفقیت‌آمیز نبود.");
       }
@@ -565,17 +574,20 @@ export default function AdminPortalHub({
       customBannerUrl: ""
     };
     setAdSlots([...adSlots, newSlot]);
+    markAdDirty();
   };
 
   const handleUpdateAdSlot = (index: number, field: string, value: any) => {
     const updated = [...adSlots];
     updated[index] = { ...updated[index], [field]: value };
     setAdSlots(updated);
+    markAdDirty();
   };
 
   const handleDeleteAdSlot = (index: number) => {
     if (!window.confirm("آیا از حذف این جایگاه تبلیغاتی اطمینان دارید؟")) return;
     setAdSlots(adSlots.filter((_: any, i: number) => i !== index));
+    markAdDirty();
   };
 
   return (
@@ -1354,7 +1366,7 @@ export default function AdminPortalHub({
       {subTab === "banner" && (
         <div className="bg-[#0b0b0f] border border-white/5 p-5 rounded-2xl space-y-4">
           <h3 className="font-extrabold text-sm text-white border-b border-white/5 pb-2">📢 تنظیم بنر بازرگانی بالای خط هدر سراسری</h3>
-          <form onSubmit={handleSaveAdConfig} className="space-y-4 max-w-2xl">
+          <form onSubmit={(e) => { e.preventDefault(); handleSaveAdConfig(); }} className="space-y-4 max-w-2xl">
             <div>
               <label className="block text-xs text-slate-400 mb-1.5 font-bold">نام آگهی دهنده</label>
               <input type="text" value={adTitle} onChange={e => setAdTitle(e.target.value)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2.5 text-white" />
@@ -1543,7 +1555,7 @@ export default function AdminPortalHub({
                 );
               })}
 
-              <button onClick={handleSaveAdConfig as any} className="bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs px-5 py-2.5 rounded-lg">
+              <button type="button" onClick={handleSaveAdConfig} className="bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs px-5 py-2.5 rounded-lg">
                 ذخیره تمام جایگاه‌ها
               </button>
             </div>

@@ -49,20 +49,31 @@ export default function Navbar({
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-white/5 bg-[#121215]/95 backdrop-blur-md text-white shadow-xl" id="app-navigation-bar">
-      {/* Main Nav Bar (Horizontal list with scroll on mobile, flex-wrap on desktop) */}
       <nav dir="rtl">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <ul className="flex gap-1 py-1 overflow-x-auto whitespace-nowrap md:flex-wrap select-none scrollbar-none [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          {/* Desktop: horizontal scroll | Mobile: toggle menu */}
+          <div className="flex items-center justify-between md:hidden py-2">
+            <span className="text-xs font-bold text-slate-400">ناوبری سریع</span>
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="p-2 rounded-lg bg-white/5 text-slate-400 hover:text-white transition"
+            >
+              {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          </div>
+
+          {/* Desktop nav */}
+          <ul className="hidden md:flex gap-1 py-1 flex-wrap select-none">
             {navItems.map((item) => {
               const IconComp = item.icon;
               const isActive = activeTab === item.id;
               return (
-                <li key={item.id} className="inline-block md:block">
+                <li key={item.id}>
                   <button
                     onClick={() => setActiveTab(item.id)}
                     className={`flex items-center gap-1.5 px-3.5 py-3 text-sm font-medium transition-all ${
                       isActive
-                        ? "text-emerald-450 md:text-emerald-400 md:border-b-2 md:border-emerald-500 bg-white/5"
+                        ? "text-emerald-400 border-b-2 border-emerald-500 bg-white/5"
                         : "text-gray-300 hover:text-white hover:bg-white/5"
                     }`}
                   >
@@ -73,6 +84,31 @@ export default function Navbar({
               );
             })}
           </ul>
+
+          {/* Mobile dropdown menu */}
+          {isMobileMenuOpen && (
+            <ul className="md:hidden pb-2 space-y-0.5 max-h-[60vh] overflow-y-auto">
+              {navItems.map((item) => {
+                const IconComp = item.icon;
+                const isActive = activeTab === item.id;
+                return (
+                  <li key={item.id}>
+                    <button
+                      onClick={() => { setActiveTab(item.id); setIsMobileMenuOpen(false); }}
+                      className={`flex items-center gap-2 w-full px-3 py-2.5 text-sm font-medium rounded-lg transition ${
+                        isActive
+                          ? "text-emerald-400 bg-emerald-500/10"
+                          : "text-gray-300 hover:text-white hover:bg-white/5"
+                      }`}
+                    >
+                      <IconComp className={`h-4 w-4 ${isActive ? "text-emerald-400" : "text-slate-400"}`} />
+                      <span>{item.label}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
       </nav>
     </header>

@@ -300,7 +300,7 @@ export default function HomePage({
                 );
               }
               return (
-                <div className="rounded-xl border border-white/5 p-2 bg-gray-900/30 animate-in face-in duration-200">
+                <div className="rounded-xl border border-white/5 p-2 bg-gray-900/30 animate-in face-in duration-200 overflow-x-auto">
                   <table className="w-full text-right text-[11px] text-gray-300">
                     <thead className="bg-[#0a0a0c] text-gray-500 text-[9px] border-b border-white/5">
                       <tr>
@@ -343,40 +343,13 @@ export default function HomePage({
             <span className="rounded bg-amber-500/10 border border-amber-900/30 px-2 py-0.5 text-[8px] font-black uppercase text-amber-400">آنتن زنده</span>
           </div>
 
-          <div className="bg-gradient-to-br from-[#121625] to-[#0d0f19] border border-blue-500/10 hover:border-blue-500/25 p-5 rounded-2xl flex flex-col justify-between aspect-square relative overflow-hidden group select-none shadow-xl transition-all duration-300">
-            <div className="absolute -top-12 -left-12 h-36 w-36 rounded-full bg-blue-600/10 blur-3xl group-hover:bg-blue-600/20 transition-all duration-300" />
-            <div className="absolute -bottom-12 -right-12 h-36 w-36 rounded-full bg-emerald-600/10 blur-3xl group-hover:bg-emerald-600/20 transition-all duration-300" />
-
-            <div className="relative z-10 flex flex-col justify-between h-full">
-              <div className="flex justify-between items-start">
-                <span className="bg-blue-500/15 text-blue-400 border border-blue-500/20 px-2.5 py-0.5 rounded text-[9px] font-black tracking-wide">رعایت بازی جوانمردانه</span>
-                <span className="text-[9px] text-gray-500 font-bold bg-white/5 px-2 py-0.5 rounded">اسپانسر رسمی</span>
-              </div>
-
-              <div className="my-auto text-center space-y-2">
-                <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-gradient-to-tr from-blue-500 to-emerald-500 p-[1px] shadow-lg animate-bounce duration-1000">
-                  <div className="h-full w-full rounded-full bg-[#0d0f19] flex items-center justify-center">
-                    <Trophy className="h-5.5 w-5.5 text-emerald-400" />
-                  </div>
-                </div>
-                <h3 className="font-extrabold text-white text-sm leading-relaxed">
-                  کمپین بزرگ پیش‌بینی نتایج تب فوتبال
-                </h3>
-                <p className="text-[10px] text-gray-400 leading-relaxed font-bold">
-                  برنده خوش‌شانس خودروی شاسی‌بلند و ۱ میلیارد تومان وجه نقد باشید!
-                </p>
-              </div>
-
-              <button
-                onClick={() => {
-                  handleTabChangeSubmit("predictions");
-                }}
-                className="w-full bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 py-3 rounded-xl text-center text-[11px] text-white font-black shadow-lg shadow-blue-900/20 active:scale-98 transition duration-200 cursor-pointer"
-              >
-                ثبت رایگان پیش‌بینی مسابقه بعدی
-              </button>
+          {(adConfig.adSlots || []).filter((s: any) => s.isActive && s.name?.toLowerCase().includes("campaign")).length > 0 ? (
+            <div className="space-y-4">
+              {(adConfig.adSlots || []).filter((s: any) => s.isActive && s.name?.toLowerCase().includes("campaign")).sort((a: any, b: any) => (b.priority || 0) - (a.priority || 0)).map((slot: any) => (
+                <AdSlot key={slot.id} slot={slot} />
+              ))}
             </div>
-          </div>
+          ) : null}
 
           <div className="sticky top-24 space-y-6 select-none" id="sticky-sidebar-balance">
             <div className="space-y-3 bg-[#121215]/50 border border-white/5 p-4 rounded-2xl">
