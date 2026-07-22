@@ -65,13 +65,21 @@ export function useAppData() {
 
   const [livescoreFilter, setLivescoreFilter] = useState<string>("all");
   const [adConfig, setAdConfig] = useState<any>({
-    adTitle: "سامانه خدمات آنلاین اسنپ، حامی لیگ برتر",
-    adPromo: "F360",
-    adDesc: "با ثبت نام با کد تخفیف F360، اولین سفر خود را کاملأ رایگان اسنپ باشید!",
-    adLink: "https://snapp.ir",
-    adBtnText: "نصب اسنپ",
+    adTitle: "",
+    adPromo: "",
+    adDesc: "",
+    adLink: "",
+    adBtnText: "",
     customBannerUrl: "",
-    adSlots: []
+    adSlots: [],
+    bannerLabel: "تخفیف هواداران تب فوتبال",
+    bannerLabelVisible: true,
+    bannerTagText: "حمایت ویژه پورتال",
+    bannerVisible: true,
+    popupAd: { enabled: false },
+    floatingAd: { enabled: false },
+    bottomBarAd: { enabled: false },
+    slideInAd: { enabled: false }
   });
 
   const applyFetchedData = (data: any) => {

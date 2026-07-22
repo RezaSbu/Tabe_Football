@@ -15,6 +15,10 @@ import Footer from "./components/Footer";
 import { useAppData } from "./hooks/useAppData";
 import { useGoalNotifications } from "./hooks/useGoalNotifications";
 import { GoalNotification } from "./components/GoalNotification";
+import PopupAd from "./components/PopupAd";
+import FloatingAd from "./components/FloatingAd";
+import BottomBarAd from "./components/BottomBarAd";
+import SlideInAd from "./components/SlideInAd";
 
 const LeagueTables = React.lazy(() => import("./components/LeagueTables"));
 const FutsalPage = React.lazy(() => import("./components/FutsalPage"));
@@ -263,6 +267,11 @@ export default function App() {
       <Footer setActiveTab={d.setActiveTab} />
 
       <GoalNotification activeGoalEvent={d.activeGoalEvent} setActiveGoalEvent={d.setActiveGoalEvent} />
+
+      {d.adConfig?.popupAd?.enabled && <PopupAd ad={d.adConfig.popupAd} />}
+      {d.adConfig?.floatingAd?.enabled && <FloatingAd ad={d.adConfig.floatingAd} />}
+      {d.adConfig?.bottomBarAd?.enabled && <BottomBarAd ad={d.adConfig.bottomBarAd} />}
+      {d.adConfig?.slideInAd?.enabled && <SlideInAd ad={d.adConfig.slideInAd} />}
     </div>
   );
 }
