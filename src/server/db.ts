@@ -11,7 +11,7 @@ const pool = new Pool({
   port: parseInt(process.env.DB_PORT || "5432"),
   database: process.env.DB_NAME || "tabe_football",
   user: process.env.DB_USER || "tabe_admin",
-  password: process.env.DB_PASSWORD || "tabe_local_2026",
+  password: process.env.DB_PASSWORD || "",
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,

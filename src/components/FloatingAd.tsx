@@ -9,7 +9,7 @@ interface FloatingAdProps {
     link: string;
     btnText: string;
     imageUrl?: string;
-    position?: "top-left" | "top-right" | "bottom-left" | "bottom-right";
+    position?: string;
     delay?: number;
     showAfterScroll?: boolean;
   };

@@ -22,11 +22,11 @@ export default function PlayerDetail({
   onSelectTeam,
   onSelectMatch
 }: PlayerDetailProps) {
-  if (!player) return null;
-
   const [activeTab, setActiveTab] = useState<"overview" | "matches" | "career">("overview");
   const [imageError, setImageError] = useState(false);
-  const [lastPlayerId, setLastPlayerId] = useState(player?.id);
+  const [lastPlayerId, setLastPlayerId] = useState<string | undefined>(undefined);
+
+  if (!player) return null;
 
   if (player?.id !== lastPlayerId) {
     setImageError(false);

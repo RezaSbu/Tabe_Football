@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import express from "express";
+import crypto from "crypto";
 
 const JWT_SECRET = process.env.JWT_SECRET || "";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
@@ -21,7 +22,7 @@ if (!ADMIN_PASSWORD || ADMIN_PASSWORD.length < 8) {
   console.warn("[SECURITY] ⚠ ADMIN_PASSWORD تنظیم نشده یا ضعیف است. از رمز پیش‌فرض توسعه استفاده می‌شود.");
 }
 
-export const JWT_SECRET_VALUE = JWT_SECRET || "dev-only-fallback-not-for-production";
+export const JWT_SECRET_VALUE = JWT_SECRET || (process.env.NODE_ENV !== "production" ? crypto.randomBytes(48).toString("hex") : "");
 export const JWT_EXPIRES_IN = "24h";
 export const ADMIN_PASSWORD_HASH = bcrypt.hashSync(ADMIN_PASSWORD, 10);
 

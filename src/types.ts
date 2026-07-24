@@ -303,3 +303,67 @@ export interface TeamTransferItem {
   probables: TeamTransferPlayer[];
 }
 
+export interface OverlayAdConfig {
+  enabled: boolean;
+  title: string;
+  description: string;
+  link: string;
+  btnText: string;
+  imageUrl?: string;
+  position?: string;
+  delay?: number;
+  showAfterScroll?: boolean;
+  scrollThreshold?: number;
+  linkUrl?: string;
+}
+
+export interface AdSlot {
+  id: string;
+  name: string;
+  type: 'text' | 'image' | 'mixed';
+  text?: string;
+  link?: string;
+  imageUrl?: string;
+  imageLink?: string;
+  priority?: number;
+  startDate?: string;
+  endDate?: string;
+  active?: boolean;
+}
+
+export interface AdConfig {
+  adTitle: string;
+  adPromo: string;
+  adDesc: string;
+  adLink: string;
+  adBtnText: string;
+  customBannerUrl: string;
+  adSlots: AdSlot[];
+  bannerLabel: string;
+  bannerLabelVisible: boolean;
+  bannerTagText: string;
+  bannerVisible: boolean;
+  popupAd: OverlayAdConfig;
+  floatingAd: OverlayAdConfig;
+  bottomBarAd: OverlayAdConfig;
+  slideInAd: OverlayAdConfig;
+}
+
+export interface LiveGoal {
+  id: string;
+  scoringTeam: string;
+  scorerName: string;
+  minute: string;
+  teamHome: string;
+  scoreHome: number;
+  scoreAway: number;
+  teamAway: string;
+}
+
+export interface ArchiveItem {
+  id: string;
+  season: string;
+  data: any;
+  created_at?: string;
+}
+

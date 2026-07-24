@@ -33,6 +33,15 @@ export default function TeamDetail({
   onSelectArticle,
   onSelectMatch
 }: TeamDetailProps) {
+  const [activeSubTab, setActiveSubTab] = useState<"overview" | "fixtures" | "squad">("overview");
+  const [statsCompet, setStatsCompet] = useState<"league" | "cup">("league");
+
+  useEffect(() => {
+    if (team && (team.sport === "futsal" || team.league === "futsal" || team.id?.startsWith("futsal-") || team.id?.includes("futsal") || (team.name || "").includes("فوتسال"))) {
+      setStatsCompet("league");
+    }
+  }, [team?.id, team?.sport, team?.league]);
+
   if (!team) return null;
 
   const teamName = team.name || "";
@@ -84,20 +93,11 @@ export default function TeamDetail({
     }
   }
 
-  const [activeSubTab, setActiveSubTab] = useState<"overview" | "fixtures" | "squad">("overview");
-  const [statsCompet, setStatsCompet] = useState<"league" | "cup">("league");
-
   const isFutsalTeam = team.sport === "futsal" || 
                        team.league === "futsal" || 
                        team.id?.startsWith("futsal-") || 
                        team.id?.includes("futsal") || 
                        (team.name || "").includes("فوتسال");
-
-  useEffect(() => {
-    if (isFutsalTeam) {
-      setStatsCompet("league");
-    }
-  }, [team.id, isFutsalTeam]);
 
   // Filter squad players for this team
   const teamPlayers = players.filter((p) => p.teamId === team.id || p.teamName?.includes(team.name) || p.teamName === team.name);

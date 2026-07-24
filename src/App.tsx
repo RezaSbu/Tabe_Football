@@ -139,7 +139,7 @@ export default function App() {
             onSelectPlayer={(id: string) => { d.setSelectedPlayerId(id); d.setSelectedTeamId(null); }}
             onSelectCoach={(id: string) => { d.setSelectedCoachId(id); d.setSelectedTeamId(null); }}
             onSelectArticle={(art: NewsItem) => d.setActiveArticle(art)}
-            onSelectMatch={(matchId: string) => { d.setSelectedMatch(d.matches.find((m: MatchItem) => String(m.id) === String(matchId))); scrollToTop(); }}
+            onSelectMatch={(matchId: string) => { d.setSelectedMatch(d.matches.find((m: MatchItem) => String(m.id) === String(matchId)) || null); scrollToTop(); }}
           />
         ) : d.selectedPlayerId ? (
           <PlayerDetail player={d.findPlayerById(d.selectedPlayerId)} allMatches={d.matches} allTeams={d.teams}
@@ -148,7 +148,7 @@ export default function App() {
               const tm = d.teams.find((t: any) => t.name.includes(teamName) || teamName.includes(t.name));
               if (tm) { d.setSelectedTeamId(tm.id); d.setSelectedPlayerId(null); }
             }}
-            onSelectMatch={(matchId: string) => { d.setSelectedMatch(d.matches.find((m: MatchItem) => String(m.id) === String(matchId))); scrollToTop(); }}
+            onSelectMatch={(matchId: string) => { d.setSelectedMatch(d.matches.find((m: MatchItem) => String(m.id) === String(matchId)) || null); scrollToTop(); }}
           />
         ) : d.selectedCoachId ? (
           <CoachDetail coach={d.findCoachById(d.selectedCoachId)} allMatches={d.matches}

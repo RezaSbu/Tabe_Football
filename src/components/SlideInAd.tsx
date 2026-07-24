@@ -9,7 +9,7 @@ interface SlideInAdProps {
     link: string;
     btnText: string;
     imageUrl?: string;
-    position?: "left" | "right";
+    position?: string;
     delay?: number;
     showAfterScroll?: boolean;
   };
