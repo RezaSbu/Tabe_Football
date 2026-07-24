@@ -216,7 +216,7 @@ export function registerArchiveRoutes(app: Express) {
         if (!currentDB.stats) currentDB.stats = {};
 
         statsLeagues.forEach((leagueKey) => {
-          let eligiblePlayers = [];
+          let eligiblePlayers: any[];
 
           if (leagueKey === "hazfi-cup") {
             eligiblePlayers = currentDB.players.filter((p: any) => {

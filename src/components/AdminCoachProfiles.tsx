@@ -484,7 +484,7 @@ export default function AdminCoachProfiles({
 
                     if (teamSelect) {
                       let tId = teamSelect.value;
-                      let tName = "";
+                      let tName: string;
                       if (tId === "custom") {
                         tName = customInp?.value || "باشگاه ناشناس";
                         tId = "custom-" + Date.now();

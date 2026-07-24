@@ -71,7 +71,7 @@ export default function FanPredictions({
     if ("Notification" in window && Notification.permission === "default") {
       try {
         Notification.requestPermission();
-      } catch (e) {}
+      } catch (_e) { /* permission denied */ }
     }
   }, []);
 
@@ -101,7 +101,7 @@ export default function FanPredictions({
         gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
         osc.start();
         osc.stop(audioContext.currentTime + 0.15);
-      } catch (e) {}
+      } catch (_e) { /* audio not supported */ }
     }
   };
 

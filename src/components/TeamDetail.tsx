@@ -489,7 +489,7 @@ export default function TeamDetail({
                     const homeG = m.scoreHome ?? 0;
                     const awayG = m.scoreAway ?? 0;
                     
-                    let outcome: "W" | "D" | "L" = "D";
+                    let outcome: "W" | "D" | "L";
                     if (homeG === awayG) outcome = "D";
                     else if (isHome) {
                       outcome = homeG > awayG ? "W" : "L";

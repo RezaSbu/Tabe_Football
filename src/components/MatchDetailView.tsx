@@ -32,7 +32,7 @@ export default function MatchDetailView({
     const p1 = ev.playerName || "";
     const p2 = ev.player2Name || ev.assistPlayerName || "";
     const details = ev.details || "";
-    let desc = "";
+    let desc: string;
     
     switch (ev.type) {
       case "goal":

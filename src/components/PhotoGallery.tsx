@@ -28,7 +28,7 @@ export default function PhotoGallery({ images, initialSearchTag = "" }: PhotoGal
             setSelectedImage(prev => prev && prev.id === selectedImage.id ? { ...prev, viewCount: data.viewCount } : prev);
           }
         }
-      } catch {}
+      } catch (_e) { /* view tracking failed */ }
     };
     trackView();
   }, [selectedImage?.id]);

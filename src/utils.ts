@@ -304,10 +304,10 @@ export function computeDynamicAppletStats(
   const statsLeagues = ["pro-league", "league-1", "league-2", "hazfi-cup", "futsal"];
 
   statsLeagues.forEach((leagueKey) => {
-    let statsObj: any = null;
+    let statsObj: any;
 
     // Dynamic calculation from cleanly mapped player seasonStats
-    let eligiblePlayers = [];
+    let eligiblePlayers: any[];
 
     if (leagueKey === "hazfi-cup") {
       eligiblePlayers = processedPlayers.filter((p: any) => {
