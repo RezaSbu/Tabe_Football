@@ -92,13 +92,11 @@ export interface LegionnaireItem {
   
   // Extended fields loaded from DB
   teamLogo?: string;
-  matchRating?: string;
-  goals?: number;
-  assists?: number;
-  minutesPlayed?: number;
-  matchStatus?: string;
   logo?: string;
   description?: string;
+  summary?: string;
+  nationality?: string;
+  position?: string;
 }
 
 export interface ImageItem {

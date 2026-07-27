@@ -113,12 +113,8 @@ export default function AdminPortalHub({
   const [legImage, setLegImage] = useState("");
   const [legLeague, setLegLeague] = useState("");
   const [legTeam, setLegTeam] = useState("");
-  const [legRating, setLegRating] = useState<string>("7.5");
-  const [legGoals, setLegGoals] = useState("");
-  const [legAssists, setLegAssists] = useState("");
-  const [legMinutesPlayed, setLegMinutesPlayed] = useState("");
-  const [legMatchStatus, setLegMatchStatus] = useState("۹۰ دقیقه بازی");
   const [legPerformance, setLegPerformance] = useState("");
+  const [legSummary, setLegSummary] = useState("");
 
   // TAGS STATE FOR FORMS
   const [newsTags, setNewsTags] = useState("");
@@ -489,11 +485,7 @@ export default function AdminPortalHub({
     setLegImage(item.image || "");
     setLegLeague(item.league || "");
     setLegTeam(item.team || "");
-    setLegRating(item.rating ? String(item.rating) : "7.5");
-    setLegGoals(item.goals ? String(item.goals) : "");
-    setLegAssists(item.assists ? String(item.assists) : "");
-    setLegMinutesPlayed(item.minutesPlayed ? String(item.minutesPlayed) : "");
-    setLegMatchStatus(item.matchStatus || "۹۰ دقیقه بازی");
+    setLegSummary(item.summary || "");
     setLegPerformance(item.performance || item.description || "");
     setLegTags(item.tags ? item.tags.join(", ") : "");
     setShowForm("legionnaire");
@@ -506,15 +498,9 @@ export default function AdminPortalHub({
       image: legImage,
       league: legLeague,
       team: legTeam,
-      rating: parseFloat(legRating) || 7.5,
-      matchRating: legRating,
-      goals: parseInt(legGoals) || 0,
-      assists: parseInt(legAssists) || 0,
-      minutesPlayed: parseInt(legMinutesPlayed) || 90,
-      matchStatus: legMatchStatus,
+      summary: legSummary,
       performance: legPerformance,
       description: legPerformance,
-      logo: "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=80",
       tags: legTags.split(",").map(t => t.trim()).filter(Boolean)
     };
 
@@ -529,16 +515,11 @@ export default function AdminPortalHub({
       if (res.ok) {
         setShowForm(null);
         setEditingId(null);
-        // Reset states
         setLegName("");
         setLegImage("");
         setLegLeague("");
         setLegTeam("");
-        setLegRating("7.5");
-        setLegGoals("");
-        setLegAssists("");
-        setLegMinutesPlayed("");
-        setLegMatchStatus("۹۰ دقیقه بازی");
+        setLegSummary("");
         setLegPerformance("");
         onRefreshData();
       } else {
@@ -1233,11 +1214,7 @@ export default function AdminPortalHub({
                 setLegImage("");
                 setLegLeague("");
                 setLegTeam("");
-                setLegRating("7.5");
-                setLegGoals("");
-                setLegAssists("");
-                setLegMinutesPlayed("");
-                setLegMatchStatus("۹۰ دقیقه بازی");
+                setLegSummary("");
                 setLegPerformance("");
                 setLegTags("");
                 setShowForm("legionnaire");
@@ -1265,44 +1242,25 @@ export default function AdminPortalHub({
                 </div>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-4">
-                <div>
-                  <label className="block text-[10px] text-gray-500 mb-1">نمره این هفته (Rating)</label>
-                  <input type="text" value={legRating} onChange={e => setLegRating(e.target.value)} required placeholder="مثال: ۷.۸" className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-gray-500 mb-1">تعداد گل زده در بازی اخیر</label>
-                  <input type="number" value={legGoals} onChange={e => setLegGoals(e.target.value)} placeholder="مثال: ۱" className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-gray-500 mb-1">تعداد پاس گل اخیر</label>
-                  <input type="number" value={legAssists} onChange={e => setLegAssists(e.target.value)} placeholder="مثال: ۰" className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-gray-500 mb-1 font-bold text-gray-400">دقایق بازی در زمین</label>
-                  <input type="number" value={legMinutesPlayed} onChange={e => setLegMinutesPlayed(e.target.value)} placeholder="مثال: ۹۰" className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" />
-                </div>
-              </div>
-
               <div className="grid gap-3 md:grid-cols-2">
                 <div>
-                  <label className="block text-[10px] text-gray-500 mb-1">وضعیت حضور یا عملکرد کوتاه</label>
-                  <input type="text" value={legMatchStatus} onChange={e => setLegMatchStatus(e.target.value)} required placeholder="مثال: تعویض فیکس / ۹۰ دقیقه کامل" className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-gray-500 mb-1">آدرس آواتار / پرتره بازیکن (Image URL)</label>
+                  <label className="block text-[10px] text-gray-500 mb-1">آدرس تصویر بازیکن (Image URL)</label>
                   <input type="text" value={legImage} onChange={e => setLegImage(e.target.value)} placeholder="آدرس تصویر عکسی..." className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" />
                 </div>
+                <div>
+                  <label className="block text-[10px] text-gray-500 mb-1">برچسب‌ها (با کاما "," جدا کنید)</label>
+                  <input type="text" value={legTags} onChange={e => setLegTags(e.target.value)} placeholder="لژیونرها, طارمی, اینتر میلان" className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" />
+                </div>
               </div>
 
               <div>
-                <label className="block text-[10px] text-grey-500 mb-1">تحلیل کامل فنی و اخبار لژیونر (برای دکمه مشاهده خبر کامل)</label>
-                <textarea rows={5} value={legPerformance} onChange={e => setLegPerformance(e.target.value)} required placeholder="بنویسید عملکرد بازیکن در بازی چگونه بود، چه نمره‌ای به دست آورد، چه افتخاری آفرید و تأثیر او بر کل بازی چه بود..." className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white resize-none" />
+                <label className="block text-[10px] text-gray-500 mb-1">خلاصه عملکرد (نمایش در صفحه جزئیات)</label>
+                <textarea rows={2} value={legSummary} onChange={e => setLegSummary(e.target.value)} required placeholder="خلاصه کوتاه از عملکرد بازیکن..." className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white resize-none" />
               </div>
 
               <div>
-                <label className="block text-[10px] text-gray-500 mb-1">برچسب‌ها (با کاما "," جدا کنید)</label>
-                <input type="text" value={legTags} onChange={e => setLegTags(e.target.value)} placeholder="لژیونرها, طارمی, اینتر میلان, لژیونر" className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" />
+                <label className="block text-[10px] text-gray-500 mb-1">تحلیل کامل فنی و اخبار لژیونر</label>
+                <textarea rows={5} value={legPerformance} onChange={e => setLegPerformance(e.target.value)} required placeholder="بنویسید عملکرد بازیکن در بازی چگونه بود..." className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white resize-none" />
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
@@ -1320,7 +1278,6 @@ export default function AdminPortalHub({
                   <div>
                     <span className="font-extrabold text-white text-xs block">{leg.name}</span>
                     <span className="text-[10px] text-slate-400 mt-0.5 block">باشگاه {leg.team} | {leg.league}</span>
-                    <span className="text-[9px] text-emerald-400 font-mono mt-0.5 inline-block">نمره: {leg.rating || leg.matchRating || "۷.۵"}</span>
                   </div>
                 </div>
 

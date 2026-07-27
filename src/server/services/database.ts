@@ -32,11 +32,22 @@ export async function migrateConstraints(): Promise<void> {
     `);
     await pool.query(`ALTER TABLE legionnaires DROP CONSTRAINT IF EXISTS chk_legionnaires_league;`);
     await pool.query(`ALTER TABLE images ADD COLUMN IF NOT EXISTS view_count integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE legionnaires ADD COLUMN IF NOT EXISTS summary text`);
     await pool.query(`ALTER TABLE bracket_slots DROP CONSTRAINT IF EXISTS fk_bracket_slots_match`);
     constraintsMigrated = true;
     logMessage("info", "database", "مهاجرت محدودیت‌های CHECK و ستون view_count جدول images با موفقیت اعمال شد.");
   } catch (err: any) {
     logMessage("warn", "database", "خطا در مهاجرت محدودیت‌های CHECK:", err.message || err);
+  }
+}
+
+export async function migrateSummaryColumn(): Promise<void> {
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`ALTER TABLE legionnaires ADD COLUMN IF NOT EXISTS summary text`);
+    logMessage("info", "database", "مهاجرت ستون summary لژیونرها اعمال شد.");
+  } catch (err: any) {
+    logMessage("warn", "database", "خطا در مهاجرت ستون summary:", err.message || err);
   }
 }
 
@@ -308,11 +319,7 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
         league: fixMojibake(l.league || ""),
         team: fixMojibake(l.team || ""),
         teamLogo: l.team_logo,
-        matchRating: l.match_rating,
-        goals: l.goals || 0,
-        assists: l.assists || 0,
-        minutesPlayed: l.minutes_played || 0,
-        matchStatus: fixMojibake(l.match_status || ""),
+        summary: fixMojibake(l.summary || ""),
         logo: l.logo,
         performance: fixMojibake(l.description || l.performance || ""),
         description: fixMojibake(l.description || l.performance || ""),
@@ -748,11 +755,7 @@ export async function saveDB(): Promise<void> {
         league: l.league,
         team: l.team,
         team_logo: l.teamLogo,
-        match_rating: l.matchRating,
-        goals: l.goals || 0,
-        assists: l.assists || 0,
-        minutes_played: l.minutesPlayed || 0,
-        match_status: l.matchStatus,
+        summary: l.summary || "",
         logo: l.logo,
         description: l.performance || l.description || "",
         view_count: l.viewCount || 0,

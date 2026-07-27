@@ -207,6 +207,7 @@ CREATE TABLE public.legionnaires (
   assists integer DEFAULT 0,
   minutes_played integer DEFAULT 0,
   description text,
+  summary text,
   view_count integer DEFAULT 0,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),

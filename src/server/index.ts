@@ -11,7 +11,7 @@ import { centralAuthGuard } from "./middleware/auth";
 import { loadDB, setDb } from "./state";
 import { dbLock } from "./utils/concurrency";
 import { logMessage } from "./utils/logger";
-import { fetchAndPopulateMemoryDB, saveDB, migrateConstraints } from "./services/database";
+import { fetchAndPopulateMemoryDB, saveDB, migrateConstraints, migrateSummaryColumn } from "./services/database";
 import { recalculateAndSyncDatabase } from "./services/stats";
 
 import { registerSystemRoutes } from "./routes/system";
@@ -48,6 +48,7 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 
 async function startServer() {
   await migrateConstraints();
+  await migrateSummaryColumn();
   await dbLock.acquire(() => fetchAndPopulateMemoryDB());
 
   const db = loadDB();
