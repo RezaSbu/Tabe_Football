@@ -21,6 +21,7 @@ import { registerMatchRoutes } from "./routes/matches";
 import { registerStandingsRoutes } from "./routes/standings";
 import { registerMediaRoutes } from "./routes/media";
 import { registerMiscRoutes } from "./routes/misc";
+import { registerDetailRoutes } from "./routes/detail";
 
 logMessage("info", "general", "پورتال فوتبال ۳۶۰ در حال راه‌اندازی است...");
 
@@ -38,6 +39,7 @@ registerMatchRoutes(app);
 registerStandingsRoutes(app);
 registerMediaRoutes(app);
 registerMiscRoutes(app);
+registerDetailRoutes(app);
 
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   logMessage("error", "general", "Unhandled route error:", err.message || err);

@@ -59,7 +59,8 @@ export function centralAuthGuard(req: express.Request, res: express.Response, ne
     p === "/api/contact" ||
     p.startsWith("/api/predictions/") ||
     (req.method === "POST" && /^\/api\/news\/[^/]+\/view$/.test(p)) ||
-    (req.method === "POST" && /^\/api\/images\/[^/]+\/view$/.test(p));
+    (req.method === "POST" && /^\/api\/images\/[^/]+\/view$/.test(p)) ||
+    (req.method === "POST" && /^\/api\/detail\/[^/]+\/[^/]+\/view$/.test(p));
   if (isPublic) return next();
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
