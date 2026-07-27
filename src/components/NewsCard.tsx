@@ -1,14 +1,15 @@
 import React from "react";
 import { NewsItem } from "../types";
-import { Calendar, Eye, ArrowLeft } from "lucide-react";
+import { Calendar, Eye, ArrowLeft, Tag } from "lucide-react";
 import { getSafeImageUrl } from "../utils";
 
 interface NewsCardProps {
   newsItem: NewsItem;
   onClick: (art: NewsItem) => void;
+  onTagClick?: (tag: string) => void;
 }
 
-export default function NewsCard({ newsItem, onClick }: NewsCardProps) {
+export default function NewsCard({ newsItem, onClick, onTagClick }: NewsCardProps) {
   const getPersianCategory = (cat: string) => {
     switch (cat) {
       case "pro-league": return "لیگ برتر";
@@ -29,19 +30,17 @@ export default function NewsCard({ newsItem, onClick }: NewsCardProps) {
       dir="rtl"
     >
       <div>
-        {/* Cover image area with proxy */}
         <div className="relative h-44 w-full overflow-hidden bg-slate-900">
           <span className="absolute top-2 right-2 z-10 rounded bg-[#121215]/85 backdrop-blur px-2.5 py-1 text-[10px] font-bold text-emerald-400">
             {getPersianCategory(newsItem.category)}
           </span>
-          <img loading="lazy" decoding="async"             src={getSafeImageUrl(newsItem.image)}
+          <img loading="lazy" decoding="async" src={getSafeImageUrl(newsItem.image)}
             alt={newsItem.title}
             className="w-full h-full object-cover group-hover:scale-103 transition duration-500"
             referrerPolicy="no-referrer"
           />
         </div>
 
-        {/* Text specifications */}
         <div className="p-4 space-y-2">
           <h3 className="font-extrabold text-sm text-white line-clamp-2 leading-snug group-hover:text-emerald-400 transition">
             {newsItem.title}
@@ -52,7 +51,21 @@ export default function NewsCard({ newsItem, onClick }: NewsCardProps) {
         </div>
       </div>
 
-      {/* Meta footnote indicators */}
+      {newsItem.tags && newsItem.tags.length > 0 && (
+        <div className="px-4 pb-2 flex flex-wrap gap-1">
+          {newsItem.tags.slice(0, 3).map((tag: string) => (
+            <button
+              key={tag}
+              onClick={(e) => { e.stopPropagation(); onTagClick?.(tag); }}
+              className="rounded-lg bg-gray-950 px-1.5 py-0.5 text-[9px] text-slate-400 border border-white/5 hover:bg-red-950/40 hover:text-red-400 hover:border-red-900/40 transition cursor-pointer"
+            >
+              <Tag className="h-2 w-2 inline ml-0.5" />{tag}
+            </button>
+          ))}
+          {newsItem.tags.length > 3 && <span className="text-[9px] text-slate-600">+{newsItem.tags.length - 3}</span>}
+        </div>
+      )}
+
       <div className="p-4 pt-0 border-t border-white/[0.03] mt-2 flex items-center justify-between text-[10px] text-slate-500 font-medium">
         <span className="flex items-center gap-1">
           <Eye className="h-3 w-3 text-slate-450" />

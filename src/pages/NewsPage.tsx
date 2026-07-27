@@ -91,7 +91,7 @@ export default function NewsPage({
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((item) => (
               <div key={item.id} className="cursor-pointer" onClick={() => { setActiveArticle(item); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
-                <NewsCard newsItem={item} onClick={() => {}} />
+                <NewsCard newsItem={item} onClick={() => {}} onTagClick={(tag) => setNewsSearch(tag)} />
               </div>
             ))}
           </div>

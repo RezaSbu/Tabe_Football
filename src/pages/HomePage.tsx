@@ -28,6 +28,7 @@ interface HomePageProps {
   setSelectedPlayerId: (id: string | null) => void;
   setSelectedTeamId: (id: string | null) => void;
   adConfig: any;
+  onSelectTransfer?: (transferId: string) => void;
 }
 
 const getPersianCategory = (cat: string) => {
@@ -69,6 +70,7 @@ export default function HomePage({
   setSelectedPlayerId,
   setSelectedTeamId,
   adConfig,
+  onSelectTransfer,
 }: HomePageProps) {
   const [newsCategoryFilter, setNewsCategoryFilter] = useState("all");
   const [visibleNewsCount, setVisibleNewsCount] = useState(6);
@@ -134,7 +136,7 @@ export default function HomePage({
 
       <div className="grid gap-6 lg:grid-cols-12" id="home-dashboard-layout font-sans">
         <div className="lg:col-span-8 space-y-6">
-          <NewsSlider news={news} transfers={transfers} onSelectNews={setActiveArticle} />
+          <NewsSlider news={news} transfers={transfers} onSelectNews={setActiveArticle} onSelectTransfer={onSelectTransfer} />
           <MatchTicker matches={matches} onSelectMatch={setSelectedMatch} />
 
           <div className="space-y-4">
@@ -217,9 +219,9 @@ export default function HomePage({
                         {art.tags && art.tags.length > 0 && (
                           <div className="mt-3 flex flex-wrap gap-1">
                             {art.tags.slice(0, 3).map((tg: string) => (
-                              <span key={tg} className="rounded bg-gray-955 text-[9px] text-gray-500 border border-white/5 px-1.5 py-0.5">
+                              <button key={tg} onClick={(e) => { e.stopPropagation(); setNewsSearch(tg); }} className="rounded bg-gray-955 text-[9px] text-gray-500 border border-white/5 px-1.5 py-0.5 hover:bg-red-950/40 hover:text-red-400 hover:border-red-900/40 transition cursor-pointer">
                                 #{tg}
-                              </span>
+                              </button>
                             ))}
                           </div>
                         )}

@@ -1,22 +1,28 @@
 import React, { useState } from "react";
 import { TransferItem, NewsItem } from "../types";
-import { Shuffle, ArrowLeft, Calendar, Search, ArrowDownLeft, ArrowUpRight, Shield } from "lucide-react";
+import { Shuffle, ArrowLeft, Calendar, Search, ArrowDownLeft, ArrowUpRight, Shield, Eye, Tag } from "lucide-react";
 
 interface TransfersListProps {
   transfers: TransferItem[];
   teamTransfersList?: any[];
   teams?: any[];
   onSelectNews?: (news: NewsItem) => void;
+  onSelectTransfer?: (transferId: string) => void;
   initialSearchQuery?: string;
+  initialTransferTag?: string;
 }
 
-export default function TransfersList({ transfers, teamTransfersList = [], teams = [], onSelectNews, initialSearchQuery = "" }: TransfersListProps) {
+export default function TransfersList({ transfers, teamTransfersList = [], teams = [], onSelectNews, onSelectTransfer, initialSearchQuery = "", initialTransferTag = "" }: TransfersListProps) {
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [viewMode, setViewMode] = useState<"player" | "team">("player");
 
   React.useEffect(() => {
     setSearchQuery(initialSearchQuery);
   }, [initialSearchQuery]);
+
+  React.useEffect(() => {
+    if (initialTransferTag) setSearchQuery(initialTransferTag);
+  }, [initialTransferTag]);
 
   // Map teams to their logos for dynamic retrieval
   const teamLogosMap: Record<string, string> = {};
@@ -90,9 +96,13 @@ export default function TransfersList({ transfers, teamTransfersList = [], teams
   });
 
   const handleSelectTransfer = (item: TransferItem) => {
+    if (onSelectTransfer) {
+      onSelectTransfer(String(item.id));
+      return;
+    }
     if (!onSelectNews) return;
     const desc = item.description || item.details || "";
-    if (!desc || desc.trim() === "") return; // Don't trigger if empty as requested by user
+    if (!desc || desc.trim() === "") return;
 
     const newsItem: NewsItem = {
       id: `transfer-det-${item.id}`,
@@ -225,6 +235,28 @@ export default function TransfersList({ transfers, teamTransfersList = [], teams
                     <span className="font-bold text-slate-400 bg-[#121215] px-2.5 py-0.5 rounded border border-white/5">
                       مبلغ: <span className="text-emerald-400 font-mono font-bold">{item.fee || "توافقی"}</span>
                     </span>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-white/5 pt-2 mt-1">
+                    <span className="flex items-center gap-1 text-[10px] text-slate-500">
+                      <Eye className="h-2.5 w-2.5" />
+                      {(item.viewCount || 0).toLocaleString("fa-IR")} بازدید
+                    </span>
+
+                    {item.tags && item.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1 justify-end">
+                        {item.tags.slice(0, 3).map((tag: string) => (
+                          <button
+                            key={tag}
+                            onClick={(e) => { e.stopPropagation(); setSearchQuery(tag); }}
+                            className="rounded-lg bg-[#121215] px-1.5 py-0.5 text-[9px] text-slate-400 border border-white/5 hover:bg-emerald-950/40 hover:text-emerald-400 hover:border-emerald-900/40 transition cursor-pointer"
+                          >
+                            <Tag className="h-2 w-2 inline ml-0.5" />{tag}
+                          </button>
+                        ))}
+                        {item.tags.length > 3 && <span className="text-[9px] text-slate-600">+{item.tags.length - 3}</span>}
+                      </div>
+                    )}
                   </div>
                 </div>
               );

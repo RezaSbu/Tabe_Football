@@ -1,4 +1,4 @@
-import { Search } from "lucide-react";
+import { Search, Eye, Tag } from "lucide-react";
 import { LegionnaireItem } from "../types";
 
 interface LegionnairesPageProps {
@@ -58,37 +58,61 @@ function LegionnairesPage({
             <div
               key={leg.id}
               onClick={() => hasDesc && handleSelectLegionnaire(leg)}
-              className={`group flex gap-4 rounded-2xl bg-gray-900 border border-white/5 p-4 transition duration-300 shadow-md ${
+              className={`group flex flex-col gap-3 rounded-2xl bg-gray-900 border border-white/5 p-4 transition duration-300 shadow-md ${
                 hasDesc
                   ? "hover:border-emerald-500/40 hover:bg-[#121215] cursor-pointer"
                   : "opacity-80"
               }`}
               title={hasDesc ? "کلیک برای مشاهده جزئیات عملکرد کامل" : undefined}
             >
-              <div className="h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-gray-950 border border-white/5">
-                <img loading="lazy" decoding="async"                   src={getSafeImageUrl(leg.image || "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=300")}
-                  alt={leg.name}
-                  referrerPolicy="no-referrer"
-                  className="h-full w-full object-cover transition group-hover:scale-104"
-                />
+              <div className="flex gap-4">
+                <div className="h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-gray-950 border border-white/5">
+                  <img loading="lazy" decoding="async"
+                    src={getSafeImageUrl(leg.image || "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=300")}
+                    alt={leg.name}
+                    referrerPolicy="no-referrer"
+                    className="h-full w-full object-cover transition group-hover:scale-104"
+                  />
+                </div>
+
+                <div className="flex flex-col justify-between flex-1">
+                  <div>
+                    <div className="flex justify-between items-start">
+                      <h3 className={`font-black text-sm text-white transition ${hasDesc ? "group-hover:text-emerald-400" : ""}`}>{leg.name}</h3>
+                    </div>
+
+                    <p className="text-xs text-gray-400 mt-1 font-semibold">{leg.team} / <span className="text-gray-500">{leg.league}</span></p>
+                    {hasDesc ? (
+                      <>
+                        <p className="text-xs text-gray-300 leading-relaxed mt-2 text-justify line-clamp-2">{truncatedPerformance}</p>
+                        <span className="text-[10px] text-emerald-400 font-extrabold mt-1.5 inline-block opacity-0 group-hover:opacity-100 transition duration-200">← مشاهده خبر و تحلیل کامل</span>
+                      </>
+                    ) : (
+                      <p className="text-[11px] text-gray-500 italic mt-3">بدون تحلیل یا بررسی فنی ثبت‌شده</p>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              <div className="flex flex-col justify-between flex-1">
-                <div>
-                  <div className="flex justify-between items-start">
-                    <h3 className={`font-black text-sm text-white transition ${hasDesc ? "group-hover:text-emerald-400" : ""}`}>{leg.name}</h3>
-                  </div>
+              <div className="flex items-center justify-between border-t border-white/5 pt-2.5">
+                <span className="flex items-center gap-1 text-[11px] text-gray-500">
+                  <Eye className="h-3 w-3" />
+                  {(leg.viewCount || 0).toLocaleString("fa-IR")} بازدید
+                </span>
 
-                  <p className="text-xs text-gray-400 mt-1 font-semibold">{leg.team} / <span className="text-gray-500">{leg.league}</span></p>
-                  {hasDesc ? (
-                    <>
-                      <p className="text-xs text-gray-300 leading-relaxed mt-2 text-justify line-clamp-2">{truncatedPerformance}</p>
-                      <span className="text-[10px] text-emerald-400 font-extrabold mt-1.5 inline-block opacity-0 group-hover:opacity-100 transition duration-200">← مشاهده خبر و تحلیل کامل</span>
-                    </>
-                  ) : (
-                    <p className="text-[11px] text-gray-500 italic mt-3">بدون تحلیل یا بررسی فنی ثبت‌شده</p>
-                  )}
-                </div>
+                {leg.tags && leg.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 justify-end">
+                    {leg.tags.map((tag: string) => (
+                      <button
+                        key={tag}
+                        onClick={(e) => { e.stopPropagation(); setLegionnairesSearch(tag); }}
+                        className="rounded-lg bg-gray-950 px-2 py-0.5 text-[10px] text-gray-400 border border-white/5 hover:bg-emerald-950/40 hover:text-emerald-400 hover:border-emerald-900/40 transition cursor-pointer"
+                      >
+                        <Tag className="h-2 w-2 inline ml-0.5" />{tag}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           );

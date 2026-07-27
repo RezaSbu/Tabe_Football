@@ -263,9 +263,9 @@ export default function PhotoGallery({ images, initialSearchTag = "" }: PhotoGal
                 {img.tags && img.tags.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1">
                     {img.tags.slice(0, 3).map((tag) => (
-                      <span key={tag} className="rounded bg-black/60 px-1.5 py-0.5 text-[9px] text-gray-300 border border-white/5">
+                      <button key={tag} onClick={(e) => { e.stopPropagation(); setSearchTag(tag); }} className="rounded bg-black/60 px-1.5 py-0.5 text-[9px] text-gray-300 border border-white/5 hover:bg-emerald-950/40 hover:text-emerald-400 hover:border-emerald-900/40 transition cursor-pointer">
                         #{tag}
-                      </span>
+                      </button>
                     ))}
                     {img.tags.length > 3 && (
                       <span className="text-[9px] text-gray-500 self-center">...</span>

@@ -7,9 +7,10 @@ interface NewsSliderProps {
   news: NewsItem[];
   transfers?: TransferItem[];
   onSelectNews: (article: NewsItem) => void;
+  onSelectTransfer?: (transferId: string) => void;
 }
 
-export default function NewsSlider({ news, transfers = [], onSelectNews }: NewsSliderProps) {
+export default function NewsSlider({ news, transfers = [], onSelectNews, onSelectTransfer }: NewsSliderProps) {
   // Convert transfer items to slide-friendly NewsItem format to cycle them in the slider
   const convertedTransfers: NewsItem[] = transfers.map((t) => ({
     id: `transfer-slide-${t.id}`,
@@ -20,8 +21,9 @@ export default function NewsSlider({ news, transfers = [], onSelectNews }: NewsS
     category: "transfers",
     createdAt: t.date ? `${t.date}T12:00:00.000Z` : new Date().toISOString(),
     viewCount: 2240,
-    tags: ["نقل و انتقالات"]
-  }));
+    tags: ["نقل و انتقالات"],
+    _originalTransferId: t.id,
+  } as any));
 
   // Combine regular news with newly-converted transfer slides and sort by date descending
   const combined = [...(news || []), ...convertedTransfers];
@@ -132,7 +134,13 @@ export default function NewsSlider({ news, transfers = [], onSelectNews }: NewsS
         </div>
 
         <h3 
-          onClick={() => onSelectNews(currentArticle)}
+          onClick={() => {
+            if (onSelectTransfer && (currentArticle as any)._originalTransferId) {
+              onSelectTransfer(String((currentArticle as any)._originalTransferId));
+            } else {
+              onSelectNews(currentArticle);
+            }
+          }}
           className="cursor-pointer font-black text-white hover:text-emerald-400 text-lg sm:text-2xl leading-snug sm:leading-normal tracking-tight line-clamp-2 md:max-w-4xl transition-colors duration-250 flex items-start gap-1"
         >
           {currentArticle.title}
