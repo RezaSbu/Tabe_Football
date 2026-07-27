@@ -60,6 +60,9 @@ async function startServer() {
     await saveDB();
   }
 
+  const uploadsPath = path.join(process.cwd(), "uploads");
+  app.use("/uploads", express.static(uploadsPath));
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -68,8 +71,6 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
-    const uploadsPath = path.join(process.cwd(), "uploads");
-    app.use("/uploads", express.static(uploadsPath));
     app.use(express.static(distPath, {
       setHeaders: (res, filePath) => {
         if (filePath.endsWith(".js")) {
