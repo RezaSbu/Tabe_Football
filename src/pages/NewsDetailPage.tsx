@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Loader2, Tag } from "lucide-react";
 import { getSafeImageUrl, toPersianDigits } from "../utils";
 
 export default function NewsDetailPage() {
@@ -128,7 +128,13 @@ export default function NewsDetailPage() {
                 <h2 className="font-bold text-xs text-white mb-2.5">برچسب‌ها</h2>
                 <div className="flex flex-wrap gap-1.5">
                   {article.tags.map((tag: string) => (
-                    <span key={tag} className="rounded-lg bg-gray-950 px-2.5 py-1 text-[11px] text-gray-300 border border-white/5">#{tag}</span>
+                    <Link
+                      key={tag}
+                      to={`/news?tag=${encodeURIComponent(tag)}`}
+                      className="rounded-lg bg-gray-950 px-2.5 py-1 text-[11px] text-gray-300 border border-white/5 hover:bg-emerald-950/30 hover:text-emerald-400 hover:border-emerald-900/40 transition inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      <Tag className="h-2.5 w-2.5" />{tag}
+                    </Link>
                   ))}
                 </div>
               </div>

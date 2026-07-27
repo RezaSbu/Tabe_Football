@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import NewsCard from "../components/NewsCard";
 import { NewsItem } from "../types";
 
@@ -19,6 +20,16 @@ export default function NewsPage({
   setNewsSearch,
   setActiveArticle,
 }: NewsPageProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const tag = searchParams.get("tag");
+    if (tag) {
+      setNewsSearch(tag);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setNewsSearch, setSearchParams]);
+
   return (
     <div className="space-y-6 animate-in fade-in" dir="rtl">
       <style>{`
@@ -64,7 +75,7 @@ export default function NewsPage({
           <input
             type="text"
             dir="rtl"
-            placeholder="جستجو کلمات کلیدی، نام مربی یا بازیکن..."
+            placeholder="جستجو کلمات کلیدی، تگ یا نام بازیکن..."
             value={newsSearch}
             onChange={(e) => setNewsSearch(e.target.value)}
             className="w-full rounded-xl bg-gray-950 px-4 py-2 text-xs text-white placeholder-slate-600 border border-white/5 focus:outline-none focus:border-red-650 font-bold"
@@ -75,7 +86,12 @@ export default function NewsPage({
       {(() => {
         const filtered = news.filter((item) => {
           const matchesCategory = newsCategoryFilter === "all" || item.category === newsCategoryFilter || item.tags?.includes(newsCategoryFilter);
-          const matchesQuery = !newsSearch || item.title.includes(newsSearch) || item.summary.includes(newsSearch) || item.content.includes(newsSearch);
+          const q = newsSearch.toLowerCase();
+          const matchesQuery = !newsSearch ||
+            item.title.toLowerCase().includes(q) ||
+            item.summary.toLowerCase().includes(q) ||
+            item.content?.toLowerCase().includes(q) ||
+            item.tags?.some(t => t.toLowerCase().includes(q));
           return matchesCategory && matchesQuery;
         });
 
