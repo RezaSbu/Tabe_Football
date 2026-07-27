@@ -3,6 +3,7 @@ import { StandingRow, NewsItem, MatchItem, TeamItem, PlayerItem, StatsData } fro
 import { Trophy, Award, Newspaper, Calendar, BarChart3, List, ChevronLeft, Star, Flame, Zap, Target, Search, X } from "lucide-react";
 import { isTeamInDb } from "../utils";
 import HazfiCupBracket from "./HazfiCupBracket";
+import TeamLogo from "./TeamLogo";
 
 interface LeagueTablesProps {
   leagueKey?: "pro-league" | "league-1" | "league-2" | "hazfi-cup";
@@ -533,7 +534,7 @@ export default function LeagueTables({
                             </span>
                           </td>
                           <td className="py-3 font-semibold text-slate-100 flex items-center gap-2">
-                            <span className="text-base">{correlatedTeam?.logo || "⚽"}</span>
+                            <TeamLogo logo={correlatedTeam?.logo} fallback="⚽" size="sm" />
                             <span>{row.team}</span>
                           </td>
                           <td className="py-3 text-center font-mono text-slate-300">{row.played}</td>

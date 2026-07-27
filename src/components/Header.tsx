@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Search, Send } from "lucide-react";
 import { NewsItem, TeamItem, PlayerItem, CoachItem } from "../types";
+import TeamLogo from "./TeamLogo";
 
 interface HeaderProps {
   news: NewsItem[];
@@ -123,7 +124,7 @@ export default function Header({
                             onClick={() => handleSelectItem("team", team.id)}
                             className="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-white/5 cursor-pointer transition text-xs"
                           >
-                            <span className="text-sm">{team.logo}</span>
+                            <TeamLogo logo={team.logo} size="xs" />
                             <span className="font-semibold text-slate-200">{team.name}</span>
                             <span className="text-[10px] text-slate-500 mr-auto">
                               {team.id.startsWith("futsal-") ? "لیگ برتر فوتسال" : "لیگ برتر فوتبال"}

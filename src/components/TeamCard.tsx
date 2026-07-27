@@ -1,6 +1,7 @@
 import React from "react";
 import { TeamItem } from "../types";
 import { Shield, Home, UserCheck, Calendar } from "lucide-react";
+import TeamLogo from "./TeamLogo";
 
 interface TeamCardProps {
   team: TeamItem;
@@ -25,8 +26,8 @@ export default function TeamCard({ team, onClick, highlightedRank }: TeamCardPro
       <div>
         {/* Logo and Name */}
         <div className="flex items-center gap-3.5 mb-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#121215] text-2xl shadow group-hover:scale-105 transition-all">
-            {team.logo || "🛡️"}
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#121215] text-2xl shadow group-hover:scale-105 transition-all overflow-hidden">
+            <TeamLogo logo={team.logo} fallback="🛡️" size="lg" />
           </div>
           <div>
             <h3 className="font-extrabold text-sm text-white group-hover:text-emerald-400 transition-all">

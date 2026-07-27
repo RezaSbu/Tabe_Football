@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { NewsItem, StandingRow } from "../types";
 import { getSafeImageUrl, convertGregorianToShamsi, toPersianDigits } from "../utils";
+import TeamLogo from "./TeamLogo";
 
 interface TeamDetailProps {
   team: any;
@@ -244,8 +245,8 @@ export default function TeamDetail({
       {/* Team Emblem Profile Avatar row */}
       <div className="px-6 relative -mt-12 sm:-mt-16 z-20 flex flex-col sm:flex-row items-center sm:items-end justify-between gap-4 pb-6 border-b border-white/5">
         <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 text-center sm:text-right w-full sm:w-auto">
-          <div className="h-24 w-24 sm:h-32 sm:w-32 rounded-2xl bg-[#18181c] border-2 border-emerald-500/30 flex items-center justify-center text-5xl sm:text-6xl shadow-2xl shrink-0 scale-95 sm:scale-100">
-            {team.logo || "🛡️"}
+          <div className="h-24 w-24 sm:h-32 sm:w-32 rounded-2xl bg-[#18181c] border-2 border-emerald-500/30 flex items-center justify-center text-5xl sm:text-6xl shadow-2xl shrink-0 scale-95 sm:scale-100 overflow-hidden">
+            <TeamLogo logo={team.logo} fallback="🛡️" size="xl" />
           </div>
           <div className="pb-2">
             <h1 className="font-black text-2xl sm:text-3xl text-white tracking-tight flex flex-wrap items-center gap-2 justify-center sm:justify-start">

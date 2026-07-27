@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { MatchItem, StandingRow, NewsItem, TeamItem, PlayerItem } from "../types";
 import { Trophy, Calendar, Users, Newspaper, Award, Star, Zap, Flame, BarChart3, Shuffle, ChevronLeft, Search, X } from "lucide-react";
 import MatchCard from "./MatchCard";
+import TeamLogo from "./TeamLogo";
 
 interface FutsalPageProps {
   standings: Record<string, StandingRow[]>;
@@ -360,7 +361,7 @@ export default function FutsalPage({
                         </span>
                       </td>
                       <td className="py-3 font-semibold text-slate-100 flex items-center gap-2">
-                        <span className="text-base">{correlatedTeam?.logo || "🔴"}</span>
+                        <TeamLogo logo={correlatedTeam?.logo} fallback="🔴" size="sm" />
                         <span>{row.team}</span>
                       </td>
                       <td className="py-3 text-center font-mono text-slate-300">{row.played}</td>
