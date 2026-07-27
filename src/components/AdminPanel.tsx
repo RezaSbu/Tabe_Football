@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, Suspense } from "react";
 import { NewsItem, MatchItem, StandingRow, TransferItem, ImageItem, ContactSubmission } from "../types";
 import { 
   Lock, 
@@ -7,7 +7,7 @@ import {
   Flame,
   Users,
   Megaphone,
-  Sparkles,
+  Activity,
   Layout,
   Sliders,
   Settings,
@@ -23,7 +23,7 @@ import {
 import AdminDashboard from "./AdminDashboard";
 import AdminMatchHub from "./AdminMatchHub";
 import AdminDirectOverrides from "./AdminDirectOverrides";
-import AdminAiPressroom from "./AdminAiPressroom";
+import DiagnosticsPanel from "./DiagnosticsPanel";
 import AdminPortalHub from "./AdminPortalHub";
 import AdminSelectedCombinations from "./AdminSelectedCombinations";
 import AdminPlayerProfiles from "./AdminPlayerProfiles";
@@ -97,8 +97,7 @@ export default function AdminPanel({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Active Main Tab State
-  // "dashboard" | "matches" | "overrides" | "ai" | "portal" | "selected-combination" | "players" | "teams" | "bracket" | "media" | "archive"
-  const [activeMainTab, setActiveMainTab] = useState<"dashboard" | "matches" | "overrides" | "ai" | "portal" | "selected-combination" | "players" | "coaches" | "teams" | "bracket" | "media" | "archive">("dashboard");
+  const [activeMainTab, setActiveMainTab] = useState<"dashboard" | "matches" | "overrides" | "diagnostics" | "portal" | "selected-combination" | "players" | "coaches" | "teams" | "bracket" | "media" | "archive">("dashboard");
   const [successMessage, setSuccessMessage] = useState("");
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
@@ -293,11 +292,11 @@ export default function AdminPanel({
           </button>
 
           <button
-            onClick={() => { setActiveMainTab("ai"); setIsMobileSidebarOpen(false); }}
-            className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "ai" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
+            onClick={() => { setActiveMainTab("diagnostics"); setIsMobileSidebarOpen(false); }}
+            className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "diagnostics" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
-            <Sparkles className="h-4 w-4" />
-            <span>دستیار تالیف هوش مصنوعی</span>
+            <Activity className="h-4 w-4" />
+            <span>لاگ و تست سیستم</span>
           </button>
 
           <button
@@ -445,15 +444,11 @@ export default function AdminPanel({
           />
         )}
 
-        {/* Tab 4: AI PRESSROOM WRITER & PREDICTION MACHINE */}
-        {activeMainTab === "ai" && (
-          <AdminAiPressroom
-            matches={matches}
-            teams={teams}
-            players={players}
-            onRefreshData={onRefreshData}
-            onAddNews={handleAddNewsDirectly}
-          />
+        {/* Tab 4: DIAGNOSTICS */}
+        {activeMainTab === "diagnostics" && (
+          <Suspense fallback={<div className="p-8 text-center text-sm text-gray-400">در حال بارگذاری...</div>}>
+            <DiagnosticsPanel />
+          </Suspense>
         )}
 
         {/* Tab 5: GENERAL PORTAL CONTENT */}
