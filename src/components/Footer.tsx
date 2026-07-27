@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { Sparkles, Trophy, ShieldCheck, Mail, Phone, MapPin } from "lucide-react";
 
 interface FooterProps {
@@ -11,7 +12,6 @@ export default function Footer({ setActiveTab }: FooterProps) {
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="grid gap-8 md:grid-cols-5 border-b border-white/5 pb-8">
           
-          {/* Section 1: Brand & Bio */}
           <div className="md:col-span-2 space-y-4">
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-lg overflow-hidden bg-slate-900 flex items-center justify-center">
@@ -31,67 +31,64 @@ export default function Footer({ setActiveTab }: FooterProps) {
             </p>
           </div>
 
-          {/* Section 2: Quick Links */}
           <div>
             <h4 className="text-xs font-bold text-white mb-3.5 flex items-center gap-1.5 border-r-2 border-emerald-500 pr-2">
               دسترسی سریع
             </h4>
             <ul className="space-y-2 text-[11px]">
               <li>
-                <button onClick={() => setActiveTab("home")} className="hover:text-emerald-400 transition">
+                <Link to="/" className="hover:text-emerald-400 transition">
                   صفحه اصلی (پورتال خبری)
-                </button>
+                </Link>
               </li>
               <li>
-                <button onClick={() => setActiveTab("live-scores")} className="hover:text-emerald-400 transition">
+                <Link to="/live-scores" className="hover:text-emerald-400 transition">
                   مرکز نتایج زنده مسابقات
-                </button>
+                </Link>
               </li>
               <li>
-                <button onClick={() => setActiveTab("transfers")} className="hover:text-emerald-400 transition">
+                <Link to="/transfers" className="hover:text-emerald-400 transition">
                   جدول رسمی نقل و انتقالات
-                </button>
+                </Link>
               </li>
               <li>
-                <button onClick={() => setActiveTab("images")} className="hover:text-emerald-400 transition">
+                <Link to="/gallery" className="hover:text-emerald-400 transition">
                   گالری تصاویر عکاسان ملی
-                </button>
+                </Link>
               </li>
             </ul>
           </div>
 
-          {/* Section 3: League Standings Quick Entry */}
           <div>
             <h4 className="text-xs font-bold text-white mb-3.5 flex items-center gap-1.5 border-r-2 border-emerald-500 pr-2">
               رقابت‌های باشگاهی
             </h4>
             <ul className="space-y-2 text-[11px]">
               <li>
-                <button onClick={() => setActiveTab("pro-league")} className="hover:text-emerald-400 transition flex items-center gap-1">
+                <Link to="/pro-league" className="hover:text-emerald-400 transition flex items-center gap-1">
                   <Trophy className="h-3 w-3 text-emerald-500" />
                   <span>لیگ برتر خلیج فارس</span>
-                </button>
+                </Link>
               </li>
               <li>
-                <button onClick={() => setActiveTab("hazfi-cup")} className="hover:text-emerald-400 transition flex items-center gap-1">
+                <Link to="/hazfi-cup" className="hover:text-emerald-400 transition flex items-center gap-1">
                   <Trophy className="h-3 w-3 text-cyan-400" />
                   <span>رقابت‌های جام حذفی</span>
-                </button>
+                </Link>
               </li>
               <li>
-                <button onClick={() => setActiveTab("league-1")} className="hover:text-slate-200 transition">
+                <Link to="/league-1" className="hover:text-slate-200 transition">
                   لیگ دسته اول آزادگان
-                </button>
+                </Link>
               </li>
               <li>
-                <button onClick={() => setActiveTab("league-2")} className="hover:text-slate-200 transition">
+                <Link to="/league-2" className="hover:text-slate-200 transition">
                   لیگ دسته دوم کشوری
-                </button>
+                </Link>
               </li>
             </ul>
           </div>
 
-          {/* Section 4: Contact & Support */}
           <div>
             <h4 className="text-xs font-bold text-white mb-3.5 flex items-center gap-1.5 border-r-2 border-emerald-500 pr-2">
               ارتباط با ما
@@ -114,7 +111,6 @@ export default function Footer({ setActiveTab }: FooterProps) {
 
         </div>
 
-        {/* Footer Sub-bottom Bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between pt-6 text-[10px] text-slate-500">
           <p>© {new Date().getFullYear()} پورتال تب فوتبال ایران. تمامی حقوق مادی و معنوی محفوظ است.</p>
           <div className="flex items-center gap-3 mt-3 sm:mt-0">
