@@ -245,7 +245,17 @@ class QueryBuilder {
 // Storage Adapter (local filesystem)
 // ============================================
 
-const UPLOADS_DIR = path.join(process.cwd(), "uploads");
+let _uploadsDir: string = path.join(process.cwd(), "uploads");
+
+export function getUploadsDir(): string {
+  return _uploadsDir;
+}
+
+export function setUploadsDir(dir: string): void {
+  _uploadsDir = dir;
+}
+
+console.log("[STORAGE] UPLOADS_DIR resolved to:", _uploadsDir);
 
 function ensureDirSync(dir: string) {
   if (!fs.existsSync(dir)) {
@@ -255,9 +265,11 @@ function ensureDirSync(dir: string) {
 
 class StorageBuilder {
   private bucket: string;
+  private baseDir: string;
 
-  constructor(bucket: string) {
+  constructor(bucket: string, baseDir?: string) {
     this.bucket = bucket;
+    this.baseDir = baseDir || _uploadsDir;
   }
 
   async upload(
@@ -266,7 +278,8 @@ class StorageBuilder {
     options?: { contentType?: string; upsert?: boolean }
   ): Promise<SupabaseResult> {
     try {
-      const fullPath = path.join(UPLOADS_DIR, this.bucket, filePath);
+      const fullPath = path.join(this.baseDir, this.bucket, filePath);
+      console.log("[STORAGE] upload() fullPath:", fullPath, "buffer.length:", buffer.length);
       ensureDirSync(path.dirname(fullPath));
 
       if (!options?.upsert && fs.existsSync(fullPath)) {
@@ -274,8 +287,10 @@ class StorageBuilder {
       }
 
       fs.writeFileSync(fullPath, buffer);
+      console.log("[STORAGE] upload() writeFileSync SUCCESS, file exists:", fs.existsSync(fullPath));
       return { data: { path: filePath }, error: null };
     } catch (err: any) {
+      console.error("[STORAGE] upload() ERROR:", err.message);
       return { data: null, error: { message: err.message } };
     }
   }
@@ -288,7 +303,7 @@ class StorageBuilder {
   async remove(paths: string[]): Promise<SupabaseResult> {
     try {
       for (const p of paths) {
-        const fullPath = path.join(UPLOADS_DIR, this.bucket, p);
+        const fullPath = path.join(this.baseDir, this.bucket, p);
         if (fs.existsSync(fullPath)) {
           fs.unlinkSync(fullPath);
         }
@@ -318,6 +333,9 @@ export const db = {
     from: storageFrom,
   },
 };
+
+export { StorageBuilder, ensureDirSync };
+export { _uploadsDir as UPLOADS_DIR };
 
 // ============================================
 // Direct query helpers (for optimized queries)
