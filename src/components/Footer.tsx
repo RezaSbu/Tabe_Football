@@ -120,7 +120,7 @@ export default function Footer({ setActiveTab }: FooterProps) {
           </div>
         </div>
 
-        <div className="flex items-center justify-end pt-6 border-t border-white/5 mt-6" dir="ltr">
+        <div className="flex items-center justify-start pt-6 border-t border-white/5 mt-6" dir="ltr">
           <a
             href="https://github.com/RezaSbu"
             target="_blank"
