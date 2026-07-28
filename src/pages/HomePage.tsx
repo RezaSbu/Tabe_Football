@@ -81,11 +81,13 @@ export default function HomePage({
   const [newsSearch, setNewsSearch] = useState("");
   const [sidebarLeagueTab, setSidebarLeagueTab] = useState("pro-league");
 
+  const mainCategories = ["pro-league", "league-1", "league-2", "hazfi-cup", "futsal"];
   const filteredNewsList = news.filter((art) => {
     const matchesSearch = art.title.toLowerCase().includes(newsSearch.toLowerCase()) ||
       art.summary.toLowerCase().includes(newsSearch.toLowerCase()) ||
       art.tags.some((t: string) => t.toLowerCase().includes(newsSearch.toLowerCase()));
-    const matchesCat = newsCategoryFilter === "all" || art.category === newsCategoryFilter;
+    const matchesCat = newsCategoryFilter === "all" ||
+      (newsCategoryFilter === "other" ? !mainCategories.includes(art.category) : art.category === newsCategoryFilter);
     return matchesSearch && matchesCat;
   });
 
@@ -152,12 +154,13 @@ export default function HomePage({
 
               <div className="flex flex-wrap gap-1.5 w-full sm:w-auto">
                 {[
-                  { id: "all", label: "همه" },
+                  { id: "all", label: "همه موضوعات" },
                   { id: "pro-league", label: "لیگ برتر" },
                   { id: "league-1", label: "لیگ یک" },
                   { id: "league-2", label: "لیگ دو" },
                   { id: "hazfi-cup", label: "جام حذفی" },
-                  { id: "futsal", label: "فوتسال" }
+                  { id: "futsal", label: "فوتسال" },
+                  { id: "other", label: "سایر موضوعات" }
                 ].map((cat) => (
                   <button
                     key={cat.id}

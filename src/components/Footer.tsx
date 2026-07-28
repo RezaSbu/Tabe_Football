@@ -120,18 +120,18 @@ export default function Footer({ setActiveTab }: FooterProps) {
           </div>
         </div>
 
-        <div className="flex items-center justify-center pt-6 border-t border-white/5 mt-6">
+        <div className="flex items-center justify-end pt-6 border-t border-white/5 mt-6" dir="ltr">
           <a
             href="https://github.com/RezaSbu"
             target="_blank"
             rel="noopener noreferrer"
             className="group flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-emerald-400 transition-all duration-300"
           >
-            <span className="animate-heartbeat">❤️</span>
             <span>Created By</span>
             <span className="font-bold bg-gradient-to-l from-emerald-400 to-cyan-400 bg-clip-text text-transparent group-hover:from-emerald-300 group-hover:to-cyan-300 transition-all">
               Reza
             </span>
+            <span className="animate-heartbeat">❤️</span>
           </a>
         </div>
       </div>

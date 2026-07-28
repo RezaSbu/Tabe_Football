@@ -55,7 +55,8 @@ export default function NewsPage({
             { id: "league-1", label: "لیگ یک" },
             { id: "league-2", label: "لیگ دو" },
             { id: "hazfi-cup", label: "جام حذفی" },
-            { id: "futsal", label: "فوتسال" }
+            { id: "futsal", label: "فوتسال" },
+            { id: "other", label: "سایر موضوعات" }
           ].map((cat) => (
             <button
               key={cat.id}
@@ -84,8 +85,11 @@ export default function NewsPage({
       </div>
 
       {(() => {
+        const mainCategories = ["pro-league", "league-1", "league-2", "hazfi-cup", "futsal"];
         const filtered = news.filter((item) => {
-          const matchesCategory = newsCategoryFilter === "all" || item.category === newsCategoryFilter || item.tags?.includes(newsCategoryFilter);
+          const matchesCategory = newsCategoryFilter === "all" ||
+            (newsCategoryFilter === "other" ? !mainCategories.includes(item.category) : item.category === newsCategoryFilter) ||
+            item.tags?.includes(newsCategoryFilter);
           const q = newsSearch.toLowerCase();
           const matchesQuery = !newsSearch ||
             item.title.toLowerCase().includes(q) ||
