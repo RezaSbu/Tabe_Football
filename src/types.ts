@@ -122,6 +122,18 @@ export interface StatsData {
   ratings?: { rank: number; name: string; team: string; rating: number }[];
 }
 
+export interface HeroSlideItem {
+  id: string;
+  image: string;
+  title: string;
+  subtitle: string;
+  link: string;
+  sourceType: "news" | "transfer" | "legionnaire" | "image" | "custom";
+  sourceId?: string;
+  active: boolean;
+  sort_order: number;
+}
+
 export interface ContactSubmission {
   id: string;
   name: string;

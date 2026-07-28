@@ -51,6 +51,17 @@ export async function migrateSummaryColumn(): Promise<void> {
   }
 }
 
+export async function migrateHeroSlidesColumns(): Promise<void> {
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`ALTER TABLE hero_slides ADD COLUMN IF NOT EXISTS source_type varchar(20) DEFAULT 'custom'`);
+    await pool.query(`ALTER TABLE hero_slides ADD COLUMN IF NOT EXISTS source_id varchar(100) DEFAULT ''`);
+    logMessage("info", "database", "مهاجرت ستون‌های source_type و source_id اسلایدر اعمال شد.");
+  } catch (err: any) {
+    logMessage("warn", "database", "خطا در مهاجرت ستون‌های اسلایدر:", err.message || err);
+  }
+}
+
 export async function fetchAndPopulateMemoryDB(): Promise<void> {
   const seedData = getInitialDatabase();
   try {
@@ -396,7 +407,10 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
         title: slide.title,
         subtitle: slide.subtitle,
         link: slide.link,
-        active: slide.active !== false
+        active: slide.active !== false,
+        sort_order: slide.sort_order || 0,
+        sourceType: slide.source_type || "custom",
+        sourceId: slide.source_id || ""
       }));
     }
 
@@ -924,7 +938,10 @@ export async function saveDB(): Promise<void> {
         title: slide.title,
         subtitle: slide.subtitle,
         link: slide.link,
-        active: slide.active !== false
+        active: slide.active !== false,
+        sort_order: slide.sort_order || 0,
+        source_type: slide.sourceType || "custom",
+        source_id: slide.sourceId || ""
       }));
       promises.push(pgDb.from('hero_slides').upsert(formattedSlides));
 

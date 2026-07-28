@@ -1,5 +1,5 @@
 import React, { useState, Suspense } from "react";
-import { NewsItem, MatchItem, StandingRow, TransferItem, ImageItem, ContactSubmission } from "../types";
+import { NewsItem, MatchItem, StandingRow, TransferItem, ImageItem, ContactSubmission, HeroSlideItem } from "../types";
 import { 
   Lock, 
   Database,
@@ -32,6 +32,7 @@ import AdminCoachProfiles from "./AdminCoachProfiles";
 import AdminBracketManager from "./AdminBracketManager";
 import AdminMediaFiles from "./AdminMediaFiles";
 import { AdminArchiveManager } from "./AdminArchiveManager";
+import AdminHeroSlides from "./AdminHeroSlides";
 
 interface AdminPanelProps {
   news: NewsItem[];
@@ -41,6 +42,7 @@ interface AdminPanelProps {
   teamTransfersList?: any[];
   images: ImageItem[];
   submissions: ContactSubmission[];
+  heroSlides?: HeroSlideItem[];
   legionnaires: any[];
   stats: Record<string, any>;
   teams: any[];
@@ -70,6 +72,7 @@ export default function AdminPanel({
   teamTransfersList = [],
   images = [],
   submissions = [],
+  heroSlides = [],
   legionnaires = [],
   stats = {},
   teams = [],
@@ -97,7 +100,7 @@ export default function AdminPanel({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Active Main Tab State
-  const [activeMainTab, setActiveMainTab] = useState<"dashboard" | "matches" | "overrides" | "diagnostics" | "portal" | "selected-combination" | "players" | "coaches" | "teams" | "bracket" | "media" | "archive">("dashboard");
+  const [activeMainTab, setActiveMainTab] = useState<"dashboard" | "matches" | "overrides" | "diagnostics" | "portal" | "selected-combination" | "players" | "coaches" | "teams" | "bracket" | "media" | "archive" | "hero-slides">("dashboard");
   const [successMessage, setSuccessMessage] = useState("");
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
@@ -315,6 +318,14 @@ export default function AdminPanel({
             <span>مدیریت تصاویر دیتابیس</span>
           </button>
 
+          <button
+            onClick={() => { setActiveMainTab("hero-slides"); setIsMobileSidebarOpen(false); }}
+            className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "hero-slides" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
+          >
+            <Sliders className="h-4 w-4 text-cyan-400" />
+            <span>اسلایدر اصلی صفحه</span>
+          </button>
+
           <div className="my-2 border-t border-white/5" />
 
           <button
@@ -519,6 +530,19 @@ export default function AdminPanel({
         {/* Tab 10: Database Image Storage and Migration */}
         {activeMainTab === "media" && (
           <AdminMediaFiles />
+        )}
+
+        {/* Tab: Hero Slider Management */}
+        {activeMainTab === "hero-slides" && (
+          <AdminHeroSlides
+            heroSlides={heroSlides}
+            news={news}
+            transfers={transfers}
+            legionnaires={legionnaires}
+            images={images}
+            onRefreshData={onRefreshData}
+            showShortSuccess={showShortSuccess}
+          />
         )}
 
         {/* Tab 11: Archive and Season resets */}

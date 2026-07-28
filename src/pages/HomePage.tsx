@@ -9,6 +9,8 @@ interface HomePageProps {
   matches: any[];
   news: any[];
   transfers: any[];
+  heroSlides?: any[];
+  legionnaires?: any[];
   stats: any;
   liveGoals: any;
   setSelectedMatch: (match: any) => void;
@@ -51,6 +53,8 @@ export default function HomePage({
   matches,
   news,
   transfers,
+  heroSlides = [],
+  legionnaires = [],
   stats,
   liveGoals,
   setSelectedMatch,
@@ -136,7 +140,7 @@ export default function HomePage({
 
       <div className="grid gap-6 lg:grid-cols-12" id="home-dashboard-layout font-sans">
         <div className="lg:col-span-8 space-y-6">
-          <NewsSlider news={news} transfers={transfers} onSelectNews={setActiveArticle} onSelectTransfer={onSelectTransfer} />
+          <NewsSlider news={news} transfers={transfers} heroSlides={heroSlides} legionnaires={legionnaires} onSelectNews={setActiveArticle} onSelectTransfer={onSelectTransfer} />
           <MatchTicker matches={matches} onSelectMatch={setSelectedMatch} />
 
           <div className="space-y-4">

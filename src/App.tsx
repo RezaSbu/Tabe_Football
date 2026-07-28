@@ -133,7 +133,7 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
                 }
               }}
             />
-            <HomePage matches={d.matches} news={d.news} transfers={d.transfers} stats={d.stats}
+            <HomePage matches={d.matches} news={d.news} transfers={d.transfers} heroSlides={d.heroSlides} legionnaires={d.legionnaires} stats={d.stats}
               liveGoals={d.liveGoals} setSelectedMatch={(m: any) => navigate(`/match/${m.id}`)} setActiveArticle={(a: any) => navigate(`/news/${a.id}`)}
               handleTabChangeSubmit={d.handleTabChangeSubmit} getRelativeDateLabel={getRelativeDateLabel}
               convertGregorianToShamsi={convertGregorianToShamsi} toPersianDigits={toPersianDigits}
@@ -262,7 +262,7 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
             <SEO title="پنل مدیریت" description="پنل مدیریت پورتال تب فوتبال" url="/admin" />
             <AdminPanel news={d.news} matches={d.matches} standings={d.standings}
               transfers={d.transfers} teamTransfersList={d.teamTransfersList} images={d.images}
-              submissions={d.submissions} legionnaires={d.legionnaires} stats={d.stats}
+              submissions={d.submissions} heroSlides={d.heroSlides} legionnaires={d.legionnaires} stats={d.stats}
               teams={d.teams} players={d.players} bracket={d.bracket}
               selectedCombinations={d.selectedCombinations} adConfig={d.adConfig}
               archives={d.archives} currentSeason={d.currentSeason}
@@ -327,7 +327,7 @@ export default function App() {
         <div className="mx-auto max-w-7xl">
           <AdminPanel news={d.news} matches={d.matches} standings={d.standings} transfers={d.transfers}
             teamTransfersList={d.teamTransfersList} images={d.images} submissions={d.submissions}
-            legionnaires={d.legionnaires} stats={d.stats} teams={d.teams} players={d.players} coaches={d.coaches}
+            heroSlides={d.heroSlides} legionnaires={d.legionnaires} stats={d.stats} teams={d.teams} players={d.players} coaches={d.coaches}
             bracket={d.bracket} selectedCombinations={d.selectedCombinations} adConfig={d.adConfig}
             archives={d.archives} currentSeason={d.currentSeason}
             onUpdateStandings={d.handleUpdateStandings} onUpdateStats={d.handleUpdateStats}

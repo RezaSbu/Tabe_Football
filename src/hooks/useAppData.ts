@@ -16,6 +16,7 @@ import {
   CoachItem,
   SelectedCombination,
   LiveGoal,
+  HeroSlideItem,
 } from "../types";
 import { computeDynamicAppletStats } from "../utils";
 import { playGoalSound, showSystemNotification } from "./useGoalSound";
@@ -38,6 +39,7 @@ export function useAppData() {
   const [bracket, setBracket] = useState<Record<string, any> | null>(null);
   const [selectedCombinations, setSelectedCombinations] = useState<SelectedCombination[]>([]);
   const [archives, setArchives] = useState<ArchiveItem[]>([]);
+  const [heroSlides, setHeroSlides] = useState<HeroSlideItem[]>([]);
 
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
@@ -140,6 +142,7 @@ export function useAppData() {
     setCoaches(data.coaches || []);
     setBracket(data.bracket || null);
     setSelectedCombinations(data.selectedCombinations || []);
+    setHeroSlides(data.heroSlides || []);
     setArchives(data.archives || []);
     if (data.currentSeason) {
       setCurrentSeason(data.currentSeason);
@@ -539,7 +542,7 @@ export function useAppData() {
     activeTab, setActiveTab,
     news, matches, standings, transfers, teamTransfersList,
     legionnaires, images, stats, submissions, lastScraped,
-    teams, players, coaches, bracket, selectedCombinations,     archives, setArchives,
+    teams, players, coaches, bracket, selectedCombinations, heroSlides, setHeroSlides, archives, setArchives,
     selectedTeamId, setSelectedTeamId,
     selectedPlayerId, setSelectedPlayerId,
     selectedCoachId, setSelectedCoachId,

@@ -261,6 +261,8 @@ CREATE TABLE public.hero_slides (
   link text,
   active boolean DEFAULT true,
   sort_order integer DEFAULT 0,
+  source_type varchar(20) DEFAULT 'custom',
+  source_id varchar(100) DEFAULT '',
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),
   CONSTRAINT hero_slides_pkey PRIMARY KEY (id)

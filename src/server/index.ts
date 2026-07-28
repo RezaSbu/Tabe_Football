@@ -11,8 +11,9 @@ import { centralAuthGuard } from "./middleware/auth";
 import { loadDB, setDb } from "./state";
 import { dbLock } from "./utils/concurrency";
 import { logMessage } from "./utils/logger";
-import { fetchAndPopulateMemoryDB, saveDB, migrateConstraints, migrateSummaryColumn } from "./services/database";
+import { fetchAndPopulateMemoryDB, saveDB, migrateConstraints, migrateSummaryColumn, migrateHeroSlidesColumns } from "./services/database";
 import { recalculateAndSyncDatabase } from "./services/stats";
+import { getUploadsDir } from "./db";
 
 import { registerSystemRoutes } from "./routes/system";
 import { registerArchiveRoutes } from "./routes/archives";
@@ -49,6 +50,7 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 async function startServer() {
   await migrateConstraints();
   await migrateSummaryColumn();
+  await migrateHeroSlidesColumns();
   await dbLock.acquire(() => fetchAndPopulateMemoryDB());
 
   const db = loadDB();
@@ -60,8 +62,7 @@ async function startServer() {
     await saveDB();
   }
 
-  const uploadsPath = path.join(process.cwd(), "uploads");
-  app.use("/uploads", express.static(uploadsPath));
+  app.use("/uploads", express.static(getUploadsDir()));
 
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
