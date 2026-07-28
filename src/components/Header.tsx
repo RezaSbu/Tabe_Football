@@ -69,7 +69,7 @@ export default function Header({
         >
           <div className="h-11 w-11 rounded-2xl overflow-hidden border border-white/10 shadow-lg shadow-emerald-500/5 group-hover:scale-105 transition-all duration-350 flex items-center justify-center bg-slate-900">
             <img loading="lazy" decoding="async" 
-              src="https://mfkpmjknckfrdwvmmizs.supabase.co/storage/v1/object/public/media_assets/general/1782058553909_sports360-photo-gallery-1782053249175.jpg" 
+              src="/logo.png" 
               alt="تب فوتبال" 
               className="h-full w-full object-cover"
               referrerPolicy="no-referrer"

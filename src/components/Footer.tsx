@@ -16,7 +16,7 @@ export default function Footer({ setActiveTab }: FooterProps) {
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-lg overflow-hidden bg-slate-900 flex items-center justify-center">
                 <img loading="lazy" decoding="async" 
-                  src="https://mfkpmjknckfrdwvmmizs.supabase.co/storage/v1/object/public/media_assets/general/1782058553909_sports360-photo-gallery-1782053249175.jpg" 
+                  src="/logo.png" 
                   alt="تب فوتبال" 
                   className="h-full w-full object-cover"
                   referrerPolicy="no-referrer"
@@ -119,7 +119,36 @@ export default function Footer({ setActiveTab }: FooterProps) {
             <span className="hover:text-slate-400 cursor-pointer">حفظ حریم خصوصی</span>
           </div>
         </div>
+
+        <div className="flex items-center justify-center pt-6 border-t border-white/5 mt-6">
+          <a
+            href="https://github.com/RezaSbu"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-emerald-400 transition-all duration-300"
+          >
+            <span className="animate-heartbeat">❤️</span>
+            <span>Created By</span>
+            <span className="font-bold bg-gradient-to-l from-emerald-400 to-cyan-400 bg-clip-text text-transparent group-hover:from-emerald-300 group-hover:to-cyan-300 transition-all">
+              Reza
+            </span>
+          </a>
+        </div>
       </div>
+
+      <style>{`
+        @keyframes heartbeat {
+          0%, 100% { transform: scale(1); }
+          15% { transform: scale(1.25); }
+          30% { transform: scale(1); }
+          45% { transform: scale(1.15); }
+          60% { transform: scale(1); }
+        }
+        .animate-heartbeat {
+          animation: heartbeat 1.5s ease-in-out infinite;
+          display: inline-block;
+        }
+      `}</style>
     </footer>
   );
 }
