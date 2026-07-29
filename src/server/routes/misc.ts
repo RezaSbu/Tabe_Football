@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import { loadDB, snapshotDB, restoreDB } from "../state";
 import { logMessage } from "../utils/logger";
 import { saveDB } from "../services/database";
-import { generateToken, ADMIN_PASSWORD_HASH } from "../middleware/auth";
+import { generateToken, verifyToken, ADMIN_PASSWORD_HASH, ADMIN_USERNAME_VALUE, JWT_EXPIRES_IN } from "../middleware/auth";
 
 export function registerMiscRoutes(app: Express) {
   app.post("/api/contact", async (req, res) => {
@@ -188,15 +188,36 @@ export function registerMiscRoutes(app: Express) {
     if (!username || !password) {
       return res.status(400).json({ success: false, message: "نام کاربری و رمز عبور الزامی است." });
     }
-    if (username !== "admin") {
+    if (username !== ADMIN_USERNAME_VALUE) {
       return res.status(401).json({ success: false, message: "نام کاربری یا رمز عبور اشتباه است." });
     }
     const valid = await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
     if (!valid) {
       return res.status(401).json({ success: false, message: "نام کاربری یا رمز عبور اشتباه است." });
     }
-    const token = generateToken({ username: "admin", role: "admin" });
+    const token = generateToken({ username: ADMIN_USERNAME_VALUE, role: "admin" });
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: JWT_EXPIRES_IN * 1000,
+      path: "/"
+    });
     res.json({ success: true, token });
+  });
+
+  app.post("/api/auth/logout", async (_req, res) => {
+    res.clearCookie("token", { path: "/" });
+    res.json({ success: true, message: "خروج با موفقیت انجام شد." });
+  });
+
+  app.get("/api/auth/check", async (req, res) => {
+    const token = req.cookies?.token || req.headers.authorization?.split(" ")[1];
+    if (!token) {
+      return res.json({ authenticated: false });
+    }
+    const decoded = verifyToken(token);
+    res.json({ authenticated: !!decoded });
   });
 
   app.post("/api/news", async (req, res) => {

@@ -59,7 +59,7 @@ interface AdminPanelProps {
   onUpdateAdConfig: (configData: any) => Promise<boolean>;
   onCentralSync: () => Promise<boolean>;
   isAdminLoggedIn: boolean;
-  onLogin: (token: string) => void;
+  onLogin: () => void;
   onRefreshData: () => void;
   onLogout?: () => void;
 }
@@ -121,7 +121,7 @@ export default function AdminPanel({
       });
       const data = await response.json();
       if (response.ok && data.success) {
-        onLogin(data.token);
+        onLogin();
         showShortSuccess("ورود موفقیت‌آمیز به آکادمی وب مدیریت تب فوتبال انجام شد.");
       } else {
         setAuthError(data.message || "اطلاعات ورود اشتباه است.");
