@@ -19,6 +19,7 @@ CREATE TABLE public.config (
   ad_link text,
   ad_btn_text text,
   banner_label text DEFAULT '',
+  banner_label_visible boolean DEFAULT true,
   custom_banner_url text,
   ad_slots jsonb DEFAULT '[]'::jsonb,
   created_at timestamptz DEFAULT now(),
