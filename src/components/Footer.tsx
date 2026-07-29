@@ -112,7 +112,7 @@ export default function Footer({ setActiveTab }: FooterProps) {
         </div>
 
         <div className="flex flex-col sm:flex-row items-center justify-between pt-6 text-[10px] text-slate-500">
-          <p>© {new Date().getFullYear()} پورتال تب فوتبال ایران. تمامی حقوق مادی و معنوی محفوظ است.</p>
+          <p>© {new Date().getFullYear()} پورتال تب فوتبال ایران. تمامی حقوق مادی و معنوی و محفوظ است.</p>
           <div className="flex items-center gap-3 mt-3 sm:mt-0">
             <span className="hover:text-slate-400 cursor-pointer">سند قوانین و مقررات</span>
             <span className="text-slate-700">|</span>
