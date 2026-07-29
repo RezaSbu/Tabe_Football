@@ -100,7 +100,7 @@ export default function Footer({ setActiveTab }: FooterProps) {
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="h-3.5 w-3.5 text-slate-500 pr-0.5" />
-                <span>info@tabfootball.ir</span>
+                <span>info@tabefootball.com</span>
               </li>
               <li className="flex items-center gap-2">
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
