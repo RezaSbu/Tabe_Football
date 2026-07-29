@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { ArrowRight, Loader2 } from "lucide-react";
 import MatchDetailView from "../components/MatchDetailView";
+import { computeDynamicAppletStats } from "../utils";
 
 export default function MatchDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -15,24 +16,38 @@ export default function MatchDetailPage() {
 
   useEffect(() => {
     if (!id) return;
-    setLoading(true);
-    setError(false);
-    fetch(`/api/detail/match/${id}`)
-      .then(res => {
-        if (!res.ok) throw new Error("not found");
-        return res.json();
-      })
-      .then(data => {
-        if (data.success && data.data) {
-          setMatch(data.data.match);
-          setPlayers(data.data.players || []);
-          setTeams(data.data.teams || []);
-        } else {
-          setError(true);
-        }
-      })
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
+    let cancelled = false;
+    let hasData = false;
+    const fetchMatch = () => {
+      fetch(`/api/detail/match/${id}`)
+        .then(res => {
+          if (!res.ok) throw new Error("not found");
+          return res.json();
+        })
+        .then(data => {
+          if (cancelled) return;
+          if (data.success && data.data) {
+            hasData = true;
+            const processed = computeDynamicAppletStats(
+              [data.data.match],
+              data.data.teams || [],
+              data.data.players || [],
+              {},
+              {}
+            );
+            setMatch(processed.processedMatches[0]);
+            setPlayers(data.data.players || []);
+            setTeams(data.data.teams || []);
+          } else if (!hasData) {
+            setError(true);
+          }
+        })
+        .catch(() => { if (!hasData && !cancelled) setError(true); })
+        .finally(() => { if (!cancelled) setLoading(false); });
+    };
+    fetchMatch();
+    const interval = setInterval(fetchMatch, 30000);
+    return () => { cancelled = true; clearInterval(interval); };
   }, [id]);
 
   useEffect(() => {
