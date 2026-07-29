@@ -9,10 +9,10 @@ import {
   XCircle, 
   Search, 
   Clock, 
-  ShieldAlert, 
   Info,
   Server,
-  FileSpreadsheet
+  Cpu,
+  HardDrive
 } from "lucide-react";
 
 interface LogItem {
@@ -27,23 +27,21 @@ interface TestDbResult {
   connected: boolean;
   message: string;
   config: {
-    hasUrl: boolean;
-    hasKey: boolean;
-    url: string;
+    host: string;
+    port: string;
+    database: string;
+    user: string;
     nodeEnv: string;
   };
-  tables?: {
-    news: number;
-    matches: number;
-    teams: number;
-    players: number;
-    transfers: number;
-    legionnaires: number;
-    media: number;
-    polls: number;
-    contact_messages: number;
-    hero_slides: number;
+  server?: {
+    uptime: number;
+    memoryHeapUsed?: number;
+    memoryHeapTotal?: number;
+    memoryRss?: number;
+    nodeVersion: string;
+    platform: string;
   };
+  tables?: Record<string, number>;
 }
 
 export default function DiagnosticsPanel() {
@@ -52,11 +50,23 @@ export default function DiagnosticsPanel() {
   const [loadingTest, setLoadingTest] = useState(false);
   const [loadingLogs, setLoadingLogs] = useState(false);
   
-  // Search and filter logs state
   const [logFilter, setLogFilter] = useState<string>("all");
   const [logCategory, setLogCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [autoRefresh, setAutoRefresh] = useState(true);
+
+  const formatUptime = (seconds: number) => {
+    const d = Math.floor(seconds / 86400);
+    const h = Math.floor((seconds % 86400) / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    const parts: string[] = [];
+    if (d > 0) parts.push(`${d} روز`);
+    if (h > 0) parts.push(`${h} ساعت`);
+    if (m > 0) parts.push(`${m} دقیقه`);
+    parts.push(`${s} ثانیه`);
+    return parts.join(" و ");
+  };
 
   const fetchStatus = async () => {
     setLoadingTest(true);
@@ -65,11 +75,10 @@ export default function DiagnosticsPanel() {
       const data = await res.json();
       setDbStatus(data);
     } catch (e) {
-      console.error("Test DB query fail:", e);
       setDbStatus({
         connected: false,
-        message: "عدم اتصال به سرور Express جهت اجرای پینگ تست",
-        config: { hasUrl: false, hasKey: false, url: "", nodeEnv: "" }
+        message: "عدم اتصال به سرور جهت اجرای تست",
+        config: { host: "", port: "", database: "", user: "", nodeEnv: "" }
       });
     } finally {
       setLoadingTest(false);
@@ -79,10 +88,7 @@ export default function DiagnosticsPanel() {
   const handleForceSync = async () => {
     setLoadingTest(true);
     try {
-      const res = await fetch("/api/testdb?refresh=true");
-      const data = await res.json();
-      setDbStatus(data);
-      // Reload app data
+      await fetch("/api/testdb?refresh=true");
       window.location.reload();
     } catch (e) {
       console.error("Force sync failed:", e);
@@ -110,9 +116,7 @@ export default function DiagnosticsPanel() {
     if (!window.confirm("آیا از پاکسازی تمام لاگ‌های ذخیره‌شده مطمئن هستید؟")) return;
     try {
       const res = await fetch("/api/logs", { method: "DELETE" });
-      if (res.ok) {
-        setLogs([]);
-      }
+      if (res.ok) setLogs([]);
     } catch (e) {
       console.error("Clear logs error:", e);
     }
@@ -125,9 +129,7 @@ export default function DiagnosticsPanel() {
 
   useEffect(() => {
     if (!autoRefresh) return;
-    const interval = setInterval(() => {
-      fetchLogs();
-    }, 5000);
+    const interval = setInterval(fetchLogs, 5000);
     return () => clearInterval(interval);
   }, [autoRefresh]);
 
@@ -145,18 +147,48 @@ export default function DiagnosticsPanel() {
     return true;
   });
 
+  const tableLabels: Record<string, string> = {
+    news: "اخبار",
+    teams: "تیم‌ها",
+    players: "بازیکنان",
+    coaches: "مربیان",
+    matches: "مسابقات",
+    transfers: "نقل و انتقالات",
+    legionnaires: "لژیونرها",
+    media: "تصاویر گالری",
+    hero_slides: "اسلایدر",
+    contact_messages: "پیام‌ها",
+    standings: "جدول رده‌بندی",
+    stats: "آمار لیگ"
+  };
+
+  const tableColors: Record<string, string> = {
+    news: "text-emerald-400",
+    teams: "text-blue-400",
+    players: "text-cyan-400",
+    coaches: "text-violet-400",
+    matches: "text-amber-400",
+    transfers: "text-yellow-400",
+    legionnaires: "text-purple-400",
+    media: "text-pink-400",
+    hero_slides: "text-orange-400",
+    contact_messages: "text-teal-400",
+    standings: "text-rose-400",
+    stats: "text-indigo-400"
+  };
+
   return (
     <div className="w-full space-y-6 text-right text-slate-100" dir="rtl">
       
-      {/* Title block */}
+      {/* Title */}
       <div className="p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-950 to-[#121215] border border-white/5 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
         <div>
           <div className="flex items-center gap-2.5">
             <Activity className="h-6 w-6 text-emerald-400 animate-pulse" />
-            <h2 className="font-extrabold text-lg text-white">سامانه نظارت زنده و مانیتورینگ اتصال Supabase (تب فوتبال)</h2>
+            <h2 className="font-extrabold text-lg text-white">سامانه نظارت و مانیتورینگ سیستم</h2>
           </div>
           <p className="text-xs text-slate-400 mt-2 leading-relaxed">
-            گزارش‌گیری بلادرنگ از کوئری‌های SQL اگزکیوت شده، سلامت سرور، متغیرهای محیطی و خطاهای احتمالی دیتابیس.
+            گزارش وضعیت سرور، پایگاه داده PostgreSQL، لاگ‌های سیستمی و اطلاعات لحظه‌ای
           </p>
         </div>
         
@@ -164,24 +196,24 @@ export default function DiagnosticsPanel() {
           <button 
             onClick={fetchStatus}
             disabled={loadingTest}
-            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-xs text-black font-extrabold rounded-xl transition duration-155 disabled:opacity-50 select-none"
+            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 active:scale-95 text-xs text-black font-extrabold rounded-xl transition disabled:opacity-50"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loadingTest ? "animate-spin" : ""}`} />
-            <span>اجرای تست مجدد دیتابیس (Test DB)</span>
+            <span>تست اتصال دیتابیس</span>
           </button>
 
           <button 
             onClick={fetchLogs}
             disabled={loadingLogs}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-xs font-bold rounded-xl border border-white/5 transition duration-155 disabled:opacity-50 select-none"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-xs font-bold rounded-xl border border-white/5 transition disabled:opacity-50"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loadingLogs ? "animate-spin" : ""}`} />
-            <span>به‌روزرسانی خودکار</span>
+            <span>به‌روزرسانی لاگ‌ها</span>
           </button>
 
           <button 
             onClick={clearServerLogs}
-            className="flex items-center gap-1.5 px-3 py-2 bg-red-950/40 text-red-400 border border-red-900/30 hover:bg-red-950/80 active:scale-95 text-xs font-black rounded-xl transition duration-155 select-none"
+            className="flex items-center gap-1.5 px-3 py-2 bg-red-950/40 text-red-400 border border-red-900/30 hover:bg-red-950/80 active:scale-95 text-xs font-black rounded-xl transition"
           >
             <Trash2 className="h-3.5 w-3.5" />
             <span>حذف لاگ‌ها</span>
@@ -189,20 +221,18 @@ export default function DiagnosticsPanel() {
         </div>
       </div>
 
-      {/* Database Connection Summary & Statistics */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Connection Status Widget */}
+        {/* Connection Status */}
         <div className="p-5 rounded-2xl bg-[#18181c]/90 border border-white/5 space-y-4">
           <h3 className="font-bold text-sm text-slate-200 border-b border-white/5 pb-2 flex items-center gap-2">
             <Server className="h-4 w-4 text-emerald-400" />
-            <span>وضیعت دیتابیس Supabase</span>
+            <span>وضیعت دیتابیس PostgreSQL</span>
           </h3>
           
           {dbStatus ? (
             <div className="space-y-3 text-xs">
               <div className="flex items-center justify-between p-2.5 rounded-xl bg-black/20">
-                <span className="text-slate-400">سیگنال اتصال</span>
+                <span className="text-slate-400">اتصال</span>
                 {dbStatus.connected ? (
                   <span className="flex items-center gap-1.5 font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-950">
                     <CheckCircle className="h-3.5 w-3.5" />
@@ -211,110 +241,119 @@ export default function DiagnosticsPanel() {
                 ) : (
                   <span className="flex items-center gap-1.5 font-bold text-red-400 bg-red-500/10 px-2.5 py-0.5 rounded-full border border-red-950">
                     <XCircle className="h-3.5 w-3.5" />
-                    <span>قطع ارتباط (Offline)</span>
+                    <span>قطع (Offline)</span>
                   </span>
                 )}
               </div>
 
               <div className="p-2.5 rounded-xl bg-black/20 space-y-1.5 font-mono text-[10px]">
                 <div className="flex justify-between">
-                  <span className="text-slate-400 font-sans">هاست Supabase:</span>
-                  <span className="text-slate-300 truncate max-w-[180px]" dir="ltr">{dbStatus?.config?.url || "تنظیم نشده"}</span>
+                  <span className="text-slate-400 font-sans">هاست:</span>
+                  <span className="text-slate-300 truncate max-w-[180px]" dir="ltr">{dbStatus.config.host || "—"}:{dbStatus.config.port}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400 font-sans">متغیر URL:</span>
-                  <span>{dbStatus?.config?.hasUrl ? "✅ OK" : "❌ خالی"}</span>
+                  <span className="text-slate-400 font-sans">دیتابیس:</span>
+                  <span className="text-slate-300">{dbStatus.config.database || "—"}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400 font-sans">متغیر Publishable Key:</span>
-                  <span>{dbStatus?.config?.hasKey ? "✅ OK" : "❌ خالی"}</span>
+                  <span className="text-slate-400 font-sans">کاربر:</span>
+                  <span className="text-slate-300">{dbStatus.config.user || "—"}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400 font-sans">محیط اجرا (Env):</span>
-                  <span className="text-emerald-400 uppercase font-bold">{dbStatus?.config?.nodeEnv || "N/A"}</span>
+                  <span className="text-slate-400 font-sans">محیط:</span>
+                  <span className="text-emerald-400 uppercase font-bold">{dbStatus.config.nodeEnv || "N/A"}</span>
                 </div>
               </div>
 
-              <div className={`p-2.5 rounded-xl text-[11px] leading-relaxed ${dbStatus.connected ? "bg-emerald-950/10 text-slate-305 text-emerald-300 border border-emerald-500/10" : "bg-red-950/10 text-red-300 border border-red-500/10"}`}>
-                <span className="font-bold">پیغام سیستم: </span>
-                <span>{dbStatus.connected ? "اتصال با موفقیت برقرار شد. تمام داده‌ها مستقیما از ترانزکشن‌های Supabase استخراج می‌شوند." : dbStatus.message}</span>
+              {/* Server info */}
+              {dbStatus.server && (
+                <div className="p-2.5 rounded-xl bg-black/20 space-y-1.5 font-mono text-[10px]">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 font-sans">Node.js:</span>
+                    <span className="text-slate-300">{dbStatus.server.nodeVersion}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 font-sans">پلتفرم:</span>
+                    <span className="text-slate-300">{dbStatus.server.platform}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400 font-sans">آپتایم:</span>
+                    <span className="text-emerald-400">{formatUptime(dbStatus.server.uptime)}</span>
+                  </div>
+                  {dbStatus.server.memoryRss && (
+                    <div className="flex justify-between">
+                      <span className="text-slate-400 font-sans">حافظه مصرفی:</span>
+                      <span className="text-cyan-400">{dbStatus.server.memoryRss} MB</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className={`p-2.5 rounded-xl text-[11px] leading-relaxed ${dbStatus.connected ? "bg-emerald-950/10 text-emerald-300 border border-emerald-500/10" : "bg-red-950/10 text-red-300 border border-red-500/10"}`}>
+                <span className="font-bold">پیغام: </span>
+                <span>{dbStatus.message}</span>
               </div>
 
               <div className="pt-2">
                 <button
-                  type="button"
                   onClick={handleForceSync}
                   disabled={loadingTest}
                   className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 disabled:opacity-50 text-white font-sans text-xs font-bold transition-all shadow-md shadow-emerald-950/20 flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <RefreshCw className={`h-3.5 w-3.5 ${loadingTest ? "animate-spin" : ""}`} />
-                  <span>بروزرسانی زنده اطلاعات از سوپابیس</span>
+                  <span>همگام‌سازی و بارگذاری مجدد</span>
                 </button>
               </div>
             </div>
           ) : (
             <div className="text-center py-10 text-xs text-slate-500 animate-pulse">
-              درحال استخراج وضیت دیتابیس...
+              درحال دریافت اطلاعات...
             </div>
           )}
         </div>
 
-        {/* PostgreSQL Table Counts Summary */}
+        {/* Table Counts */}
         <div className="p-5 rounded-2xl bg-[#18181c]/90 border border-white/5 space-y-3 lg:col-span-2">
           <h3 className="font-bold text-sm text-slate-200 border-b border-white/5 pb-2 flex items-center gap-2">
             <Database className="h-4 w-4 text-cyan-400" />
-            <span>آمار جداول و ظرفیت‌های دیتابیس خلیج فارس</span>
+            <span>آمار جداول دیتابیس</span>
           </h3>
 
           {dbStatus && dbStatus.tables ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 py-1">
-              {[
-                { name: "اخبار (news)", count: dbStatus.tables.news, color: "text-emerald-400" },
-                { name: "تیم‌ها (teams)", count: dbStatus.tables.teams, color: "text-blue-400" },
-                { name: "بازیکنان (players)", count: dbStatus.tables.players, color: "text-cyan-400" },
-                { name: "مسابقات (matches)", count: dbStatus.tables.matches, color: "text-amber-400" },
-                { name: "نقل و انتقالات (transfers)", count: dbStatus.tables.transfers, color: "text-yellow-400" },
-                { name: "لژیونرها (legionnaires)", count: dbStatus.tables.legionnaires, color: "text-purple-400" },
-                { name: "تصاویر گالری (media)", count: dbStatus.tables.media, color: "text-pink-400" },
-                { name: "اسلایدر (hero_slides)", count: dbStatus.tables.hero_slides, color: "text-orange-400" },
-                { name: "پیام‌ها (contact_messages)", count: dbStatus.tables.contact_messages, color: "text-teal-400" },
-                { name: "نظرسنجی‌ها (polls)", count: dbStatus.tables.polls, color: "text-rose-400" }
-              ].map((table, i) => (
-                <div key={i} className="bg-black/15 p-2.5 rounded-xl border border-white/[0.02] hover:border-slate-800 transition text-center select-none">
-                  <span className="block text-[10px] text-slate-400 font-medium truncate">{table.name}</span>
-                  <span className={`block font-mono text-lg font-black mt-1 ${table.color}`}>{table.count}</span>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 py-1">
+              {Object.entries(dbStatus.tables).map(([key, count]) => (
+                <div key={key} className="bg-black/15 p-2.5 rounded-xl border border-white/[0.02] hover:border-slate-800 transition text-center select-none">
+                  <span className="block text-[10px] text-slate-400 font-medium truncate">{tableLabels[key] || key}</span>
+                  <span className={`block font-mono text-lg font-black mt-1 ${tableColors[key] || "text-slate-300"}`}>{count}</span>
                 </div>
               ))}
             </div>
           ) : (
             <div className="flex items-center justify-center h-28 text-xs text-slate-500">
-              {dbStatus?.connected ? "درحال تجمیع اطلاعات جداول..." : "جهت مشاهده رکورد جداول دیتابیس را متصل کنید."}
+              {dbStatus?.connected ? "درحال دریافت آمار جداول..." : "جهت مشاهده آمار، دیتابیس را متصل کنید."}
             </div>
           )}
 
           <div className="bg-slate-800/20 rounded-xl px-4 py-2.5 border border-white/5 text-[10px] text-slate-400 leading-relaxed flex items-center gap-2">
             <Info className="h-4 w-4 text-slate-400 flex-shrink-0" />
-            <span>توضیح: هر کوئری که فرانت‌اند در این لحظه ارسال می‌کند، بلافاصله کوئری مربوطه را در سطح Supabase ردیابی و کش می‌کند. برای همگام‌سازی، دیتابیس را مستقیماً شارژ کنید.</span>
+            <span>تمامی داده‌ها از حافظه داخلی سرور (In-Memory Cache) خوانده می‌شوند و به‌صورت دوره‌ای با PostgreSQL همگام می‌گردند.</span>
           </div>
         </div>
-
       </div>
 
-      {/* Log Terminal Block */}
+      {/* Log Terminal */}
       <div className="p-5 rounded-2xl bg-[#18181c]/90 border border-white/5 space-y-4">
         
-        {/* Terminal Options Bar */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-3 bg-black/25 p-3 rounded-xl border border-white/5">
           <div className="flex items-center gap-2.5">
             <Server className="h-4 w-4 text-emerald-400" />
-            <span className="font-extrabold text-xs text-slate-200">کنسول تحلیل ترانزکش‌ها و رویدادهای زنده سیستم</span>
+            <span className="font-extrabold text-xs text-slate-200">کنسول رویدادهای سیستم</span>
             <span className="text-[10px] font-mono bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-950">
-              {filteredLogs.length} لاگ فعال
+              {filteredLogs.length} لاگ
             </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            {/* Auto refresh box */}
             <label className="flex items-center gap-1.5 text-slate-400 ml-2 select-none cursor-pointer">
               <input 
                 type="checkbox" 
@@ -322,10 +361,9 @@ export default function DiagnosticsPanel() {
                 onChange={(e) => setAutoRefresh(e.target.checked)}
                 className="rounded bg-slate-900 border-white/10 text-emerald-500 focus:ring-opacity-0 h-3.5 w-3.5"
               />
-              <span className="text-[10px]">به‌روزرسانی متناوب (۵ ثانیه)</span>
+              <span className="text-[10px]">تازه‌سازی خودکار</span>
             </label>
 
-            {/* Level search */}
             <select 
               value={logFilter} 
               onChange={(e) => setLogFilter(e.target.value)}
@@ -337,24 +375,22 @@ export default function DiagnosticsPanel() {
               <option value="error">ERROR</option>
             </select>
 
-            {/* Category search */}
             <select 
               value={logCategory} 
               onChange={(e) => setLogCategory(e.target.value)}
               className="bg-slate-900 border border-white/5 rounded-lg px-2 py-1 text-slate-300 text-[10px] focus:outline-none focus:border-slate-750 cursor-pointer font-bold"
             >
               <option value="all">همه دسته‌ها</option>
-              <option value="database">دیتابیس Supabase</option>
-              <option value="api">API Routes</option>
-              <option value="auth">امنیتی / Auth</option>
+              <option value="database">دیتابیس</option>
+              <option value="api">API</option>
+              <option value="auth">امنیتی</option>
               <option value="general">عمومی</option>
             </select>
 
-            {/* Search query field */}
             <div className="relative">
               <input 
                 type="text" 
-                placeholder="جستجوی متنی لاگ..."
+                placeholder="جستجو..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="bg-slate-900 border border-white/5 rounded-lg pr-7 pl-2 py-1 text-[10px] focus:outline-none focus:border-emerald-500 text-slate-350 max-w-[130px]"
@@ -364,7 +400,7 @@ export default function DiagnosticsPanel() {
           </div>
         </div>
 
-        {/* Logs viewport list */}
+        {/* Logs list */}
         <div className="bg-black/40 rounded-xl p-3 border border-white/5 h-[400px] overflow-y-auto space-y-2.5 font-mono text-[11px] scrollbar-thin">
           {filteredLogs.length > 0 ? (
             filteredLogs.map((log, index) => {
@@ -374,32 +410,32 @@ export default function DiagnosticsPanel() {
                 error: "bg-red-500/10 text-red-400 border border-red-500/20"
               };
 
-              const categoryLabels = {
-                database: "DATABASE",
-                api: "API_ROUTE",
-                auth: "SECURITY",
-                general: "SYSTEM"
+              const categoryLabels: Record<string, string> = {
+                database: "DB",
+                api: "API",
+                auth: "AUTH",
+                general: "SYS"
               };
 
               return (
                 <div 
                   key={index} 
-                  className={`p-3 rounded-lg flex flex-col md:flex-row gap-3 items-start justify-between border border-transparent hover:bg-white/[0.012] transition`}
+                  className="p-3 rounded-lg flex flex-col md:flex-row gap-3 items-start justify-between border border-transparent hover:bg-white/[0.012] transition"
                 >
                   <div className="space-y-1.5 flex-1 pr-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className={`px-2 py-0.5 rounded text-[9px] font-black tracking-wider ${levelColors[log.level]}`}>
                         {log.level.toUpperCase()}
                       </span>
-                      <span className="text-cyan-405 text-cyan-400 bg-cyan-950/20 px-1.5 py-0.5 rounded text-[9px] font-bold">
+                      <span className="text-cyan-400 bg-cyan-950/20 px-1.5 py-0.5 rounded text-[9px] font-bold">
                         {categoryLabels[log.category] || log.category.toUpperCase()}
                       </span>
-                      <span className="text-slate-505 text-slate-500 text-[10px] flex items-center gap-1">
+                      <span className="text-slate-500 text-[10px] flex items-center gap-1">
                         <Clock className="h-3 w-3" />
                         {new Date(log.timestamp).toLocaleTimeString("fa-IR")}
                       </span>
                     </div>
-                    <p className="text-slate-205 text-slate-200 mt-1 font-sans text-xs leading-relaxed">{log.message}</p>
+                    <p className="text-slate-200 mt-1 font-sans text-xs leading-relaxed">{log.message}</p>
                     
                     {log.details && (
                       <div className="p-2.5 bg-black/50 border border-white/5 rounded-lg text-[9px] text-slate-400 max-w-full overflow-x-auto max-h-[80px] select-all font-mono leading-relaxed" dir="ltr">
@@ -413,7 +449,7 @@ export default function DiagnosticsPanel() {
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-slate-500 space-y-2 py-10">
               <Database className="h-8 w-8 text-slate-600 animate-pulse" />
-              <span className="text-xs">هیچ لاگی منطبق با فیلترهای بالا یافت نشد.</span>
+              <span className="text-xs">هیچ لاگی یافت نشد.</span>
             </div>
           )}
         </div>

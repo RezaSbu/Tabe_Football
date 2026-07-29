@@ -29,6 +29,8 @@ export function registerSystemRoutes(app: Express) {
       const { data, error } = await pgDb.from('config').select('id').limit(1).maybeSingle();
       const localDb = loadDB();
       if (error) throw error;
+
+      const memUsage = process.memoryUsage();
       res.json({
         connected: true,
         message: "اتصال مستقیم و امن به پایگاه داده PostgreSQL با موفقیت برقرار شد.",
@@ -36,12 +38,22 @@ export function registerSystemRoutes(app: Express) {
           host: process.env.DB_HOST || "localhost",
           port: process.env.DB_PORT || "5432",
           database: process.env.DB_NAME || "tabe_football",
+          user: process.env.DB_USER || "tabe_admin",
           nodeEnv: process.env.NODE_ENV || "development"
+        },
+        server: {
+          uptime: process.uptime(),
+          memoryHeapUsed: Math.round(memUsage.heapUsed / 1024 / 1024),
+          memoryHeapTotal: Math.round(memUsage.heapTotal / 1024 / 1024),
+          memoryRss: Math.round(memUsage.rss / 1024 / 1024),
+          nodeVersion: process.version,
+          platform: process.platform
         },
         tables: {
           news: localDb.news ? localDb.news.length : 0,
           teams: localDb.teams ? localDb.teams.length : 0,
           players: localDb.players ? localDb.players.length : 0,
+          coaches: localDb.coaches ? localDb.coaches.length : 0,
           matches: localDb.matches ? localDb.matches.length : 0,
           transfers: localDb.transfers ? localDb.transfers.length : 0,
           legionnaires: localDb.legionnaires ? localDb.legionnaires.length : 0,
@@ -60,7 +72,13 @@ export function registerSystemRoutes(app: Express) {
           host: process.env.DB_HOST || "localhost",
           port: process.env.DB_PORT || "5432",
           database: process.env.DB_NAME || "tabe_football",
+          user: process.env.DB_USER || "tabe_admin",
           nodeEnv: process.env.NODE_ENV || "development"
+        },
+        server: {
+          uptime: process.uptime(),
+          nodeVersion: process.version,
+          platform: process.platform
         },
         tables: {}
       });

@@ -21,8 +21,10 @@ interface AdminDashboardProps {
   standings: Record<string, StandingRow[]>;
   teams: TeamItem[];
   players: PlayerItem[];
+  coaches?: any[];
   submissions: any[];
   newsCount: number;
+  currentSeason?: string;
   onUpdateStandings: (leagueKey: string, rows: StandingRow[]) => Promise<boolean>;
   onUpdateTeam: (id: string, data: any) => Promise<boolean>;
   onUpdatePlayer: (id: string, data: any) => Promise<boolean>;
@@ -44,8 +46,10 @@ export default function AdminDashboard({
   standings = {},
   teams = [],
   players = [],
+  coaches = [],
   submissions = [],
   newsCount = 0,
+  currentSeason = "1404",
   onUpdateStandings,
   onUpdateTeam,
   onUpdatePlayer,
@@ -67,7 +71,7 @@ export default function AdminDashboard({
     const found: Discrepancy[] = [];
 
     // 1. Standings Scanner
-    const leagues = ["pro-league", "league-1", "futsal"];
+    const leagues = ["pro-league", "league-1", "league-2-group-a", "league-2-group-b", "futsal"];
     leagues.forEach(leagueKey => {
       const activeStandings = standings[leagueKey] || [];
       const leagueFinishedMatches = matches.filter(m => m.status === "finished" && m.league === leagueKey);
@@ -120,7 +124,7 @@ export default function AdminDashboard({
       activeStandings.forEach(row => {
         const comp = computed[row.team];
         if (comp) {
-          const lName = leagueKey === "pro-league" ? "لیگ برتر" : leagueKey === "futsal" ? "فوتسال" : leagueKey === "hazfi-cup" ? "جام حذفی" : leagueKey === "league-1" ? "لیگ یک" : leagueKey === "league-2" ? "لیگ دو" : "رقابت‌ها";
+          const lName = leagueKey === "pro-league" ? "لیگ برتر" : leagueKey === "futsal" ? "فوتسال" : leagueKey === "hazfi-cup" ? "جام حذفی" : leagueKey === "league-1" ? "لیگ یک" : leagueKey === "league-2-group-a" ? "لیگ دو - الف" : leagueKey === "league-2-group-b" ? "لیگ دو - ب" : "رقابت‌ها";
           if (row.points !== comp.points) {
             found.push({
               type: "standing",
@@ -483,26 +487,29 @@ export default function AdminDashboard({
           </div>
           <div className="mt-3 flex items-baseline gap-1.5">
             <span className="text-2xl font-black text-white">{teams.length}</span>
-            <span className="text-[10px] text-emerald-500 font-bold">پرسونال و آمار تکمیلی</span>
+            <span className="text-[10px] text-emerald-500 font-bold">تیم</span>
           </div>
-          <div className="text-[9px] text-slate-500 mt-2 flex justify-between">
-            <span>لیگ برتر: {teams.filter(t => t.titles).length}</span>
-            <span>تیم فوتسال / سایر: {teams.length - teams.filter(t => t.titles).length}</span>
+          <div className="text-[9px] text-slate-500 mt-2 flex flex-wrap gap-x-2 gap-y-0.5">
+            <span>لیگ برتر: {teams.filter(t => t.divisionKey === "pro-league").length}</span>
+            <span>لیگ یک: {teams.filter(t => t.divisionKey === "league-1").length}</span>
+            <span>لیگ دو: {teams.filter(t => t.divisionKey?.startsWith("league-2")).length}</span>
+            <span>فوتسال: {teams.filter(t => t.divisionKey === "futsal").length}</span>
           </div>
         </div>
 
         <div className="bg-gradient-to-br from-slate-900/80 to-slate-900 border border-white/5 p-4 rounded-2xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 h-20 w-20 bg-blue-600/5 rounded-full blur-2xl" />
           <div className="flex justify-between items-center">
-            <span className="text-gray-400 text-xs font-bold">تعداد بازیکنان</span>
+            <span className="text-gray-400 text-xs font-bold">بازیکنان و مربیان</span>
             <Users className="h-5 w-5 text-gray-500 group-hover:text-blue-500 transition-colors" />
           </div>
           <div className="mt-3 flex items-baseline gap-1.5">
             <span className="text-2xl font-black text-white">{players.length}</span>
-            <span className="text-[10px] text-blue-500 font-bold">شناسنامه فعال</span>
+            <span className="text-[10px] text-blue-500 font-bold">بازیکن</span>
           </div>
-          <div className="text-[9px] text-slate-500 mt-2">
-            <span>میانگین گل‌ها در کلوب: {(players.reduce((acc, p) => acc + Number(p.goals || 0), 0) / (players.length || 1)).toFixed(1)} گل برای هر بازیکن</span>
+          <div className="text-[9px] text-slate-500 mt-2 flex justify-between">
+            <span>مربیان: {coaches.length}</span>
+            <span>مربی آزاد: {coaches.filter((c: any) => !c.teamId).length}</span>
           </div>
         </div>
 

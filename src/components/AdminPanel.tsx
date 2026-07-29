@@ -415,8 +415,10 @@ export default function AdminPanel({
             standings={standings}
             teams={teams}
             players={players}
+            coaches={coaches}
             submissions={submissions}
             newsCount={news.length}
+            currentSeason={currentSeason}
             onUpdateStandings={onUpdateStandings}
             onUpdateTeam={handleUpdateTeam}
             onUpdatePlayer={handleUpdatePlayer}
