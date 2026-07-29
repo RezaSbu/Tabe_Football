@@ -5,6 +5,58 @@ import { loadDB } from "../state";
 import { logMessage } from "../utils/logger";
 import { saveDB } from "../services/database";
 
+const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"];
+
+const MAGIC_BYTES: Record<string, [number, number[]][]> = {
+  "image/jpeg": [[0, [0xFF, 0xD8, 0xFF]]],
+  "image/png": [[0, [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]]],
+  "image/gif": [[0, [0x47, 0x49, 0x46, 0x38]]],
+  "image/webp": [[0, [0x52, 0x49, 0x46, 0x46]]],
+  "image/svg+xml": [[0, [0x3C, 0x73, 0x76, 0x67]], [0, [0x3C, 0x3F, 0x78, 0x6D, 0x6C]]],
+};
+
+function detectMimeFromContent(buffer: Buffer): string | null {
+  for (const [mime, signatures] of Object.entries(MAGIC_BYTES)) {
+    for (const [offset, bytes] of signatures) {
+      if (offset + bytes.length > buffer.length) continue;
+      const matches = bytes.every((b, i) => buffer[offset + i] === b);
+      if (matches) {
+        if (mime === "image/webp") {
+          if (buffer.length >= 12 && buffer.slice(8, 12).toString() === "WEBP") return mime;
+          continue;
+        }
+        return mime;
+      }
+    }
+  }
+  if (buffer.length > 0 && buffer[0] === 0x3C) {
+    const str = buffer.slice(0, 500).toString("utf8").toLowerCase();
+    if (str.includes("<svg") || str.includes("<?xml") || str.includes("<!doctype")) {
+      return "image/svg+xml";
+    }
+  }
+  return null;
+}
+
+function validateUploadedFile(fileName: string, buffer: Buffer): string | null {
+  const ext = path.extname(fileName).toLowerCase();
+  const extMime: Record<string, string> = {
+    ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".gif": "image/gif",
+    ".webp": "image/webp",
+    ".svg": "image/svg+xml",
+  };
+  const expectedMime = extMime[ext];
+  if (!expectedMime) return "فرمت فایل پشتیبانی نمی‌شود. فقط jpg, png, gif, webp, svg مجاز است.";
+
+  const detectedMime = detectMimeFromContent(buffer);
+  if (!detectedMime || detectedMime !== expectedMime) {
+    return "محتوای فایل با پسوند آن مطابقت ندارد. فایل معتبر نیست.";
+  }
+  return null;
+}
+
 export function registerMediaRoutes(app: Express) {
   app.get("/api/media", (req, res) => {
     try {
@@ -55,6 +107,11 @@ export function registerMediaRoutes(app: Express) {
 
       const buffer = Buffer.from(fileData, "base64");
       const fileSize = buffer.length;
+
+      const validationError = validateUploadedFile(fileName, buffer);
+      if (validationError) {
+        return res.status(400).json({ success: false, message: validationError });
+      }
 
       const ext = path.extname(fileName).toLowerCase();
       let mimeType = "image/jpeg";
@@ -188,6 +245,11 @@ export function registerMediaRoutes(app: Express) {
 
       const buffer = Buffer.from(fileData, "base64");
       const fileSize = buffer.length;
+
+      const validationError = validateUploadedFile(fileName, buffer);
+      if (validationError) {
+        return res.status(400).json({ success: false, message: validationError });
+      }
 
       const ext = path.extname(fileName).toLowerCase();
       let mimeType = "image/jpeg";

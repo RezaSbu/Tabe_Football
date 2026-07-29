@@ -230,10 +230,18 @@ export function useAppData() {
   useEffect(() => {
     fetchData();
     
-    const savedToken = localStorage.getItem("football360_admin_token");
-    if (savedToken && savedToken.startsWith("eyJ")) {
-      setIsAdminLoggedIn(true);
-    }
+    const checkLogin = async () => {
+      try {
+        const res = await fetch("/api/auth/check", { credentials: "same-origin" });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authenticated) setIsAdminLoggedIn(true);
+        }
+      } catch {
+        // Not logged in
+      }
+    };
+    checkLogin();
 
     const savedSubs = localStorage.getItem("subscribed_team_preferences");
     if (savedSubs) {
@@ -379,13 +387,16 @@ export function useAppData() {
     return false;
   };
 
-  const handleAdminLogin = (token: string) => {
-    localStorage.setItem("football360_admin_token", token);
+  const handleAdminLogin = () => {
     setIsAdminLoggedIn(true);
   };
 
-  const handleAdminLogout = () => {
-    localStorage.removeItem("football360_admin_token");
+  const handleAdminLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
+    } catch {
+      // Ignore
+    }
     setIsAdminLoggedIn(false);
   };
 

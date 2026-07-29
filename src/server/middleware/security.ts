@@ -55,6 +55,14 @@ export function setupSecurityMiddleware(app: express.Application) {
     legacyHeaders: false,
     message: { error: "تعداد تلاش‌های ورود بیش از حد مجاز است." }
   });
+  const contactLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "تعداد پیام‌های ارسالی بیش از حد مجاز است. لطفاً یک ساعت بعد تلاش کنید." }
+  });
   app.use("/api/", apiLimiter);
   app.use("/api/auth/login", authLimiter);
+  app.use("/api/contact", contactLimiter);
 }

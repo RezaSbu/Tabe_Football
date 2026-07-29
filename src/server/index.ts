@@ -2,6 +2,7 @@ import express from "express";
 import "express-async-errors";
 import path from "path";
 import { createServer as createViteServer } from "vite";
+import cookieParser from "cookie-parser";
 
 import "./utils/envLoader";
 
@@ -30,6 +31,7 @@ const app = express();
 const PORT = 3000;
 
 app.set("trust proxy", 1);
+app.use(cookieParser());
 setupSecurityMiddleware(app);
 app.use(centralAuthGuard);
 
