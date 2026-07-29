@@ -18,6 +18,7 @@ CREATE TABLE public.config (
   ad_desc text,
   ad_link text,
   ad_btn_text text,
+  banner_label text DEFAULT '',
   custom_banner_url text,
   ad_slots jsonb DEFAULT '[]'::jsonb,
   created_at timestamptz DEFAULT now(),
@@ -294,7 +295,7 @@ CREATE TABLE public.bracket_slots (
   next_slot_id varchar(50),
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),
-  CONSTRAINT bracket_slots_pkey PRIMARY KEY (id),
+  CONSTRAINT bracket_slots_pkey PRIMARY KEY (id)
 );
 
 CREATE TABLE public.team_transfers_list (

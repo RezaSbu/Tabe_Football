@@ -1,0 +1,24 @@
+name: CD
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          script: |
+            cd /opt/tabe-football
+            git checkout main
+            git pull origin main
+            docker-compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.production up -d --build 2>&1
+            docker image prune -f
