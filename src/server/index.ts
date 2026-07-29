@@ -11,8 +11,9 @@ import { centralAuthGuard } from "./middleware/auth";
 import { loadDB, setDb } from "./state";
 import { dbLock } from "./utils/concurrency";
 import { logMessage } from "./utils/logger";
-import { fetchAndPopulateMemoryDB, saveDB, migrateConstraints } from "./services/database";
+import { fetchAndPopulateMemoryDB, saveDB, migrateConstraints, migrateSummaryColumn, migrateHeroSlidesColumns } from "./services/database";
 import { recalculateAndSyncDatabase } from "./services/stats";
+import { getUploadsDir } from "./db";
 
 import { registerSystemRoutes } from "./routes/system";
 import { registerArchiveRoutes } from "./routes/archives";
@@ -21,6 +22,7 @@ import { registerMatchRoutes } from "./routes/matches";
 import { registerStandingsRoutes } from "./routes/standings";
 import { registerMediaRoutes } from "./routes/media";
 import { registerMiscRoutes } from "./routes/misc";
+import { registerDetailRoutes } from "./routes/detail";
 
 logMessage("info", "general", "پورتال فوتبال ۳۶۰ در حال راه‌اندازی است...");
 
@@ -38,6 +40,7 @@ registerMatchRoutes(app);
 registerStandingsRoutes(app);
 registerMediaRoutes(app);
 registerMiscRoutes(app);
+registerDetailRoutes(app);
 
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   logMessage("error", "general", "Unhandled route error:", err.message || err);
@@ -46,6 +49,8 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 
 async function startServer() {
   await migrateConstraints();
+  await migrateSummaryColumn();
+  await migrateHeroSlidesColumns();
   await dbLock.acquire(() => fetchAndPopulateMemoryDB());
 
   const db = loadDB();
@@ -57,6 +62,8 @@ async function startServer() {
     await saveDB();
   }
 
+  app.use("/uploads", express.static(getUploadsDir()));
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
@@ -65,8 +72,6 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
-    const uploadsPath = path.join(process.cwd(), "uploads");
-    app.use("/uploads", express.static(uploadsPath));
     app.use(express.static(distPath, {
       setHeaders: (res, filePath) => {
         if (filePath.endsWith(".js")) {

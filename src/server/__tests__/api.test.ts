@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 
 const BASE = "http://localhost:3000";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "mylJgXoY55EHH0YM1OTwm91n";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 
 async function apiGet(path: string) {
   const res = await fetch(`${BASE}${path}`);
@@ -306,5 +306,101 @@ describe("API - Submissions", () => {
     const { status, data } = await apiPost("/api/contact", { name: "Test", email: "t@t.com", subject: "hi", message: "hello" });
     expect(status).toBe(200);
     expect(data.success).toBe(true);
+  });
+});
+
+describe("API - Config Persistence", () => {
+  it("GET /api/config returns object with adConfig fields", async () => {
+    const { status, data } = await apiGet("/api/config");
+    expect(status).toBe(200);
+    expect(data).toHaveProperty("adTitle");
+    expect(data).toHaveProperty("adSlots");
+  });
+
+  it("PUT /api/config saves and GET /api/data returns persisted config", async () => {
+    if (!needsAuth()) return;
+    const cfg = {
+      adTitle: "", adPromo: "", adDesc: "", adLink: "", adBtnText: "",
+      customBannerUrl: "", adSlots: [],
+      bannerLabel: "تست بنر", bannerLabelVisible: true,
+      bannerTagText: "تست تگ", bannerVisible: true,
+      popupAd: { enabled: true, title: "پاپ", description: "توضیح", link: "#", btnText: "باش", delay: 5 },
+      floatingAd: { enabled: false, title: "", description: "", link: "", btnText: "" },
+      bottomBarAd: { enabled: false, title: "", description: "", link: "", btnText: "" },
+      slideInAd: { enabled: false, title: "", description: "", link: "", btnText: "" }
+    };
+    const putRes = await apiPut("/api/config", cfg, token);
+    expect(putRes.status).toBe(200);
+    expect(putRes.data.success).toBe(true);
+
+    const { data: fullData } = await apiGet("/api/data");
+    expect(fullData.config).toBeDefined();
+    expect(fullData.config.bannerLabel).toBe("تست بنر");
+    expect(fullData.config.popupAd.enabled).toBe(true);
+  });
+
+  it("PUT /api/config without auth returns 401", async () => {
+    const { status } = await apiPut("/api/config", { adTitle: "test" }, "");
+    expect(status).toBe(401);
+  });
+});
+
+describe("API - Security: Auth Guards", () => {
+  const protectedRoutes = [
+    { method: "POST", path: "/api/news" },
+    { method: "PUT", path: "/api/news/fake-id" },
+    { method: "DELETE", path: "/api/news/fake-id" },
+    { method: "POST", path: "/api/teams" },
+    { method: "PUT", path: "/api/teams/fake-id" },
+    { method: "DELETE", path: "/api/teams/fake-id" },
+    { method: "POST", path: "/api/players" },
+    { method: "POST", path: "/api/transfers" },
+    { method: "POST", path: "/api/legionnaires" },
+    { method: "POST", path: "/api/images" },
+    { method: "PUT", path: "/api/config" },
+    { method: "POST", path: "/api/sync" },
+  ];
+
+  protectedRoutes.forEach(({ method, path }) => {
+    it(`${method} ${path} without auth returns 401`, async () => {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const res = await fetch(`${BASE}${path}`, { method, headers, body: JSON.stringify({}) });
+      expect(res.status).toBe(401);
+    });
+  });
+
+  it("GET /api/data is publicly accessible", async () => {
+    const { status } = await apiGet("/api/data");
+    expect(status).toBe(200);
+  });
+
+  it("POST /api/contact is publicly accessible", async () => {
+    const { status } = await apiPost("/api/contact", { name: "Pub", email: "p@p.com", subject: "s", message: "m" });
+    expect(status).toBe(200);
+  });
+});
+
+describe("API - Standings & Stats", () => {
+  it("GET /api/standings returns standings data", async () => {
+    const { status, data } = await apiGet("/api/standings");
+    expect(status).toBe(200);
+  });
+
+  it("GET /api/stats returns stats data", async () => {
+    const { status, data } = await apiGet("/api/stats");
+    expect(status).toBe(200);
+  });
+});
+
+describe("API - System", () => {
+  it("GET /api/health returns 200", async () => {
+    const { status, data } = await apiGet("/api/health");
+    expect(status).toBe(200);
+  });
+
+  it("GET /api/logs returns logs array", async () => {
+    const { status, data } = await apiGet("/api/logs");
+    expect(status).toBe(200);
+    expect(data).toHaveProperty("logs");
   });
 });

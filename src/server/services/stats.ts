@@ -888,7 +888,7 @@ export function recalculateAndSyncDatabase(): void {
   if (!db.stats) db.stats = {};
 
   statsLeagues.forEach((leagueKey) => {
-    let eligiblePlayers = [];
+    let eligiblePlayers: any[];
 
     if (leagueKey === "hazfi-cup") {
       eligiblePlayers = db.players.filter((p: any) => {

@@ -4,10 +4,19 @@ import {
   MatchItem,
   StandingRow,
   TransferItem,
+  LegionnaireItem,
   ImageItem,
   ContactSubmission,
   StatsData,
   TeamTransferItem,
+  AdConfig,
+  ArchiveItem,
+  TeamItem,
+  PlayerItem,
+  CoachItem,
+  SelectedCombination,
+  LiveGoal,
+  HeroSlideItem,
 } from "../types";
 import { computeDynamicAppletStats } from "../utils";
 import { playGoalSound, showSystemNotification } from "./useGoalSound";
@@ -19,33 +28,34 @@ export function useAppData() {
   const [standings, setStandings] = useState<Record<string, StandingRow[]>>({});
   const [transfers, setTransfers] = useState<TransferItem[]>([]);
   const [teamTransfersList, setTeamTransfersList] = useState<TeamTransferItem[]>([]);
-  const [legionnaires, setLegionnaires] = useState<any[]>([]);
+  const [legionnaires, setLegionnaires] = useState<LegionnaireItem[]>([]);
   const [images, setImages] = useState<ImageItem[]>([]);
   const [stats, setStats] = useState<Record<string, StatsData>>({});
   const [submissions, setSubmissions] = useState<ContactSubmission[]>([]);
   const [lastScraped, setLastScraped] = useState<string>("");
-  const [teams, setTeams] = useState<any[]>([]);
-  const [players, setPlayers] = useState<any[]>([]);
-  const [coaches, setCoaches] = useState<any[]>([]);
-  const [bracket, setBracket] = useState<any>(null);
-  const [selectedCombinations, setSelectedCombinations] = useState<any[]>([]);
-  const [archives, setArchives] = useState<any[]>([]);
+  const [teams, setTeams] = useState<TeamItem[]>([]);
+  const [players, setPlayers] = useState<PlayerItem[]>([]);
+  const [coaches, setCoaches] = useState<CoachItem[]>([]);
+  const [bracket, setBracket] = useState<Record<string, any> | null>(null);
+  const [selectedCombinations, setSelectedCombinations] = useState<SelectedCombination[]>([]);
+  const [archives, setArchives] = useState<ArchiveItem[]>([]);
+  const [heroSlides, setHeroSlides] = useState<HeroSlideItem[]>([]);
 
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [selectedCoachId, setSelectedCoachId] = useState<string | null>(null);
-  const [selectedMatch, setSelectedMatch] = useState<any | null>(null);
+  const [selectedMatch, setSelectedMatch] = useState<MatchItem | null>(null);
 
-  const [predictions, setPredictions] = useState<Record<string, any>>({});
-  const [liveGoals, setLiveGoals] = useState<any[]>([]);
+  const [predictions, setPredictions] = useState<Record<string, Record<string, any>>>({});
+  const [liveGoals, setLiveGoals] = useState<LiveGoal[]>([]);
   const [subscribedTeams, setSubscribedTeams] = useState<string[]>([]);
   const [lastSeenGoalTimestamp, setLastSeenGoalTimestamp] = useState<number>(Date.now());
-  const [activeGoalEvent, setActiveGoalEvent] = useState<any | null>(null);
+  const [activeGoalEvent, setActiveGoalEvent] = useState<LiveGoal | null>(null);
 
-  const [weeklyPoll, setWeeklyPoll] = useState<any>(null);
-  const [popularTeams, setPopularTeams] = useState<any[]>([]);
-  const [historicalData, setHistoricalData] = useState<any>({});
-  const [featureGames, setFeatureGames] = useState<any[]>([]);
+  const [weeklyPoll, setWeeklyPoll] = useState<{question: string; options: {label: string; votes: number}[]} | null>(null);
+  const [popularTeams, setPopularTeams] = useState<{name: string; logo: string; fanCount: number}[]>([]);
+  const [historicalData, setHistoricalData] = useState<Record<string, any>>({});
+  const [featureGames, setFeatureGames] = useState<MatchItem[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [activeArticle, setActiveArticle] = useState<NewsItem | null>(null);
@@ -64,13 +74,22 @@ export function useAppData() {
   const [visibleNewsCount, setVisibleNewsCount] = useState(6);
 
   const [livescoreFilter, setLivescoreFilter] = useState<string>("all");
-  const [adConfig, setAdConfig] = useState<any>({
-    adTitle: "سامانه خدمات آنلاین اسنپ، حامی لیگ برتر",
-    adPromo: "F360",
-    adDesc: "با ثبت نام با کد تخفیف F360، اولین سفر خود را کاملأ رایگان اسنپ باشید!",
-    adLink: "https://snapp.ir",
-    adBtnText: "نصب اسنپ",
-    customBannerUrl: ""
+  const [adConfig, setAdConfig] = useState<AdConfig>({
+    adTitle: "",
+    adPromo: "",
+    adDesc: "",
+    adLink: "",
+    adBtnText: "",
+    customBannerUrl: "",
+    adSlots: [],
+    bannerLabel: "تخفیف هواداران تب فوتبال",
+    bannerLabelVisible: true,
+    bannerTagText: "حمایت ویژه پورتال",
+    bannerVisible: true,
+    popupAd: { enabled: false, title: "", description: "", link: "", btnText: "" },
+    floatingAd: { enabled: false, title: "", description: "", link: "", btnText: "" },
+    bottomBarAd: { enabled: false, title: "", description: "", link: "", btnText: "" },
+    slideInAd: { enabled: false, title: "", description: "", link: "", btnText: "" }
   });
 
   const applyFetchedData = (data: any) => {
@@ -123,6 +142,7 @@ export function useAppData() {
     setCoaches(data.coaches || []);
     setBracket(data.bracket || null);
     setSelectedCombinations(data.selectedCombinations || []);
+    setHeroSlides(data.heroSlides || []);
     setArchives(data.archives || []);
     if (data.currentSeason) {
       setCurrentSeason(data.currentSeason);
@@ -328,7 +348,7 @@ export function useAppData() {
     return false;
   };
 
-  const handleUpdateAdConfig = async (configData: any) => {
+  const handleUpdateAdConfig = async (configData: AdConfig) => {
     try {
       const response = await fetch(`/api/config`, {
         method: "PUT",
@@ -522,7 +542,7 @@ export function useAppData() {
     activeTab, setActiveTab,
     news, matches, standings, transfers, teamTransfersList,
     legionnaires, images, stats, submissions, lastScraped,
-    teams, players, coaches, bracket, selectedCombinations,     archives, setArchives,
+    teams, players, coaches, bracket, selectedCombinations, heroSlides, setHeroSlides, archives, setArchives,
     selectedTeamId, setSelectedTeamId,
     selectedPlayerId, setSelectedPlayerId,
     selectedCoachId, setSelectedCoachId,

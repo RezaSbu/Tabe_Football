@@ -113,8 +113,8 @@ export function computeDynamicAppletStats(
 
   // 1. DYNAMIC MATCH STATUS CALCULATOR
   const processedMatches = rawMatches.map((match: any) => {
-    // Preserve manual status overrides by Admin to avoid resetting manual starts or finishes
-    if (match.status === "live" || match.status === "finished") {
+    // Preserve manual status overrides by Admin to avoid resetting manual finishes
+    if (match.status === "finished") {
       return match;
     }
     // Determine status and minutes based on real-world system clock
@@ -143,12 +143,13 @@ export function computeDynamicAppletStats(
               scoreAway: 0
             };
           } else if (elapsedMs < 110 * 60 * 1000) {
-            // Live game
+            // Live game - always update minutes based on clock
             const elapsedMins = Math.floor(elapsedMs / (60 * 1000)) || 1;
             let scHome = match.scoreHome ?? 0;
             const scAway = match.scoreAway ?? 0;
-            if (scHome === 0 && scAway === 0 && elapsedMins > 45) {
-              scHome = 1; // dynamically make it look alive if not initialized
+            // Only inject fake scores if not already set by admin
+            if (match.status !== "live" && scHome === 0 && scAway === 0 && elapsedMins > 45) {
+              scHome = 1;
             }
 
             return {
@@ -304,10 +305,10 @@ export function computeDynamicAppletStats(
   const statsLeagues = ["pro-league", "league-1", "league-2", "hazfi-cup", "futsal"];
 
   statsLeagues.forEach((leagueKey) => {
-    let statsObj: any = null;
+    let statsObj: any;
 
     // Dynamic calculation from cleanly mapped player seasonStats
-    let eligiblePlayers = [];
+    let eligiblePlayers: any[];
 
     if (leagueKey === "hazfi-cup") {
       eligiblePlayers = processedPlayers.filter((p: any) => {

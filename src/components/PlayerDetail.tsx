@@ -22,16 +22,29 @@ export default function PlayerDetail({
   onSelectTeam,
   onSelectMatch
 }: PlayerDetailProps) {
-  if (!player) return null;
-
   const [activeTab, setActiveTab] = useState<"overview" | "matches" | "career">("overview");
   const [imageError, setImageError] = useState(false);
-  const [lastPlayerId, setLastPlayerId] = useState(player?.id);
+  const [lastPlayerId, setLastPlayerId] = useState<string | undefined>(undefined);
+  const [selectedCompet, setSelectedCompet] = useState<"all" | "league" | "cup">("all");
+
+  useEffect(() => {
+    if (player) {
+      const isFutsal = player.id?.startsWith("futsal-") || player.teamId?.startsWith("futsal-") || player.teamId?.includes("futsal") || (player.teamName || "").includes("فوتسال");
+      setSelectedCompet(isFutsal ? "league" : "all");
+    }
+  }, [player?.id]);
+
+  if (!player) return null;
 
   if (player?.id !== lastPlayerId) {
     setImageError(false);
     setLastPlayerId(player?.id);
   }
+
+  const isFutsalPlayer = player.id?.startsWith("futsal-") || 
+                         player.teamId?.startsWith("futsal-") || 
+                         player.teamId?.includes("futsal") || 
+                         (player.teamName || "").includes("فوتسال");
 
   const getPlayerMinutesAndPlayed = (m: any, p: any) => {
     const isFutsal = m.sport === "futsal" || m.league === "futsal";
@@ -311,17 +324,6 @@ export default function PlayerDetail({
     if (tA !== tB) return tB - tA;
     return (b.matchId || "").localeCompare(a.matchId || "");
   });
-
-  const isFutsalPlayer = player.id?.startsWith("futsal-") || 
-                         player.teamId?.startsWith("futsal-") || 
-                         player.teamId?.includes("futsal") || 
-                         (player.teamName || "").includes("فوتسال");
-
-  const [selectedCompet, setSelectedCompet] = useState<"all" | "league" | "cup">(isFutsalPlayer ? "league" : "all");
-
-  useEffect(() => {
-    setSelectedCompet(isFutsalPlayer ? "league" : "all");
-  }, [player?.id, isFutsalPlayer]);
 
   // Calculate dynamic average rating
   const leagueMatches = player.leagueStats?.matches || 0;

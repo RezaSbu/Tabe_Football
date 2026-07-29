@@ -92,13 +92,11 @@ export interface LegionnaireItem {
   
   // Extended fields loaded from DB
   teamLogo?: string;
-  matchRating?: string;
-  goals?: number;
-  assists?: number;
-  minutesPlayed?: number;
-  matchStatus?: string;
   logo?: string;
   description?: string;
+  summary?: string;
+  nationality?: string;
+  position?: string;
 }
 
 export interface ImageItem {
@@ -122,6 +120,18 @@ export interface StatsData {
   assists: { rank: number; name: string; team: string; assists: number }[];
   cleansheets: { rank: number; name: string; team: string; cleanSheets: number }[];
   ratings?: { rank: number; name: string; team: string; rating: number }[];
+}
+
+export interface HeroSlideItem {
+  id: string;
+  image: string;
+  title: string;
+  subtitle: string;
+  link: string;
+  sourceType: "news" | "transfer" | "legionnaire" | "image" | "custom";
+  sourceId?: string;
+  active: boolean;
+  sort_order: number;
 }
 
 export interface ContactSubmission {
@@ -301,5 +311,69 @@ export interface TeamTransferItem {
   incomings: TeamTransferPlayer[];
   outgoings: TeamTransferPlayer[];
   probables: TeamTransferPlayer[];
+}
+
+export interface OverlayAdConfig {
+  enabled: boolean;
+  title: string;
+  description: string;
+  link: string;
+  btnText: string;
+  imageUrl?: string;
+  position?: string;
+  delay?: number;
+  showAfterScroll?: boolean;
+  scrollThreshold?: number;
+  linkUrl?: string;
+}
+
+export interface AdSlot {
+  id: string;
+  name: string;
+  type: 'text' | 'image' | 'mixed';
+  text?: string;
+  link?: string;
+  imageUrl?: string;
+  imageLink?: string;
+  priority?: number;
+  startDate?: string;
+  endDate?: string;
+  active?: boolean;
+}
+
+export interface AdConfig {
+  adTitle: string;
+  adPromo: string;
+  adDesc: string;
+  adLink: string;
+  adBtnText: string;
+  customBannerUrl: string;
+  adSlots: AdSlot[];
+  bannerLabel: string;
+  bannerLabelVisible: boolean;
+  bannerTagText: string;
+  bannerVisible: boolean;
+  popupAd: OverlayAdConfig;
+  floatingAd: OverlayAdConfig;
+  bottomBarAd: OverlayAdConfig;
+  slideInAd: OverlayAdConfig;
+}
+
+export interface LiveGoal {
+  id: string;
+  scoringTeam: string;
+  scorerName: string;
+  minute: string;
+  teamHome: string;
+  scoreHome: number;
+  scoreAway: number;
+  teamAway: string;
+}
+
+export interface ArchiveItem {
+  id: string;
+  season: string;
+  data: any;
+  created_at?: string;
 }
 

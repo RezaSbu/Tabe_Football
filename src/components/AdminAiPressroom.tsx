@@ -63,7 +63,7 @@ export default function AdminAiPressroom({
         }
       }
 
-      let narrativeText = "";
+      let narrativeText: string;
       const title = `گزارش رسانه‌ای بازی بزرگ: ${home} ${sh} - ${sa} ${away}`;
 
       if (sh > sa) {
@@ -112,7 +112,7 @@ export default function AdminAiPressroom({
       
       const drawProb = 100 - homeWinsProb - awayWinsProb;
       
-      let advice = "";
+      let advice: string;
       if (homeWinsProb > awayWinsProb + 15) {
         advice = `بر اساس محاسبات رگرسیون تیمی و امتیازات رده‌بندی، باشگاه ${home} به واسطه مزیت میزبانی و برخورداری از هارمونی دفاعی منسجم، بخت نخست پیروزی در این نبرد خواهد بود. شبیه‌ساز پیشنهاد می‌کند بر روی سیستم ۲-۵-۳ تیم میزبان تمرکز کنید.`;
       } else if (awayWinsProb > homeWinsProb + 15) {

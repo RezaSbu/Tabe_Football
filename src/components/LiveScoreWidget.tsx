@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { MatchItem } from "../types";
 import { Activity, Tv, Volume2 } from "lucide-react";
+import TeamLogo from "./TeamLogo";
 
 interface LiveScoreWidgetProps {
   matches: MatchItem[];
@@ -46,7 +47,7 @@ export default function LiveScoreWidget({
                   {/* Home and Goal notifications subscription */}
                   <div className="flex items-center gap-2 truncate flex-1 justify-end">
                     <span className="font-extrabold text-xs text-slate-200 group-hover:text-red-400 transition truncate">{m.teamHome}</span>
-                    <span className="text-sm">{m.teamHomeLogo}</span>
+                    <TeamLogo logo={m.teamHomeLogo} fallback="🥅" size="xs" />
                   </div>
 
                   {/* Dynamic central score */}
@@ -58,7 +59,7 @@ export default function LiveScoreWidget({
 
                   {/* Away */}
                   <div className="flex items-center gap-2 truncate flex-1">
-                    <span className="text-sm">{m.teamAwayLogo}</span>
+                    <TeamLogo logo={m.teamAwayLogo} fallback="🥅" size="xs" />
                     <span className="font-extrabold text-xs text-slate-200 group-hover:text-red-400 transition truncate">{m.teamAway}</span>
                   </div>
                 </div>

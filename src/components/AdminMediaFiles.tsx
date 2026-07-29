@@ -71,8 +71,11 @@ export default function AdminMediaFiles() {
   const categories = [
     { value: "player_photo", label: "عکس بازیکنان" },
     { value: "team_logo", label: "لوگوی تیم‌ها" },
+    { value: "coach_photo", label: "عکس مربیان" },
     { value: "news_image", label: "تصاویر اخبار و اسلایدر" },
     { value: "ad_banner", label: "بنرهای تبلیغاتی" },
+    { value: "match_photo", label: "تصاویر مسابقات" },
+    { value: "stadium_photo", label: "تصاویر ورزشگاه‌ها" },
     { value: "general", label: "سایر تصاویر عمومی" }
   ];
 

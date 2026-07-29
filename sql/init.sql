@@ -19,6 +19,7 @@ CREATE TABLE public.config (
   ad_link text,
   ad_btn_text text,
   custom_banner_url text,
+  ad_slots jsonb DEFAULT '[]'::jsonb,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),
   CONSTRAINT config_pkey PRIMARY KEY (id)
@@ -206,6 +207,7 @@ CREATE TABLE public.legionnaires (
   assists integer DEFAULT 0,
   minutes_played integer DEFAULT 0,
   description text,
+  summary text,
   view_count integer DEFAULT 0,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),
@@ -259,6 +261,8 @@ CREATE TABLE public.hero_slides (
   link text,
   active boolean DEFAULT true,
   sort_order integer DEFAULT 0,
+  source_type varchar(20) DEFAULT 'custom',
+  source_id varchar(100) DEFAULT '',
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),
   CONSTRAINT hero_slides_pkey PRIMARY KEY (id)
@@ -291,12 +295,6 @@ CREATE TABLE public.bracket_slots (
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),
   CONSTRAINT bracket_slots_pkey PRIMARY KEY (id),
-  CONSTRAINT fk_bracket_slots_match FOREIGN KEY (match_id)
-    REFERENCES public.matches(id) ON DELETE SET NULL
-    DEFERRABLE INITIALLY DEFERRED,
-  CONSTRAINT fk_bracket_slots_next FOREIGN KEY (next_slot_id)
-    REFERENCES public.bracket_slots(id) ON DELETE SET NULL
-    DEFERRABLE INITIALLY DEFERRED
 );
 
 CREATE TABLE public.team_transfers_list (

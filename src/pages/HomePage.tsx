@@ -3,11 +3,14 @@ import { Trophy, ChevronLeft, Newspaper, Users, Flame, Activity, Star, Zap, Tren
 import NewsSlider from "../components/NewsSlider";
 import MatchTicker from "../components/MatchTicker";
 import TeamOfTheWeekWidget from "../components/TeamOfTheWeekWidget";
+import AdSlot from "../components/AdSlot";
 
 interface HomePageProps {
   matches: any[];
   news: any[];
   transfers: any[];
+  heroSlides?: any[];
+  legionnaires?: any[];
   stats: any;
   liveGoals: any;
   setSelectedMatch: (match: any) => void;
@@ -27,6 +30,7 @@ interface HomePageProps {
   setSelectedPlayerId: (id: string | null) => void;
   setSelectedTeamId: (id: string | null) => void;
   adConfig: any;
+  onSelectTransfer?: (transferId: string) => void;
 }
 
 const getPersianCategory = (cat: string) => {
@@ -49,6 +53,8 @@ export default function HomePage({
   matches,
   news,
   transfers,
+  heroSlides = [],
+  legionnaires = [],
   stats,
   liveGoals,
   setSelectedMatch,
@@ -68,53 +74,75 @@ export default function HomePage({
   setSelectedPlayerId,
   setSelectedTeamId,
   adConfig,
+  onSelectTransfer,
 }: HomePageProps) {
   const [newsCategoryFilter, setNewsCategoryFilter] = useState("all");
   const [visibleNewsCount, setVisibleNewsCount] = useState(6);
   const [newsSearch, setNewsSearch] = useState("");
   const [sidebarLeagueTab, setSidebarLeagueTab] = useState("pro-league");
 
+  const mainCategories = ["pro-league", "league-1", "league-2", "hazfi-cup", "futsal"];
   const filteredNewsList = news.filter((art) => {
     const matchesSearch = art.title.toLowerCase().includes(newsSearch.toLowerCase()) ||
       art.summary.toLowerCase().includes(newsSearch.toLowerCase()) ||
       art.tags.some((t: string) => t.toLowerCase().includes(newsSearch.toLowerCase()));
-    const matchesCat = newsCategoryFilter === "all" || art.category === newsCategoryFilter;
+    const matchesCat = newsCategoryFilter === "all" ||
+      (newsCategoryFilter === "other" ? !mainCategories.includes(art.category) : art.category === newsCategoryFilter);
     return matchesSearch && matchesCat;
   });
 
   return (
     <div className="space-y-6" dir="rtl" id="home-dashboard-container">
-      <div className="group overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-r from-red-950/15 via-slate-900/80 to-gray-950 px-5 py-3.5 relative shadow-lg flex flex-col sm:flex-row justify-between items-center gap-4 transition hover:border-red-950/30 animate-in fade-in duration-300">
-        <span className="absolute top-2 left-2 rounded bg-[#0a0a0c] px-1.5 py-0.5 text-[8px] font-black tracking-widest text-emerald-400 shadow uppercase">حمایت ویژه پورتال</span>
-
-        <div className="flex items-center gap-3.5">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 font-bold text-base text-black shadow shadow-emerald-900/20">
-            {adConfig.adPromo ? adConfig.adPromo.slice(0, 2) : "SN"}
-          </div>
-          <div>
-            <h4 className="font-black text-sm text-emerald-400 flex items-center gap-2">
-              <span>{adConfig.adTitle}</span>
-              <span className="rounded bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[8px] font-black text-emerald-455">تخفیف هواداران تب فوتبال</span>
-            </h4>
-            <p className="text-[11px] text-gray-400 mt-0.5">
-              {adConfig.adDesc} {adConfig.adPromo && <span>با کد اختصاصی: <strong className="text-white font-mono bg-gray-900/60 border border-white/5 px-1 py-0.5 rounded">{adConfig.adPromo}</strong></span>}
-            </p>
-          </div>
-        </div>
-
+      {/* AD BANNER — Image or Text fallback */}
+      {adConfig.bannerVisible === false ? null : adConfig.customBannerUrl ? (
         <a
-          href={adConfig.adLink || "https://snapp.ir"}
+          href={adConfig.adLink || "#"}
           target="_blank"
           referrerPolicy="no-referrer"
-          className="rounded-xl bg-emerald-500 hover:bg-emerald-450 active:scale-98 text-slate-950 font-black text-xs px-5 py-2 shrink-0 shadow-md transition cursor-pointer flex items-center gap-1"
+          className="group block overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-r from-red-950/15 via-slate-900/80 to-gray-950 relative shadow-lg transition hover:border-red-950/30 animate-in fade-in duration-300"
         >
-          <span>{adConfig.adBtnText || "ورود و دریافت کد طلایی"}</span>
+          {adConfig.bannerTagText !== "" && <span className="absolute top-2 left-2 z-10 rounded bg-[#0a0a0c] px-1.5 py-0.5 text-[8px] font-black tracking-widest text-emerald-400 shadow uppercase">{adConfig.bannerTagText || "حمایت ویژه پورتال"}</span>}
+          <img
+            src={adConfig.customBannerUrl}
+            alt={adConfig.adTitle || "بنر تبلیغاتی"}
+            loading="lazy"
+            decoding="async"
+            className="w-full max-h-48 object-cover transition group-hover:scale-[1.01]"
+          />
         </a>
-      </div>
+      ) : (
+        <div className="group overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-r from-red-950/15 via-slate-900/80 to-gray-950 px-5 py-3.5 relative shadow-lg flex flex-col sm:flex-row justify-between items-center gap-4 transition hover:border-red-950/30 animate-in fade-in duration-300">
+          {adConfig.bannerTagText !== "" && <span className="absolute top-2 left-2 rounded bg-[#0a0a0c] px-1.5 py-0.5 text-[8px] font-black tracking-widest text-emerald-400 shadow uppercase">{adConfig.bannerTagText || "حمایت ویژه پورتال"}</span>}
+
+          <div className="flex items-center gap-3.5">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-500 font-bold text-base text-black shadow shadow-emerald-900/20">
+              {adConfig.adPromo ? adConfig.adPromo.slice(0, 2) : "SN"}
+            </div>
+            <div>
+              <h4 className="font-black text-sm text-emerald-400 flex items-center gap-2">
+                <span>{adConfig.adTitle}</span>
+                {adConfig.bannerLabelVisible !== false && <span className="rounded bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 text-[8px] font-black text-emerald-455">{adConfig.bannerLabel || "تخفیف هواداران تب فوتبال"}</span>}
+              </h4>
+              <p className="text-[11px] text-gray-400 mt-0.5">
+                {adConfig.adDesc} {adConfig.adPromo && <span>با کد اختصاصی: <strong className="text-white font-mono bg-gray-900/60 border border-white/5 px-1 py-0.5 rounded">{adConfig.adPromo}</strong></span>}
+              </p>
+            </div>
+          </div>
+
+          <a
+            href={adConfig.adLink || "https://snapp.ir"}
+            target="_blank"
+            referrerPolicy="no-referrer"
+            className="rounded-xl bg-emerald-500 hover:bg-emerald-450 active:scale-98 text-slate-950 font-black text-xs px-5 py-2 shrink-0 shadow-md transition cursor-pointer flex items-center gap-1"
+          >
+            <span>{adConfig.adBtnText || "ورود و دریافت کد طلایی"}</span>
+          </a>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-12" id="home-dashboard-layout font-sans">
         <div className="lg:col-span-8 space-y-6">
-          <NewsSlider news={news} transfers={transfers} onSelectNews={setActiveArticle} />
+          <NewsSlider news={news} transfers={transfers} heroSlides={heroSlides} legionnaires={legionnaires} onSelectNews={setActiveArticle} onSelectTransfer={onSelectTransfer} />
           <MatchTicker matches={matches} onSelectMatch={setSelectedMatch} />
 
           <div className="space-y-4">
@@ -126,12 +154,13 @@ export default function HomePage({
 
               <div className="flex flex-wrap gap-1.5 w-full sm:w-auto">
                 {[
-                  { id: "all", label: "همه" },
+                  { id: "all", label: "همه موضوعات" },
                   { id: "pro-league", label: "لیگ برتر" },
                   { id: "league-1", label: "لیگ یک" },
                   { id: "league-2", label: "لیگ دو" },
                   { id: "hazfi-cup", label: "جام حذفی" },
-                  { id: "futsal", label: "فوتسال" }
+                  { id: "futsal", label: "فوتسال" },
+                  { id: "other", label: "سایر موضوعات" }
                 ].map((cat) => (
                   <button
                     key={cat.id}
@@ -197,9 +226,9 @@ export default function HomePage({
                         {art.tags && art.tags.length > 0 && (
                           <div className="mt-3 flex flex-wrap gap-1">
                             {art.tags.slice(0, 3).map((tg: string) => (
-                              <span key={tg} className="rounded bg-gray-955 text-[9px] text-gray-500 border border-white/5 px-1.5 py-0.5">
+                              <button key={tg} onClick={(e) => { e.stopPropagation(); setNewsSearch(tg); }} className="rounded bg-gray-955 text-[9px] text-gray-500 border border-white/5 px-1.5 py-0.5 hover:bg-red-950/40 hover:text-red-400 hover:border-red-900/40 transition cursor-pointer">
                                 #{tg}
-                              </span>
+                              </button>
                             ))}
                           </div>
                         )}
@@ -225,6 +254,15 @@ export default function HomePage({
         </div>
 
         <div className="lg:col-span-4 space-y-6">
+          {/* In-feed ad slot */}
+          {(adConfig.adSlots || []).filter((s: any) => s.isActive && s.name?.toLowerCase().includes("feed")).length > 0 && (
+            <div className="space-y-4 bg-[#121215] p-4.5 rounded-2xl border border-white/5">
+              {(adConfig.adSlots || []).filter((s: any) => s.isActive && s.name?.toLowerCase().includes("feed")).sort((a: any, b: any) => (b.priority || 0) - (a.priority || 0)).map((slot: any) => (
+                <AdSlot key={slot.id} slot={slot} />
+              ))}
+            </div>
+          )}
+
           <div className="space-y-4 bg-[#121215] p-4.5 rounded-2xl border border-white/5">
             <div className="flex items-center justify-between border-b border-white/5 pb-2">
               <div className="flex items-center gap-1.5">
@@ -271,7 +309,7 @@ export default function HomePage({
                 );
               }
               return (
-                <div className="rounded-xl border border-white/5 p-2 bg-gray-900/30 animate-in face-in duration-200">
+                <div className="rounded-xl border border-white/5 p-2 bg-gray-900/30 animate-in face-in duration-200 overflow-x-auto">
                   <table className="w-full text-right text-[11px] text-gray-300">
                     <thead className="bg-[#0a0a0c] text-gray-500 text-[9px] border-b border-white/5">
                       <tr>
@@ -314,40 +352,13 @@ export default function HomePage({
             <span className="rounded bg-amber-500/10 border border-amber-900/30 px-2 py-0.5 text-[8px] font-black uppercase text-amber-400">آنتن زنده</span>
           </div>
 
-          <div className="bg-gradient-to-br from-[#121625] to-[#0d0f19] border border-blue-500/10 hover:border-blue-500/25 p-5 rounded-2xl flex flex-col justify-between aspect-square relative overflow-hidden group select-none shadow-xl transition-all duration-300">
-            <div className="absolute -top-12 -left-12 h-36 w-36 rounded-full bg-blue-600/10 blur-3xl group-hover:bg-blue-600/20 transition-all duration-300" />
-            <div className="absolute -bottom-12 -right-12 h-36 w-36 rounded-full bg-emerald-600/10 blur-3xl group-hover:bg-emerald-600/20 transition-all duration-300" />
-
-            <div className="relative z-10 flex flex-col justify-between h-full">
-              <div className="flex justify-between items-start">
-                <span className="bg-blue-500/15 text-blue-400 border border-blue-500/20 px-2.5 py-0.5 rounded text-[9px] font-black tracking-wide">رعایت بازی جوانمردانه</span>
-                <span className="text-[9px] text-gray-500 font-bold bg-white/5 px-2 py-0.5 rounded">اسپانسر رسمی</span>
-              </div>
-
-              <div className="my-auto text-center space-y-2">
-                <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-gradient-to-tr from-blue-500 to-emerald-500 p-[1px] shadow-lg animate-bounce duration-1000">
-                  <div className="h-full w-full rounded-full bg-[#0d0f19] flex items-center justify-center">
-                    <Trophy className="h-5.5 w-5.5 text-emerald-400" />
-                  </div>
-                </div>
-                <h3 className="font-extrabold text-white text-sm leading-relaxed">
-                  کمپین بزرگ پیش‌بینی نتایج تب فوتبال
-                </h3>
-                <p className="text-[10px] text-gray-400 leading-relaxed font-bold">
-                  برنده خوش‌شانس خودروی شاسی‌بلند و ۱ میلیارد تومان وجه نقد باشید!
-                </p>
-              </div>
-
-              <button
-                onClick={() => {
-                  handleTabChangeSubmit("predictions");
-                }}
-                className="w-full bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 py-3 rounded-xl text-center text-[11px] text-white font-black shadow-lg shadow-blue-900/20 active:scale-98 transition duration-200 cursor-pointer"
-              >
-                ثبت رایگان پیش‌بینی مسابقه بعدی
-              </button>
+          {(adConfig.adSlots || []).filter((s: any) => s.isActive && s.name?.toLowerCase().includes("campaign")).length > 0 ? (
+            <div className="space-y-4">
+              {(adConfig.adSlots || []).filter((s: any) => s.isActive && s.name?.toLowerCase().includes("campaign")).sort((a: any, b: any) => (b.priority || 0) - (a.priority || 0)).map((slot: any) => (
+                <AdSlot key={slot.id} slot={slot} />
+              ))}
             </div>
-          </div>
+          ) : null}
 
           <div className="sticky top-24 space-y-6 select-none" id="sticky-sidebar-balance">
             <div className="space-y-3 bg-[#121215]/50 border border-white/5 p-4 rounded-2xl">
@@ -479,6 +490,15 @@ export default function HomePage({
               })()}
             </div>
           </div>
+
+          {/* Sidebar ad slot */}
+          {(adConfig.adSlots || []).filter((s: any) => s.isActive && s.name?.toLowerCase().includes("sidebar")).length > 0 && (
+            <div className="space-y-4 bg-[#121215] p-4.5 rounded-2xl border border-white/5">
+              {(adConfig.adSlots || []).filter((s: any) => s.isActive && s.name?.toLowerCase().includes("sidebar")).sort((a: any, b: any) => (b.priority || 0) - (a.priority || 0)).map((slot: any) => (
+                <AdSlot key={slot.id} slot={slot} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 import React from "react";
 import { MatchItem } from "../types";
 import { Flame, Clock, Award, MapPin, ChevronLeft } from "lucide-react";
+import TeamLogo from "./TeamLogo";
 
 interface FeaturedGamesWidgetProps {
   featureGames: any[];
@@ -52,9 +53,9 @@ export default function FeaturedGamesWidget({ featureGames, onSelectMatch }: Fea
               {/* Match Face-off */}
               <div className="flex items-center justify-between px-2 py-1 bg-black/20 rounded-lg mb-3">
                 {/* Home */}
-                <div className="flex flex-col items-center gap-1 w-[40%] text-center">
-                  <span className="text-xl">{game.teamHomeLogo || "⚽"}</span>
-                  <span className="text-[11px] font-bold text-slate-200 truncate w-full">{game.teamHome}</span>
+                  <div className="flex flex-col items-center gap-1 w-[40%] text-center">
+                    <TeamLogo logo={game.teamHomeLogo} fallback="⚽" size="sm" />
+                    <span className="text-[11px] font-bold text-slate-200 truncate w-full">{game.teamHome}</span>
                 </div>
 
                 {/* VS */}
@@ -64,8 +65,8 @@ export default function FeaturedGamesWidget({ featureGames, onSelectMatch }: Fea
 
                 {/* Away */}
                 <div className="flex flex-col items-center gap-1 w-[40%] text-center">
-                  <span className="text-xl">{game.teamAwayLogo || "⚽"}</span>
-                  <span className="text-[11px] font-bold text-slate-200 truncate w-full">{game.teamAway}</span>
+                    <TeamLogo logo={game.teamAwayLogo} fallback="⚽" size="sm" />
+                    <span className="text-[11px] font-bold text-slate-200 truncate w-full">{game.teamAway}</span>
                 </div>
               </div>
             </div>

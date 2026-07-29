@@ -21,7 +21,7 @@ export function registerMatchRoutes(app: Express) {
     const currentDB = loadDB();
     
     const finalStatus = matchData.status || (stage === "Feature_Games" ? "not-started" : (stage === "Now_Games" ? "live" : "finished"));
-    let finalStage = stage;
+    let finalStage: string;
     if (finalStatus === "finished") {
       finalStage = "Finished_Games";
     } else if (finalStatus === "live") {

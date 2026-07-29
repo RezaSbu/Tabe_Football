@@ -15,11 +15,11 @@ export default function CoachDetail({
   onBack,
   onSelectTeam
 }: CoachDetailProps) {
-  if (!coach) return null;
-
   const [activeTab, setActiveTab] = useState<"overview" | "matches" | "career">("overview");
   const [imageError, setImageError] = useState(false);
-  const [lastCoachId, setLastCoachId] = useState(coach?.id);
+  const [lastCoachId, setLastCoachId] = useState<string | undefined>(undefined);
+
+  if (!coach) return null;
 
   if (coach?.id !== lastCoachId) {
     setImageError(false);

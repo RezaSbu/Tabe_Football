@@ -102,7 +102,7 @@ export default function TeamOfTheWeekWidget({ combinations = [], allPlayers = []
                 <span>ترکیب منتخب هفته</span>
                 <span className="text-[10px] bg-amber-500/15 text-amber-400 border border-amber-500/20 px-2.5 py-0.5 rounded-full font-bold">بخش داستانی تب فوتبال</span>
               </h2>
-              <p className="text-[11px] text-gray-400 mt-1">تیم منتخب برترین و تأثیرگذارترین بازیکنان هفته باشگاهی به انتخاب کارشناسان عادل فردوسی‌پور</p>
+              <p className="text-[11px] text-gray-400 mt-1">تیم منتخب برترین و تأثیرگذارترین بازیکنان هفته باشگاهی</p>
             </div>
           </div>
         </div>

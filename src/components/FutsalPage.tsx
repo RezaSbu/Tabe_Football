@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { MatchItem, StandingRow, NewsItem, TeamItem, PlayerItem } from "../types";
 import { Trophy, Calendar, Users, Newspaper, Award, Star, Zap, Flame, BarChart3, Shuffle, ChevronLeft, Search, X } from "lucide-react";
 import MatchCard from "./MatchCard";
+import TeamLogo from "./TeamLogo";
 
 interface FutsalPageProps {
   standings: Record<string, StandingRow[]>;
@@ -360,7 +361,7 @@ export default function FutsalPage({
                         </span>
                       </td>
                       <td className="py-3 font-semibold text-slate-100 flex items-center gap-2">
-                        <span className="text-base">{correlatedTeam?.logo || "🔴"}</span>
+                        <TeamLogo logo={correlatedTeam?.logo} fallback="🔴" size="sm" />
                         <span>{row.team}</span>
                       </td>
                       <td className="py-3 text-center font-mono text-slate-300">{row.played}</td>
@@ -432,7 +433,7 @@ export default function FutsalPage({
                       {/* Teams & Scores */}
                       <div className="flex justify-between items-center gap-4">
                         <div className="flex items-center gap-2">
-                          <span className="text-xl shrink-0">{match.teamHomeLogo}</span>
+                          <TeamLogo logo={match.teamHomeLogo} fallback="⚽" size="sm" />
                           <span className="text-xs text-slate-100 font-semibold">{match.teamHome}</span>
                         </div>
                         {match.status !== "not-started" ? (
@@ -446,7 +447,7 @@ export default function FutsalPage({
 
                       <div className="flex justify-between items-center gap-4">
                         <div className="flex items-center gap-2">
-                          <span className="text-xl shrink-0">{match.teamAwayLogo}</span>
+                          <TeamLogo logo={match.teamAwayLogo} fallback="⚽" size="sm" />
                           <span className="text-xs text-slate-100 font-semibold">{match.teamAway}</span>
                         </div>
                         {match.status !== "not-started" && (

@@ -2,6 +2,7 @@ import React from "react";
 import { Trophy, Calendar, Sparkles, Medal, ArrowDown, ArrowUp, Crown, Tv, Activity, Eye } from "lucide-react";
 import { TeamItem, MatchItem } from "../types";
 import { isTeamInDb } from "../utils";
+import TeamLogo from "./TeamLogo";
 
 interface HazfiCupBracketProps {
   bracket: {
@@ -94,7 +95,7 @@ export default function HazfiCupBracket({ bracket, onSelectTeam, onSelectMatch, 
         } ${isWinner ? "bg-emerald-500/15 text-emerald-300 font-extrabold border-2 border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.15)]" : "text-slate-300 border border-transparent"}`}
       >
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
-          <span className="text-sm shrink-0">{info.logo}</span>
+          <TeamLogo logo={info.logo} fallback="⚽" size="xs" className="shrink-0" />
           <span className="text-[11px] font-extrabold leading-normal whitespace-normal break-words">
             {isPlaceholder ? "نامشخص (معوقه)" : teamName}
           </span>

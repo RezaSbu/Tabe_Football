@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { NewsItem, StandingRow } from "../types";
 import { getSafeImageUrl, convertGregorianToShamsi, toPersianDigits } from "../utils";
+import TeamLogo from "./TeamLogo";
 
 interface TeamDetailProps {
   team: any;
@@ -33,6 +34,15 @@ export default function TeamDetail({
   onSelectArticle,
   onSelectMatch
 }: TeamDetailProps) {
+  const [activeSubTab, setActiveSubTab] = useState<"overview" | "fixtures" | "squad">("overview");
+  const [statsCompet, setStatsCompet] = useState<"league" | "cup">("league");
+
+  useEffect(() => {
+    if (team && (team.sport === "futsal" || team.league === "futsal" || team.id?.startsWith("futsal-") || team.id?.includes("futsal") || (team.name || "").includes("فوتسال"))) {
+      setStatsCompet("league");
+    }
+  }, [team?.id, team?.sport, team?.league]);
+
   if (!team) return null;
 
   const teamName = team.name || "";
@@ -84,20 +94,11 @@ export default function TeamDetail({
     }
   }
 
-  const [activeSubTab, setActiveSubTab] = useState<"overview" | "fixtures" | "squad">("overview");
-  const [statsCompet, setStatsCompet] = useState<"league" | "cup">("league");
-
   const isFutsalTeam = team.sport === "futsal" || 
                        team.league === "futsal" || 
                        team.id?.startsWith("futsal-") || 
                        team.id?.includes("futsal") || 
                        (team.name || "").includes("فوتسال");
-
-  useEffect(() => {
-    if (isFutsalTeam) {
-      setStatsCompet("league");
-    }
-  }, [team.id, isFutsalTeam]);
 
   // Filter squad players for this team
   const teamPlayers = players.filter((p) => p.teamId === team.id || p.teamName?.includes(team.name) || p.teamName === team.name);
@@ -244,8 +245,8 @@ export default function TeamDetail({
       {/* Team Emblem Profile Avatar row */}
       <div className="px-6 relative -mt-12 sm:-mt-16 z-20 flex flex-col sm:flex-row items-center sm:items-end justify-between gap-4 pb-6 border-b border-white/5">
         <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 text-center sm:text-right w-full sm:w-auto">
-          <div className="h-24 w-24 sm:h-32 sm:w-32 rounded-2xl bg-[#18181c] border-2 border-emerald-500/30 flex items-center justify-center text-5xl sm:text-6xl shadow-2xl shrink-0 scale-95 sm:scale-100">
-            {team.logo || "🛡️"}
+          <div className="h-24 w-24 sm:h-32 sm:w-32 rounded-2xl bg-[#18181c] border-2 border-emerald-500/30 flex items-center justify-center text-5xl sm:text-6xl shadow-2xl shrink-0 scale-95 sm:scale-100 overflow-hidden">
+            <TeamLogo logo={team.logo} fallback="🛡️" size="xl" />
           </div>
           <div className="pb-2">
             <h1 className="font-black text-2xl sm:text-3xl text-white tracking-tight flex flex-wrap items-center gap-2 justify-center sm:justify-start">
@@ -489,7 +490,7 @@ export default function TeamDetail({
                     const homeG = m.scoreHome ?? 0;
                     const awayG = m.scoreAway ?? 0;
                     
-                    let outcome: "W" | "D" | "L" = "D";
+                    let outcome: "W" | "D" | "L";
                     if (homeG === awayG) outcome = "D";
                     else if (isHome) {
                       outcome = homeG > awayG ? "W" : "L";
@@ -506,7 +507,7 @@ export default function TeamDetail({
                         <div className="space-y-1.5 min-w-0 flex-1">
                           <div className="flex items-center gap-1 text-[11px]">
                             <span className="font-bold text-slate-200 truncate block">با {isHome ? m.teamAway : m.teamHome}</span>
-                            <span className="shrink-0">{isHome ? m.teamAwayLogo : m.teamHomeLogo}</span>
+                            <TeamLogo logo={isHome ? m.teamAwayLogo : m.teamHomeLogo} fallback="⚽" size="xs" />
                           </div>
                           <span className="text-[9px] text-slate-500 font-mono block">{convertGregorianToShamsi(m.date)}</span>
                         </div>
@@ -557,12 +558,12 @@ export default function TeamDetail({
                       </div>
                       <div className="flex items-center justify-between text-xs py-1">
                         <span className="font-black text-slate-200 flex items-center gap-1">
+                          <TeamLogo logo={m.teamHomeLogo} fallback="⚽" size="xs" />
                           <span>{m.teamHome}</span>
-                          <span>{m.teamHomeLogo}</span>
                         </span>
                         <span className="text-[11px] text-slate-500">مقابل</span>
                         <span className="font-black text-slate-200 flex items-center gap-1">
-                          <span>{m.teamAwayLogo}</span>
+                          <TeamLogo logo={m.teamAwayLogo} fallback="⚽" size="xs" />
                           <span>{m.teamAway}</span>
                         </span>
                       </div>

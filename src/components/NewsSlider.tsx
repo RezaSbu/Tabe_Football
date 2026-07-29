@@ -1,56 +1,93 @@
 import React, { useState, useEffect } from "react";
-import { NewsItem, TransferItem } from "../types";
+import { NewsItem, TransferItem, HeroSlideItem, LegionnaireItem } from "../types";
 import { ChevronLeft, ChevronRight, Eye, Calendar, ArrowUpRight } from "lucide-react";
 import { getSafeImageUrl } from "../utils";
 
 interface NewsSliderProps {
   news: NewsItem[];
   transfers?: TransferItem[];
+  heroSlides?: HeroSlideItem[];
+  legionnaires?: LegionnaireItem[];
   onSelectNews: (article: NewsItem) => void;
+  onSelectTransfer?: (transferId: string) => void;
 }
 
-export default function NewsSlider({ news, transfers = [], onSelectNews }: NewsSliderProps) {
-  // Convert transfer items to slide-friendly NewsItem format to cycle them in the slider
-  const convertedTransfers: NewsItem[] = transfers.map((t) => ({
-    id: `transfer-slide-${t.id}`,
-    title: `انتقال بمب: ${t.playerName} رسماً به ${t.toTeam} پیوست`,
-    summary: `توافق نهایی بازیکن در پست ${t.position || "تخصصی"} با قرارداد ${t.type || "دائمی"}. باشگاه مبدأ: ${t.fromTeam} | ارزش انتقال: ${t.fee || "توافقی"}`,
-    content: t.details || `جزییات کامل انتقال ${t.playerName} به تیم ${t.toTeam}: این ترانسفر با تلاش‌های فشرده کادر مدیریتی نهایی شده است.`,
-    image: t.image || "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=300",
-    category: "transfers",
-    createdAt: t.date ? `${t.date}T12:00:00.000Z` : new Date().toISOString(),
-    viewCount: 2240,
-    tags: ["نقل و انتقالات"]
-  }));
+export default function NewsSlider({ news, transfers = [], heroSlides = [], legionnaires = [], onSelectNews, onSelectTransfer }: NewsSliderProps) {
+  // Use admin-configured hero slides if available, otherwise fall back to auto-selection
+  const activeSlides = heroSlides.filter((s) => s.active).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
-  // Combine regular news with newly-converted transfer slides and sort by date descending
-  const combined = [...(news || []), ...convertedTransfers];
-  const sortedCombined = combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  
-  // Choose up to 1 latest item per category to represent all categories in the HERO slider
-  const categoriesToPick = ["pro-league", "league-1", "league-2", "hazfi-cup", "legionnaires", "transfers"];
-  const sliderArticles: NewsItem[] = [];
-  const pickedCategories = new Set<string>();
+  const useHeroSlides = activeSlides.length > 0;
 
-  for (const item of sortedCombined) {
-    if (categoriesToPick.includes(item.category) && !pickedCategories.has(item.category)) {
-      sliderArticles.push(item);
-      pickedCategories.add(item.category);
-    }
-  }
+  // Build slider articles from heroSlides (admin-curated) or auto-pick
+  let sliderArticles: (NewsItem & { _heroSlide?: HeroSlideItem })[] = [];
 
-  // If there are less than 5 categories picked, fill with remaining latest items regardless of category
-  if (sliderArticles.length < 5) {
-    for (const item of sortedCombined) {
-      if (!sliderArticles.some(article => article.id === item.id)) {
-        sliderArticles.push(item);
+  if (useHeroSlides) {
+    sliderArticles = activeSlides.map((slide) => {
+      let viewCount = 0;
+      let createdAt = new Date().toISOString();
+      let category = (slide.sourceType === "transfer" ? "transfers" : slide.sourceType === "legionnaire" ? "legionnaires" : "pro-league") as any;
+      if (slide.sourceType === "news" && slide.sourceId) {
+        const source = news.find((n) => n.id === slide.sourceId);
+        if (source) { viewCount = source.viewCount || 0; createdAt = source.createdAt; category = source.category as any; }
+      } else if (slide.sourceType === "transfer" && slide.sourceId) {
+        const source = transfers.find((t) => String(t.id) === String(slide.sourceId));
+        if (source) { viewCount = (source as any).viewCount || 0; createdAt = source.date ? `${source.date}T12:00:00.000Z` : new Date().toISOString(); }
+      } else if (slide.sourceType === "legionnaire" && slide.sourceId) {
+        const source = legionnaires.find((l) => l.id === slide.sourceId);
+        if (source) { viewCount = source.viewCount || 0; createdAt = (source as any).createdAt || (source as any).created_at || new Date().toISOString(); }
       }
-      if (sliderArticles.length >= 6) break;
-    }
-  }
+      return {
+        id: slide.sourceId || slide.id,
+        title: slide.title,
+        summary: slide.subtitle || "",
+        content: "",
+        image: slide.image,
+        category,
+        tags: [],
+        viewCount,
+        createdAt,
+        _heroSlide: slide,
+      };
+    });
+  } else {
+    // Original auto-pick logic (fallback when no hero slides configured)
+    const convertedTransfers: NewsItem[] = transfers.map((t) => ({
+      id: `transfer-slide-${t.id}`,
+      title: `انتقال بمب: ${t.playerName} رسماً به ${t.toTeam} پیوست`,
+      summary: `توافق نهایی بازیکن در پست ${t.position || "تخصصی"} با قرارداد ${t.type || "دائمی"}. باشگاه مبدأ: ${t.fromTeam} | ارزش انتقال: ${t.fee || "توافقی"}`,
+      content: t.details || `جزییات کامل انتقال ${t.playerName} به تیم ${t.toTeam}: این ترانسفر با تلاش‌های فشرده کادر مدیریتی نهایی شده است.`,
+      image: t.image || "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=300",
+      category: "transfers",
+      createdAt: t.date ? `${t.date}T12:00:00.000Z` : new Date().toISOString(),
+      viewCount: 2240,
+      tags: ["نقل و انتقالات"],
+      _originalTransferId: t.id,
+    } as any));
 
-  // Soft sort them back by date so the newest are shown beautifully
-  sliderArticles.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    const combined = [...(news || []), ...convertedTransfers];
+    const sortedCombined = combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    const categoriesToPick = ["pro-league", "league-1", "league-2", "hazfi-cup", "legionnaires", "transfers"];
+    const pickedCategories = new Set<string>();
+
+    for (const item of sortedCombined) {
+      if (categoriesToPick.includes(item.category) && !pickedCategories.has(item.category)) {
+        sliderArticles.push(item);
+        pickedCategories.add(item.category);
+      }
+    }
+
+    if (sliderArticles.length < 5) {
+      for (const item of sortedCombined) {
+        if (!sliderArticles.some((article) => article.id === item.id)) {
+          sliderArticles.push(item);
+        }
+        if (sliderArticles.length >= 6) break;
+      }
+    }
+
+    sliderArticles.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
 
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -88,6 +125,7 @@ export default function NewsSlider({ news, transfers = [], onSelectNews }: NewsS
       case "hazfi-cup": return "جام حذفی";
       case "legionnaires": return "لژیونرها";
       case "transfers": return "نقل و انتقالات";
+      case "futsal": return "فوتسال";
       default: return "ورزشی";
     }
   };
@@ -132,7 +170,16 @@ export default function NewsSlider({ news, transfers = [], onSelectNews }: NewsS
         </div>
 
         <h3 
-          onClick={() => onSelectNews(currentArticle)}
+          onClick={() => {
+            const heroSlide = (currentArticle as any)._heroSlide as HeroSlideItem | undefined;
+            if (heroSlide?.link) {
+              window.location.href = heroSlide.link;
+            } else if (onSelectTransfer && (currentArticle as any)._originalTransferId) {
+              onSelectTransfer(String((currentArticle as any)._originalTransferId));
+            } else {
+              onSelectNews(currentArticle);
+            }
+          }}
           className="cursor-pointer font-black text-white hover:text-emerald-400 text-lg sm:text-2xl leading-snug sm:leading-normal tracking-tight line-clamp-2 md:max-w-4xl transition-colors duration-250 flex items-start gap-1"
         >
           {currentArticle.title}

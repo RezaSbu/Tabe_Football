@@ -3,6 +3,7 @@ import { StandingRow, NewsItem, MatchItem, TeamItem, PlayerItem, StatsData } fro
 import { Trophy, Award, Newspaper, Calendar, BarChart3, List, ChevronLeft, Star, Flame, Zap, Target, Search, X } from "lucide-react";
 import { isTeamInDb } from "../utils";
 import HazfiCupBracket from "./HazfiCupBracket";
+import TeamLogo from "./TeamLogo";
 
 interface LeagueTablesProps {
   leagueKey?: "pro-league" | "league-1" | "league-2" | "hazfi-cup";
@@ -533,7 +534,7 @@ export default function LeagueTables({
                             </span>
                           </td>
                           <td className="py-3 font-semibold text-slate-100 flex items-center gap-2">
-                            <span className="text-base">{correlatedTeam?.logo || "⚽"}</span>
+                            <TeamLogo logo={correlatedTeam?.logo} fallback="⚽" size="sm" />
                             <span>{row.team}</span>
                           </td>
                           <td className="py-3 text-center font-mono text-slate-300">{row.played}</td>
@@ -623,7 +624,7 @@ export default function LeagueTables({
                       {/* Home team */}
                       <div className="flex justify-between items-center gap-4">
                         <div className="flex items-center gap-2">
-                          <span className="text-xl shrink-0">{match.teamHomeLogo || "⚽"}</span>
+                          <TeamLogo logo={match.teamHomeLogo} fallback="⚽" size="sm" />
                           <span className="text-xs text-slate-100 font-semibold">{match.teamHome}</span>
                         </div>
                         {match.status !== "not-started" ? (
@@ -638,7 +639,7 @@ export default function LeagueTables({
                       {/* Away team */}
                       <div className="flex justify-between items-center gap-4">
                         <div className="flex items-center gap-2">
-                          <span className="text-xl shrink-0">{match.teamAwayLogo || "⚽"}</span>
+                          <TeamLogo logo={match.teamAwayLogo} fallback="⚽" size="sm" />
                           <span className="text-xs text-slate-100 font-semibold">{match.teamAway}</span>
                         </div>
                         {match.status !== "not-started" && (

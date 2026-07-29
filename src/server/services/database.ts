@@ -32,10 +32,33 @@ export async function migrateConstraints(): Promise<void> {
     `);
     await pool.query(`ALTER TABLE legionnaires DROP CONSTRAINT IF EXISTS chk_legionnaires_league;`);
     await pool.query(`ALTER TABLE images ADD COLUMN IF NOT EXISTS view_count integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE legionnaires ADD COLUMN IF NOT EXISTS summary text`);
+    await pool.query(`ALTER TABLE bracket_slots DROP CONSTRAINT IF EXISTS fk_bracket_slots_match`);
     constraintsMigrated = true;
     logMessage("info", "database", "مهاجرت محدودیت‌های CHECK و ستون view_count جدول images با موفقیت اعمال شد.");
   } catch (err: any) {
     logMessage("warn", "database", "خطا در مهاجرت محدودیت‌های CHECK:", err.message || err);
+  }
+}
+
+export async function migrateSummaryColumn(): Promise<void> {
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`ALTER TABLE legionnaires ADD COLUMN IF NOT EXISTS summary text`);
+    logMessage("info", "database", "مهاجرت ستون summary لژیونرها اعمال شد.");
+  } catch (err: any) {
+    logMessage("warn", "database", "خطا در مهاجرت ستون summary:", err.message || err);
+  }
+}
+
+export async function migrateHeroSlidesColumns(): Promise<void> {
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`ALTER TABLE hero_slides ADD COLUMN IF NOT EXISTS source_type varchar(20) DEFAULT 'custom'`);
+    await pool.query(`ALTER TABLE hero_slides ADD COLUMN IF NOT EXISTS source_id varchar(100) DEFAULT ''`);
+    logMessage("info", "database", "مهاجرت ستون‌های source_type و source_id اسلایدر اعمال شد.");
+  } catch (err: any) {
+    logMessage("warn", "database", "خطا در مهاجرت ستون‌های اسلایدر:", err.message || err);
   }
 }
 
@@ -101,7 +124,16 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
         adDesc: dbConfig.ad_desc || "",
         adLink: dbConfig.ad_link || "",
         adBtnText: dbConfig.ad_btn_text || "",
-        customBannerUrl: dbConfig.custom_banner_url || ""
+        customBannerUrl: dbConfig.custom_banner_url || "",
+        adSlots: typeof dbConfig.ad_slots === "string" ? JSON.parse(dbConfig.ad_slots) : (dbConfig.ad_slots || []),
+        bannerLabel: dbConfig.banner_label || "تخفیف هواداران تب فوتبال",
+        bannerLabelVisible: dbConfig.banner_label_visible !== false,
+        bannerTagText: dbConfig.banner_tag_text || "حمایت ویژه پورتال",
+        bannerVisible: dbConfig.banner_visible !== false,
+        popupAd: typeof dbConfig.popup_ad === "string" ? JSON.parse(dbConfig.popup_ad) : (dbConfig.popup_ad || { enabled: false }),
+        floatingAd: typeof dbConfig.floating_ad === "string" ? JSON.parse(dbConfig.floating_ad) : (dbConfig.floating_ad || { enabled: false }),
+        bottomBarAd: typeof dbConfig.bottom_bar_ad === "string" ? JSON.parse(dbConfig.bottom_bar_ad) : (dbConfig.bottom_bar_ad || { enabled: false }),
+        slideInAd: typeof dbConfig.slide_in_ad === "string" ? JSON.parse(dbConfig.slide_in_ad) : (dbConfig.slide_in_ad || { enabled: false })
       };
     }
 
@@ -298,11 +330,7 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
         league: fixMojibake(l.league || ""),
         team: fixMojibake(l.team || ""),
         teamLogo: l.team_logo,
-        matchRating: l.match_rating,
-        goals: l.goals || 0,
-        assists: l.assists || 0,
-        minutesPlayed: l.minutes_played || 0,
-        matchStatus: fixMojibake(l.match_status || ""),
+        summary: fixMojibake(l.summary || ""),
         logo: l.logo,
         performance: fixMojibake(l.description || l.performance || ""),
         description: fixMojibake(l.description || l.performance || ""),
@@ -379,7 +407,10 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
         title: slide.title,
         subtitle: slide.subtitle,
         link: slide.link,
-        active: slide.active !== false
+        active: slide.active !== false,
+        sort_order: slide.sort_order || 0,
+        sourceType: slide.source_type || "custom",
+        sourceId: slide.source_id || ""
       }));
     }
 
@@ -738,11 +769,7 @@ export async function saveDB(): Promise<void> {
         league: l.league,
         team: l.team,
         team_logo: l.teamLogo,
-        match_rating: l.matchRating,
-        goals: l.goals || 0,
-        assists: l.assists || 0,
-        minutes_played: l.minutesPlayed || 0,
-        match_status: l.matchStatus,
+        summary: l.summary || "",
         logo: l.logo,
         description: l.performance || l.description || "",
         view_count: l.viewCount || 0,
@@ -833,7 +860,16 @@ export async function saveDB(): Promise<void> {
         ad_desc: cfg.adDesc,
         ad_link: cfg.adLink,
         ad_btn_text: cfg.adBtnText,
-        custom_banner_url: cfg.customBannerUrl
+        custom_banner_url: cfg.customBannerUrl,
+        ad_slots: cfg.adSlots || [],
+        banner_label: cfg.bannerLabel || "",
+        banner_label_visible: cfg.bannerLabelVisible !== false,
+        banner_tag_text: cfg.bannerTagText || "",
+        banner_visible: cfg.bannerVisible !== false,
+        popup_ad: cfg.popupAd || { enabled: false },
+        floating_ad: cfg.floatingAd || { enabled: false },
+        bottom_bar_ad: cfg.bottomBarAd || { enabled: false },
+        slide_in_ad: cfg.slideInAd || { enabled: false }
       }));
     }
 
@@ -902,7 +938,10 @@ export async function saveDB(): Promise<void> {
         title: slide.title,
         subtitle: slide.subtitle,
         link: slide.link,
-        active: slide.active !== false
+        active: slide.active !== false,
+        sort_order: slide.sort_order || 0,
+        source_type: slide.sourceType || "custom",
+        source_id: slide.sourceId || ""
       }));
       promises.push(pgDb.from('hero_slides').upsert(formattedSlides));
 

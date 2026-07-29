@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import NewsCard from "../components/NewsCard";
 import { NewsItem } from "../types";
 
@@ -19,6 +20,16 @@ export default function NewsPage({
   setNewsSearch,
   setActiveArticle,
 }: NewsPageProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  useEffect(() => {
+    const tag = searchParams.get("tag");
+    if (tag) {
+      setNewsSearch(tag);
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, setNewsSearch, setSearchParams]);
+
   return (
     <div className="space-y-6 animate-in fade-in" dir="rtl">
       <style>{`
@@ -44,7 +55,8 @@ export default function NewsPage({
             { id: "league-1", label: "لیگ یک" },
             { id: "league-2", label: "لیگ دو" },
             { id: "hazfi-cup", label: "جام حذفی" },
-            { id: "futsal", label: "فوتسال" }
+            { id: "futsal", label: "فوتسال" },
+            { id: "other", label: "سایر موضوعات" }
           ].map((cat) => (
             <button
               key={cat.id}
@@ -64,7 +76,7 @@ export default function NewsPage({
           <input
             type="text"
             dir="rtl"
-            placeholder="جستجو کلمات کلیدی، نام مربی یا بازیکن..."
+            placeholder="جستجو کلمات کلیدی، تگ یا نام بازیکن..."
             value={newsSearch}
             onChange={(e) => setNewsSearch(e.target.value)}
             className="w-full rounded-xl bg-gray-950 px-4 py-2 text-xs text-white placeholder-slate-600 border border-white/5 focus:outline-none focus:border-red-650 font-bold"
@@ -73,9 +85,17 @@ export default function NewsPage({
       </div>
 
       {(() => {
+        const mainCategories = ["pro-league", "league-1", "league-2", "hazfi-cup", "futsal"];
         const filtered = news.filter((item) => {
-          const matchesCategory = newsCategoryFilter === "all" || item.category === newsCategoryFilter || item.tags?.includes(newsCategoryFilter);
-          const matchesQuery = !newsSearch || item.title.includes(newsSearch) || item.summary.includes(newsSearch) || item.content.includes(newsSearch);
+          const matchesCategory = newsCategoryFilter === "all" ||
+            (newsCategoryFilter === "other" ? !mainCategories.includes(item.category) : item.category === newsCategoryFilter) ||
+            item.tags?.includes(newsCategoryFilter);
+          const q = newsSearch.toLowerCase();
+          const matchesQuery = !newsSearch ||
+            item.title.toLowerCase().includes(q) ||
+            item.summary.toLowerCase().includes(q) ||
+            item.content?.toLowerCase().includes(q) ||
+            item.tags?.some(t => t.toLowerCase().includes(q));
           return matchesCategory && matchesQuery;
         });
 
@@ -91,7 +111,7 @@ export default function NewsPage({
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((item) => (
               <div key={item.id} className="cursor-pointer" onClick={() => { setActiveArticle(item); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
-                <NewsCard newsItem={item} onClick={() => {}} />
+                <NewsCard newsItem={item} onClick={() => {}} onTagClick={(tag) => setNewsSearch(tag)} />
               </div>
             ))}
           </div>

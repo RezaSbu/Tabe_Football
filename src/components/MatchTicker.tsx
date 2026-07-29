@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { MatchItem } from "../types";
 import { Calendar, MapPin, AlignLeft, Trophy, ChevronRight, ChevronLeft } from "lucide-react";
+import TeamLogo from "./TeamLogo";
 
 interface MatchTickerProps {
   matches: MatchItem[];
@@ -187,7 +188,7 @@ export default function MatchTicker({ matches, selectedLeagueFilter, onSelectMat
                   {/* Home Team */}
                   <div className="flex w-1/3 flex-col items-center gap-1.5 text-center">
                     <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0a0a0c] text-lg shadow-inner border border-white/5">
-                      {match.teamHomeLogo || "⚽"}
+                      <TeamLogo logo={match.teamHomeLogo} fallback="⚽" size="sm" />
                     </span>
                     <span className="text-xs font-bold text-white line-clamp-1">{match.teamHome}</span>
                   </div>
@@ -214,7 +215,7 @@ export default function MatchTicker({ matches, selectedLeagueFilter, onSelectMat
                   {/* Away Team */}
                   <div className="flex w-1/3 flex-col items-center gap-1.5 text-center">
                     <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0a0a0c] text-lg shadow-inner border border-white/5">
-                      {match.teamAwayLogo || "⚽"}
+                      <TeamLogo logo={match.teamAwayLogo} fallback="⚽" size="sm" />
                     </span>
                     <span className="text-xs font-bold text-white line-clamp-1">{match.teamAway}</span>
                   </div>

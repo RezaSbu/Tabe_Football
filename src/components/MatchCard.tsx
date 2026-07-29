@@ -2,6 +2,7 @@ import React from "react";
 import { MatchItem } from "../types";
 import { Calendar, MapPin, Clock, Vote } from "lucide-react";
 import { isTeamInDb, convertGregorianToShamsi } from "../utils";
+import TeamLogo from "./TeamLogo";
 
 interface MatchCardProps {
   key?: string | number;
@@ -56,7 +57,7 @@ export default function MatchCard({ match, predictions, onVote, onSelectTeam }: 
               className={`col-span-2 flex flex-col items-center gap-2 ${homeExists ? "cursor-pointer group" : "cursor-default opacity-85"}`}
             >
               <div className={`h-10 w-10 flex items-center justify-center rounded-xl bg-black/40 text-xl ${homeExists ? "group-hover:scale-105 transition" : ""}`}>
-                {match.teamHomeLogo || "🔴"}
+                <TeamLogo logo={match.teamHomeLogo} fallback="🔴" size="sm" />
               </div>
               <span className={`font-extrabold text-xs text-slate-200 truncate max-w-full ${homeExists ? "group-hover:text-emerald-400 transition" : ""}`}>
                 {match.teamHome}
@@ -105,7 +106,7 @@ export default function MatchCard({ match, predictions, onVote, onSelectTeam }: 
               className={`col-span-2 flex flex-col items-center gap-2 ${awayExists ? "cursor-pointer group" : "cursor-default opacity-85"}`}
             >
               <div className={`h-10 w-10 flex items-center justify-center rounded-xl bg-black/40 text-xl ${awayExists ? "group-hover:scale-105 transition" : ""}`}>
-                {match.teamAwayLogo || "🔵"}
+                <TeamLogo logo={match.teamAwayLogo} fallback="🔵" size="sm" />
               </div>
               <span className={`font-extrabold text-xs text-slate-200 truncate max-w-full ${awayExists ? "group-hover:text-emerald-400 transition" : ""}`}>
                 {match.teamAway}

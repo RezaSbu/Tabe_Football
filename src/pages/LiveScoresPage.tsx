@@ -1,5 +1,6 @@
 import React from "react";
 import { MatchItem } from "../types";
+import TeamLogo from "../components/TeamLogo";
 
 interface LiveGoal {
   id: string;
@@ -19,7 +20,6 @@ interface LiveScoresPageProps {
   livescoreFilter: string;
   setLivescoreFilter: React.Dispatch<React.SetStateAction<string>>;
   setSelectedMatch: React.Dispatch<React.SetStateAction<any | null>>;
-  handleTabChangeSubmit: (tab: string) => void;
   getRelativeDateLabel: (date: string) => string;
   convertGregorianToShamsi: (date: string) => string;
   toPersianDigits: (input: string | number) => string;
@@ -32,7 +32,6 @@ export default function LiveScoresPage({
   livescoreFilter,
   setLivescoreFilter,
   setSelectedMatch,
-  handleTabChangeSubmit,
   getRelativeDateLabel,
   convertGregorianToShamsi,
   toPersianDigits,
@@ -156,7 +155,7 @@ export default function LiveScoresPage({
                       <div className="my-2.5 flex items-center justify-between px-1">
                         <div className="flex items-center gap-2 w-5/12">
                           <span className="text-sm font-black text-white truncate">{m.teamHome}</span>
-                          <span className="text-base">{m.teamHomeLogo || "🥅"}</span>
+                          <TeamLogo logo={m.teamHomeLogo} fallback="🥅" size="sm" />
                           {isSubbedHome && <span className="h-2 w-2 rounded-full bg-red-500 animate-ping inline-block" title="اعلانات گل فعال است" />}
                         </div>
 
@@ -195,23 +194,13 @@ export default function LiveScoresPage({
 
                         <div className="flex items-center justify-end gap-2 w-5/12 text-left">
                           {isSubbedAway && <span className="h-2 w-2 rounded-full bg-red-500 animate-ping inline-block" title="اعلانات گل فعال است" />}
-                          <span className="text-base">{m.teamAwayLogo || "🥅"}</span>
+                          <TeamLogo logo={m.teamAwayLogo} fallback="🥅" size="sm" />
                           <span className="text-sm font-black text-white truncate">{m.teamAway}</span>
                         </div>
                       </div>
 
                       <div className="flex justify-between items-center text-[10px] text-gray-400 border-t border-white/5 pt-2 mt-2.5">
                         <span className="truncate text-slate-400">ورزشگاه: {m.venue}</span>
-                        
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleTabChangeSubmit("predictions");
-                          }}
-                          className="text-[9px] font-black text-red-400 hover:text-red-300 transition"
-                        >
-                          ثبت پیش‌بینی کلوب هواداران »
-                        </button>
                       </div>
                     </div>
                   );
