@@ -1,2 +1,0 @@
-2026-07-28 05:30:06 +0330 LOG:  redirecting log output to logging collector process
-2026-07-28 05:30:06 +0330 HINT:  Future log output will appear in directory "log".

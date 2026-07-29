@@ -30,3 +30,6 @@ check_encoding.mjs
 
 # Backups
 backups/
+
+logo.png
+pg_log.txt
