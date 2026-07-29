@@ -1,5 +1,5 @@
 -- ============================================
--- Tabe Football - Database Schema v2
+-- Tabe Football - Database Schema V2
 -- PostgreSQL 16
 -- ============================================
 
