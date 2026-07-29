@@ -507,7 +507,7 @@ export default function TeamDetail({
                         <div className="space-y-1.5 min-w-0 flex-1">
                           <div className="flex items-center gap-1 text-[11px]">
                             <span className="font-bold text-slate-200 truncate block">با {isHome ? m.teamAway : m.teamHome}</span>
-                            <span className="shrink-0">{isHome ? m.teamAwayLogo : m.teamHomeLogo}</span>
+                            <TeamLogo logo={isHome ? m.teamAwayLogo : m.teamHomeLogo} fallback="⚽" size="xs" />
                           </div>
                           <span className="text-[9px] text-slate-500 font-mono block">{convertGregorianToShamsi(m.date)}</span>
                         </div>
@@ -558,12 +558,12 @@ export default function TeamDetail({
                       </div>
                       <div className="flex items-center justify-between text-xs py-1">
                         <span className="font-black text-slate-200 flex items-center gap-1">
+                          <TeamLogo logo={m.teamHomeLogo} fallback="⚽" size="xs" />
                           <span>{m.teamHome}</span>
-                          <span>{m.teamHomeLogo}</span>
                         </span>
                         <span className="text-[11px] text-slate-500">مقابل</span>
                         <span className="font-black text-slate-200 flex items-center gap-1">
-                          <span>{m.teamAwayLogo}</span>
+                          <TeamLogo logo={m.teamAwayLogo} fallback="⚽" size="xs" />
                           <span>{m.teamAway}</span>
                         </span>
                       </div>

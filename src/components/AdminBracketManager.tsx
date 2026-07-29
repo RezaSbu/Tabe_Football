@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { MatchItem } from "../types";
 import { Trophy, Calendar, Check, AlertCircle, Trash2, ArrowLeftRight, HelpCircle } from "lucide-react";
+import TeamLogo from "./TeamLogo";
 
 interface AdminBracketManagerProps {
   bracket: {
@@ -300,7 +301,7 @@ export default function AdminBracketManager({
                     : "bg-slate-900/40 text-slate-400 border-white/5 hover:text-white"
                 }`}
               >
-                {selectedMatch.teamHomeLogo || "⚽"} {selectedMatch.teamHome}
+                <TeamLogo logo={selectedMatch.teamHomeLogo} fallback="⚽" size="sm" /> {selectedMatch.teamHome}
               </button>
               <button
                 type="button"
@@ -311,7 +312,7 @@ export default function AdminBracketManager({
                     : "bg-slate-900/40 text-slate-400 border-white/5 hover:text-white"
                 }`}
               >
-                {selectedMatch.teamAwayLogo || "⚽"} {selectedMatch.teamAway}
+                <TeamLogo logo={selectedMatch.teamAwayLogo} fallback="⚽" size="sm" /> {selectedMatch.teamAway}
               </button>
               <button
                 type="button"

@@ -624,7 +624,7 @@ export default function LeagueTables({
                       {/* Home team */}
                       <div className="flex justify-between items-center gap-4">
                         <div className="flex items-center gap-2">
-                          <span className="text-xl shrink-0">{match.teamHomeLogo || "⚽"}</span>
+                          <TeamLogo logo={match.teamHomeLogo} fallback="⚽" size="sm" />
                           <span className="text-xs text-slate-100 font-semibold">{match.teamHome}</span>
                         </div>
                         {match.status !== "not-started" ? (
@@ -639,7 +639,7 @@ export default function LeagueTables({
                       {/* Away team */}
                       <div className="flex justify-between items-center gap-4">
                         <div className="flex items-center gap-2">
-                          <span className="text-xl shrink-0">{match.teamAwayLogo || "⚽"}</span>
+                          <TeamLogo logo={match.teamAwayLogo} fallback="⚽" size="sm" />
                           <span className="text-xs text-slate-100 font-semibold">{match.teamAway}</span>
                         </div>
                         {match.status !== "not-started" && (

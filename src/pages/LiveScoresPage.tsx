@@ -1,5 +1,6 @@
 import React from "react";
 import { MatchItem } from "../types";
+import TeamLogo from "../components/TeamLogo";
 
 interface LiveGoal {
   id: string;
@@ -156,7 +157,7 @@ export default function LiveScoresPage({
                       <div className="my-2.5 flex items-center justify-between px-1">
                         <div className="flex items-center gap-2 w-5/12">
                           <span className="text-sm font-black text-white truncate">{m.teamHome}</span>
-                          <span className="text-base">{m.teamHomeLogo || "🥅"}</span>
+                          <TeamLogo logo={m.teamHomeLogo} fallback="🥅" size="sm" />
                           {isSubbedHome && <span className="h-2 w-2 rounded-full bg-red-500 animate-ping inline-block" title="اعلانات گل فعال است" />}
                         </div>
 
@@ -195,7 +196,7 @@ export default function LiveScoresPage({
 
                         <div className="flex items-center justify-end gap-2 w-5/12 text-left">
                           {isSubbedAway && <span className="h-2 w-2 rounded-full bg-red-500 animate-ping inline-block" title="اعلانات گل فعال است" />}
-                          <span className="text-base">{m.teamAwayLogo || "🥅"}</span>
+                          <TeamLogo logo={m.teamAwayLogo} fallback="🥅" size="sm" />
                           <span className="text-sm font-black text-white truncate">{m.teamAway}</span>
                         </div>
                       </div>

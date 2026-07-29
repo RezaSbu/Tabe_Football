@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { TransferItem, NewsItem } from "../types";
 import { Shuffle, ArrowLeft, Calendar, Search, ArrowDownLeft, ArrowUpRight, Shield, Eye, Tag } from "lucide-react";
+import TeamLogo from "./TeamLogo";
 
 interface TransfersListProps {
   transfers: TransferItem[];
@@ -318,7 +319,7 @@ export default function TransfersList({ transfers, teamTransfersList = [], teams
                 >
                   {/* Column 1: Team identity Section */}
                   <div className="md:col-span-2 flex items-center gap-3 pt-1 md:pt-0 border-b border-white/5 pb-2 md:pb-0 md:border-b-0 md:border-l md:border-white/5 md:pl-2">
-                    <span className="text-3xl filter drop-shadow select-none">{item.teamLogo || "🛡️"}</span>
+                    <TeamLogo logo={item.teamLogo} fallback="🛡️" size="lg" />
                     <div>
                       <h3 className="font-extrabold text-white text-sm leading-tight">{item.teamName}</h3>
                       <p className="text-[9px] text-slate-500 font-bold mt-1">پیشخوان نقل و انتقالات</p>

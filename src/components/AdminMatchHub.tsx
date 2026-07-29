@@ -13,6 +13,7 @@ import {
   Zap,
   Info
 } from "lucide-react";
+import TeamLogo from "./TeamLogo";
 import { MatchItem, TeamItem, PlayerItem, StandingRow } from "../types";
 import AdminFeatureMatchForm from "./AdminFeatureMatchForm";
 import AdminLiveMatchConsole from "./AdminLiveMatchConsole";
@@ -289,7 +290,7 @@ export default function AdminMatchHub({
 
                 <div className="flex items-center justify-between py-2">
                   <div className="w-5/12 flex items-center gap-2">
-                    <span className="text-xl">{m.teamHomeLogo || "⚽"}</span>
+                    <TeamLogo logo={m.teamHomeLogo} fallback="⚽" size="sm" />
                     <span className="text-xs font-black text-white truncate max-w-[120px]">{m.teamHome}</span>
                   </div>
 
@@ -308,7 +309,7 @@ export default function AdminMatchHub({
 
                   <div className="w-5/12 flex items-center justify-end gap-2 text-left">
                     <span className="text-xs font-black text-white truncate max-w-[120px]">{m.teamAway}</span>
-                    <span className="text-xl">{m.teamAwayLogo || "⚽"}</span>
+                    <TeamLogo logo={m.teamAwayLogo} fallback="⚽" size="sm" />
                   </div>
                 </div>
 

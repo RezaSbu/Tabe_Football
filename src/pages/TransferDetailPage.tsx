@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { ArrowRight, Loader2, ArrowUpRight, ArrowDownLeft, Calendar, Eye, Tag, BadgeCheck, Banknote } from "lucide-react";
 import { getSafeImageUrl } from "../utils";
+import TeamLogo from "../components/TeamLogo";
 
 export default function TransferDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -111,13 +112,9 @@ export default function TransferDetailPage() {
                   {/* From */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3">
-                      {transfer.fromTeamLogo ? (
-                        <div className="w-12 h-12 shrink-0 rounded-xl bg-[#121215] border border-white/5 flex items-center justify-center overflow-hidden">
-                          <img loading="lazy" decoding="async" src={getSafeImageUrl(transfer.fromTeamLogo)} alt="" className="w-9 h-9 object-contain" referrerPolicy="no-referrer" />
-                        </div>
-                      ) : (
-                        <div className="w-12 h-12 shrink-0 rounded-xl bg-[#121215] border border-white/5 flex items-center justify-center text-xl">⚽</div>
-                      )}
+                      <div className="w-12 h-12 shrink-0 rounded-xl bg-[#121215] border border-white/5 flex items-center justify-center overflow-hidden">
+                        <TeamLogo logo={transfer.fromTeamLogo} fallback="🔴" size="md" />
+                      </div>
                       <div className="min-w-0">
                         <div className="text-[10px] text-gray-600 uppercase tracking-wider font-medium">مبدأ</div>
                         <div className="font-bold text-sm text-white truncate">{transfer.fromTeam}</div>
@@ -141,13 +138,9 @@ export default function TransferDetailPage() {
                         <div className="text-[10px] text-gray-600 uppercase tracking-wider font-medium">مقصد</div>
                         <div className="font-bold text-sm text-white truncate">{transfer.toTeam}</div>
                       </div>
-                      {transfer.toTeamLogo ? (
-                        <div className="w-12 h-12 shrink-0 rounded-xl bg-[#121215] border border-white/5 flex items-center justify-center overflow-hidden">
-                          <img loading="lazy" decoding="async" src={getSafeImageUrl(transfer.toTeamLogo)} alt="" className="w-9 h-9 object-contain" referrerPolicy="no-referrer" />
-                        </div>
-                      ) : (
-                        <div className="w-12 h-12 shrink-0 rounded-xl bg-[#121215] border border-white/5 flex items-center justify-center text-xl">⚽</div>
-                      )}
+                      <div className="w-12 h-12 shrink-0 rounded-xl bg-[#121215] border border-white/5 flex items-center justify-center overflow-hidden">
+                        <TeamLogo logo={transfer.toTeamLogo} fallback="🔵" size="md" />
+                      </div>
                     </div>
                   </div>
                 </div>

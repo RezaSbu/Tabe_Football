@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { MatchItem, PlayerItem } from "../types";
 import { getSafeImageUrl, convertGregorianToShamsi, toPersianDigits } from "../utils";
+import TeamLogo from "./TeamLogo";
 
 interface MatchDetailViewProps {
   match: any;
@@ -270,7 +271,7 @@ export default function MatchDetailView({
         <div className="grid grid-cols-7 items-center justify-center my-4 max-w-3xl mx-auto">
           <div className="col-span-2 flex flex-col items-center text-center gap-2">
             <div className="h-16 sm:h-20 w-16 sm:w-20 text-4xl sm:text-5xl flex items-center justify-center rounded-2xl bg-black/40 border-2 border-emerald-500/20 shadow-md">
-              {match.teamHomeLogo || "🔴"}
+              <TeamLogo logo={match.teamHomeLogo} fallback="🔴" size="lg" />
             </div>
             <h4 className="font-black text-sm sm:text-lg text-slate-50 truncate max-w-full">{match.teamHome}</h4>
           </div>
@@ -315,7 +316,7 @@ export default function MatchDetailView({
 
           <div className="col-span-2 flex flex-col items-center text-center gap-2">
             <div className="h-16 sm:h-20 w-16 sm:w-20 text-4xl sm:text-5xl flex items-center justify-center rounded-2xl bg-black/40 border-2 border-emerald-500/20 shadow-md">
-              {match.teamAwayLogo || "🔵"}
+              <TeamLogo logo={match.teamAwayLogo} fallback="🔵" size="lg" />
             </div>
             <h4 className="font-black text-sm sm:text-lg text-slate-50 truncate max-w-full">{match.teamAway}</h4>
           </div>
@@ -471,11 +472,13 @@ export default function MatchDetailView({
                       className="p-3.5 rounded-xl bg-[#161619]/60 border border-white/5 flex items-center justify-between text-xs hover:border-white/10 transition"
                     >
                       <div className="space-y-1">
-                        <strong className="text-slate-100 font-bold flex items-center gap-2">
-                          <span>{m.teamHome} {m.teamHomeLogo}</span>
-                          <span className="text-[10px] text-slate-500 font-medium font-mono">در برابر</span>
-                          <span>{m.teamAwayLogo} {m.teamAway}</span>
-                        </strong>
+                          <span className="text-slate-100 font-bold flex items-center gap-2 flex-wrap">
+                            <TeamLogo logo={m.teamHomeLogo} fallback="⚽" size="sm" />
+                            <span>{m.teamHome}</span>
+                            <span className="text-[10px] text-slate-500 font-medium font-mono">در برابر</span>
+                            <TeamLogo logo={m.teamAwayLogo} fallback="⚽" size="sm" />
+                            <span>{m.teamAway}</span>
+                          </span>
                         <span className="font-mono text-[9px] text-slate-500 block">
                           {convertGregorianToShamsi(m.date)} | ساعت {toPersianDigits(m.time)}
                         </span>

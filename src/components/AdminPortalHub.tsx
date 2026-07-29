@@ -13,8 +13,9 @@ import {
   Upload,
   Calendar,
   Layers,
-  Link2
+  Link2,
 } from "lucide-react";
+import TeamLogo from "./TeamLogo";
 import { NewsItem, TransferItem, ImageItem, ContactSubmission, LegionnaireItem } from "../types";
 import { getAdViews, isWithinSchedule } from "./AdSlot";
 
@@ -1155,7 +1156,7 @@ export default function AdminPortalHub({
                 <div key={item.id} className="p-4 bg-white/[0.01] border border-white/5 rounded-2xl hover:bg-white/[0.03] transition flex justify-between items-start text-xs">
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <span className="text-lg">{item.teamLogo || "⚽"}</span>
+                      <TeamLogo logo={item.teamLogo} fallback="⚽" size="sm" />
                       <span className="text-white font-extrabold text-sm">{item.teamName}</span>
                     </div>
 
