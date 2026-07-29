@@ -20,7 +20,6 @@ interface LiveScoresPageProps {
   livescoreFilter: string;
   setLivescoreFilter: React.Dispatch<React.SetStateAction<string>>;
   setSelectedMatch: React.Dispatch<React.SetStateAction<any | null>>;
-  handleTabChangeSubmit: (tab: string) => void;
   getRelativeDateLabel: (date: string) => string;
   convertGregorianToShamsi: (date: string) => string;
   toPersianDigits: (input: string | number) => string;
@@ -33,7 +32,6 @@ export default function LiveScoresPage({
   livescoreFilter,
   setLivescoreFilter,
   setSelectedMatch,
-  handleTabChangeSubmit,
   getRelativeDateLabel,
   convertGregorianToShamsi,
   toPersianDigits,
@@ -203,16 +201,6 @@ export default function LiveScoresPage({
 
                       <div className="flex justify-between items-center text-[10px] text-gray-400 border-t border-white/5 pt-2 mt-2.5">
                         <span className="truncate text-slate-400">ورزشگاه: {m.venue}</span>
-                        
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleTabChangeSubmit("predictions");
-                          }}
-                          className="text-[9px] font-black text-red-400 hover:text-red-300 transition"
-                        >
-                          ثبت پیش‌بینی کلوب هواداران »
-                        </button>
                       </div>
                     </div>
                   );

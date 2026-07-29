@@ -27,7 +27,6 @@ const FutsalPage = React.lazy(() => import("./components/FutsalPage"));
 const TransfersList = React.lazy(() => import("./components/TransfersList"));
 const PhotoGallery = React.lazy(() => import("./components/PhotoGallery"));
 const AdminPanel = React.lazy(() => import("./components/AdminPanel"));
-const FanPredictions = React.lazy(() => import("./components/FanPredictions"));
 const HomePage = React.lazy(() => import("./pages/HomePage"));
 const LiveScoresPage = React.lazy(() => import("./pages/LiveScoresPage"));
 const NewsPage = React.lazy(() => import("./pages/NewsPage"));
@@ -57,7 +56,6 @@ const PATH_TO_TAB: Record<string, string> = {
   "/stats": "stats",
   "/live-scores": "live-scores",
   "/gallery": "images",
-  "/predictions": "predictions",
   "/admin": "admin",
 };
 
@@ -151,7 +149,7 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
             <SEO title="نتایج زنده فوتبال" description="پیگیری نتایج زنده مسابقات فوتبال ایران و لیگ‌های مختلف به صورت لحظه‌ای" url="/live-scores" />
             <LiveScoresPage matches={d.matches} liveGoals={d.liveGoals} subscribedTeams={d.subscribedTeams}
               livescoreFilter={d.livescoreFilter} setLivescoreFilter={d.setLivescoreFilter}
-              setSelectedMatch={(m: any) => navigate(`/match/${m.id}`)} handleTabChangeSubmit={d.handleTabChangeSubmit}
+              setSelectedMatch={(m: any) => navigate(`/match/${m.id}`)}
               getRelativeDateLabel={getRelativeDateLabel} convertGregorianToShamsi={convertGregorianToShamsi}
               toPersianDigits={toPersianDigits} />
           </>
@@ -242,18 +240,6 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
               setStatsSeason={d.setStatsSeason} selectedLeagueFilterOnStats={d.selectedLeagueFilterOnStats}
               setSelectedLeagueFilterOnStats={d.setSelectedLeagueFilterOnStats}
               currentSeason={d.currentSeason} toPersianDigits={toPersianDigits} />
-          </>
-        )}
-
-        {d.activeTab === "predictions" && (
-          <>
-            <SEO title="پیش‌بینی نتایج فوتبال" description="پیش‌بینی نتایج مسابقات فوتبال ایران و شرکت در مسابقات هواداری" url="/predictions" />
-            <div className="animate-in fade-in">
-              <FanPredictions matches={d.matches} predictionsData={d.predictions}
-                onVote={d.handlePredictionVote} subscribedTeams={d.subscribedTeams}
-                onToggleSubscription={d.handleToggleSubscription}
-                triggerMockGoalNotification={triggerMockGoalNotification} />
-            </div>
           </>
         )}
 
