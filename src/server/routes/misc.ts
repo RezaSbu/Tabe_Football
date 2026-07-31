@@ -198,8 +198,8 @@ export function registerMiscRoutes(app: Express) {
     const token = generateToken({ username: ADMIN_USERNAME_VALUE, role: "admin" });
     res.cookie("token", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      secure: req.protocol === "https",
+      sameSite: "lax",
       maxAge: JWT_EXPIRES_IN * 1000,
       path: "/"
     });
