@@ -144,6 +144,7 @@ export default function AdminDirectOverrides({
     city: "",
     stadium: "",
     founded: "",
+    coverImage: "",
     played: 0,
     won: 0,
     drawn: 0,
@@ -161,6 +162,7 @@ export default function AdminDirectOverrides({
         city: tm.city || "",
         stadium: tm.stadium || "",
         founded: tm.founded || "",
+        coverImage: tm.coverImage || "",
         played: Number(tm.stats?.played || 0),
         won: Number(tm.stats?.won || 0),
         drawn: Number(tm.stats?.drawn || 0),
@@ -180,6 +182,7 @@ export default function AdminDirectOverrides({
       city: teamForm.city,
       stadium: teamForm.stadium,
       founded: teamForm.founded,
+      coverImage: teamForm.coverImage,
       stats: {
         played: Number(teamForm.played),
         won: Number(teamForm.won),
@@ -642,6 +645,20 @@ export default function AdminDirectOverrides({
                     value={teamForm.founded}
                     onChange={e => setTeamForm({ ...teamForm, founded: e.target.value })}
                     className="w-full text-xs rounded bg-black p-2 border border-white/5"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-1">
+                <div>
+                  <label className="block text-[10px] text-slate-500 mb-1.5">آدرس تصویر کاور (بنر بالای پروفایل باشگاه)</label>
+                  <input
+                    type="text"
+                    dir="ltr"
+                    value={teamForm.coverImage}
+                    onChange={e => setTeamForm({ ...teamForm, coverImage: e.target.value })}
+                    className="w-full text-xs rounded bg-black p-2 border border-white/5 text-left font-mono"
+                    placeholder="https://images.unsplash.com/..."
                   />
                 </div>
               </div>

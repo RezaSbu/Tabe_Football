@@ -49,6 +49,7 @@ CREATE TABLE public.teams (
   id varchar(50) NOT NULL,
   name varchar(200) NOT NULL,
   logo text,
+  cover_image text,
   stats jsonb NOT NULL DEFAULT '{}'::jsonb,
   recent_form jsonb DEFAULT '[]'::jsonb,
   recent_matches jsonb DEFAULT '[]'::jsonb,

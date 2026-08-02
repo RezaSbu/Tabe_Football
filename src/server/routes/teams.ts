@@ -34,6 +34,7 @@ export function registerTeamRoutes(app: Express) {
     item.stadium = req.body.stadium || "";
     item.stadiumCapacity = req.body.stadiumCapacity || "";
     item.founded = req.body.founded || "";
+    item.coverImage = req.body.coverImage || "";
 
     item.stats = {
       ...(item.stats || {}),
@@ -121,6 +122,7 @@ export function registerTeamRoutes(app: Express) {
       updatedTeam.stadium = req.body.stadium !== undefined ? req.body.stadium : updatedTeam.stadium || "";
       updatedTeam.stadiumCapacity = req.body.stadiumCapacity !== undefined ? req.body.stadiumCapacity : updatedTeam.stadiumCapacity || "";
       updatedTeam.founded = req.body.founded !== undefined ? req.body.founded : updatedTeam.founded || "";
+      updatedTeam.coverImage = req.body.coverImage !== undefined ? req.body.coverImage : updatedTeam.coverImage || "";
 
       updatedTeam.stats = {
         ...(updatedTeam.stats || {}),
