@@ -215,7 +215,6 @@ export default function AdminPortalHub({
   const [teamTrLogo, setTeamTrLogo] = useState("");
   const [teamTrIncomings, setTeamTrIncomings] = useState<any[]>([]);
   const [teamTrOutgoings, setTeamTrOutgoings] = useState<any[]>([]);
-  const [teamTrProbables, setTeamTrProbables] = useState<any[]>([]);
 
   const addIncomingPlayer = () => {
     setTeamTrIncomings([
@@ -261,35 +260,12 @@ export default function AdminPortalHub({
     setTeamTrOutgoings(teamTrOutgoings.map(p => p.id === id ? { ...p, [field]: val } : p));
   };
 
-  const addProbablePlayer = () => {
-    setTeamTrProbables([
-      ...teamTrProbables,
-      {
-        id: `pl-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-        playerName: "",
-        playerImage: "",
-        fromTeam: "",
-        toTeam: "",
-        status: "احتمالی"
-      }
-    ]);
-  };
-
-  const removeProbablePlayer = (id: string) => {
-    setTeamTrProbables(teamTrProbables.filter(p => p.id !== id));
-  };
-
-  const updateProbablePlayer = (id: string, field: string, val: any) => {
-    setTeamTrProbables(teamTrProbables.map(p => p.id === id ? { ...p, [field]: val } : p));
-  };
-
   const handleEditTeamTransfer = (item: any) => {
     setEditingId(item.id);
     setTeamTrName(item.teamName || "");
     setTeamTrLogo(item.teamLogo || "⚽");
     setTeamTrIncomings(item.incomings || []);
     setTeamTrOutgoings(item.outgoings || []);
-    setTeamTrProbables(item.probables || []);
     setShowForm("teamTransfer");
   };
 
@@ -323,9 +299,6 @@ export default function AdminPortalHub({
       outgoings: teamTrOutgoings.map(p => ({
         ...p,
         fromTeam: teamTrName
-      })),
-      probables: teamTrProbables.map(p => ({
-        ...p
       }))
     };
 
@@ -344,7 +317,6 @@ export default function AdminPortalHub({
         setTeamTrLogo("");
         setTeamTrIncomings([]);
         setTeamTrOutgoings([]);
-        setTeamTrProbables([]);
         onRefreshData();
       } else {
         alert("خطا در ذخیره سطر.");
@@ -1031,81 +1003,6 @@ export default function AdminPortalHub({
                 )}
               </div>
 
-              {/* PROBABLES SECTION */}
-              <div className="border-t border-white/5 pt-3">
-                <div className="flex justify-between items-center mb-2">
-                  <h4 className="text-xs font-bold text-slate-400">❓ احتمالی و شایعات (بازیکنان احتمالی تیم {teamTrName || ""})</h4>
-                  <button
-                    type="button"
-                    onClick={addProbablePlayer}
-                    className="px-2 py-1 bg-white/10 hover:bg-white/20 text-slate-350 text-[10px] font-bold rounded-lg cursor-pointer"
-                  >
-                    + افزودن بازیکن احتمالی
-                  </button>
-                </div>
-
-                {teamTrProbables.length === 0 ? (
-                  <p className="text-[10px] text-gray-500">لیست بازیکنان احتمالی خالی است.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {teamTrProbables.map((p) => (
-                      <div key={p.id} className="grid gap-2 md:grid-cols-4 p-2 bg-black/40 rounded border border-white/5 relative items-center">
-                        <div>
-                          <label className="block text-[8px] text-slate-500 mb-0.5">نام بازیکن</label>
-                          <input
-                            type="text"
-                            value={p.playerName}
-                            onChange={e => updateProbablePlayer(p.id, "playerName", e.target.value)}
-                            required
-                            placeholder="مثلا علیرضا بیرانوند"
-                            className="w-full text-[10px] rounded bg-black border border-white/10 p-1 text-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[8px] text-slate-500 mb-0.5">تیم فعلی / مبدا</label>
-                          <input
-                            type="text"
-                            value={p.fromTeam || ""}
-                            onChange={e => updateProbablePlayer(p.id, "fromTeam", e.target.value)}
-                            placeholder="مثل پرسپولیس"
-                            className="w-full text-[10px] rounded bg-black border border-white/10 p-1 text-white"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[8px] text-slate-500 mb-0.5">تیم احتمالی مقصد</label>
-                          <input
-                            type="text"
-                            value={p.toTeam || ""}
-                            onChange={e => updateProbablePlayer(p.id, "toTeam", e.target.value)}
-                            placeholder="مثل استقلال / تراکتور"
-                            className="w-full text-[10px] rounded bg-black border border-white/10 p-1 text-white"
-                          />
-                        </div>
-                        <div className="flex items-center justify-between pt-3">
-                          <div className="w-full mr-2">
-                            <label className="block text-[8px] text-slate-500 mb-0.5">آدرس تصویر بازیکن (اختیاری)</label>
-                            <input
-                              type="text"
-                              value={p.playerImage || ""}
-                              onChange={e => updateProbablePlayer(p.id, "playerImage", e.target.value)}
-                              placeholder="URL عکس..."
-                              className="w-[85%] text-[10px] rounded bg-black border border-white/10 p-1 text-white"
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => removeProbablePlayer(p.id)}
-                            className="p-1 rounded bg-red-500/10 hover:bg-red-500/20 text-red-500 hover:text-white cursor-pointer"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
               <div className="flex justify-end gap-2 pt-2 border-t border-white/5">
                 <button type="button" onClick={() => setShowForm(null)} className="px-3 py-1.5 text-xs bg-white/5 text-slate-400 rounded">انصراف</button>
                 <button type="submit" className="px-4 py-1.5 text-xs bg-emerald-500 text-black font-bold rounded cursor-pointer">ذخیره جابجایی تیم‌ها</button>
@@ -1139,12 +1036,6 @@ export default function AdminPortalHub({
                         خروجی‌ها ({item.outgoings?.length || 0}):{" "}
                         <span className="text-gray-400 font-normal">
                           {item.outgoings?.map((p: any) => `${p.playerName} (به ${p.toTeam})`).join("، ") || "خالی"}
-                        </span>
-                      </div>
-                      <div className="text-[10px] text-slate-400 font-bold">
-                        احتمالی / شایعات ({item.probables?.length || 0}):{" "}
-                        <span className="text-gray-500 font-normal">
-                          {item.probables?.map((p: any) => `${p.playerName} (مبدا: ${p.fromTeam || "نامشخص"} ➔ مقصد: ${p.toTeam || "نامشخص"})`).join("، ") || "خالی"}
                         </span>
                       </div>
                     </div>
