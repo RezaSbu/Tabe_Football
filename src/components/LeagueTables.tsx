@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { StandingRow, NewsItem, MatchItem, TeamItem, PlayerItem, StatsData } from "../types";
 import { Trophy, Award, Newspaper, Calendar, BarChart3, List, ChevronLeft, Star, Flame, Zap, Target, Search, X } from "lucide-react";
-import { isTeamInDb } from "../utils";
+import { isTeamInDb, convertGregorianToShamsi } from "../utils";
 import HazfiCupBracket from "./HazfiCupBracket";
 import TeamLogo from "./TeamLogo";
 
@@ -615,7 +615,7 @@ export default function LeagueTables({
                     
                     {/* Small Match Subheader Banner */}
                     <div className="flex justify-between items-center text-[10px] text-gray-500 bg-black/25 px-3 py-1 bg-slate-950/40 border-b border-white/[0.02]">
-                      <span className="font-mono">{match.date}</span>
+                      <span className="font-mono">{convertGregorianToShamsi(match.date)}</span>
                       <span className={`font-bold ${config.textAccent}`}>{config.title}</span>
                     </div>
 

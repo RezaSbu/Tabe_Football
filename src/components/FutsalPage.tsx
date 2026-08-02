@@ -3,6 +3,7 @@ import { MatchItem, StandingRow, NewsItem, TeamItem, PlayerItem } from "../types
 import { Trophy, Calendar, Users, Newspaper, Award, Star, Zap, Flame, BarChart3, Shuffle, ChevronLeft, Search, X } from "lucide-react";
 import MatchCard from "./MatchCard";
 import TeamLogo from "./TeamLogo";
+import { convertGregorianToShamsi } from "../utils";
 
 interface FutsalPageProps {
   standings: Record<string, StandingRow[]>;
@@ -425,7 +426,7 @@ export default function FutsalPage({
                   <div className="rounded-xl border border-white/5 bg-gray-900 overflow-hidden relative shadow hover:border-red-500/20">
                     {/* Tiny metadata header */}
                     <div className="flex justify-between items-center text-[10px] text-gray-500 bg-black/25 px-3 py-1 bg-slate-950/40">
-                      <span className="font-mono">{match.date}</span>
+                      <span className="font-mono">{convertGregorianToShamsi(match.date)}</span>
                       <span className="font-bold text-red-400">لیگ برتر فوتسال</span>
                     </div>
 
