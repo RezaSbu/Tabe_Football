@@ -162,6 +162,7 @@ CREATE TABLE public.matches (
   is_popular boolean DEFAULT false,
   sport varchar(20) DEFAULT 'football',
   stage varchar(50) DEFAULT 'Feature_Games',
+  week varchar(50),
   is_auto_finished boolean DEFAULT false,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),

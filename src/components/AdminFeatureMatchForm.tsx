@@ -1,7 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { MatchItem, TeamItem } from "../types";
-import { convertGregorianToShamsi, convertShamsiToGregorian, convertGregorianToShamsiNumeric, getTodayShamsi } from "../utils";
+import { convertGregorianToShamsi, convertShamsiToGregorian, convertGregorianToShamsiNumeric, getTodayShamsi, toPersianDigits } from "../utils";
 import { X, Check, Calendar, Clock, MapPin, ShieldAlert, Award } from "lucide-react";
+
+const normalizeWeekLabel = (w?: string): string => {
+  if (!w) return "هفته 1";
+  const en = w.replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
+  const num = en.match(/\d+/);
+  if (!num) return "هفته 1";
+  const n = Math.min(40, Math.max(1, parseInt(num[0], 10)));
+  return `هفته ${n}`;
+};
 
 interface AdminFeatureMatchFormProps {
   match?: MatchItem | null; // index/null for edit/create
@@ -22,7 +31,7 @@ export default function AdminFeatureMatchForm({
   const [selectedSport, setSelectedSport] = useState<"football" | "futsal">(sport);
   const [league, setLeague] = useState("");
   const [season, setSeason] = useState("۱۴۰۴-۱۴۰۵");
-  const [week, setWeek] = useState("هفته ۱");
+  const [week, setWeek] = useState("هفته 1");
   const [teamHome, setTeamHome] = useState("");
   const [teamAway, setTeamAway] = useState("");
   const [teamHomeLogo, setTeamHomeLogo] = useState("🔴");
@@ -50,7 +59,7 @@ export default function AdminFeatureMatchForm({
       setSelectedSport(match.sport || sport);
       setLeague(match.league || "");
       setSeason(match.season || "۱۴۰۴-۱۴۰۵");
-      setWeek(match.week || "هفته ۱");
+      setWeek(normalizeWeekLabel(match.week));
       setTeamHome(match.teamHome || "");
       setTeamAway(match.teamAway || "");
       setTeamHomeLogo(match.teamHomeLogo || "🔴");
@@ -254,13 +263,15 @@ export default function AdminFeatureMatchForm({
 
           <div>
             <label className="block text-xs text-slate-400 mb-1.5 font-bold">هفته مسابقه</label>
-            <input
-              type="text"
+            <select
               value={week}
               onChange={(e) => setWeek(e.target.value)}
-              placeholder="مثال: هفته ۱۲"
-              className="w-full text-xs rounded-lg bg-[#07070a] border border-white/5 p-2.5 text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500"
-            />
+              className="w-full text-xs rounded-lg bg-[#07070a] border border-white/5 p-2.5 text-white font-bold focus:outline-none focus:border-emerald-500"
+            >
+              {Array.from({ length: 40 }, (_, i) => i + 1).map((n) => (
+                <option key={n} value={`هفته ${n}`}>هفته {toPersianDigits(n)}</option>
+              ))}
+            </select>
           </div>
         </div>
 

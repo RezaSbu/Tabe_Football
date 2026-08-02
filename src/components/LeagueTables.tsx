@@ -44,6 +44,7 @@ export default function LeagueTables({
   const [selectedSeason, setSelectedSeason] = useState<string>(currentSeason);
   const [activeL2Group, setActiveL2Group] = useState<"league-2-group-a" | "league-2-group-b">("league-2-group-a");
   const [matchSearch, setMatchSearch] = useState<string>("");
+  const [weekFilter, setWeekFilter] = useState<number | null>(null);
 
   useEffect(() => {
     if (currentSeason) {
@@ -242,8 +243,17 @@ export default function LeagueTables({
     return allMatches;
   };
 
+  const getMatchWeekNumber = (w?: string): number | null => {
+    if (!w) return null;
+    const en = w.replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
+    const num = en.match(/\d+/);
+    return num ? parseInt(num[0], 10) : null;
+  };
+
   const filteredMatches = getActiveMatches();
-  const searchedMatches = filteredMatches.filter(m => 
+  const availableWeeks = Array.from(new Set(filteredMatches.map(m => getMatchWeekNumber(m.week)).filter((n): n is number => n !== null))).sort((a, b) => a - b);
+  const weekFilteredMatches = weekFilter !== null ? filteredMatches.filter(m => getMatchWeekNumber(m.week) === weekFilter) : filteredMatches;
+  const searchedMatches = weekFilteredMatches.filter(m => 
     m.teamHome?.toLowerCase().includes(matchSearch.toLowerCase()) || 
     m.teamAway?.toLowerCase().includes(matchSearch.toLowerCase())
   );
@@ -575,29 +585,46 @@ export default function LeagueTables({
       {subTab === "matches" && (
         <div className="space-y-4">
           {filteredMatches.length > 0 && (
-            <div className="relative max-w-md">
-              <input
-                type="text"
-                placeholder="جستجوی مسابقه با نام تیم..."
-                value={matchSearch}
-                onChange={(e) => setMatchSearch(e.target.value)}
-                className="w-full rounded-xl bg-gray-900 px-4 py-2.5 pr-10 text-xs text-white placeholder-gray-500 border border-white/5 focus:outline-none focus:border-red-650 focus:ring-1 focus:ring-red-650/30"
-              />
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-550 pointer-events-none" />
-              {matchSearch && (
-                <button
-                  onClick={() => setMatchSearch("")}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition"
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative max-w-md flex-1 min-w-[220px]">
+                <input
+                  type="text"
+                  placeholder="جستجوی مسابقه با نام تیم..."
+                  value={matchSearch}
+                  onChange={(e) => setMatchSearch(e.target.value)}
+                  className="w-full rounded-xl bg-gray-900 px-4 py-2.5 pr-10 text-xs text-white placeholder-gray-500 border border-white/5 focus:outline-none focus:border-red-650 focus:ring-1 focus:ring-red-650/30"
+                />
+                <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-550 pointer-events-none" />
+                {matchSearch && (
+                  <button
+                    onClick={() => setMatchSearch("")}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-slate-400 font-bold">هفته:</span>
+                <select
+                  value={weekFilter === null ? "" : String(weekFilter)}
+                  onChange={(e) => setWeekFilter(e.target.value ? Number(e.target.value) : null)}
+                  className="rounded-xl bg-gray-900 border border-white/5 px-3 py-2.5 text-xs text-white font-bold focus:outline-none focus:border-red-650 focus:ring-1 focus:ring-red-650/30"
                 >
-                  <X className="h-4 w-4" />
-                </button>
-              )}
+                  <option value="">همه هفته‌ها</option>
+                  {availableWeeks.map((w) => (
+                    <option key={w} value={w}>هفته {toPersianDigits(w)}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           )}
 
-          {filteredMatches.length === 0 ? (
+          {weekFilteredMatches.length === 0 ? (
             <div className="p-12 text-center rounded-2xl border border-dashed border-white/5 text-xs text-slate-500 font-bold bg-[#121215]">
-              هیچ برنامه مسابقاتی یا نتایج اخیری برای این لیگ ثبت نشده است.
+              {weekFilter !== null
+                ? "هیچ برنامه مسابقاتی یا نتیجه‌ای در این هفته برای این لیگ ثبت نشده است."
+                : "هیچ برنامه مسابقاتی یا نتایج اخیری برای این لیگ ثبت نشده است."}
             </div>
           ) : searchedMatches.length === 0 ? (
             <div className="p-12 text-center rounded-2xl border border-dashed border-white/5 text-xs text-slate-500 font-bold bg-[#121215]">

@@ -32,6 +32,7 @@ export async function migrateConstraints(): Promise<void> {
     `);
     await pool.query(`ALTER TABLE legionnaires DROP CONSTRAINT IF EXISTS chk_legionnaires_league;`);
     await pool.query(`ALTER TABLE images ADD COLUMN IF NOT EXISTS view_count integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS week varchar(50)`);
     await pool.query(`ALTER TABLE legionnaires ADD COLUMN IF NOT EXISTS summary text`);
     await pool.query(`ALTER TABLE bracket_slots DROP CONSTRAINT IF EXISTS fk_bracket_slots_match`);
     constraintsMigrated = true;
@@ -280,6 +281,7 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
           predictions: m.predictions,
           sport: m.sport || 'football',
           stage: m.stage || 'Feature_Games',
+          week: m.week,
           tag: m.tag,
           isAutoFinished: m.is_auto_finished || false,
           lineups: m.lineups,
@@ -725,7 +727,8 @@ export async function saveDB(): Promise<void> {
           events: m.events,
           scorers_list: m.scorersList,
           team_stats: m.teamStats,
-          referee: m.referee || null
+          referee: m.referee || null,
+          week: m.week || null
         };
       });
       promises.push(pgDb.from('matches').upsert(formattedMatches));
