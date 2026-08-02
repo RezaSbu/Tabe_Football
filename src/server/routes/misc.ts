@@ -165,22 +165,83 @@ export function registerMiscRoutes(app: Express) {
     }
   });
 
-  app.get("/api/config", (req, res) => {
+  app.get("/api/ads", (req, res) => {
     const currentDB = loadDB();
-    res.json(currentDB.config || {});
+    res.json(currentDB.ads || []);
   });
 
-  app.put("/api/config", async (req, res) => {
-    try {
-      const configData = req.body;
-      const currentDB = loadDB();
-      currentDB.config = configData;
+  app.post("/api/ads", async (req, res) => {
+    const currentDB = loadDB();
+    if (!currentDB.ads) currentDB.ads = [];
+    const item = {
+      ...req.body,
+      id: req.body.id || `ad-${Date.now()}`,
+      type: req.body.type || "slot",
+      name: req.body.name || "",
+      placement: req.body.placement || "sidebar",
+      title: req.body.title || "",
+      promo: req.body.promo || "",
+      description: req.body.description || "",
+      linkUrl: req.body.linkUrl || "",
+      imageUrl: req.body.imageUrl || "",
+      btnText: req.body.btnText || "",
+      width: req.body.width || 728,
+      height: req.body.height || 90,
+      priority: req.body.priority || 0,
+      startDate: req.body.startDate || "",
+      endDate: req.body.endDate || "",
+      isActive: req.body.isActive !== false,
+      settings: req.body.settings || {},
+      viewCount: req.body.viewCount || 0,
+      clickCount: req.body.clickCount || 0
+    };
+    currentDB.ads.push(item);
+    await saveDB();
+    res.json({ success: true, item });
+  });
+
+  app.put("/api/ads/:id", async (req, res) => {
+    const currentDB = loadDB();
+    if (!currentDB.ads) currentDB.ads = [];
+    const index = currentDB.ads.findIndex((a: any) => String(a.id) === String(req.params.id));
+    if (index !== -1) {
+      currentDB.ads[index] = { ...currentDB.ads[index], ...req.body, id: currentDB.ads[index].id };
       await saveDB();
       res.json({ success: true });
-    } catch (err) {
-      console.error("[API] Error saving config:", err);
-      res.status(500).json({ success: false, message: "خطا در ذخیره تنظیمات" });
+    } else {
+      res.status(404).json({ success: false, message: "تبلیغ پیدا نشد." });
     }
+  });
+
+  app.delete("/api/ads/:id", async (req, res) => {
+    const currentDB = loadDB();
+    if (!currentDB.ads) currentDB.ads = [];
+    const originalLength = currentDB.ads.length;
+    currentDB.ads = currentDB.ads.filter((a: any) => String(a.id) !== String(req.params.id));
+    if (currentDB.ads.length < originalLength) {
+      await saveDB();
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ success: false, message: "تبلیغ پیدا نشد." });
+    }
+  });
+
+  app.post("/api/ads/:id/view", async (req, res) => {
+    const currentDB = loadDB();
+    const item = (currentDB.ads || []).find((a: any) => String(a.id) === String(req.params.id));
+    if (!item) return res.status(404).json({ error: "تبلیغ یافت نشد." });
+    item.viewCount = (item.viewCount || 0) + 1;
+    await saveDB();
+    res.json({ success: true, viewCount: item.viewCount });
+  });
+
+  app.post("/api/ads/:id/click", async (req, res) => {
+    const currentDB = loadDB();
+    const item = (currentDB.ads || []).find((a: any) => String(a.id) === String(req.params.id));
+    if (!item) return res.status(404).json({ error: "تبلیغ یافت نشد." });
+    item.clickCount = (item.clickCount || 0) + 1;
+    await saveDB();
+    res.json({ success: true, clickCount: item.clickCount });
   });
 
   app.post("/api/auth/login", async (req, res) => {

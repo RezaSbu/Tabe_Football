@@ -12,7 +12,7 @@ import { centralAuthGuard } from "./middleware/auth";
 import { loadDB, setDb } from "./state";
 import { dbLock } from "./utils/concurrency";
 import { logMessage } from "./utils/logger";
-import { fetchAndPopulateMemoryDB, saveDB, migrateConstraints, migrateSummaryColumn, migrateHeroSlidesColumns } from "./services/database";
+import { fetchAndPopulateMemoryDB, saveDB, migrateConstraints, migrateSummaryColumn, migrateHeroSlidesColumns, migrateAdsSchema } from "./services/database";
 import { recalculateAndSyncDatabase } from "./services/stats";
 import { getUploadsDir } from "./db";
 
@@ -53,6 +53,7 @@ async function startServer() {
   await migrateConstraints();
   await migrateSummaryColumn();
   await migrateHeroSlidesColumns();
+  await migrateAdsSchema();
   await dbLock.acquire(() => fetchAndPopulateMemoryDB());
 
   const db = loadDB();

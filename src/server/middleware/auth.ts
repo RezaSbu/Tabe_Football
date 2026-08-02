@@ -73,6 +73,7 @@ export function centralAuthGuard(req: express.Request, res: express.Response, ne
     p.startsWith("/api/predictions/") ||
     (req.method === "POST" && /^\/api\/news\/[^/]+\/view$/.test(p)) ||
     (req.method === "POST" && /^\/api\/images\/[^/]+\/view$/.test(p)) ||
+    (req.method === "POST" && /^\/api\/ads\/[^/]+\/(view|click)$/.test(p)) ||
     (req.method === "POST" && /^\/api\/detail\/[^/]+\/[^/]+\/view$/.test(p));
   if (isPublic) return next();
   const token = extractToken(req);

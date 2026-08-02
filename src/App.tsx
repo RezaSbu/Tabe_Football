@@ -8,7 +8,8 @@ import {
   ImageItem,
   ContactSubmission,
   StatsData,
-  TeamTransferItem
+  TeamTransferItem,
+  AdItem
 } from "./types";
 import Navbar from "./components/Navbar";
 import Header from "./components/Header";
@@ -140,7 +141,7 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
               setSelectedLeagueFilterOnStats={d.setSelectedLeagueFilterOnStats} archives={d.archives}
               standings={d.standings} players={d.players} selectedCombinations={d.selectedCombinations}
               setSelectedPlayerId={(id: string | null) => id && navigate(`/player/${id}`)} setSelectedTeamId={(id: string | null) => id && navigate(`/team/${id}`)}
-              adConfig={d.adConfig} onSelectTransfer={(id: string) => navigate(`/transfer/${id}`)} />
+              ads={d.ads} onSelectTransfer={(id: string) => navigate(`/transfer/${id}`)} />
           </>
         )}
 
@@ -250,10 +251,10 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
               transfers={d.transfers} teamTransfersList={d.teamTransfersList} images={d.images}
               submissions={d.submissions} heroSlides={d.heroSlides} legionnaires={d.legionnaires} stats={d.stats}
               teams={d.teams} players={d.players} bracket={d.bracket}
-              selectedCombinations={d.selectedCombinations} adConfig={d.adConfig}
+              selectedCombinations={d.selectedCombinations} ads={d.ads}
               archives={d.archives} currentSeason={d.currentSeason}
               onUpdateArchives={d.setArchives} onUpdateStandings={d.handleUpdateStandings}
-              onUpdateStats={d.handleUpdateStats} onUpdateAdConfig={d.handleUpdateAdConfig}
+              onUpdateStats={d.handleUpdateStats} onSaveAds={d.setAds}
               onCentralSync={d.handleCentralSync} onLogout={d.handleAdminLogout}
               isAdminLoggedIn={d.isAdminLoggedIn} onLogin={d.handleAdminLogin}
               onRefreshData={d.fetchData} />
@@ -314,10 +315,10 @@ export default function App() {
           <AdminPanel news={d.news} matches={d.matches} standings={d.standings} transfers={d.transfers}
             teamTransfersList={d.teamTransfersList} images={d.images} submissions={d.submissions}
             heroSlides={d.heroSlides} legionnaires={d.legionnaires} stats={d.stats} teams={d.teams} players={d.players} coaches={d.coaches}
-            bracket={d.bracket} selectedCombinations={d.selectedCombinations} adConfig={d.adConfig}
+            bracket={d.bracket} selectedCombinations={d.selectedCombinations} ads={d.ads}
             archives={d.archives} currentSeason={d.currentSeason}
             onUpdateStandings={d.handleUpdateStandings} onUpdateStats={d.handleUpdateStats}
-            onUpdateAdConfig={d.handleUpdateAdConfig} onCentralSync={d.handleCentralSync}
+            onSaveAds={d.setAds} onCentralSync={d.handleCentralSync}
             isAdminLoggedIn={d.isAdminLoggedIn} onLogin={d.handleAdminLogin}
             onRefreshData={d.fetchData} onLogout={d.handleAdminLogout} />
         </div>
@@ -369,10 +370,10 @@ export default function App() {
 
       <GoalNotification activeGoalEvent={d.activeGoalEvent} setActiveGoalEvent={d.setActiveGoalEvent} />
 
-      {d.adConfig?.popupAd?.enabled && <PopupAd ad={d.adConfig.popupAd} />}
-      {d.adConfig?.floatingAd?.enabled && <FloatingAd ad={d.adConfig.floatingAd} />}
-      {d.adConfig?.bottomBarAd?.enabled && <BottomBarAd ad={d.adConfig.bottomBarAd} />}
-      {d.adConfig?.slideInAd?.enabled && <SlideInAd ad={d.adConfig.slideInAd} />}
+      {d.ads.filter((ad: AdItem) => ad.type === "popup").map(ad => <PopupAd key={ad.id} ad={ad} />)}
+      {d.ads.filter((ad: AdItem) => ad.type === "floating").map(ad => <FloatingAd key={ad.id} ad={ad} />)}
+      {d.ads.filter((ad: AdItem) => ad.type === "bottom_bar").map(ad => <BottomBarAd key={ad.id} ad={ad} />)}
+      {d.ads.filter((ad: AdItem) => ad.type === "slide_in").map(ad => <SlideInAd key={ad.id} ad={ad} />)}
     </div>
   );
 }

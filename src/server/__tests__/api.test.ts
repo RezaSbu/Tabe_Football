@@ -75,10 +75,10 @@ describe("API - Health & Data", () => {
     expect(data.teams).toBeDefined();
   });
 
-  it("GET /api/config returns config object", async () => {
-    const { status, data } = await apiGet("/api/config");
+  it("GET /api/ads returns array", async () => {
+    const { status, data } = await apiGet("/api/ads");
     expect(status).toBe(200);
-    expect(data).toHaveProperty("adTitle");
+    expect(Array.isArray(data)).toBe(true);
   });
 
   it("GET /api/testdb returns connected: true", async () => {
@@ -309,39 +309,49 @@ describe("API - Submissions", () => {
   });
 });
 
-describe("API - Config Persistence", () => {
-  it("GET /api/config returns object with adConfig fields", async () => {
-    const { status, data } = await apiGet("/api/config");
+describe("API - Ads Persistence", () => {
+  it("GET /api/ads returns ads array", async () => {
+    const { status, data } = await apiGet("/api/ads");
     expect(status).toBe(200);
-    expect(data).toHaveProperty("adTitle");
-    expect(data).toHaveProperty("adSlots");
+    expect(Array.isArray(data)).toBe(true);
   });
 
-  it("PUT /api/config saves and GET /api/data returns persisted config", async () => {
+  it("POST /api/ads creates item and GET /api/data returns persisted ad", async () => {
     if (!needsAuth()) return;
-    const cfg = {
-      adTitle: "", adPromo: "", adDesc: "", adLink: "", adBtnText: "",
-      customBannerUrl: "", adSlots: [],
-      bannerLabel: "تست بنر", bannerLabelVisible: true,
-      bannerTagText: "تست تگ", bannerVisible: true,
-      popupAd: { enabled: true, title: "پاپ", description: "توضیح", link: "#", btnText: "باش", delay: 5 },
-      floatingAd: { enabled: false, title: "", description: "", link: "", btnText: "" },
-      bottomBarAd: { enabled: false, title: "", description: "", link: "", btnText: "" },
-      slideInAd: { enabled: false, title: "", description: "", link: "", btnText: "" }
+    const payload = {
+      type: "banner",
+      name: "تست بنر",
+      placement: "top",
+      title: "بنر تستی",
+      promo: "TEST99",
+      description: "توضیح تستی",
+      linkUrl: "#",
+      btnText: "مشاهده",
+      isActive: true
     };
-    const putRes = await apiPut("/api/config", cfg, token);
-    expect(putRes.status).toBe(200);
-    expect(putRes.data.success).toBe(true);
+    const postRes = await apiPost("/api/ads", payload, token);
+    expect(postRes.status).toBe(200);
+    expect(postRes.data.success).toBe(true);
 
     const { data: fullData } = await apiGet("/api/data");
-    expect(fullData.config).toBeDefined();
-    expect(fullData.config.bannerLabel).toBe("تست بنر");
-    expect(fullData.config.popupAd.enabled).toBe(true);
+    const found = fullData.ads.find((a: any) => a.name === "تست بنر");
+    expect(found).toBeDefined();
+    expect(found.title).toBe("بنر تستی");
   });
 
-  it("PUT /api/config without auth returns 401", async () => {
-    const { status } = await apiPut("/api/config", { adTitle: "test" }, "");
+  it("PUT /api/ads without auth returns 401", async () => {
+    const { status } = await apiPut("/api/ads/some-id", { title: "test" }, "");
     expect(status).toBe(401);
+  });
+
+  it("POST /api/ads/:id/view is publicly accessible and increments counter", async () => {
+    const { data: before } = await apiGet("/api/ads");
+    const target = Array.isArray(before) && before.length > 0 ? before[0] : null;
+    if (!target) return;
+    const beforeCount = target.viewCount || 0;
+    const { status, data } = await apiPost(`/api/ads/${target.id}/view`, {});
+    expect(status).toBe(200);
+    expect(data.viewCount).toBe(beforeCount + 1);
   });
 });
 
@@ -357,7 +367,9 @@ describe("API - Security: Auth Guards", () => {
     { method: "POST", path: "/api/transfers" },
     { method: "POST", path: "/api/legionnaires" },
     { method: "POST", path: "/api/images" },
-    { method: "PUT", path: "/api/config" },
+    { method: "POST", path: "/api/ads" },
+    { method: "PUT", path: "/api/ads/fake-id" },
+    { method: "DELETE", path: "/api/ads/fake-id" },
     { method: "POST", path: "/api/sync" },
   ];
 

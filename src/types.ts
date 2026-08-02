@@ -313,50 +313,28 @@ export interface TeamTransferItem {
   probables: TeamTransferPlayer[];
 }
 
-export interface OverlayAdConfig {
-  enabled: boolean;
-  title: string;
-  description: string;
-  link: string;
-  btnText: string;
-  imageUrl?: string;
-  position?: string;
-  delay?: number;
-  showAfterScroll?: boolean;
-  scrollThreshold?: number;
-  linkUrl?: string;
-}
+export type AdType = "banner" | "slot" | "popup" | "floating" | "bottom_bar" | "slide_in";
 
-export interface AdSlot {
+export interface AdItem {
   id: string;
+  type: AdType;
   name: string;
-  type: 'text' | 'image' | 'mixed';
-  text?: string;
-  link?: string;
-  imageUrl?: string;
-  imageLink?: string;
-  priority?: number;
-  startDate?: string;
-  endDate?: string;
-  active?: boolean;
-}
-
-export interface AdConfig {
-  adTitle: string;
-  adPromo: string;
-  adDesc: string;
-  adLink: string;
-  adBtnText: string;
-  customBannerUrl: string;
-  adSlots: AdSlot[];
-  bannerLabel: string;
-  bannerLabelVisible: boolean;
-  bannerTagText: string;
-  bannerVisible: boolean;
-  popupAd: OverlayAdConfig;
-  floatingAd: OverlayAdConfig;
-  bottomBarAd: OverlayAdConfig;
-  slideInAd: OverlayAdConfig;
+  placement: string;
+  title: string;
+  promo: string;
+  description: string;
+  linkUrl: string;
+  imageUrl: string;
+  btnText: string;
+  width: number;
+  height: number;
+  priority: number;
+  startDate: string;
+  endDate: string;
+  isActive: boolean;
+  settings: Record<string, any>;
+  viewCount: number;
+  clickCount: number;
 }
 
 export interface LiveGoal {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState } from "react";
 import { 
   FileText, 
   RefreshCw, 
@@ -16,8 +16,9 @@ import {
   Link2,
 } from "lucide-react";
 import TeamLogo from "./TeamLogo";
-import { NewsItem, TransferItem, ImageItem, ContactSubmission, LegionnaireItem } from "../types";
-import { getAdViews, isWithinSchedule } from "./AdSlot";
+import AdsManager from "./AdsManager";
+import { NewsItem, TransferItem, ImageItem, ContactSubmission, LegionnaireItem, AdItem } from "../types";
+import { isWithinSchedule } from "./AdSlot";
 
 interface AdminPortalHubProps {
   news: NewsItem[];
@@ -26,8 +27,8 @@ interface AdminPortalHubProps {
   images: ImageItem[];
   submissions: ContactSubmission[];
   legionnaires?: LegionnaireItem[];
-  adConfig?: any;
-  onUpdateAdConfig?: (configData: any) => Promise<boolean>;
+  ads?: AdItem[];
+  onSaveAds?: (ads: AdItem[]) => void;
   onRefreshData: () => void;
 }
 
@@ -38,23 +39,11 @@ export default function AdminPortalHub({
   images = [],
   submissions = [],
   legionnaires = [],
-  adConfig,
-  onUpdateAdConfig,
+  ads = [],
+  onSaveAds,
   onRefreshData
 }: AdminPortalHubProps) {
-  const [subTab, setSubTab] = useState<"news" | "transfers" | "teamTransfers" | "legionnaires" | "gallery" | "submissions" | "banner" | "adSlots" | "overlayAds">("news");
-  const [adSlots, setAdSlots] = useState<any[]>(adConfig?.adSlots || []);
-  const hasUnsavedAdEdits = useRef(false);
-  const hasUnsavedOverlayEdits = useRef(false);
-
-  const syncAdSlotsFromServer = () => {
-    if (adConfig?.adSlots && Array.isArray(adConfig.adSlots)) {
-      setAdSlots(adConfig.adSlots);
-      hasUnsavedAdEdits.current = false;
-    }
-  };
-
-  const markAdDirty = () => { hasUnsavedAdEdits.current = true; };
+  const [subTab, setSubTab] = useState<"news" | "transfers" | "teamTransfers" | "legionnaires" | "gallery" | "submissions" | "ads">("news");
 
   const handleDeleteSubmission = async (id: string) => {
     if (window.confirm("آیا از حذف این پیام اطمینان دارید؟")) {
@@ -123,51 +112,103 @@ export default function AdminPortalHub({
   const [legTags, setLegTags] = useState("");
   const [imgTags, setImgTags] = useState("");
 
-  // AD CONFIG STATE (Initialized from DB via adConfig prop)
-  const [adTitle, setAdTitle] = useState(adConfig?.adTitle || "");
-  const [adPromo, setAdPromo] = useState(adConfig?.adPromo || "");
-  const [adBtnText, setAdBtnText] = useState(adConfig?.adBtnText || "");
-  const [adDesc, setAdDesc] = useState(adConfig?.adDesc || "");
-  const [adLink, setAdLink] = useState(adConfig?.adLink || "");
-  const [adBannerUrl, setAdBannerUrl] = useState(adConfig?.customBannerUrl || "");
-  const [bannerLabel, setBannerLabel] = useState(adConfig?.bannerLabel || "تخفیف هواداران تب فوتبال");
-  const [bannerLabelVisible, setBannerLabelVisible] = useState(adConfig?.bannerLabelVisible !== false);
-  const [bannerTagText, setBannerTagText] = useState(adConfig?.bannerTagText || "حمایت ویژه پورتال");
-  const [bannerVisible, setBannerVisible] = useState(adConfig?.bannerVisible !== false);
-  const [popupAd, setPopupAd] = useState<any>(adConfig?.popupAd || { enabled: false, title: "", description: "", link: "", btnText: "", imageUrl: "", delay: 3 });
-  const [floatingAd, setFloatingAd] = useState<any>(adConfig?.floatingAd || { enabled: false, title: "", description: "", link: "", btnText: "", imageUrl: "", position: "bottom-left" });
-  const [bottomBarAd, setBottomBarAd] = useState<any>(adConfig?.bottomBarAd || { enabled: false, title: "", description: "", link: "", btnText: "" });
-  const [slideInAd, setSlideInAd] = useState<any>(adConfig?.slideInAd || { enabled: false, title: "", description: "", link: "", btnText: "", imageUrl: "", position: "right" });
-  const hasUnsavedBannerEdits = useRef(false);
+  // AD FORM STATE
+  const [adForm, setAdForm] = useState<AdItem | null>(null);
+  const [adSettings, setAdSettings] = useState<Record<string, any>>({});
 
-  const updatePopupAd = (patch: Partial<any>) => { hasUnsavedOverlayEdits.current = true; setPopupAd((prev: any) => ({ ...prev, ...patch })); };
-  const updateFloatingAd = (patch: Partial<any>) => { hasUnsavedOverlayEdits.current = true; setFloatingAd((prev: any) => ({ ...prev, ...patch })); };
-  const updateBottomBarAd = (patch: Partial<any>) => { hasUnsavedOverlayEdits.current = true; setBottomBarAd((prev: any) => ({ ...prev, ...patch })); };
-  const updateSlideInAd = (patch: Partial<any>) => { hasUnsavedOverlayEdits.current = true; setSlideInAd((prev: any) => ({ ...prev, ...patch })); };
+  const emptyAdForm = (): AdItem => ({
+    id: "",
+    type: "slot",
+    name: "",
+    placement: "sidebar",
+    title: "",
+    promo: "",
+    description: "",
+    linkUrl: "",
+    imageUrl: "",
+    btnText: "",
+    width: 728,
+    height: 90,
+    priority: 0,
+    startDate: "",
+    endDate: "",
+    isActive: true,
+    settings: {},
+    viewCount: 0,
+    clickCount: 0
+  });
 
-  useEffect(() => {
-    if (adConfig && !hasUnsavedBannerEdits.current) {
-      setAdTitle(adConfig.adTitle || "");
-      setAdPromo(adConfig.adPromo || "");
-      setAdBtnText(adConfig.adBtnText || "");
-      setAdDesc(adConfig.adDesc || "");
-      setAdLink(adConfig.adLink || "");
-      setAdBannerUrl(adConfig.customBannerUrl || "");
-      setBannerLabel(adConfig.bannerLabel || "تخفیف هواداران تب فوتبال");
-      setBannerLabelVisible(adConfig.bannerLabelVisible !== false);
-      setBannerTagText(adConfig.bannerTagText || "حمایت ویژه پورتال");
-      setBannerVisible(adConfig.bannerVisible !== false);
+  const openAdForm = (item: AdItem | null) => {
+    const base = item || emptyAdForm();
+    setAdForm({ ...base });
+    setAdSettings(base.settings || {});
+  };
+
+  const updateAdField = (field: string, value: any) => {
+    setAdForm(prev => (prev ? { ...prev, [field]: value } : prev));
+  };
+
+  const updateAdSetting = (field: string, value: any) => {
+    setAdSettings(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSaveAd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adForm) return;
+    const payload = {
+      ...adForm,
+      settings: adSettings,
+      width: parseInt(String(adForm.width)) || 728,
+      height: parseInt(String(adForm.height)) || 90,
+      priority: parseInt(String(adForm.priority)) || 0
+    };
+    try {
+      const isNew = !adForm.id;
+      const url = isNew ? "/api/ads" : `/api/ads/${adForm.id}`;
+      const method = isNew ? "POST" : "PUT";
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        setAdForm(null);
+        onRefreshData();
+        alert(isNew ? "تبلیغ جدید با موفقیت ثبت شد." : "تبلیغ با موفقیت به‌روزرسانی شد.");
+      } else {
+        alert("خطا در ذخیره تبلیغ.");
+      }
+    } catch {
+      alert("خطا در ارتباط با سرور.");
     }
-    if (adConfig && !hasUnsavedOverlayEdits.current) {
-      setPopupAd(adConfig.popupAd || { enabled: false, title: "", description: "", link: "", btnText: "", imageUrl: "", delay: 3 });
-      setFloatingAd(adConfig.floatingAd || { enabled: false, title: "", description: "", link: "", btnText: "", imageUrl: "", position: "bottom-left" });
-      setBottomBarAd(adConfig.bottomBarAd || { enabled: false, title: "", description: "", link: "", btnText: "" });
-      setSlideInAd(adConfig.slideInAd || { enabled: false, title: "", description: "", link: "", btnText: "", imageUrl: "", position: "right" });
+  };
+
+  const handleDeleteAd = async (id: string) => {
+    if (!window.confirm("آیا از حذف این تبلیغ اطمینان دارید؟")) return;
+    try {
+      const res = await fetch(`/api/ads/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        onRefreshData();
+      } else {
+        alert("خطا در حذف تبلیغ.");
+      }
+    } catch {
+      alert("خطا در ارتباط با سرور.");
     }
-    if (!hasUnsavedBannerEdits.current && !hasUnsavedAdEdits.current) {
-      syncAdSlotsFromServer();
+  };
+
+  const handleBulkSaveAds = async () => {
+    if (!onSaveAds) return;
+    try {
+      const res = await fetch("/api/ads", { method: "GET" });
+      if (!res.ok) return;
+      const current = await res.json();
+      await onSaveAds(current);
+      alert("لیست تبلیغات با موفقیت همگام شد.");
+    } catch {
+      alert("خطا در ارتباط با سرور.");
     }
-  }, [adConfig]);
+  };
 
   // TEAM TRANSFERS FORM STATE
   const [teamTrName, setTeamTrName] = useState("");
@@ -541,67 +582,6 @@ export default function AdminPortalHub({
     }
   };
 
-  // 5. AD BANNER ACTIONS
-  const handleSaveAdConfig = async () => {
-    if (!onUpdateAdConfig) {
-      alert("توابع ذخیره‌سازی در دسترس نیست.");
-      return;
-    }
-    try {
-      const success = await onUpdateAdConfig({
-        adTitle, adPromo, adBtnText, adDesc, adLink,
-        customBannerUrl: adBannerUrl, adSlots,
-        bannerLabel, bannerLabelVisible, bannerTagText, bannerVisible,
-        popupAd, floatingAd, bottomBarAd, slideInAd
-      });
-      if (success) {
-        hasUnsavedAdEdits.current = false;
-        hasUnsavedBannerEdits.current = false;
-        hasUnsavedOverlayEdits.current = false;
-        alert("تبلیغات با موفقیت ذخیره شد!");
-      } else {
-        alert("ذخیره تبلیغات موفقیت‌آمیز نبود.");
-      }
-    } catch {
-      alert("خطا در ارتباط با سرور.");
-    }
-  };
-
-  const handleAddAdSlot = () => {
-    const newSlot = {
-      id: `slot-${Date.now()}`,
-      name: "",
-      width: 728,
-      height: 90,
-      isActive: true,
-      type: "text" as const,
-      priority: 0,
-      startDate: "",
-      endDate: "",
-      adTitle: "",
-      adPromo: "",
-      adDesc: "",
-      adLink: "",
-      adBtnText: "",
-      customBannerUrl: ""
-    };
-    setAdSlots([...adSlots, newSlot]);
-    markAdDirty();
-  };
-
-  const handleUpdateAdSlot = (index: number, field: string, value: any) => {
-    const updated = [...adSlots];
-    updated[index] = { ...updated[index], [field]: value };
-    setAdSlots(updated);
-    markAdDirty();
-  };
-
-  const handleDeleteAdSlot = (index: number) => {
-    if (!window.confirm("آیا از حذف این جایگاه تبلیغاتی اطمینان دارید؟")) return;
-    setAdSlots(adSlots.filter((_: any, i: number) => i !== index));
-    markAdDirty();
-  };
-
   return (
     <div className="space-y-6" dir="rtl">
       {/* Sub menu tabs row */}
@@ -637,22 +617,10 @@ export default function AdminPortalHub({
           🖼️ گالری عکاسی و استوری‌ها
         </button>
         <button
-          onClick={() => { setSubTab("banner"); setShowForm(null); }}
-          className={`px-4 py-2 font-bold rounded-lg transition ${subTab === "banner" ? "bg-red-655 text-white" : "bg-white/5 text-slate-400 hover:text-white"}`}
+          onClick={() => { setSubTab("ads"); setShowForm(null); }}
+          className={`px-4 py-2 font-bold rounded-lg transition ${subTab === "ads" ? "bg-red-655 text-white" : "bg-white/5 text-slate-400 hover:text-white"}`}
         >
-          📢 بنرهای تجاری پورتال
-        </button>
-        <button
-          onClick={() => { setSubTab("adSlots"); setShowForm(null); }}
-          className={`px-4 py-2 font-bold rounded-lg transition ${subTab === "adSlots" ? "bg-red-655 text-white" : "bg-white/5 text-slate-400 hover:text-white"}`}
-        >
-          🎯 جایگاه‌های تبلیغاتی ({adSlots.length})
-        </button>
-        <button
-          onClick={() => { setSubTab("overlayAds"); setShowForm(null); }}
-          className={`px-4 py-2 font-bold rounded-lg transition ${subTab === "overlayAds" ? "bg-red-655 text-white" : "bg-white/5 text-slate-400 hover:text-white"}`}
-        >
-          🪟 تبلیغات پاپ‌آپ و شناور
+          📢 مدیریت تبلیغات ({ads.length})
         </button>
         <button
           onClick={() => { setSubTab("submissions"); setShowForm(null); }}
@@ -1356,424 +1324,10 @@ export default function AdminPortalHub({
         </div>
       )}
 
-      {/* SUB-TAB 4: AD BANNER CONFIG */}
-      {subTab === "banner" && (
-        <div className="bg-[#0b0b0f] border border-white/5 p-5 rounded-2xl space-y-4">
-          <h3 className="font-extrabold text-sm text-white border-b border-white/5 pb-2">📢 تنظیم بنر بازرگانی بالای خط هدر سراسری</h3>
-          <form onSubmit={(e) => { e.preventDefault(); handleSaveAdConfig(); }} className="space-y-4 max-w-2xl">
-            <div className="flex items-center justify-between border border-white/5 rounded-xl p-3">
-              <span className="text-xs font-bold text-white">نمایش بنر تبلیغاتی بالای صفحه</span>
-              <button type="button" onClick={() => setBannerVisible(!bannerVisible)}
-                className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${bannerVisible ? "bg-emerald-500" : "bg-gray-700"}`}>
-                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition ${bannerVisible ? "translate-x-4.5" : "translate-x-0.5"}`} />
-              </button>
-            </div>
+            {/* SUB-TAB: ADS MANAGEMENT */}
+      {subTab === "ads" && <AdsManager ads={ads} onRefreshData={onRefreshData} />}
 
-            <div className="flex items-center justify-between border border-white/5 rounded-xl p-3">
-              <span className="text-xs font-bold text-white">نمایش برچسب بالای بنر</span>
-              <button type="button" onClick={() => setBannerTagText(bannerTagText ? "" : "حمایت ویژه پورتال")}
-                className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${bannerTagText ? "bg-emerald-500" : "bg-gray-700"}`}>
-                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition ${bannerTagText ? "translate-x-4.5" : "translate-x-0.5"}`} />
-              </button>
-            </div>
-            {bannerTagText !== "" && (
-              <div>
-                <label className="block text-xs text-slate-400 mb-1.5 font-bold">متن برچسب بالای بنر</label>
-                <input type="text" value={bannerTagText} onChange={e => setBannerTagText(e.target.value)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2.5 text-white" />
-              </div>
-            )}
-
-            <div>
-              <label className="block text-xs text-slate-400 mb-1.5 font-bold">نام آگهی دهنده</label>
-              <input type="text" value={adTitle} onChange={e => setAdTitle(e.target.value)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2.5 text-white" />
-            </div>
-
-            <div className="grid gap-3 md:grid-cols-2">
-              <div>
-                <label className="block text-xs text-slate-400 mb-1.5 font-bold">کد تبلیغاتی (Promo Tag)</label>
-                <input type="text" value={adPromo} onChange={e => setAdPromo(e.target.value)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2.5 text-white" />
-              </div>
-              <div>
-                <label className="block text-xs text-slate-400 mb-1.5 font-bold">متن دکمه فرود</label>
-                <input type="text" value={adBtnText} onChange={e => setAdBtnText(e.target.value)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2.5 text-white" />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs text-slate-400 mb-1.5 font-bold">جزئیات تخفیف یا اسپانسری کلوپ</label>
-              <textarea value={adDesc} onChange={e => setAdDesc(e.target.value)} rows={2} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2.5 text-white resize-none" />
-            </div>
-
-            <div>
-              <label className="block text-xs text-slate-400 mb-1.5 font-bold">لینک ارجاع بیرونی (External URL)</label>
-              <input type="text" value={adLink} onChange={e => setAdLink(e.target.value)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2.5 text-white" />
-            </div>
-
-            <div className="flex items-center justify-between border border-white/5 rounded-xl p-3">
-              <span className="text-xs font-bold text-white">نمایش برچسب زیر نام آگهی</span>
-              <button type="button" onClick={() => setBannerLabelVisible(!bannerLabelVisible)}
-                className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${bannerLabelVisible ? "bg-emerald-500" : "bg-gray-700"}`}>
-                <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition ${bannerLabelVisible ? "translate-x-4.5" : "translate-x-0.5"}`} />
-              </button>
-            </div>
-            {bannerLabelVisible && (
-              <div>
-                <label className="block text-xs text-slate-400 mb-1.5 font-bold">متن برچسب زیر نام آگهی</label>
-                <input type="text" value={bannerLabel} onChange={e => setBannerLabel(e.target.value)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2.5 text-white" />
-              </div>
-            )}
-
-            <div>
-              <label className="block text-xs text-slate-400 mb-1.5 font-bold">آدرس تصویر بنر (اختیاری - اگر تصویر بذارید بنر تصویری نمایش داده می‌شود)</label>
-              <input type="text" value={adBannerUrl} onChange={e => setAdBannerUrl(e.target.value)} placeholder="https://example.com/banner.jpg" className="w-full text-xs rounded-lg bg-black border border-white/5 p-2.5 text-white placeholder-slate-600" />
-              {adBannerUrl && (
-                <div className="mt-2 rounded border border-white/5 overflow-hidden">
-                  <img src={adBannerUrl} alt="پیش‌نمایش بنر" loading="lazy" decoding="async" className="w-full max-h-24 object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                </div>
-              )}
-            </div>
-
-            <div>
-              <button type="submit" className="bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs px-5 py-2.5 rounded-lg">
-                بروزرسانی نهایی و فعال‌سازی بنر تبلیغاتی
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* SUB-TAB: AD SLOTS MANAGEMENT */}
-      {subTab === "adSlots" && (
-        <div className="bg-[#0b0b0f] border border-white/5 p-5 rounded-2xl space-y-4">
-          <div className="flex items-center justify-between border-b border-white/5 pb-2">
-            <h3 className="font-extrabold text-sm text-white">🎯 جایگاه‌های تبلیغاتی ({adSlots.length})</h3>
-            <button onClick={handleAddAdSlot} className="flex items-center gap-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 text-[11px] font-bold text-emerald-400 hover:bg-emerald-500/20 transition">
-              <Plus className="h-3 w-3" /> افزودن جایگاه جدید
-            </button>
-          </div>
-
-          {adSlots.length === 0 ? (
-            <p className="text-xs text-slate-500 italic py-8 text-center">هیچ جایگاه تبلیغاتی تعریف نشده. جایگاه جدید اضافه کنید.</p>
-          ) : (
-            <div className="space-y-4">
-              {adSlots.map((slot: any, idx: number) => {
-                const views = getAdViews(slot.id);
-                const now = Date.now();
-                let daysLeft: number | null = null;
-                if (slot.endDate) {
-                  const diff = new Date(slot.endDate).getTime() - now;
-                  daysLeft = Math.max(0, Math.ceil(diff / 86400000));
-                }
-                let daysUntilStart: number | null = null;
-                if (slot.startDate) {
-                  const diff = new Date(slot.startDate).getTime() - now;
-                  if (diff > 0) daysUntilStart = Math.ceil(diff / 86400000);
-                }
-                const expired = !isWithinSchedule(slot);
-                const handleCopyLink = () => {
-                  const url = `${window.location.origin}?ad=${encodeURIComponent(slot.name || slot.id)}`;
-                  navigator.clipboard.writeText(url);
-                  alert("لینک کپی شد!");
-                };
-                return (
-                <div key={slot.id} className={`border rounded-xl p-4 space-y-3 bg-white/[0.01] ${expired ? "border-red-500/30 opacity-60" : "border-white/5"}`}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => handleUpdateAdSlot(idx, "isActive", !slot.isActive)}
-                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${slot.isActive ? "bg-emerald-500" : "bg-gray-700"}`}
-                      >
-                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition ${slot.isActive ? "translate-x-4.5" : "translate-x-0.5"}`} />
-                      </button>
-                      <span className={`text-xs font-bold ${slot.isActive ? "text-emerald-400" : "text-slate-500"}`}>
-                        {slot.isActive ? "فعال" : "غیرفعال"}
-                      </span>
-                      {expired && <span className="text-[9px] font-bold text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded">منقضی</span>}
-                      {daysUntilStart !== null && <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">شروع {daysUntilStart} روز دیگر</span>}
-                      {daysLeft !== null && daysLeft <= 3 && daysLeft > 0 && !expired && <span className="text-[9px] font-bold text-orange-400 bg-orange-500/10 px-1.5 py-0.5 rounded">{daysLeft} روز باقی‌مانده</span>}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <span className="text-[9px] text-slate-600 bg-white/5 px-1.5 py-0.5 rounded font-mono" title="بازدیدها">
-                        👁 {views}
-                      </span>
-                      <button onClick={handleCopyLink} className="text-slate-500 hover:text-emerald-400 transition p-1" title="کپی لینک تبلیغاتی">
-                        <Link2 className="h-3 w-3" />
-                      </button>
-                      <button onClick={() => handleDeleteAdSlot(idx)} className="text-red-400 hover:text-red-300 transition p-1">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <div>
-                      <label className="block text-[10px] text-slate-500 mb-1 font-bold">نام جایگاه</label>
-                      <input type="text" value={slot.name || ""} onChange={e => handleUpdateAdSlot(idx, "name", e.target.value)} placeholder="مثلاً: بنر بالای صفحه" className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white placeholder-slate-600" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-slate-500 mb-1 font-bold">نوع تبلیغ</label>
-                      <select value={slot.type || "text"} onChange={e => handleUpdateAdSlot(idx, "type", e.target.value)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white">
-                        <option value="text">📝 متنی</option>
-                        <option value="image">🖼️ تصویری</option>
-                        <option value="mixed">🔀 متن + تصویر</option>
-                      </select>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-[10px] text-slate-500 mb-1 font-bold">عرض (px)</label>
-                        <input type="number" value={slot.width || 728} onChange={e => handleUpdateAdSlot(idx, "width", parseInt(e.target.value) || 728)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-slate-500 mb-1 font-bold">ارتفاع (px)</label>
-                        <input type="number" value={slot.height || 90} onChange={e => handleUpdateAdSlot(idx, "height", parseInt(e.target.value) || 90)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3 md:grid-cols-3">
-                    <div>
-                      <label className="block text-[10px] text-slate-500 mb-1 font-bold">اولویت (بزرگتر = بالاتر)</label>
-                      <input type="number" value={slot.priority ?? 0} onChange={e => handleUpdateAdSlot(idx, "priority", parseInt(e.target.value) || 0)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-slate-500 mb-1 font-bold">تاریخ شروع (اختیاری)</label>
-                      <input type="date" value={slot.startDate || ""} onChange={e => handleUpdateAdSlot(idx, "startDate", e.target.value)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-slate-500 mb-1 font-bold">تاریخ پایان (اختیاری)</label>
-                      <input type="date" value={slot.endDate || ""} onChange={e => handleUpdateAdSlot(idx, "endDate", e.target.value)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                    </div>
-                  </div>
-                  {slot.startDate && new Date(slot.endDate || "2099-01-01").getTime() < Date.now() && (
-                    <p className="text-[10px] text-red-400 font-bold flex items-center gap-1">
-                      ⚠️ این تبلیغ منقضی شده و در سایت نمایش داده نمی‌شود
-                    </p>
-                  )}
-                  {slot.startDate && new Date(slot.startDate).getTime() > Date.now() && (
-                    <p className="text-[10px] text-amber-400 font-bold flex items-center gap-1">
-                      ⏳ این تبلیغ هنوز شروع نشده
-                    </p>
-                  )}
-
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div>
-                      <label className="block text-[10px] text-slate-500 mb-1 font-bold">عنوان آگهی</label>
-                      <input type="text" value={slot.adTitle || ""} onChange={e => handleUpdateAdSlot(idx, "adTitle", e.target.value)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-slate-500 mb-1 font-bold">کد تخفیف</label>
-                      <input type="text" value={slot.adPromo || ""} onChange={e => handleUpdateAdSlot(idx, "adPromo", e.target.value)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">توضیحات</label>
-                    <input type="text" value={slot.adDesc || ""} onChange={e => handleUpdateAdSlot(idx, "adDesc", e.target.value)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                  </div>
-
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div>
-                      <label className="block text-[10px] text-slate-500 mb-1 font-bold">لینک</label>
-                      <input type="text" value={slot.adLink || ""} onChange={e => handleUpdateAdSlot(idx, "adLink", e.target.value)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] text-slate-500 mb-1 font-bold">متن دکمه</label>
-                      <input type="text" value={slot.adBtnText || ""} onChange={e => handleUpdateAdSlot(idx, "adBtnText", e.target.value)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">آدرس تصویر بنر (اختیاری)</label>
-                    <input type="text" value={slot.customBannerUrl || ""} onChange={e => handleUpdateAdSlot(idx, "customBannerUrl", e.target.value)} placeholder="https://example.com/banner.jpg" className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white placeholder-slate-600" />
-                    {slot.customBannerUrl && (
-                      <div className="mt-2 rounded border border-white/5 overflow-hidden">
-                        <img src={slot.customBannerUrl} alt="پیش‌نمایش" loading="lazy" decoding="async" className="w-full max-h-16 object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                      </div>
-                    )}
-                  </div>
-                </div>
-                );
-              })}
-
-              <button type="button" onClick={handleSaveAdConfig} className="bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs px-5 py-2.5 rounded-lg">
-                ذخیره تمام جایگاه‌ها
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* SUB-TAB: OVERLAY ADS (popup, floating, bottom bar, slide-in) */}
-      {subTab === "overlayAds" && (
-        <div className="space-y-6">
-          <div className="bg-[#0b0b0f] border border-white/5 p-5 rounded-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-white/5 pb-2">
-              <h3 className="font-extrabold text-sm text-white">🪟 تبلیغات پاپ‌آپ و شناور</h3>
-              <button type="button" onClick={handleSaveAdConfig} className="bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs px-5 py-2.5 rounded-lg">
-                ذخیره تنظیمات تبلیغات
-              </button>
-            </div>
-
-            {/* Popup Ad */}
-            <div className="border border-white/5 rounded-xl p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="font-bold text-xs text-white">📭 پاپ‌آپ (تبلیغ تمام‌صفحه)</h4>
-                <button type="button" onClick={() => updatePopupAd({ enabled: !popupAd.enabled })}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${popupAd.enabled ? "bg-emerald-500" : "bg-gray-700"}`}>
-                  <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition ${popupAd.enabled ? "translate-x-4.5" : "translate-x-0.5"}`} />
-                </button>
-              </div>
-              {popupAd.enabled && (
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">عنوان</label>
-                    <input type="text" value={popupAd.title} onChange={e => updatePopupAd({ title: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">متن تبلیغ</label>
-                    <input type="text" value={popupAd.description} onChange={e => updatePopupAd({ description: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">لینک</label>
-                    <input type="text" value={popupAd.link} onChange={e => updatePopupAd({ link: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">متن دکمه</label>
-                    <input type="text" value={popupAd.btnText} onChange={e => updatePopupAd({ btnText: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">آدرس تصویر (اختیاری)</label>
-                    <input type="text" value={popupAd.imageUrl} onChange={e => updatePopupAd({ imageUrl: e.target.value })} placeholder="https://..." className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white placeholder-slate-600" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">تاخیر نمایش (ثانیه)</label>
-                    <input type="number" value={popupAd.delay} onChange={e => updatePopupAd({ delay: parseInt(e.target.value) || 3 })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Floating Ad */}
-            <div className="border border-white/5 rounded-xl p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="font-bold text-xs text-white">📌 تبلیغ شناور (گوشه صفحه)</h4>
-                <button type="button" onClick={() => updateFloatingAd({ enabled: !floatingAd.enabled })}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${floatingAd.enabled ? "bg-emerald-500" : "bg-gray-700"}`}>
-                  <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition ${floatingAd.enabled ? "translate-x-4.5" : "translate-x-0.5"}`} />
-                </button>
-              </div>
-              {floatingAd.enabled && (
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">عنوان</label>
-                    <input type="text" value={floatingAd.title} onChange={e => updateFloatingAd({ title: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">متن تبلیغ</label>
-                    <input type="text" value={floatingAd.description} onChange={e => updateFloatingAd({ description: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">لینک</label>
-                    <input type="text" value={floatingAd.link} onChange={e => updateFloatingAd({ link: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">متن دکمه</label>
-                    <input type="text" value={floatingAd.btnText} onChange={e => updateFloatingAd({ btnText: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">آدرس تصویر (اختیاری)</label>
-                    <input type="text" value={floatingAd.imageUrl} onChange={e => updateFloatingAd({ imageUrl: e.target.value })} placeholder="https://..." className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white placeholder-slate-600" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">موقعیت</label>
-                    <select value={floatingAd.position} onChange={e => updateFloatingAd({ position: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white">
-                      <option value="bottom-left">پایین چپ</option>
-                      <option value="bottom-right">پایین راست</option>
-                      <option value="top-left">بالا چپ</option>
-                      <option value="top-right">بالا راست</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Bottom Bar Ad */}
-            <div className="border border-white/5 rounded-xl p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="font-bold text-xs text-white">⬇️ نوار پایین صفحه</h4>
-                <button type="button" onClick={() => updateBottomBarAd({ enabled: !bottomBarAd.enabled })}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${bottomBarAd.enabled ? "bg-emerald-500" : "bg-gray-700"}`}>
-                  <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition ${bottomBarAd.enabled ? "translate-x-4.5" : "translate-x-0.5"}`} />
-                </button>
-              </div>
-              {bottomBarAd.enabled && (
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">عنوان</label>
-                    <input type="text" value={bottomBarAd.title} onChange={e => updateBottomBarAd({ title: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">متن تبلیغ</label>
-                    <input type="text" value={bottomBarAd.description} onChange={e => updateBottomBarAd({ description: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">لینک</label>
-                    <input type="text" value={bottomBarAd.link} onChange={e => updateBottomBarAd({ link: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">متن دکمه</label>
-                    <input type="text" value={bottomBarAd.btnText} onChange={e => updateBottomBarAd({ btnText: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Slide-In Ad */}
-            <div className="border border-white/5 rounded-xl p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <h4 className="font-bold text-xs text-white">➡️ لغزنده (Slide-in از کنار صفحه)</h4>
-                <button type="button" onClick={() => updateSlideInAd({ enabled: !slideInAd.enabled })}
-                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${slideInAd.enabled ? "bg-emerald-500" : "bg-gray-700"}`}>
-                  <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition ${slideInAd.enabled ? "translate-x-4.5" : "translate-x-0.5"}`} />
-                </button>
-              </div>
-              {slideInAd.enabled && (
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">عنوان</label>
-                    <input type="text" value={slideInAd.title} onChange={e => updateSlideInAd({ title: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">متن تبلیغ</label>
-                    <input type="text" value={slideInAd.description} onChange={e => updateSlideInAd({ description: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">لینک</label>
-                    <input type="text" value={slideInAd.link} onChange={e => updateSlideInAd({ link: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">متن دکمه</label>
-                    <input type="text" value={slideInAd.btnText} onChange={e => updateSlideInAd({ btnText: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">آدرس تصویر (اختیاری)</label>
-                    <input type="text" value={slideInAd.imageUrl} onChange={e => updateSlideInAd({ imageUrl: e.target.value })} placeholder="https://..." className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white placeholder-slate-600" />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-500 mb-1 font-bold">موقعیت</label>
-                    <select value={slideInAd.position} onChange={e => updateSlideInAd({ position: e.target.value })} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white">
-                      <option value="right">راست</option>
-                      <option value="left">چپ</option>
-                    </select>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* SUB-TAB 5: CONTACTS inbox */}
+      {/* SUB-TAB 5: CONTACTS inbox */}{/* SUB-TAB 5: CONTACTS inbox */}
       {subTab === "submissions" && (
         <div className="bg-[#0b0b0f] border border-white/5 p-5 rounded-2xl space-y-4">
           <h3 className="font-extrabold text-sm text-white border-b border-white/5 pb-2 flex justify-between items-center">

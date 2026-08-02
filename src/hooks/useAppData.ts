@@ -9,7 +9,7 @@ import {
   ContactSubmission,
   StatsData,
   TeamTransferItem,
-  AdConfig,
+  AdItem,
   ArchiveItem,
   TeamItem,
   PlayerItem,
@@ -74,23 +74,7 @@ export function useAppData() {
   const [visibleNewsCount, setVisibleNewsCount] = useState(6);
 
   const [livescoreFilter, setLivescoreFilter] = useState<string>("all");
-  const [adConfig, setAdConfig] = useState<AdConfig>({
-    adTitle: "",
-    adPromo: "",
-    adDesc: "",
-    adLink: "",
-    adBtnText: "",
-    customBannerUrl: "",
-    adSlots: [],
-    bannerLabel: "تخفیف هواداران تب فوتبال",
-    bannerLabelVisible: true,
-    bannerTagText: "حمایت ویژه پورتال",
-    bannerVisible: true,
-    popupAd: { enabled: false, title: "", description: "", link: "", btnText: "" },
-    floatingAd: { enabled: false, title: "", description: "", link: "", btnText: "" },
-    bottomBarAd: { enabled: false, title: "", description: "", link: "", btnText: "" },
-    slideInAd: { enabled: false, title: "", description: "", link: "", btnText: "" }
-  });
+  const [ads, setAds] = useState<AdItem[]>([]);
 
   const applyFetchedData = (data: any) => {
     setNews(data.news || []);
@@ -150,9 +134,7 @@ export function useAppData() {
         setStatsSeason(data.currentSeason);
       }
     }
-    if (data.config) {
-      setAdConfig(data.config);
-    }
+    setAds(data.ads || []);
     setSubmissions(data.submissions || []);
     setLastScraped(data.lastScraped || "");
 
@@ -345,23 +327,6 @@ export function useAppData() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ data: statsData })
-      });
-      if (response.ok) {
-        await fetchDataQuietly();
-        return true;
-      }
-    } catch (err) {
-      console.error(err);
-    }
-    return false;
-  };
-
-  const handleUpdateAdConfig = async (configData: AdConfig) => {
-    try {
-      const response = await fetch(`/api/config`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(configData)
       });
       if (response.ok) {
         await fetchDataQuietly();
@@ -575,11 +540,11 @@ export function useAppData() {
     newsCategoryFilter, setNewsCategoryFilter,
     visibleNewsCount, setVisibleNewsCount,
     livescoreFilter, setLivescoreFilter,
-    adConfig, setAdConfig,
+    ads, setAds,
     applyFetchedData, fetchData, fetchDataQuietly,
     handleSelectLegionnaire,
     handlePredictionVote, handleToggleSubscription,
-    handleUpdateStandings, handleUpdateStats, handleUpdateAdConfig,
+    handleUpdateStandings, handleUpdateStats,
     handleCentralSync, handleAdminLogin, handleAdminLogout,
     handleTriggerScrape, getPersianCategory,
     handleTagClick, handleTabChangeSubmit,
