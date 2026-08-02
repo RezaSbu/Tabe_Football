@@ -1,86 +1,62 @@
-import React, { useState, useEffect } from "react";
-import { X, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { X, ExternalLink } from "lucide-react";
+import { AdItem } from "../types";
+import { isAdActive, trackAdView, trackAdClick } from "./AdSlot";
 
 interface BottomBarAdProps {
-  ad?: {
-    enabled: boolean;
-    title: string;
-    description: string;
-    link: string;
-    btnText: string;
-    imageUrl?: string;
-    position?: string;
-    delay?: number;
-    showAfterScroll?: boolean;
-  };
+  ad: AdItem;
 }
 
-const STORAGE_KEY = "bottombar_ad_closed";
+const STORAGE_KEY = "bottombar_ad_dismissed";
 
 export default function BottomBarAd({ ad }: BottomBarAdProps) {
-  const [visible, setVisible] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    if (!ad || !ad.enabled) return;
-    if (localStorage.getItem(STORAGE_KEY) === "true") return;
-    const timer = setTimeout(() => setVisible(true), (ad.delay || 2) * 1000);
-    return () => clearTimeout(timer);
-  }, [ad]);
+    const t = setTimeout(() => setMounted(true), 1000);
+    return () => clearTimeout(t);
+  }, []);
 
-  const handleClose = () => {
-    localStorage.setItem(STORAGE_KEY, "true");
-    setVisible(false);
+  useEffect(() => {
+    if (!ad || !isAdActive(ad) || !mounted || dismissed) return;
+    if (sessionStorage.getItem(STORAGE_KEY) === "true") return;
+    trackAdView(ad.id);
+  }, [ad, mounted, dismissed]);
+
+  if (!ad || !isAdActive(ad) || !mounted || dismissed) return null;
+
+  const handleDismiss = () => {
+    sessionStorage.setItem(STORAGE_KEY, "true");
+    setDismissed(true);
   };
 
-  if (!ad || !ad.enabled || !visible) return null;
-
   return (
-    <div
-      dir="rtl"
-      className="fixed bottom-0 left-0 right-0 z-40 bg-gray-950/95 backdrop-blur-md border-t border-white/5 animate-in slide-in-from-bottom duration-500"
-    >
-      <div className="max-w-7xl mx-auto flex items-center justify-between gap-3 px-4 py-2.5">
-        <div className="flex items-center gap-3 min-w-0">
-          {ad.imageUrl && !collapsed && (
-            <img src={ad.imageUrl} alt={ad.title} className="h-10 w-10 rounded-lg object-cover shrink-0 border border-white/10" />
-          )}
-          {!collapsed && (
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-white truncate">{ad.title}</p>
-              <p className="text-[10px] text-gray-400 truncate">{ad.description}</p>
-            </div>
-          )}
-          {collapsed && (
-            <p className="text-xs font-bold text-white">{ad.title}</p>
-          )}
+    <div className="fixed bottom-0 inset-x-0 z-[85]" dir="rtl">
+      <div className="mx-auto flex max-w-4xl items-center gap-4 border-t border-x border-white/10 bg-gray-950/95 backdrop-blur-md px-5 py-3 shadow-2xl animate-in slide-in-from-bottom-16 duration-500 rounded-t-2xl">
+        {ad.imageUrl && (
+          <div className="h-12 w-16 shrink-0 overflow-hidden rounded-lg">
+            <img src={ad.imageUrl} alt={ad.title} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold text-white truncate">{ad.title}</p>
+          <p className="text-xs text-gray-400 truncate">{ad.description}</p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {!collapsed && (
-            <a
-              href={ad.link || "#"}
-              target="_blank"
-              referrerPolicy="no-referrer"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-black text-[11px] font-bold px-3 py-1.5 rounded-lg transition active:scale-95"
-            >
-              {ad.btnText || "بیشتر بخوانید"}
-              <ExternalLink className="h-3 w-3" />
-            </a>
-          )}
-          <button
-            onClick={() => setCollapsed((c) => !c)}
-            className="h-7 w-7 flex items-center justify-center rounded-full bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition"
-          >
-            {collapsed ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          </button>
-          <button
-            onClick={handleClose}
-            className="h-7 w-7 flex items-center justify-center rounded-full bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
+        <a
+          href={ad.linkUrl || "#"}
+          target="_blank"
+          referrerPolicy="no-referrer"
+          rel="noopener noreferrer"
+          onClick={() => trackAdClick(ad.id)}
+          className="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-bold px-4 py-2 transition active:scale-95"
+        >
+          {ad.btnText || "مشاهده"}
+          <ExternalLink className="h-3.5 w-3.5" />
+        </a>
+        <button onClick={handleDismiss} className="shrink-0 h-8 w-8 flex items-center justify-center rounded-full bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition">
+          <X className="h-4 w-4" />
+        </button>
       </div>
     </div>
   );
