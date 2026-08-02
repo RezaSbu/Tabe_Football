@@ -83,7 +83,7 @@ const ArticleDetailPage: React.FC<ArticleDetailPageProps> = ({
 
       <div className="grid gap-6 md:grid-cols-12 items-start">
         <div className="md:col-span-8 space-y-4">
-          <blockquote className="border-r-4 border-red-655 bg-[#0a0a0c]/55 p-4 rounded-l-xl text-gray-200 text-sm font-semibold italic leading-relaxed shadow-inner">
+          <blockquote className="border-r-4 border-red-655 bg-[#0a0a0c]/55 p-4 rounded-l-xl text-gray-300 text-sm sm:text-base leading-loose text-justify shadow-inner">
             {article.summary}
           </blockquote>
 
