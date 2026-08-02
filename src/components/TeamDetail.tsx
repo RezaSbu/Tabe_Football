@@ -184,17 +184,17 @@ export default function TeamDetail({
     <div className="rounded-2xl bg-[#121215] border border-white/5 overflow-hidden shadow-2xl animate-in fade-in slide-in-from-bottom-3 duration-300" dir="rtl">
       
       {/* Cover Banner Graphic Area */}
-      <div className="relative h-48 sm:h-64 w-full bg-[#18181c] overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-t from-[#121215] via-transparent to-black/40 z-10" />
+      <div className="relative w-full bg-[#18181c] overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-t from-[#121215] via-transparent to-transparent z-10" />
         {coverImage ? (
           <img loading="lazy" decoding="async" 
             src={getSafeImageUrl(coverImage)}
             alt={team.name}
-            className="w-full h-full object-cover opacity-80"
+            className="w-full h-auto block"
             referrerPolicy="no-referrer"
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-slate-800 via-[#18181c] to-emerald-950/40 opacity-80" />
+          <div className="w-full aspect-video bg-gradient-to-br from-slate-800 via-[#18181c] to-emerald-950/40 opacity-80" />
         )}
 
         {/* Back navigation button floating */}
@@ -208,7 +208,7 @@ export default function TeamDetail({
       </div>
 
       {/* Team Emblem Profile Avatar row */}
-      <div className="px-6 relative -mt-12 sm:-mt-16 z-20 flex flex-col sm:flex-row items-center sm:items-end justify-between gap-4 pb-6 border-b border-white/5">
+      <div className="px-6 relative -mt-8 sm:-mt-10 z-20 flex flex-col sm:flex-row items-center sm:items-end justify-between gap-4 pb-6 border-b border-white/5">
         <div className="flex flex-col sm:flex-row items-center sm:items-end gap-4 text-center sm:text-right w-full sm:w-auto">
           <div className="h-24 w-24 sm:h-32 sm:w-32 rounded-2xl bg-[#18181c] border-2 border-emerald-500/30 flex items-center justify-center text-5xl sm:text-6xl shadow-2xl shrink-0 scale-95 sm:scale-100 overflow-hidden">
             <TeamLogo logo={team.logo} fallback="🛡️" size="xl" />
