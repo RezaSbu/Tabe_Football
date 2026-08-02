@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { 
-  ArrowLeft, User, MapPin, Building2, Calendar, Trophy, 
-  Zap, AlertCircle, Star, Sparkles, TrendingUp, Shield, Activity 
+  ArrowLeft, MapPin, Building2, Calendar, Trophy, 
+  Shield, Activity 
 } from "lucide-react";
-import { NewsItem, StandingRow } from "../types";
+import { StandingRow } from "../types";
 import { getSafeImageUrl, convertGregorianToShamsi, toPersianDigits } from "../utils";
 import TeamLogo from "./TeamLogo";
 
@@ -11,13 +11,11 @@ interface TeamDetailProps {
   team: any;
   players: any[];
   allStandings: Record<string, StandingRow[]>;
-  allNews: NewsItem[];
   allMatches?: any[];
   coaches?: any[];
   onBack: () => void;
   onSelectPlayer: (id: string) => void;
   onSelectCoach?: (id: string) => void;
-  onSelectArticle: (art: NewsItem) => void;
   onSelectMatch?: (id: string) => void;
 }
 
@@ -25,13 +23,11 @@ export default function TeamDetail({
   team,
   players = [],
   allStandings = {},
-  allNews = [],
   allMatches = [],
   coaches = [],
   onBack,
   onSelectPlayer,
   onSelectCoach,
-  onSelectArticle,
   onSelectMatch
 }: TeamDetailProps) {
   const [activeSubTab, setActiveSubTab] = useState<"overview" | "fixtures" | "squad">("overview");
@@ -46,25 +42,9 @@ export default function TeamDetail({
   if (!team) return null;
 
   const teamName = team.name || "";
-  
-  // Resolve president / founded / cover image dynamically if missing or default generic
-  let president = team.president || "";
-  let founded = team.founded || "";
-  let coverImage = team.coverImage || "";
 
-  if (!president || president === "ثبت نشده" || president.trim() === "") {
-    if (teamName.includes("پرسپولیس")) president = "رضا درویش";
-    else if (teamName.includes("استقلال")) president = "فرشید سمیعی";
-    else if (teamName.includes("سپاهان")) president = "احمد یوسف‌زاده";
-    else if (teamName.includes("تراکتور")) president = "سعید مظفری‌زاده";
-    else if (teamName.includes("ملوان")) president = "رامبد رشیدی راد";
-    else if (teamName.includes("ذوب") && teamName.includes("آهن")) president = "نیما نکیسا";
-    else if (teamName.includes("گل") && teamName.includes("گهر")) president = "محمد اسفندیارپور";
-    else if (teamName.includes("فولاد")) president = "هوشنگ نصیرزاده";
-    else if (teamName.includes("مس") && teamName.includes("رفسنجان")) president = "حسین پورمحمدی";
-    else if (teamName.includes("نساجی")) president = "حمیدرضا بایندریان";
-    else president = "مدیریت باشگاه تب فوتبال";
-  }
+  // Resolve founded dynamically if missing
+  let founded = team.founded || "";
 
   if (!founded || founded.trim() === "") {
     if (teamName.includes("پرسپولیس")) founded = "۱۳۴۲";
@@ -80,19 +60,7 @@ export default function TeamDetail({
     else founded = "۱۳۵۰";
   }
 
-  if (!coverImage || coverImage === "undefined" || coverImage.trim() === "") {
-    if (teamName.includes("پرسپولیس")) {
-      coverImage = "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=1200"; // Red/deep stadium
-    } else if (teamName.includes("استقلال")) {
-      coverImage = "https://images.unsplash.com/photo-1522770119026-d647f211a27e?auto=format&fit=crop&q=80&w=1200"; // Blue sunset stadium
-    } else if (teamName.includes("سپاهان")) {
-      coverImage = "https://images.unsplash.com/photo-1577223625816-7546f13df25d?auto=format&fit=crop&q=80&w=1200"; // Yellow stadium
-    } else if (teamName.includes("تراکتور")) {
-      coverImage = "https://images.unsplash.com/photo-1556056504-517cd0141a09?auto=format&fit=crop&q=80&w=1200"; // Crimson arena
-    } else {
-      coverImage = "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=1200";
-    }
-  }
+  const coverImage = team.coverImage || "";
 
   const isFutsalTeam = team.sport === "futsal" || 
                        team.league === "futsal" || 
@@ -138,13 +106,6 @@ export default function TeamDetail({
       }
     }
   }
-
-  // Find news tagged with team name or related
-  const relatedNews = allNews.filter((art) => 
-    art.title.includes(team.name) || 
-    art.summary.includes(team.name) ||
-    art.tags?.some(tag => tag.includes(team.name))
-  );
 
   // DYNAMIC MATCHES RETRIEVAL FROM GLOBAL DATABASE
   // Filter matches for this team resiliently
@@ -225,12 +186,16 @@ export default function TeamDetail({
       {/* Cover Banner Graphic Area */}
       <div className="relative h-48 sm:h-64 w-full bg-[#18181c] overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-t from-[#121215] via-transparent to-black/40 z-10" />
-        <img loading="lazy" decoding="async" 
-          src={getSafeImageUrl(coverImage)}
-          alt={team.name}
-          className="w-full h-full object-cover opacity-80"
-          referrerPolicy="no-referrer"
-        />
+        {coverImage ? (
+          <img loading="lazy" decoding="async" 
+            src={getSafeImageUrl(coverImage)}
+            alt={team.name}
+            className="w-full h-full object-cover opacity-80"
+            referrerPolicy="no-referrer"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-slate-800 via-[#18181c] to-emerald-950/40 opacity-80" />
+        )}
 
         {/* Back navigation button floating */}
         <button
@@ -257,7 +222,7 @@ export default function TeamDetail({
                 </span>
               )}
             </h1>
-            <p className="text-xs text-slate-400 mt-1 sm:mt-2 max-w-lg truncate">مدیرعامل: {president} | تاسیس: {toPersianDigits(founded)}</p>
+            <p className="text-xs text-slate-400 mt-1 sm:mt-2 max-w-lg truncate">تاسیس: {toPersianDigits(founded)}</p>
           </div>
         </div>
 
@@ -445,30 +410,8 @@ export default function TeamDetail({
                       {team.logo === "🔵" ? "آبی ملوان" : team.logo === "🔴" ? "سرخ پرسپولیسی" : "رنگ سازمانی"}
                     </span>
                   </p>
-                </div>
-              </div>
-
-              {/* Related news listing */}
-              {relatedNews.length > 0 && (
-                <div className="space-y-3">
-                  <h3 className="font-black text-sm text-white flex items-center gap-1.5">
-                    <Zap className="h-4 w-4 text-yellow-500" />
-                    <span>پوشش آخرین اخبار باشگاه</span>
-                  </h3>
-                  <div className="space-y-3">
-                    {relatedNews.slice(0, 3).map((art) => (
-                      <div
-                        key={art.id}
-                        onClick={() => onSelectArticle(art)}
-                        className="p-3 rounded-xl bg-black/15 hover:bg-slate-900 border border-white/5 cursor-pointer text-xs space-y-1 transition duration-200"
-                      >
-                        <h4 className="font-black text-slate-200 hover:text-emerald-400 line-clamp-1">{art.title}</h4>
-                        <p className="text-[10px] text-slate-500 line-clamp-1 leading-relaxed">{art.summary}</p>
-                      </div>
-                    ))}
                   </div>
-                </div>
-              )}
+              </div>
             </div>
           </div>
         )}
