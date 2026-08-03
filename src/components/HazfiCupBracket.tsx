@@ -1,7 +1,7 @@
 import React from "react";
 import { Trophy, Calendar, Sparkles, Medal, ArrowDown, ArrowUp, Crown, Tv, Activity, Eye } from "lucide-react";
 import { TeamItem, MatchItem } from "../types";
-import { isTeamInDb } from "../utils";
+import { isTeamInDb, convertGregorianToShamsi } from "../utils";
 import TeamLogo from "./TeamLogo";
 
 interface HazfiCupBracketProps {
@@ -152,7 +152,7 @@ export default function HazfiCupBracket({ bracket, onSelectTeam, onSelectMatch, 
                 زنده {m.minutes ? `${m.minutes}'` : ""}
               </span>
             ) : (
-              <span>{m.date || m.time || "طبق برنامه"}</span>
+              <span>{convertGregorianToShamsi(m.date) || m.time || "طبق برنامه"}</span>
             )}
           </div>
         </div>

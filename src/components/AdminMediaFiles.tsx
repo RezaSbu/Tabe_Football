@@ -15,7 +15,8 @@ import {
   ChevronLeft,
   Tag,
   AlertTriangle,
-  FileImage
+  FileImage,
+  X
 } from "lucide-react";
 
 interface MediaFile {
@@ -102,13 +103,15 @@ export default function AdminMediaFiles() {
   };
 
   useEffect(() => {
-    fetchMedia();
-  }, [page, categoryFilter]);
+    const timer = setTimeout(() => {
+      fetchMedia();
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [page, categoryFilter, searchQuery]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setPage(1);
-    fetchMedia();
   };
 
   // Convert file to base64
@@ -391,7 +394,7 @@ export default function AdminMediaFiles() {
         {/* Media List Panel */}
         <div className="lg:col-span-8 space-y-4">
           {/* Filters Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0b0b0f] p-4 rounded-3xl border border-white/5">
+          <div className="flex flex-col gap-3 bg-[#0b0b0f] p-4 rounded-3xl border border-white/5">
             <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => { setCategoryFilter("all"); setPage(1); }}
@@ -409,17 +412,25 @@ export default function AdminMediaFiles() {
                 </button>
               ))}
             </div>
-            <form onSubmit={handleSearchSubmit} className="relative flex-1 sm:max-w-xs">
+            <form onSubmit={handleSearchSubmit} className="relative w-full">
+              <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-red-500" />
               <input
                 type="text"
-                placeholder="جستجوی عنوان یا نام فایل..."
+                placeholder="جستجوی عنوان تصویر یا نام فایل..."
                 value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full bg-slate-950 border border-white/5 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-red-655"
+                onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
+                className="w-full bg-slate-950 border border-white/5 rounded-xl py-2.5 pr-11 pl-10 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-red-655 focus:ring-1 focus:ring-red-655/20"
               />
-              <button type="submit" className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
-                <Search className="h-3.5 w-3.5" />
-              </button>
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => { setSearchQuery(""); setPage(1); }}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-red-400 transition cursor-pointer"
+                  title="پاک کردن جستجو"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
             </form>
           </div>
 

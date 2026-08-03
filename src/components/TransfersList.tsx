@@ -286,27 +286,19 @@ export default function TransfersList({ transfers, teamTransfersList = [], teams
                 <span className="w-3.5 h-3.5 rounded bg-rose-950/20 border border-rose-500/30 inline-block"></span>
                 <span className="text-white">خروجی قطعی (قرمز)</span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-3.5 h-3.5 rounded bg-slate-900/50 border border-slate-700/30 inline-block"></span>
-                <span className="text-white">احتمالی و شایعات (سفید)</span>
-              </div>
             </div>
           </div>
 
           {/* Table Headers (Visible on desktop screen sizes) */}
-          <div className="hidden md:grid grid-cols-11 gap-4 px-4 py-2 bg-black/40 border-b border-white/5 text-[11px] font-black text-slate-400 text-right">
+          <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 bg-black/40 border-b border-white/5 text-[11px] font-black text-slate-400 text-right">
             <div className="col-span-2">تیم</div>
-            <div className="col-span-3 flex items-center gap-1.5 bg-emerald-950/20 border border-emerald-500/10 px-2.5 py-1 rounded-lg text-emerald-400 w-fit">
+            <div className="col-span-5 flex items-center gap-1.5 bg-emerald-950/20 border border-emerald-500/10 px-2.5 py-1 rounded-lg text-emerald-400 w-fit">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
               خریدها و ورودی‌های قطعی
             </div>
-            <div className="col-span-3 flex items-center gap-1.5 bg-rose-950/25 border border-rose-500/10 px-2.5 py-1 rounded-lg text-rose-400 w-fit">
+            <div className="col-span-5 flex items-center gap-1.5 bg-rose-950/25 border border-rose-500/10 px-2.5 py-1 rounded-lg text-rose-400 w-fit">
               <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
               جدایی‌ها و خروجی‌های قطعی
-            </div>
-            <div className="col-span-3 flex items-center gap-1.5 bg-slate-900 border border-slate-750 px-2.5 py-1 rounded-lg text-slate-200 w-fit">
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
-              احتمالی و شایعات داغ
             </div>
           </div>
 
@@ -315,7 +307,7 @@ export default function TransfersList({ transfers, teamTransfersList = [], teams
               {filteredTeamTransfers.map((item: any) => (
                 <div 
                   key={item.id} 
-                  className="bg-[#0c0c0f] border border-white/5 rounded-2xl p-4 md:p-5 grid grid-cols-1 md:grid-cols-11 gap-4 hover:border-white/10 transition-all duration-150 relative items-center text-right"
+                  className="bg-[#0c0c0f] border border-white/5 rounded-2xl p-4 md:p-5 grid grid-cols-1 md:grid-cols-12 gap-4 hover:border-white/10 transition-all duration-150 relative items-center text-right"
                 >
                   {/* Column 1: Team identity Section */}
                   <div className="md:col-span-2 flex items-center gap-3 pt-1 md:pt-0 border-b border-white/5 pb-2 md:pb-0 md:border-b-0 md:border-l md:border-white/5 md:pl-2">
@@ -327,29 +319,29 @@ export default function TransfersList({ transfers, teamTransfersList = [], teams
                   </div>
 
                   {/* Column 2: Incomings (Green) */}
-                  <div className="md:col-span-3 space-y-2 md:pl-3">
+                  <div className="md:col-span-5 space-y-2 md:pl-3">
                     <div className="md:hidden text-[10px] font-bold text-emerald-400 mb-1">⬇️ ورودی‌های قطعی (سبز):</div>
                     {(!item.incomings || item.incomings.length === 0) ? (
                       <p className="text-[10px] text-slate-650 font-medium italic">بدون ورودی جدید</p>
                     ) : (
-                      <div className="flex flex-wrap gap-2 text-xs">
+                      <div className="flex flex-wrap gap-2.5 text-xs">
                         {item.incomings.map((p: any) => (
                           <span
                             key={p.id}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border shadow-sm transition hover:scale-[1.02] bg-emerald-950/20 border-emerald-500/30 text-emerald-300"
+                            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border shadow-sm transition hover:scale-[1.02] bg-emerald-950/20 border-emerald-500/30 text-emerald-300"
                           >
                             {p.playerImage ? (
                               <img loading="lazy" decoding="async" 
                                 src={p.playerImage}
                                 alt={p.playerName}
                                 referrerPolicy="no-referrer"
-                                className="w-4.5 h-4.5 rounded-full object-cover border border-white/10"
+                                className="w-7 h-7 rounded-full object-cover border border-white/10"
                               />
                             ) : (
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span>
+                              <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span>
                             )}
-                            <span className="text-white font-extrabold text-[11px]">{p.playerName}</span>
-                            {p.fromTeam && <span className="text-[8px] opacity-65 font-medium">({p.fromTeam})</span>}
+                            <span className="text-white font-extrabold text-sm">{p.playerName}</span>
+                            {p.fromTeam && <span className="text-[10px] opacity-65 font-medium">({p.fromTeam})</span>}
                           </span>
                         ))}
                       </div>
@@ -357,65 +349,29 @@ export default function TransfersList({ transfers, teamTransfersList = [], teams
                   </div>
 
                   {/* Column 3: Outgoings (Red) */}
-                  <div className="md:col-span-3 space-y-2 md:pl-3">
+                  <div className="md:col-span-5 space-y-2 md:pl-3">
                     <div className="md:hidden text-[10px] font-bold text-rose-450 mb-1">⬆️ خروجی‌های قطعی (قرمز):</div>
                     {(!item.outgoings || item.outgoings.length === 0) ? (
                       <p className="text-[10px] text-slate-650 font-medium italic">بدون جدایی رسمی</p>
                     ) : (
-                      <div className="flex flex-wrap gap-2 text-xs">
+                      <div className="flex flex-wrap gap-2.5 text-xs">
                         {item.outgoings.map((p: any) => (
                           <span
                             key={p.id}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border shadow-sm transition hover:scale-[1.02] bg-rose-950/20 border-rose-500/30 text-rose-300"
+                            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border shadow-sm transition hover:scale-[1.02] bg-rose-950/20 border-rose-500/30 text-rose-300"
                           >
                             {p.playerImage ? (
                               <img loading="lazy" decoding="async" 
                                 src={p.playerImage}
                                 alt={p.playerName}
                                 referrerPolicy="no-referrer"
-                                className="w-4.5 h-4.5 rounded-full object-cover border border-white/10"
+                                className="w-7 h-7 rounded-full object-cover border border-white/10"
                               />
                             ) : (
-                              <span className="w-1.5 h-1.5 rounded-full bg-rose-550 inline-block"></span>
+                              <span className="w-2 h-2 rounded-full bg-rose-550 inline-block"></span>
                             )}
-                            <span className="text-white font-extrabold text-[11px]">{p.playerName}</span>
-                            {p.toTeam && <span className="text-[8px] opacity-65 font-medium">({p.toTeam})</span>}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Column 4: Probables & Rumours (White/Slate) */}
-                  <div className="md:col-span-3 space-y-2 md:pl-3">
-                    <div className="md:hidden text-[10px] font-bold text-slate-400 mb-1">❓ احتمالی و شایعات (سفید):</div>
-                    {(!item.probables || item.probables.length === 0) ? (
-                      <p className="text-[10px] text-slate-650 font-medium italic">بدون شایعه جدی</p>
-                    ) : (
-                      <div className="flex flex-wrap gap-2 text-xs">
-                        {item.probables.map((p: any) => (
-                          <span
-                            key={p.id}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border shadow-sm transition hover:scale-[1.02] bg-slate-900/50 border-slate-700/30 text-slate-300"
-                          >
-                            {p.playerImage ? (
-                              <img loading="lazy" decoding="async" 
-                                src={p.playerImage}
-                                alt={p.playerName}
-                                referrerPolicy="no-referrer"
-                                className="w-4.5 h-4.5 rounded-full object-cover border border-white/10"
-                              />
-                            ) : (
-                              <span className="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block"></span>
-                            )}
-                            <span className="text-white font-extrabold text-[11px]">{p.playerName}</span>
-                            {p.fromTeam && p.toTeam ? (
-                              <span className="text-[8px] opacity-65 font-medium">({p.fromTeam} ➔ {p.toTeam})</span>
-                            ) : p.fromTeam ? (
-                              <span className="text-[8px] opacity-65 font-medium">({p.fromTeam})</span>
-                            ) : p.toTeam ? (
-                              <span className="text-[8px] opacity-65 font-medium">(➔ {p.toTeam})</span>
-                            ) : null}
+                            <span className="text-white font-extrabold text-sm">{p.playerName}</span>
+                            {p.toTeam && <span className="text-[10px] opacity-65 font-medium">({p.toTeam})</span>}
                           </span>
                         ))}
                       </div>

@@ -34,6 +34,7 @@ export default function AdminTeamProfiles({
       id: "",
       name: "",
       logo: "",
+      coverImage: "",
       founded: "1350",
       stadium: "استادیوم آزادی",
       stadiumCapacity: "78,000",
@@ -333,6 +334,17 @@ export default function AdminTeamProfiles({
                 onChange={e => setEditingItem({ ...editingItem, logo: e.target.value })}
                 className="w-full bg-slate-950 border border-white/5 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-red-655 font-mono"
                 placeholder="https://upload.wikimedia.org/..."
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-[11px] text-gray-400 font-bold mb-1.5">آدرس اینترنتی تصویر کاور (بنر بالای پروفایل باشگاه)</label>
+              <input
+                type="text"
+                value={editingItem?.coverImage || ""}
+                onChange={e => setEditingItem({ ...editingItem, coverImage: e.target.value })}
+                className="w-full bg-slate-950 border border-white/5 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-red-655 font-mono"
+                placeholder="https://images.unsplash.com/..."
               />
             </div>
 

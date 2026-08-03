@@ -13,7 +13,6 @@ export default function TeamDetailPage() {
   const [coaches, setCoaches] = useState<any[]>([]);
   const [allMatches, setAllMatches] = useState<any[]>([]);
   const [allStandings, setAllStandings] = useState<Record<string, any[]>>({});
-  const [allNews, setAllNews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -44,7 +43,6 @@ export default function TeamDetailPage() {
         if (d.status === "ok") {
           setAllMatches(d.matches || []);
           setAllStandings(d.standings || {});
-          setAllNews(d.news || []);
         }
       })
       .catch(() => {});
@@ -102,12 +100,10 @@ export default function TeamDetailPage() {
         players={players}
         coaches={coaches}
         allStandings={allStandings}
-        allNews={allNews}
         allMatches={allMatches}
         onBack={() => navigate(-1)}
         onSelectPlayer={(pid: string) => navigate(`/player/${pid}`)}
         onSelectCoach={(cid: string) => navigate(`/coach/${cid}`)}
-        onSelectArticle={(art: any) => navigate(`/news/${art.id}`)}
         onSelectMatch={(matchId: string) => navigate(`/match/${matchId}`)}
       />
     </>

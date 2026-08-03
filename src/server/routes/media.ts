@@ -423,12 +423,16 @@ export function registerMediaRoutes(app: Express) {
         });
       }
 
-      if (currentDB.config && isMigratableUrl(currentDB.config.customBannerUrl)) {
-        migrations.push({
-          originalUrl: currentDB.config.customBannerUrl,
-          category: "ad_banner",
-          title: "بنر تبلیغاتی اختصاصی",
-          updateRefs: (newUrl) => { currentDB.config.customBannerUrl = newUrl; }
+      if (Array.isArray(currentDB.ads)) {
+        currentDB.ads.forEach((ad: any) => {
+          if (ad.type === "banner" && isMigratableUrl(ad.imageUrl)) {
+            migrations.push({
+              originalUrl: ad.imageUrl,
+              category: "ad_banner",
+              title: "بنر تبلیغاتی اختصاصی",
+              updateRefs: (newUrl) => { ad.imageUrl = newUrl; }
+            });
+          }
         });
       }
 

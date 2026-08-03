@@ -32,6 +32,7 @@ export async function migrateConstraints(): Promise<void> {
     `);
     await pool.query(`ALTER TABLE legionnaires DROP CONSTRAINT IF EXISTS chk_legionnaires_league;`);
     await pool.query(`ALTER TABLE images ADD COLUMN IF NOT EXISTS view_count integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS week varchar(50)`);
     await pool.query(`ALTER TABLE legionnaires ADD COLUMN IF NOT EXISTS summary text`);
     await pool.query(`ALTER TABLE bracket_slots DROP CONSTRAINT IF EXISTS fk_bracket_slots_match`);
     constraintsMigrated = true;
@@ -62,13 +63,86 @@ export async function migrateHeroSlidesColumns(): Promise<void> {
   }
 }
 
+export async function migrateAdsSchema(): Promise<void> {
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS public.ads (
+        id varchar(50) NOT NULL,
+        type varchar(20) NOT NULL DEFAULT 'slot',
+        name text,
+        placement varchar(50) DEFAULT '',
+        title text,
+        promo text,
+        description text,
+        link_url text,
+        image_url text,
+        btn_text text,
+        width integer DEFAULT 728,
+        height integer DEFAULT 90,
+        priority integer DEFAULT 0,
+        start_date varchar(20) DEFAULT '',
+        end_date varchar(20) DEFAULT '',
+        is_active boolean DEFAULT true,
+        settings jsonb DEFAULT '{}'::jsonb,
+        view_count integer DEFAULT 0,
+        click_count integer DEFAULT 0,
+        created_at timestamptz DEFAULT now(),
+        updated_at timestamptz DEFAULT now(),
+        CONSTRAINT ads_pkey PRIMARY KEY (id),
+        CONSTRAINT chk_ads_type CHECK (type IN ('banner', 'slot', 'popup', 'floating', 'bottom_bar', 'slide_in'))
+      )
+    `);
+    await pool.query(`DROP INDEX IF EXISTS idx_ads_type`);
+    await pool.query(`DROP INDEX IF EXISTS idx_ads_placement`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_ads_type ON public.ads(type)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_ads_placement ON public.ads(placement)`);
+    await pool.query(`DROP TABLE IF EXISTS public.config`);
+    logMessage("info", "database", "مهاجرت سیستم تبلیغات: جدول ads ایجاد شد و جدول config حذف گردید.");
+  } catch (err: any) {
+    logMessage("warn", "database", "خطا در مهاجرت جدول تبلیغات:", err.message || err);
+  }
+}
+
+function mapAdRow(r: any) {
+  let settings: Record<string, any> = {};
+  if (r.settings) {
+    if (typeof r.settings === "string") {
+      try { settings = JSON.parse(r.settings) || {}; } catch { settings = {}; }
+    } else if (typeof r.settings === "object") {
+      settings = r.settings;
+    }
+  }
+  return {
+    id: r.id,
+    type: r.type || "slot",
+    name: fixMojibake(r.name || ""),
+    placement: r.placement || "",
+    title: fixMojibake(r.title || ""),
+    promo: fixMojibake(r.promo || ""),
+    description: fixMojibake(r.description || ""),
+    linkUrl: r.link_url || "",
+    imageUrl: r.image_url || "",
+    btnText: fixMojibake(r.btn_text || ""),
+    width: r.width || 728,
+    height: r.height || 90,
+    priority: r.priority || 0,
+    startDate: r.start_date || "",
+    endDate: r.end_date || "",
+    isActive: r.is_active !== false,
+    settings,
+    viewCount: r.view_count || 0,
+    clickCount: r.click_count || 0
+  };
+}
+
 export async function fetchAndPopulateMemoryDB(): Promise<void> {
   const seedData = getInitialDatabase();
   try {
     logMessage("info", "database", "در حال دریافت کلیه جداول از PostgreSQL...");
 
     const [
-      { data: dbConfig, error: errConfig },
+      { data: dbAds, error: errAds },
       { data: dbSystemInfo, error: errSys },
       { data: dbBracket, error: errBracket },
       { data: dbNews, error: errNews },
@@ -88,7 +162,7 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
       dbMediaFiles,
       dbArchives
     ] = await Promise.all([
-      pgDb.from('config').select('*').eq('id', 'main').maybeSingle(),
+      Promise.resolve(pgDb.from('ads').select('*')).catch(err => ({ data: null, error: err })),
       pgDb.from('system_info').select('*'),
       pgDb.from('bracket').select('*').eq('id', 'main').maybeSingle(),
       pgDb.from('news').select('*').order('created_at', { ascending: false }),
@@ -117,24 +191,8 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
 
     const parsed: any = { ...seedData };
 
-    if (dbConfig) {
-      parsed.config = {
-        adTitle: dbConfig.ad_title || "",
-        adPromo: dbConfig.ad_promo || "",
-        adDesc: dbConfig.ad_desc || "",
-        adLink: dbConfig.ad_link || "",
-        adBtnText: dbConfig.ad_btn_text || "",
-        customBannerUrl: dbConfig.custom_banner_url || "",
-        adSlots: typeof dbConfig.ad_slots === "string" ? JSON.parse(dbConfig.ad_slots) : (dbConfig.ad_slots || []),
-        bannerLabel: dbConfig.banner_label || "تخفیف هواداران تب فوتبال",
-        bannerLabelVisible: dbConfig.banner_label_visible !== false,
-        bannerTagText: dbConfig.banner_tag_text || "حمایت ویژه پورتال",
-        bannerVisible: dbConfig.banner_visible !== false,
-        popupAd: typeof dbConfig.popup_ad === "string" ? JSON.parse(dbConfig.popup_ad) : (dbConfig.popup_ad || { enabled: false }),
-        floatingAd: typeof dbConfig.floating_ad === "string" ? JSON.parse(dbConfig.floating_ad) : (dbConfig.floating_ad || { enabled: false }),
-        bottomBarAd: typeof dbConfig.bottom_bar_ad === "string" ? JSON.parse(dbConfig.bottom_bar_ad) : (dbConfig.bottom_bar_ad || { enabled: false }),
-        slideInAd: typeof dbConfig.slide_in_ad === "string" ? JSON.parse(dbConfig.slide_in_ad) : (dbConfig.slide_in_ad || { enabled: false })
-      };
+    if (dbAds && Array.isArray(dbAds)) {
+      parsed.ads = dbAds.map(mapAdRow);
     }
 
     if (dbSystemInfo) {
@@ -168,6 +226,7 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
         id: t.id,
         name: fixMojibake(t.name || ""),
         logo: t.logo,
+        coverImage: t.cover_image || "",
         stats: t.stats,
         coach: fixMojibake(t.stats?.coach || t.coach || ""),
         city: fixMojibake(t.stats?.city || t.city || ""),
@@ -280,6 +339,7 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
           predictions: m.predictions,
           sport: m.sport || 'football',
           stage: m.stage || 'Feature_Games',
+          week: m.week,
           tag: m.tag,
           isAutoFinished: m.is_auto_finished || false,
           lineups: m.lineups,
@@ -601,6 +661,7 @@ export async function saveDB(): Promise<void> {
           id: t.id,
           name: t.name,
           logo: t.logo,
+          cover_image: t.coverImage || "",
           stats: stats,
           base_played: t.basePlayed || 0,
           base_won: t.baseWon || 0,
@@ -725,7 +786,8 @@ export async function saveDB(): Promise<void> {
           events: m.events,
           scorers_list: m.scorersList,
           team_stats: m.teamStats,
-          referee: m.referee || null
+          referee: m.referee || null,
+          week: m.week || null
         };
       });
       promises.push(pgDb.from('matches').upsert(formattedMatches));
@@ -851,26 +913,34 @@ export async function saveDB(): Promise<void> {
       );
     }
 
-    if (data.config) {
-      const cfg = data.config;
-      promises.push(pgDb.from('config').upsert({
-        id: 'main',
-        ad_title: cfg.adTitle,
-        ad_promo: cfg.adPromo,
-        ad_desc: cfg.adDesc,
-        ad_link: cfg.adLink,
-        ad_btn_text: cfg.adBtnText,
-        custom_banner_url: cfg.customBannerUrl,
-        ad_slots: cfg.adSlots || [],
-        banner_label: cfg.bannerLabel || "",
-        banner_label_visible: cfg.bannerLabelVisible !== false,
-        banner_tag_text: cfg.bannerTagText || "",
-        banner_visible: cfg.bannerVisible !== false,
-        popup_ad: cfg.popupAd || { enabled: false },
-        floating_ad: cfg.floatingAd || { enabled: false },
-        bottom_bar_ad: cfg.bottomBarAd || { enabled: false },
-        slide_in_ad: cfg.slideInAd || { enabled: false }
+    if (data.ads && data.ads.length > 0) {
+      const formattedAds = data.ads.map((a: any) => ({
+        id: a.id,
+        type: a.type || 'slot',
+        name: a.name || '',
+        placement: a.placement || '',
+        title: a.title || '',
+        promo: a.promo || '',
+        description: a.description || '',
+        link_url: a.linkUrl || '',
+        image_url: a.imageUrl || '',
+        btn_text: a.btnText || '',
+        width: a.width || 728,
+        height: a.height || 90,
+        priority: a.priority || 0,
+        start_date: a.startDate || '',
+        end_date: a.endDate || '',
+        is_active: a.isActive !== false,
+        settings: a.settings || {},
+        view_count: a.viewCount || 0,
+        click_count: a.clickCount || 0
       }));
+      promises.push(pgDb.from('ads').upsert(formattedAds));
+
+      const adIds = data.ads.map((x: any) => x.id);
+      promises.push(pgDb.from('ads').delete().not('id', 'in', `(${adIds.join(',')})`));
+    } else if (data.ads) {
+      promises.push(pgDb.from('ads').delete().neq('id', ''));
     }
 
     if (data.bracket) {

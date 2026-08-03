@@ -11,26 +11,30 @@ SET standard_conforming_strings = on;
 -- Tables (creation order matters for FKs)
 -- ============================================
 
-CREATE TABLE public.config (
+CREATE TABLE public.ads (
   id varchar(50) NOT NULL,
-  ad_title text,
-  ad_promo text,
-  ad_desc text,
-  ad_link text,
-  ad_btn_text text,
-  banner_label text DEFAULT '',
-  banner_label_visible boolean DEFAULT true,
-  banner_tag_text text DEFAULT '',
-  banner_visible boolean DEFAULT true,
-  custom_banner_url text,
-  ad_slots jsonb DEFAULT '[]'::jsonb,
-  popup_ad jsonb DEFAULT '{}'::jsonb,
-  floating_ad jsonb DEFAULT '{}'::jsonb,
-  bottom_bar_ad jsonb DEFAULT '{}'::jsonb,
-  slide_in_ad jsonb DEFAULT '{}'::jsonb,
+  type varchar(20) NOT NULL DEFAULT 'slot',
+  name text,
+  placement varchar(50) DEFAULT '',
+  title text,
+  promo text,
+  description text,
+  link_url text,
+  image_url text,
+  btn_text text,
+  width integer DEFAULT 728,
+  height integer DEFAULT 90,
+  priority integer DEFAULT 0,
+  start_date varchar(20) DEFAULT '',
+  end_date varchar(20) DEFAULT '',
+  is_active boolean DEFAULT true,
+  settings jsonb DEFAULT '{}'::jsonb,
+  view_count integer DEFAULT 0,
+  click_count integer DEFAULT 0,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),
-  CONSTRAINT config_pkey PRIMARY KEY (id)
+  CONSTRAINT ads_pkey PRIMARY KEY (id),
+  CONSTRAINT chk_ads_type CHECK (type IN ('banner', 'slot', 'popup', 'floating', 'bottom_bar', 'slide_in'))
 );
 
 CREATE TABLE public.system_info (
@@ -45,6 +49,7 @@ CREATE TABLE public.teams (
   id varchar(50) NOT NULL,
   name varchar(200) NOT NULL,
   logo text,
+  cover_image text,
   stats jsonb NOT NULL DEFAULT '{}'::jsonb,
   recent_form jsonb DEFAULT '[]'::jsonb,
   recent_matches jsonb DEFAULT '[]'::jsonb,
@@ -162,6 +167,7 @@ CREATE TABLE public.matches (
   is_popular boolean DEFAULT false,
   sport varchar(20) DEFAULT 'football',
   stage varchar(50) DEFAULT 'Feature_Games',
+  week varchar(50),
   is_auto_finished boolean DEFAULT false,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),
@@ -399,11 +405,15 @@ CREATE INDEX idx_bracket_slots_next_slot ON public.bracket_slots(next_slot_id);
 -- legionnaires
 CREATE INDEX idx_legionnaires_league ON public.legionnaires(league);
 
+-- ads
+CREATE INDEX idx_ads_type ON public.ads(type);
+CREATE INDEX idx_ads_placement ON public.ads(placement);
+
 -- ============================================
 -- Seed Data
 -- ============================================
 
-INSERT INTO public.config (id) VALUES ('main')
+INSERT INTO public.ads (id, type, name, placement) VALUES ('banner-main', 'banner', 'بنر بالای صفحه', 'top')
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.system_info (key, value) VALUES

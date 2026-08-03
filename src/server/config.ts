@@ -28,7 +28,7 @@ export const INITIAL_DATABASE = {
   },
   submissions: [],
   lastScraped: "",
-  config: { adTitle: "", adPromo: "", adDesc: "", adLink: "", adBtnText: "", customBannerUrl: "" },
+  ads: [],
   liveGoals: [],
   teams: [],
   players: [],

@@ -50,13 +50,13 @@ interface AdminPanelProps {
   coaches?: any[];
   bracket: any;
   selectedCombinations?: any[];
-  adConfig: any;
+  ads: any[];
   archives?: any[];
   currentSeason?: string;
   onUpdateArchives?: (newArchives: any[]) => void;
   onUpdateStandings: (leagueKey: string, rows: StandingRow[]) => Promise<boolean>;
   onUpdateStats: (leagueKey: string, statsData: any) => Promise<boolean>;
-  onUpdateAdConfig: (configData: any) => Promise<boolean>;
+  onSaveAds: (ads: any[]) => void;
   onCentralSync: () => Promise<boolean>;
   isAdminLoggedIn: boolean;
   onLogin: () => void;
@@ -80,13 +80,13 @@ export default function AdminPanel({
   coaches = [],
   bracket,
   selectedCombinations = [],
-  adConfig,
+  ads = [],
   archives = [],
   currentSeason = "1404",
   onUpdateArchives,
   onUpdateStandings,
   onUpdateStats,
-  onUpdateAdConfig,
+  onSaveAds,
   onCentralSync,
   isAdminLoggedIn,
   onLogin,
@@ -473,8 +473,8 @@ export default function AdminPanel({
             images={images}
             submissions={submissions}
             legionnaires={legionnaires}
-            adConfig={adConfig}
-            onUpdateAdConfig={onUpdateAdConfig}
+            ads={ads}
+            onSaveAds={onSaveAds}
             onRefreshData={onRefreshData}
           />
         )}

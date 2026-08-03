@@ -26,7 +26,7 @@ export function registerSystemRoutes(app: Express) {
         logMessage("info", "database", "درخواست به‌روزرسانی دستی همگام‌ساز اطلاعات دریافت شد. درحال دریافت رکوردها...");
         await dbLock.acquire(() => fetchAndPopulateMemoryDB());
       }
-      const { data, error } = await pgDb.from('config').select('id').limit(1).maybeSingle();
+      const { data, error } = await pgDb.from('ads').select('id').limit(1).maybeSingle();
       const localDb = loadDB();
       if (error) throw error;
 
