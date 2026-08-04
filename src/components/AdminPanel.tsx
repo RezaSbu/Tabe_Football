@@ -59,9 +59,10 @@ interface AdminPanelProps {
   onSaveAds: (ads: any[]) => void;
   onCentralSync: () => Promise<boolean>;
   isAdminLoggedIn: boolean;
-  onLogin: () => void;
+  onLogin: (user: { username: string; role: string; label: string; permissions: string[] }) => void;
   onRefreshData: () => void;
   onLogout?: () => void;
+  adminUser?: { username: string; role: string; label: string; permissions: string[] } | null;
 }
 
 export default function AdminPanel({
@@ -91,7 +92,8 @@ export default function AdminPanel({
   isAdminLoggedIn,
   onLogin,
   onRefreshData,
-  onLogout
+  onLogout,
+  adminUser
 }: AdminPanelProps) {
   // Authentication Form States
   const [username, setUsername] = useState("");
@@ -102,12 +104,43 @@ export default function AdminPanel({
   // Active Main Tab State
   const [activeMainTab, setActiveMainTab] = useState<"dashboard" | "matches" | "overrides" | "diagnostics" | "portal" | "selected-combination" | "players" | "coaches" | "teams" | "bracket" | "media" | "archive" | "hero-slides">("dashboard");
   const [successMessage, setSuccessMessage] = useState("");
+  const [lockedWarning, setLockedWarning] = useState("");
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const showShortSuccess = (msg: string) => {
     setSuccessMessage(msg);
     setTimeout(() => setSuccessMessage(""), 4000);
   };
+
+  const handleTabClick = (tab: any, locked: boolean) => {
+    setIsMobileSidebarOpen(false);
+    if (locked) {
+      setLockedWarning("دسترسی شما برای این بخش کافی نیست. این بخش فقط برای کاربران دارای مجوز باز است.");
+      setTimeout(() => setLockedWarning(""), 3500);
+      return;
+    }
+    setActiveMainTab(tab);
+  };
+
+  const permissions = adminUser?.permissions ?? [];
+  const hasPerm = (perm: string) => permissions.includes(perm);
+
+  const TAB_PERMISSION: Record<string, string> = {
+    dashboard: "dashboard",
+    matches: "matches",
+    bracket: "bracket",
+    overrides: "overrides",
+    diagnostics: "diagnostics",
+    portal: "portal",
+    media: "media",
+    "hero-slides": "heroSlides",
+    "selected-combination": "selectedCombos",
+    players: "players",
+    coaches: "coaches",
+    teams: "teams",
+    archive: "archive"
+  };
+  const activeTabForRender = hasPerm(TAB_PERMISSION[activeMainTab] ?? "") ? activeMainTab : "dashboard";
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -121,7 +154,12 @@ export default function AdminPanel({
       });
       const data = await response.json();
       if (response.ok && data.success) {
-        onLogin();
+        onLogin({
+          username: data.username || "",
+          role: data.role || "",
+          label: data.label || "",
+          permissions: data.permissions || []
+        });
         showShortSuccess("ورود موفقیت‌آمیز به آکادمی وب مدیریت تب فوتبال انجام شد.");
       } else {
         setAuthError(data.message || "اطلاعات ورود اشتباه است.");
@@ -262,110 +300,122 @@ export default function AdminPanel({
         {/* Sidebar Navigation Options */}
         <div className="space-y-1 text-xs">
           <button
-            onClick={() => { setActiveMainTab("dashboard"); setIsMobileSidebarOpen(false); }}
+            onClick={() => handleTabClick("dashboard", !hasPerm("dashboard"))}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "dashboard" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
             <Layout className="h-4 w-4" />
             <span>پیشخوان و تطبیق هوشمند</span>
+            {!hasPerm("dashboard") && <Lock className="h-3.5 w-3.5 text-amber-500 mr-auto" />}
           </button>
 
           <button
-            onClick={() => { setActiveMainTab("matches"); setIsMobileSidebarOpen(false); }}
+            onClick={() => handleTabClick("matches", !hasPerm("matches"))}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "matches" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
             <Tv className="h-4 w-4" />
             <span>مدیریت مسابقات و آمار</span>
+            {!hasPerm("matches") && <Lock className="h-3.5 w-3.5 text-amber-500 mr-auto" />}
           </button>
 
           <button
-            onClick={() => { setActiveMainTab("bracket"); setIsMobileSidebarOpen(false); }}
+            onClick={() => handleTabClick("bracket", !hasPerm("bracket"))}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "bracket" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
             id="tab-bracket"
           >
             <Trophy className="h-4 w-4 text-yellow-500" />
             <span>مدیریت نمودار جام حذفی</span>
+            {!hasPerm("bracket") && <Lock className="h-3.5 w-3.5 text-amber-500 mr-auto" />}
           </button>
 
           <button
-            onClick={() => { setActiveMainTab("overrides"); setIsMobileSidebarOpen(false); }}
+            onClick={() => handleTabClick("overrides", !hasPerm("overrides"))}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "overrides" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
             <Sliders className="h-4 w-4" />
             <span>بازنویسی مستقیم دیتابیس</span>
+            {!hasPerm("overrides") && <Lock className="h-3.5 w-3.5 text-amber-500 mr-auto" />}
           </button>
 
           <button
-            onClick={() => { setActiveMainTab("diagnostics"); setIsMobileSidebarOpen(false); }}
+            onClick={() => handleTabClick("diagnostics", !hasPerm("diagnostics"))}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "diagnostics" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
             <Activity className="h-4 w-4" />
             <span>لاگ و تست سیستم</span>
+            {!hasPerm("diagnostics") && <Lock className="h-3.5 w-3.5 text-amber-500 mr-auto" />}
           </button>
 
           <button
-            onClick={() => { setActiveMainTab("portal"); setIsMobileSidebarOpen(false); }}
+            onClick={() => handleTabClick("portal", !hasPerm("portal"))}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "portal" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
             <Megaphone className="h-4 w-4" />
             <span>محتوای رسانه و تبلیغات</span>
+            {!hasPerm("portal") && <Lock className="h-3.5 w-3.5 text-amber-500 mr-auto" />}
           </button>
 
           <button
-            onClick={() => { setActiveMainTab("media"); setIsMobileSidebarOpen(false); }}
+            onClick={() => handleTabClick("media", !hasPerm("media"))}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "media" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
             <FileImage className="h-4 w-4" />
             <span>مدیریت تصاویر دیتابیس</span>
+            {!hasPerm("media") && <Lock className="h-3.5 w-3.5 text-amber-500 mr-auto" />}
           </button>
 
           <button
-            onClick={() => { setActiveMainTab("hero-slides"); setIsMobileSidebarOpen(false); }}
+            onClick={() => handleTabClick("hero-slides", !hasPerm("heroSlides"))}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "hero-slides" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
             <Sliders className="h-4 w-4 text-cyan-400" />
             <span>اسلایدر اصلی صفحه</span>
+            {!hasPerm("heroSlides") && <Lock className="h-3.5 w-3.5 text-amber-500 mr-auto" />}
           </button>
 
           <div className="my-2 border-t border-white/5" />
-
           <button
-            onClick={() => { setActiveMainTab("selected-combination"); setIsMobileSidebarOpen(false); }}
+            onClick={() => handleTabClick("selected-combination", !hasPerm("selectedCombos"))}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "selected-combination" ? "bg-amber-600 text-white shadow-md shadow-amber-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
             <Award className="h-4 w-4 text-amber-500" />
             <span>ترکیب منتخب هفته</span>
+            {!hasPerm("selectedCombos") && <Lock className="h-3.5 w-3.5 text-amber-500 mr-auto" />}
           </button>
 
           <button
-            onClick={() => { setActiveMainTab("players"); setIsMobileSidebarOpen(false); }}
+            onClick={() => handleTabClick("players", !hasPerm("players"))}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "players" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
             <Users className="h-4 w-4" />
             <span>تعریف و مدیریت بازیکنان</span>
+            {!hasPerm("players") && <Lock className="h-3.5 w-3.5 text-amber-500 mr-auto" />}
           </button>
 
           <button
-            onClick={() => { setActiveMainTab("coaches"); setIsMobileSidebarOpen(false); }}
+            onClick={() => handleTabClick("coaches", !hasPerm("coaches"))}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "coaches" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
             <Users className="h-4 w-4" />
             <span>تعریف و مدیریت مربیان</span>
+            {!hasPerm("coaches") && <Lock className="h-3.5 w-3.5 text-amber-500 mr-auto" />}
           </button>
 
           <button
-            onClick={() => { setActiveMainTab("teams"); setIsMobileSidebarOpen(false); }}
+            onClick={() => handleTabClick("teams", !hasPerm("teams"))}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "teams" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
             <ShieldCheck className="h-4 w-4" />
             <span>تعریف و مدیریت تیم‌ها</span>
+            {!hasPerm("teams") && <Lock className="h-3.5 w-3.5 text-amber-500 mr-auto" />}
           </button>
 
           <button
-            onClick={() => { setActiveMainTab("archive"); setIsMobileSidebarOpen(false); }}
+            onClick={() => handleTabClick("archive", !hasPerm("archive"))}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "archive" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
             <Database className="h-4 w-4 text-rose-450" />
             <span>بایگانی و شروع فصل جدید</span>
+            {!hasPerm("archive") && <Lock className="h-3.5 w-3.5 text-amber-500 mr-auto" />}
           </button>
         </div>
 
@@ -408,8 +458,16 @@ export default function AdminPanel({
           </div>
         )}
 
+        {/* Locked tab access warning block */}
+        {lockedWarning && (
+          <div className="p-4 rounded-2xl bg-amber-950/30 border border-amber-700/40 text-xs font-black text-amber-400 flex items-center gap-2">
+            <Lock className="h-4 w-4 text-amber-400" />
+            <span>{lockedWarning}</span>
+          </div>
+        )}
+
         {/* Tab 1: DASHBOARD MONITOR & SCANNER */}
-        {activeMainTab === "dashboard" && (
+        {activeTabForRender === "dashboard" && (
           <AdminDashboard
             matches={matches}
             standings={standings}
@@ -427,7 +485,7 @@ export default function AdminPanel({
         )}
 
         {/* Tab 2: SPORTS HUB lifecycle (Matches) */}
-        {activeMainTab === "matches" && (
+        {activeTabForRender === "matches" && (
           <AdminMatchHub
             matches={matches}
             teams={teams}
@@ -443,7 +501,7 @@ export default function AdminPanel({
         )}
 
         {/* Tab 3: DIRECT OVERRIDES GRID SHEET */}
-        {activeMainTab === "overrides" && (
+        {activeTabForRender === "overrides" && (
           <AdminDirectOverrides
             standings={standings}
             teams={teams}
@@ -458,14 +516,14 @@ export default function AdminPanel({
         )}
 
         {/* Tab 4: DIAGNOSTICS */}
-        {activeMainTab === "diagnostics" && (
+        {activeTabForRender === "diagnostics" && (
           <Suspense fallback={<div className="p-8 text-center text-sm text-gray-400">در حال بارگذاری...</div>}>
             <DiagnosticsPanel />
           </Suspense>
         )}
 
         {/* Tab 5: GENERAL PORTAL CONTENT */}
-        {activeMainTab === "portal" && (
+        {activeTabForRender === "portal" && (
           <AdminPortalHub
             news={news}
             transfers={transfers}
@@ -476,11 +534,12 @@ export default function AdminPanel({
             ads={ads}
             onSaveAds={onSaveAds}
             onRefreshData={onRefreshData}
+            permissions={permissions}
           />
         )}
 
         {/* Tab 6: Selected weekly team combination */}
-        {activeMainTab === "selected-combination" && (
+        {activeTabForRender === "selected-combination" && (
           <AdminSelectedCombinations
             combinations={selectedCombinations}
             players={players}
@@ -491,7 +550,7 @@ export default function AdminPanel({
         )}
 
         {/* Tab 7: Manage Player Profiles */}
-        {activeMainTab === "players" && (
+        {activeTabForRender === "players" && (
           <AdminPlayerProfiles
             players={players}
             teams={teams}
@@ -501,7 +560,7 @@ export default function AdminPanel({
         )}
 
         {/* Tab 8: Manage Coach Profiles */}
-        {activeMainTab === "coaches" && (
+        {activeTabForRender === "coaches" && (
           <AdminCoachProfiles
             coaches={coaches}
             teams={teams}
@@ -511,7 +570,7 @@ export default function AdminPanel({
         )}
 
         {/* Tab 9: Manage Team Profiles */}
-        {activeMainTab === "teams" && (
+        {activeTabForRender === "teams" && (
           <AdminTeamProfiles
             teams={teams}
             onRefreshData={onRefreshData}
@@ -520,7 +579,7 @@ export default function AdminPanel({
         )}
 
         {/* Tab 9: Manage Hazfi Cup Bracket */}
-        {activeMainTab === "bracket" && (
+        {activeTabForRender === "bracket" && (
           <AdminBracketManager
             bracket={bracket}
             matches={matches}
@@ -530,12 +589,12 @@ export default function AdminPanel({
         )}
 
         {/* Tab 10: Database Image Storage and Migration */}
-        {activeMainTab === "media" && (
+        {activeTabForRender === "media" && (
           <AdminMediaFiles />
         )}
 
         {/* Tab: Hero Slider Management */}
-        {activeMainTab === "hero-slides" && (
+        {activeTabForRender === "hero-slides" && (
           <AdminHeroSlides
             heroSlides={heroSlides}
             news={news}
@@ -548,7 +607,7 @@ export default function AdminPanel({
         )}
 
         {/* Tab 11: Archive and Season resets */}
-        {activeMainTab === "archive" && (
+        {activeTabForRender === "archive" && (
           <AdminArchiveManager
             archives={archives}
             currentSeason={currentSeason}

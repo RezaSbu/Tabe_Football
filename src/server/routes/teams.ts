@@ -3,9 +3,10 @@ import { loadDB, snapshotDB, restoreDB } from "../state";
 import { logMessage } from "../utils/logger";
 import { saveDB } from "../services/database";
 import { getPlayerCalculatedStatsFromMatches } from "../services/stats";
+import { requirePermission } from "../middleware/auth";
 
 export function registerTeamRoutes(app: Express) {
-  app.post("/api/teams", async (req: Request, res: Response) => {
+  app.post("/api/teams", requirePermission("teams"), async (req: Request, res: Response) => {
     const currentDB = loadDB();
     const idPrefix = req.body.sport === "futsal" ? "futsal" : "team";
     const item = {
@@ -57,7 +58,7 @@ export function registerTeamRoutes(app: Express) {
     res.json({ success: true });
   });
 
-  app.put("/api/teams/:id", async (req: Request, res: Response) => {
+  app.put("/api/teams/:id", requirePermission("teams"), async (req: Request, res: Response) => {
     const currentDB = loadDB();
     const index = currentDB.teams.findIndex((t: any) => t.id === req.params.id);
     if (index !== -1) {
@@ -148,14 +149,14 @@ export function registerTeamRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/teams/:id", async (req: Request, res: Response) => {
+  app.delete("/api/teams/:id", requirePermission("teams"), async (req: Request, res: Response) => {
     const currentDB = loadDB();
     currentDB.teams = currentDB.teams.filter((t: any) => t.id !== req.params.id);
     await saveDB();
     res.json({ success: true });
   });
 
-  app.post("/api/players", async (req: Request, res: Response) => {
+  app.post("/api/players", requirePermission("players"), async (req: Request, res: Response) => {
     const snapshot = snapshotDB();
     const currentDB = loadDB();
     const item = {
@@ -201,7 +202,7 @@ export function registerTeamRoutes(app: Express) {
     }
   });
 
-  app.put("/api/players/:id", async (req: Request, res: Response) => {
+  app.put("/api/players/:id", requirePermission("players"), async (req: Request, res: Response) => {
     const snapshot = snapshotDB();
     const currentDB = loadDB();
     const index = currentDB.players.findIndex((p: any) => p.id === req.params.id);
@@ -251,14 +252,14 @@ export function registerTeamRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/players/:id", async (req: Request, res: Response) => {
+  app.delete("/api/players/:id", requirePermission("players"), async (req: Request, res: Response) => {
     const currentDB = loadDB();
     currentDB.players = currentDB.players.filter((p: any) => p.id !== req.params.id);
     await saveDB();
     res.json({ success: true });
   });
 
-  app.post("/api/coaches", async (req: Request, res: Response) => {
+  app.post("/api/coaches", requirePermission("coaches"), async (req: Request, res: Response) => {
     const snapshot = snapshotDB();
     const currentDB = loadDB();
     const item = {
@@ -305,7 +306,7 @@ export function registerTeamRoutes(app: Express) {
     }
   });
 
-  app.put("/api/coaches/:id", async (req: Request, res: Response) => {
+  app.put("/api/coaches/:id", requirePermission("coaches"), async (req: Request, res: Response) => {
     const snapshot = snapshotDB();
     const currentDB = loadDB();
     const index = currentDB.coaches.findIndex((c: any) => c.id === req.params.id);
@@ -354,7 +355,7 @@ export function registerTeamRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/coaches/:id", async (req: Request, res: Response) => {
+  app.delete("/api/coaches/:id", requirePermission("coaches"), async (req: Request, res: Response) => {
     const currentDB = loadDB();
     const deletedCoach = currentDB.coaches.find((c: any) => c.id === req.params.id);
     if (deletedCoach && deletedCoach.teamId) {

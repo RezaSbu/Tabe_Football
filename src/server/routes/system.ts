@@ -4,6 +4,7 @@ import { loadDB, setDb } from "../state";
 import { logMessage, SYSTEM_LOGS } from "../utils/logger";
 import { dbLock } from "../utils/concurrency";
 import { fetchAndPopulateMemoryDB, saveDB } from "../services/database";
+import { requirePermission } from "../middleware/auth";
 
 export function registerSystemRoutes(app: Express) {
   app.get("/api/data", async (req: Request, res: Response) => {
@@ -85,13 +86,13 @@ export function registerSystemRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/logs", (req: Request, res: Response) => {
+  app.delete("/api/logs", requirePermission("diagnostics"), (req: Request, res: Response) => {
     SYSTEM_LOGS.length = 0;
     logMessage("info", "general", "صفحه لاگ‌های ذخیره‌شده پاکسازی گردید.");
     res.json({ status: "ok" });
   });
 
-  app.post("/api/sync", async (req: Request, res: Response) => {
+  app.post("/api/sync", requirePermission("centralSync"), async (req: Request, res: Response) => {
     try {
       await saveDB();
       logMessage("info", "general", "همگام‌سازی فلاش هماهنگی فیزیکی دیتابیس تایید گردید: تمام اطلاعات در فایل db.json بازنویسی و ذخیره شد.");

@@ -4,9 +4,10 @@ import { logMessage } from "../utils/logger";
 import { normalizePersianString } from "../utils/persian";
 import { saveDB } from "../services/database";
 import { getPlayerCalculatedStatsFromMatches } from "../services/stats";
+import { requirePermission } from "../middleware/auth";
 
 export function registerStandingsRoutes(app: Express) {
-  app.put("/api/standings/:leagueKey", async (req: Request, res: Response) => {
+  app.put("/api/standings/:leagueKey", requirePermission("overrides"), async (req: Request, res: Response) => {
     const { leagueKey } = req.params;
     const { rows } = req.body;
     const currentDB = loadDB();
@@ -96,7 +97,7 @@ export function registerStandingsRoutes(app: Express) {
     res.json({ success: true });
   });
 
-  app.put("/api/stats/:leagueKey", async (req: Request, res: Response) => {
+  app.put("/api/stats/:leagueKey", requirePermission("overrides"), async (req: Request, res: Response) => {
     const { leagueKey } = req.params;
     const { data } = req.body;
     const currentDB = loadDB();

@@ -14,6 +14,7 @@ import {
   Calendar,
   Layers,
   Link2,
+  Lock,
 } from "lucide-react";
 import TeamLogo from "./TeamLogo";
 import AdsManager from "./AdsManager";
@@ -30,6 +31,7 @@ interface AdminPortalHubProps {
   ads?: AdItem[];
   onSaveAds?: (ads: AdItem[]) => void;
   onRefreshData: () => void;
+  permissions?: string[];
 }
 
 export default function AdminPortalHub({
@@ -41,9 +43,35 @@ export default function AdminPortalHub({
   legionnaires = [],
   ads = [],
   onSaveAds,
-  onRefreshData
+  onRefreshData,
+  permissions = []
 }: AdminPortalHubProps) {
   const [subTab, setSubTab] = useState<"news" | "transfers" | "teamTransfers" | "legionnaires" | "gallery" | "submissions" | "ads">("news");
+
+  const SUBTAB_PERMISSION: Record<string, string> = {
+    news: "portal.news",
+    transfers: "portal.transfers",
+    teamTransfers: "portal.teamTransfers",
+    legionnaires: "portal.legionnaires",
+    gallery: "portal.gallery",
+    ads: "portal.ads",
+    submissions: "portal.submissions"
+  };
+  const canSeeSubTab = (key: string) => permissions.includes(SUBTAB_PERMISSION[key] ?? "");
+  const firstAllowedSubTab = (["news", "transfers", "teamTransfers", "legionnaires", "gallery", "ads", "submissions"] as const).find(canSeeSubTab) ?? "news";
+  const subTabForRender = canSeeSubTab(subTab) ? subTab : firstAllowedSubTab;
+
+  const [lockedWarning, setLockedWarning] = useState("");
+
+  const handleSubTabClick = (key: string) => {
+    setShowForm(null);
+    if (!canSeeSubTab(key)) {
+      setLockedWarning("دسترسی شما برای این بخش کافی نیست. این بخش فقط برای صاحب سایت باز است.");
+      setTimeout(() => setLockedWarning(""), 3500);
+      return;
+    }
+    setSubTab(key as any);
+  };
 
   const handleDeleteSubmission = async (id: string) => {
     if (window.confirm("آیا از حذف این پیام اطمینان دارید؟")) {
@@ -213,6 +241,8 @@ export default function AdminPortalHub({
   // TEAM TRANSFERS FORM STATE
   const [teamTrName, setTeamTrName] = useState("");
   const [teamTrLogo, setTeamTrLogo] = useState("");
+  const [teamTrLeague, setTeamTrLeague] = useState<"pro-league" | "league-1" | "league-2">("pro-league");
+  const [teamTrLeagueFilter, setTeamTrLeagueFilter] = useState<"all" | "pro-league" | "league-1" | "league-2">("all");
   const [teamTrIncomings, setTeamTrIncomings] = useState<any[]>([]);
   const [teamTrOutgoings, setTeamTrOutgoings] = useState<any[]>([]);
 
@@ -264,6 +294,7 @@ export default function AdminPortalHub({
     setEditingId(item.id);
     setTeamTrName(item.teamName || "");
     setTeamTrLogo(item.teamLogo || "⚽");
+    setTeamTrLeague(item.league || "pro-league");
     setTeamTrIncomings(item.incomings || []);
     setTeamTrOutgoings(item.outgoings || []);
     setShowForm("teamTransfer");
@@ -292,6 +323,7 @@ export default function AdminPortalHub({
     const payload = {
       teamName: teamTrName,
       teamLogo: teamTrLogo || "⚽",
+      league: teamTrLeague,
       incomings: teamTrIncomings.map(p => ({
         ...p,
         toTeam: teamTrName
@@ -315,6 +347,7 @@ export default function AdminPortalHub({
         setEditingId(null);
         setTeamTrName("");
         setTeamTrLogo("");
+        setTeamTrLeague("pro-league");
         setTeamTrIncomings([]);
         setTeamTrOutgoings([]);
         onRefreshData();
@@ -554,56 +587,82 @@ export default function AdminPortalHub({
     }
   };
 
+  const getLeagueLabel = (league: string) => {
+    if (league === "league-1") return "لیگ یک";
+    if (league === "league-2") return "لیگ دو";
+    return "لیگ برتر";
+  };
+
+  const filteredTeamTransfersForAdmin = teamTransfersList.filter((item: any) => {
+    if (teamTrLeagueFilter === "all") return true;
+    return (item.league || "pro-league") === teamTrLeagueFilter;
+  });
+
   return (
     <div className="space-y-6" dir="rtl">
+      {/* Locked sub-tab access warning block */}
+      {lockedWarning && (
+        <div className="p-4 rounded-2xl bg-amber-950/30 border border-amber-700/40 text-xs font-black text-amber-400 flex items-center gap-2">
+          <Lock className="h-4 w-4 text-amber-400" />
+          <span>{lockedWarning}</span>
+        </div>
+      )}
+
       {/* Sub menu tabs row */}
       <div className="flex overflow-x-auto border-b border-white/5 pb-2 gap-2 text-xs scrollbar-hide">
         <button
-          onClick={() => { setSubTab("news"); setShowForm(null); }}
-          className={`px-4 py-2 font-bold rounded-lg transition ${subTab === "news" ? "bg-red-655 text-white" : "bg-white/5 text-slate-400 hover:text-white"}`}
+          onClick={() => handleSubTabClick("news")}
+          className={`flex items-center gap-1.5 px-4 py-2 font-bold rounded-lg transition cursor-pointer ${subTab === "news" ? "bg-red-655 text-white" : "bg-white/5 text-slate-400 hover:text-white"}`}
         >
           📰 اخبار و مقالات ورزشی
+          {!canSeeSubTab("news") && <Lock className="h-3 w-3 text-amber-500" />}
         </button>
         <button
-          onClick={() => { setSubTab("transfers"); setShowForm(null); }}
-          className={`px-4 py-2 font-bold rounded-lg transition ${subTab === "transfers" ? "bg-red-655 text-white" : "bg-white/5 text-slate-400 hover:text-white"}`}
+          onClick={() => handleSubTabClick("transfers")}
+          className={`flex items-center gap-1.5 px-4 py-2 font-bold rounded-lg transition cursor-pointer ${subTab === "transfers" ? "bg-red-655 text-white" : "bg-white/5 text-slate-400 hover:text-white"}`}
         >
           🔄 نقل و انتقالات (بازیکن‌محور)
+          {!canSeeSubTab("transfers") && <Lock className="h-3 w-3 text-amber-500" />}
         </button>
         <button
-          onClick={() => { setSubTab("teamTransfers"); setShowForm(null); }}
-          className={`px-4 py-2 font-bold rounded-lg transition ${subTab === "teamTransfers" ? "bg-red-655 text-white" : "bg-white/5 text-slate-400 hover:text-white"}`}
+          onClick={() => handleSubTabClick("teamTransfers")}
+          className={`flex items-center gap-1.5 px-4 py-2 font-bold rounded-lg transition cursor-pointer ${subTab === "teamTransfers" ? "bg-red-655 text-white" : "bg-white/5 text-slate-400 hover:text-white"}`}
         >
           📊 نقل و انتقالات (تیم‌محور)
+          {!canSeeSubTab("teamTransfers") && <Lock className="h-3 w-3 text-amber-500" />}
         </button>
         <button
-          onClick={() => { setSubTab("legionnaires"); setShowForm(null); }}
-          className={`px-4 py-2 font-bold rounded-lg transition ${subTab === "legionnaires" ? "bg-red-655 text-white" : "bg-white/5 text-slate-400 hover:text-white"}`}
+          onClick={() => handleSubTabClick("legionnaires")}
+          className={`flex items-center gap-1.5 px-4 py-2 font-bold rounded-lg transition cursor-pointer ${subTab === "legionnaires" ? "bg-red-655 text-white" : "bg-white/5 text-slate-400 hover:text-white"}`}
         >
           🌍 مدیریت لژیونرها
+          {!canSeeSubTab("legionnaires") && <Lock className="h-3 w-3 text-amber-500" />}
         </button>
         <button
-          onClick={() => { setSubTab("gallery"); setShowForm(null); }}
-          className={`px-4 py-2 font-bold rounded-lg transition ${subTab === "gallery" ? "bg-red-655 text-white" : "bg-white/5 text-slate-400 hover:text-white"}`}
+          onClick={() => handleSubTabClick("gallery")}
+          className={`flex items-center gap-1.5 px-4 py-2 font-bold rounded-lg transition cursor-pointer ${subTab === "gallery" ? "bg-red-655 text-white" : "bg-white/5 text-slate-400 hover:text-white"}`}
         >
           🖼️ گالری عکاسی و استوری‌ها
+          {!canSeeSubTab("gallery") && <Lock className="h-3 w-3 text-amber-500" />}
         </button>
         <button
-          onClick={() => { setSubTab("ads"); setShowForm(null); }}
-          className={`px-4 py-2 font-bold rounded-lg transition ${subTab === "ads" ? "bg-red-655 text-white" : "bg-white/5 text-slate-400 hover:text-white"}`}
+          onClick={() => handleSubTabClick("ads")}
+          className={`flex items-center gap-1.5 px-4 py-2 font-bold rounded-lg transition cursor-pointer ${subTab === "ads" ? "bg-red-655 text-white" : "bg-white/5 text-slate-400 hover:text-white"}`}
         >
           📢 مدیریت تبلیغات ({ads.length})
+          {!canSeeSubTab("ads") && <Lock className="h-3 w-3 text-amber-500" />}
         </button>
         <button
-          onClick={() => { setSubTab("submissions"); setShowForm(null); }}
-          className={`px-4 py-2 font-bold rounded-lg transition ${subTab === "submissions" ? "bg-red-655 text-white" : "bg-white/5 text-slate-400 hover:text-white"}`}
+          onClick={() => handleSubTabClick("submissions")}
+          className={`flex items-center gap-1.5 px-4 py-2 font-bold rounded-lg transition cursor-pointer ${subTab === "submissions" ? "bg-red-655 text-white" : "bg-white/5 text-slate-400 hover:text-white"}`}
         >
           ✉️ پیام‌های تماس ({submissions.length})
+          {!canSeeSubTab("submissions") && <Lock className="h-3 w-3 text-amber-500" />}
         </button>
       </div>
 
       {/* SUB-TAB 1: NEWS */}
-      {subTab === "news" && (
+      {subTabForRender === "news" && (
         <div className="bg-[#0b0b0f] border border-white/5 p-5 rounded-2xl space-y-4">
           <div className="flex justify-between items-center border-b border-white/5 pb-2">
             <h3 className="font-extrabold text-sm text-white">مدیریت تحریریه و خبرخوان پورتال</h3>
@@ -703,7 +762,7 @@ export default function AdminPortalHub({
       )}
 
       {/* SUB-TAB 2: TRANSFERS */}
-      {subTab === "transfers" && (
+      {subTabForRender === "transfers" && (
         <div className="bg-[#0b0b0f] border border-white/5 p-5 rounded-2xl space-y-4">
           <div className="flex justify-between items-center border-b border-white/5 pb-2">
             <h3 className="font-extrabold text-sm text-white">ترانسفر مارکت و نقل و انتقالات (بازیکن‌محور)</h3>
@@ -803,7 +862,7 @@ export default function AdminPortalHub({
       )}
 
       {/* SUB-TAB: TEAM-CENTRIC TRANSFERS */}
-      {subTab === "teamTransfers" && (
+      {subTabForRender === "teamTransfers" && (
         <div className="bg-[#0b0b0f] border border-white/5 p-5 rounded-2xl space-y-4">
           <div className="flex justify-between items-center border-b border-white/5 pb-2">
             <h3 className="font-extrabold text-sm text-white">ترانسفر مارکت و نقل و انتقالات (تیم‌محور)</h3>
@@ -812,6 +871,7 @@ export default function AdminPortalHub({
                 setEditingId(null);
                 setTeamTrName("");
                 setTeamTrLogo("⚽");
+                setTeamTrLeague("pro-league");
                 setTeamTrIncomings([]);
                 setTeamTrOutgoings([]);
                 setShowForm("teamTransfer");
@@ -844,6 +904,18 @@ export default function AdminPortalHub({
                     placeholder="⚽"
                     className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white"
                   />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-gray-500 mb-1">لیگ مربوطه (برای فیلتر در سایت)</label>
+                  <select
+                    value={teamTrLeague}
+                    onChange={e => setTeamTrLeague(e.target.value as any)}
+                    className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white"
+                  >
+                    <option value="pro-league">لیگ برتر خلیج فارس</option>
+                    <option value="league-1">لیگ دسته یک آزادگان</option>
+                    <option value="league-2">لیگ دسته دو</option>
+                  </select>
                 </div>
               </div>
 
@@ -1011,18 +1083,36 @@ export default function AdminPortalHub({
           )}
 
           {/* LIST OF TEAMS TRANSFERS */}
-          {teamTransfersList.length === 0 ? (
+          <div className="flex flex-wrap gap-2 border-b border-white/5 pb-3 text-xs">
+            <span className="text-[10px] font-bold text-slate-500 self-center">فیلتر لیگ:</span>
+            {(["all", "pro-league", "league-1", "league-2"] as const).map((lg) => (
+              <button
+                key={lg}
+                onClick={() => setTeamTrLeagueFilter(lg)}
+                className={`px-3 py-1 rounded-lg font-bold transition cursor-pointer ${
+                  teamTrLeagueFilter === lg ? "bg-red-655 text-white" : "bg-white/5 text-slate-400 hover:text-white"
+                }`}
+              >
+                {lg === "all" ? "همه لیگ‌ها" : getLeagueLabel(lg)}
+              </button>
+            ))}
+          </div>
+
+          {filteredTeamTransfersForAdmin.length === 0 ? (
             <div className="p-8 text-center text-xs text-slate-500 border border-dashed border-white/5 rounded-2xl bg-black/10">
-              هیچ سطر انتقال تیم‌محوری ثبت نشده است. ابتدا یک مورد تستی اضافه کنید.
+              هیچ سطر انتقال تیم‌محوری در این لیگ ثبت نشده است. ابتدا یک مورد اضافه کنید.
             </div>
           ) : (
             <div className="grid gap-3 md:grid-cols-2 max-h-[500px] overflow-y-auto">
-              {teamTransfersList.map((item: any) => (
+              {filteredTeamTransfersForAdmin.map((item: any) => (
                 <div key={item.id} className="p-4 bg-white/[0.01] border border-white/5 rounded-2xl hover:bg-white/[0.03] transition flex justify-between items-start text-xs">
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <TeamLogo logo={item.teamLogo} fallback="⚽" size="sm" />
                       <span className="text-white font-extrabold text-sm">{item.teamName}</span>
+                      <span className="text-[9px] bg-emerald-950/40 border border-emerald-800/30 text-emerald-400 px-1.5 py-0.5 rounded font-bold">
+                        {getLeagueLabel(item.league || "pro-league")}
+                      </span>
                     </div>
 
                     <div className="space-y-1">
@@ -1063,7 +1153,7 @@ export default function AdminPortalHub({
       )}
 
       {/* SUB-TAB: LEGIONNAIRES */}
-      {subTab === "legionnaires" && (
+      {subTabForRender === "legionnaires" && (
         <div className="bg-[#0b0b0f] border border-white/5 p-5 rounded-2xl space-y-4">
           <div className="flex justify-between items-center border-b border-white/5 pb-2">
             <h3 className="font-extrabold text-sm text-white">مدیریت عملکرد لژیونرها و ایرانیان شاخص</h3>
@@ -1156,7 +1246,7 @@ export default function AdminPortalHub({
       )}
 
       {/* SUB-TAB 3: GALLERY */}
-      {subTab === "gallery" && (
+      {subTabForRender === "gallery" && (
         <div className="bg-[#0b0b0f] border border-white/5 p-5 rounded-2xl space-y-4">
           <div className="flex justify-between items-center border-b border-white/5 pb-2">
             <h3 className="font-extrabold text-sm text-white">سالن عکاسی ورزشی</h3>
@@ -1216,10 +1306,10 @@ export default function AdminPortalHub({
       )}
 
             {/* SUB-TAB: ADS MANAGEMENT */}
-      {subTab === "ads" && <AdsManager ads={ads} onRefreshData={onRefreshData} />}
+      {subTabForRender === "ads" && <AdsManager ads={ads} onRefreshData={onRefreshData} />}
 
       {/* SUB-TAB 5: CONTACTS inbox */}{/* SUB-TAB 5: CONTACTS inbox */}
-      {subTab === "submissions" && (
+      {subTabForRender === "submissions" && (
         <div className="bg-[#0b0b0f] border border-white/5 p-5 rounded-2xl space-y-4">
           <h3 className="font-extrabold text-sm text-white border-b border-white/5 pb-2 flex justify-between items-center">
             <span>✉️ صندوق شکایات، پیشنهادات و پیام‌های مردمی ({submissions.length})</span>

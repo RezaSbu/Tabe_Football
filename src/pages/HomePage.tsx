@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Trophy, Newspaper, ChevronDown } from "lucide-react";
 import NewsSlider from "../components/NewsSlider";
+import TopStatsWidget from "../components/TopStatsWidget";
 import MatchTicker from "../components/MatchTicker";
 import TeamOfTheWeekWidget from "../components/TeamOfTheWeekWidget";
 import AdSlot, { isAdActive } from "../components/AdSlot";
@@ -68,6 +69,8 @@ export default function HomePage({
   setSelectedTeamId,
   ads = [],
   onSelectTransfer,
+  stats,
+  setSelectedLeagueFilterOnStats,
 }: HomePageProps) {
   const [newsCategoryFilter, setNewsCategoryFilter] = useState("all");
   const [visibleNewsCount, setVisibleNewsCount] = useState(6);
@@ -76,6 +79,11 @@ export default function HomePage({
 
   const activeBanners = ads.filter((ad: AdItem) => ad.type === "banner" && isAdActive(ad));
   const activeSlots = ads.filter((ad: AdItem) => ad.type === "slot" && isAdActive(ad));
+
+  const handleShowAllStats = (leagueId: string) => {
+    setSelectedLeagueFilterOnStats(leagueId);
+    handleTabChangeSubmit("stats");
+  };
 
   const renderSlotGroup = (title: string, placement: string) => {
     const slots = activeSlots
@@ -139,6 +147,7 @@ export default function HomePage({
       <div className="grid gap-6 lg:grid-cols-12" id="home-dashboard-layout font-sans">
         <div className="lg:col-span-8 space-y-6">
           <NewsSlider news={news} transfers={transfers} heroSlides={heroSlides} legionnaires={legionnaires} onSelectNews={setActiveArticle} onSelectTransfer={onSelectTransfer} />
+          <TopStatsWidget stats={stats || {}} onShowAll={handleShowAllStats} />
           <MatchTicker matches={matches} onSelectMatch={setSelectedMatch} />
 
           <div className="space-y-4">

@@ -315,6 +315,7 @@ CREATE TABLE public.team_transfers_list (
   id varchar(50) NOT NULL,
   team_name text NOT NULL,
   team_logo text DEFAULT '',
+  league text DEFAULT 'pro-league',
   incomings jsonb DEFAULT '[]'::jsonb,
   outgoings jsonb DEFAULT '[]'::jsonb,
   probables jsonb DEFAULT '[]'::jsonb,

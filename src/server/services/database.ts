@@ -35,6 +35,7 @@ export async function migrateConstraints(): Promise<void> {
     await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS week varchar(50)`);
     await pool.query(`ALTER TABLE legionnaires ADD COLUMN IF NOT EXISTS summary text`);
     await pool.query(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS cover_image text`);
+    await pool.query(`ALTER TABLE team_transfers_list ADD COLUMN IF NOT EXISTS league text DEFAULT 'pro-league'`);
     await pool.query(`ALTER TABLE bracket_slots DROP CONSTRAINT IF EXISTS fk_bracket_slots_match`);
     constraintsMigrated = true;
     logMessage("info", "database", "مهاجرت محدودیت‌های CHECK و ستون view_count جدول images با موفقیت اعمال شد.");
@@ -537,6 +538,7 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
         id: t.id,
         teamName: t.team_name,
         teamLogo: t.team_logo,
+        league: t.league || "pro-league",
         incomings: Array.isArray(t.incomings) ? t.incomings : [],
         outgoings: Array.isArray(t.outgoings) ? t.outgoings : [],
         probables: Array.isArray(t.probables) ? t.probables : []
@@ -883,6 +885,7 @@ export async function saveDB(): Promise<void> {
         id: t.id,
         team_name: t.teamName,
         team_logo: t.teamLogo,
+        league: t.league || "pro-league",
         incomings: t.incomings || [],
         outgoings: t.outgoings || [],
         probables: t.probables || []

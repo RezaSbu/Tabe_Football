@@ -304,10 +304,13 @@ export interface CoachItem {
   }[];
 }
 
+export type TeamTransferLeague = "pro-league" | "league-1" | "league-2";
+
 export interface TeamTransferItem {
   id: string;
   teamName: string;
   teamLogo?: string;
+  league?: TeamTransferLeague;
   incomings: TeamTransferPlayer[];
   outgoings: TeamTransferPlayer[];
   probables: TeamTransferPlayer[];
