@@ -377,6 +377,7 @@ export function registerMiscRoutes(app: Express) {
       incomings: [],
       outgoings: [],
       probables: [],
+      league: "pro-league",
       ...req.body,
       id: `team-tr-${Date.now()}`
     };
