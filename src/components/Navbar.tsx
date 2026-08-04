@@ -23,7 +23,7 @@ const TAB_TO_PATH: Record<string, string> = {
   "hazfi-cup": "/hazfi-cup",
   "futsal": "/futsal",
   "transfers": "/transfers",
-  "legionnaires": "/legionnaires",
+  // "legionnaires": "/legionnaires",   // [غیرفعال] بخش لژیونرها از منو حذف شده؛ برای بازگردانی فعالش کنید
   "stats": "/stats",
   "live-scores": "/live-scores",
   "images": "/gallery",
@@ -50,7 +50,7 @@ export default function Navbar({
     { id: "hazfi-cup", label: "جام حذفی", icon: Trophy },
     { id: "futsal", label: "فوتسال", icon: Trophy },
     { id: "transfers", label: "نقل و انتقالات", icon: Shuffle },
-    { id: "legionnaires", label: "لژیونرها", icon: Users },
+    // { id: "legionnaires", label: "لژیونرها", icon: Users },   // [غیرفعال] بخش لژیونرها حذف شده؛ برای بازگردانی فعالش کنید
     { id: "stats", label: "آمار بازیکنان", icon: BarChart3 },
     { id: "live-scores", label: "نتایج زنده", icon: Activity },
     { id: "images", label: "گالری", icon: ImageIcon },

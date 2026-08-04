@@ -14,7 +14,13 @@ interface NewsSliderProps {
 
 export default function NewsSlider({ news, transfers = [], heroSlides = [], legionnaires = [], onSelectNews, onSelectTransfer }: NewsSliderProps) {
   // Use admin-configured hero slides if available, otherwise fall back to auto-selection
-  const activeSlides = heroSlides.filter((s) => s.active).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  // [غیرفعال‌سازی موقت اسلایدهای لژیونر و نقل‌وانتقال بازیکن‌محور]
+  // برای بازگردانی، فیلتر دوم (sourceType) را حذف کنید و به نسخه اصلی زیر برگردید:
+  // const activeSlides = heroSlides.filter((s) => s.active).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  const activeSlides = heroSlides
+    .filter((s) => s.active)
+    .filter((s) => s.sourceType !== "transfer" && s.sourceType !== "legionnaire")
+    .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
 
   const useHeroSlides = activeSlides.length > 0;
 
@@ -51,23 +57,31 @@ export default function NewsSlider({ news, transfers = [], heroSlides = [], legi
     });
   } else {
     // Original auto-pick logic (fallback when no hero slides configured)
-    const convertedTransfers: NewsItem[] = transfers.map((t) => ({
-      id: `transfer-slide-${t.id}`,
-      title: `انتقال بمب: ${t.playerName} رسماً به ${t.toTeam} پیوست`,
-      summary: `توافق نهایی بازیکن در پست ${t.position || "تخصصی"} با قرارداد ${t.type || "دائمی"}. باشگاه مبدأ: ${t.fromTeam} | ارزش انتقال: ${t.fee || "توافقی"}`,
-      content: t.details || `جزییات کامل انتقال ${t.playerName} به تیم ${t.toTeam}: این ترانسفر با تلاش‌های فشرده کادر مدیریتی نهایی شده است.`,
-      image: t.image || "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=300",
-      category: "transfers",
-      createdAt: t.date ? `${t.date}T12:00:00.000Z` : new Date().toISOString(),
-      viewCount: 2240,
-      tags: ["نقل و انتقالات"],
-      _originalTransferId: t.id,
-    } as any));
+    // ==========================================================================
+    // [غیرفعال‌سازی موقت اسلایدهای لژیونر و نقل‌وانتقال بازیکن‌محور]
+    // برای بازگردانی، دو خط زیر را از کامنت خارج و خط combined جدید را حذف کنید:
+    // const convertedTransfers: NewsItem[] = transfers.map((t) => ({
+    //   id: `transfer-slide-${t.id}`,
+    //   title: `انتقال بمب: ${t.playerName} رسماً به ${t.toTeam} پیوست`,
+    //   summary: `توافق نهایی بازیکن در پست ${t.position || "تخصصی"} با قرارداد ${t.type || "دائمی"}. باشگاه مبدأ: ${t.fromTeam} | ارزش انتقال: ${t.fee || "توافقی"}`,
+    //   content: t.details || `جزییات کامل انتقال ${t.playerName} به تیم ${t.toTeam}: این ترانسفر با تلاش‌های فشرده کادر مدیریتی نهایی شده است.`,
+    //   image: t.image || "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=300",
+    //   category: "transfers",
+    //   createdAt: t.date ? `${t.date}T12:00:00.000Z` : new Date().toISOString(),
+    //   viewCount: 2240,
+    //   tags: ["نقل و انتقالات"],
+    //   _originalTransferId: t.id,
+    // } as any));
 
-    const combined = [...(news || []), ...convertedTransfers];
+    // const combined = [...(news || []), ...convertedTransfers];
+    const combined = [...(news || [])].filter(
+      (n) => n.category !== "transfers" && n.category !== "legionnaires"
+    );
+    // ==========================================================================
     const sortedCombined = combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    const categoriesToPick = ["pro-league", "league-1", "league-2", "hazfi-cup", "legionnaires", "transfers"];
+    // const categoriesToPick = ["pro-league", "league-1", "league-2", "hazfi-cup", "legionnaires", "transfers"];
+    const categoriesToPick = ["pro-league", "league-1", "league-2", "hazfi-cup", "futsal"];
     const pickedCategories = new Set<string>();
 
     for (const item of sortedCombined) {

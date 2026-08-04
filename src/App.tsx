@@ -53,7 +53,7 @@ const PATH_TO_TAB: Record<string, string> = {
   "/hazfi-cup": "hazfi-cup",
   "/futsal": "futsal",
   "/transfers": "transfers",
-  "/legionnaires": "legionnaires",
+  // "/legionnaires": "legionnaires",   // [غیرفعال] صفحه لژیونرها حذف شده؛ برای بازگردانی فعالش کنید
   "/stats": "stats",
   "/live-scores": "live-scores",
   "/gallery": "images",
@@ -206,14 +206,18 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
           </>
         )}
 
-        {d.activeTab === "legionnaires" && (
+        {/* ==========================================================================
+            [غیرفعال‌سازی موقت صفحه لژیونرها]
+            برای بازگردانی، بلوک زیر را از کامنت خارج کنید.
+            ========================================================================== */}
+        {/* {d.activeTab === "legionnaires" && (
           <>
             <SEO title="لژیونرهای ایرانی" description="عملکرد و اخبار لژیونرهای ایرانی در لیگ‌های خارجی" url="/legionnaires" />
             <LegionnairesPage legionnaires={d.legionnaires} legionnairesSearch={d.legionnairesSearch}
               setLegionnairesSearch={d.setLegionnairesSearch}
               handleSelectLegionnaire={(leg: any) => navigate(`/legionnaire/${leg.id}`)} getSafeImageUrl={getSafeImageUrl} />
           </>
-        )}
+        )} */}
 
         {d.activeTab === "transfers" && (
           <>
@@ -358,12 +362,16 @@ export default function App() {
           <Route path="/coach/:id" element={
             <Suspense fallback={loadingFallback}><CoachDetailPage /></Suspense>
           } />
+          {/* [غیرفعال] روت جزئیات لژیونر — برای بازگردانی از کامنت خارج کنید
           <Route path="/legionnaire/:id" element={
             <Suspense fallback={loadingFallback}><LegionnaireDetailPage /></Suspense>
           } />
+          */}
+          {/* [غیرفعال] روت جزئیات نقل‌وانتقال بازیکن‌محور — برای بازگردانی از کامنت خارج کنید
           <Route path="/transfer/:id" element={
             <Suspense fallback={loadingFallback}><TransferDetailPage /></Suspense>
           } />
+          */}
           <Route path="*" element={<TabContent d={d} triggerMockGoalNotification={triggerMockGoalNotification} />} />
         </Routes>
       </main>
