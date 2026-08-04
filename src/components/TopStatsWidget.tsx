@@ -11,8 +11,8 @@ const LEAGUES = [
   { id: "pro-league", label: "لیگ برتر" },
   { id: "league-1", label: "لیگ یک" },
   { id: "league-2", label: "لیگ دو" },
-  { id: "futsal", label: "فوتسال" },
   { id: "hazfi-cup", label: "جام حذفی" },
+  { id: "futsal", label: "فوتسال" },
 ];
 
 const TOP_N = 5;
