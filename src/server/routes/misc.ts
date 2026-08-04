@@ -3,7 +3,15 @@ import bcrypt from "bcrypt";
 import { loadDB, snapshotDB, restoreDB } from "../state";
 import { logMessage } from "../utils/logger";
 import { saveDB } from "../services/database";
-import { generateToken, verifyToken, ADMIN_PASSWORD_HASH, ADMIN_USERNAME_VALUE, JWT_EXPIRES_IN } from "../middleware/auth";
+import {
+  generateToken,
+  verifyToken,
+  JWT_EXPIRES_IN,
+  findAdminUser,
+  getRolePermissions,
+  getRoleLabel,
+  requirePermission
+} from "../middleware/auth";
 
 export function registerMiscRoutes(app: Express) {
   app.post("/api/contact", async (req, res) => {
@@ -26,7 +34,7 @@ export function registerMiscRoutes(app: Express) {
     res.json({ success: true, message: "پیام شما با موفقیت دریافت و همگام‌سازی شد." });
   });
 
-  app.delete("/api/submissions/:id", async (req, res) => {
+  app.delete("/api/submissions/:id", requirePermission("portal.submissions"), async (req, res) => {
     const { id } = req.params;
     logMessage("info", "api", `درخواست حذف پیام تماس به شناسه: ${id}`);
     const currentDB = loadDB();
@@ -40,7 +48,7 @@ export function registerMiscRoutes(app: Express) {
     }
   });
 
-  app.put("/api/submissions/:id/read", async (req, res) => {
+  app.put("/api/submissions/:id/read", requirePermission("portal.submissions"), async (req, res) => {
     const { id } = req.params;
     const { isRead } = req.body;
     logMessage("info", "api", `تغییر وضعیت پیگیری پیام به خوانده شده: ${isRead}`);
@@ -170,7 +178,7 @@ export function registerMiscRoutes(app: Express) {
     res.json(currentDB.ads || []);
   });
 
-  app.post("/api/ads", async (req, res) => {
+  app.post("/api/ads", requirePermission("portal.ads"), async (req, res) => {
     const currentDB = loadDB();
     if (!currentDB.ads) currentDB.ads = [];
     const item = {
@@ -200,7 +208,7 @@ export function registerMiscRoutes(app: Express) {
     res.json({ success: true, item });
   });
 
-  app.put("/api/ads/:id", async (req, res) => {
+  app.put("/api/ads/:id", requirePermission("portal.ads"), async (req, res) => {
     const currentDB = loadDB();
     if (!currentDB.ads) currentDB.ads = [];
     const index = currentDB.ads.findIndex((a: any) => String(a.id) === String(req.params.id));
@@ -213,7 +221,7 @@ export function registerMiscRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/ads/:id", async (req, res) => {
+  app.delete("/api/ads/:id", requirePermission("portal.ads"), async (req, res) => {
     const currentDB = loadDB();
     if (!currentDB.ads) currentDB.ads = [];
     const originalLength = currentDB.ads.length;
@@ -249,14 +257,15 @@ export function registerMiscRoutes(app: Express) {
     if (!username || !password) {
       return res.status(400).json({ success: false, message: "نام کاربری و رمز عبور الزامی است." });
     }
-    if (username !== ADMIN_USERNAME_VALUE) {
+    const user = findAdminUser(username);
+    if (!user) {
       return res.status(401).json({ success: false, message: "نام کاربری یا رمز عبور اشتباه است." });
     }
-    const valid = await bcrypt.compare(password, ADMIN_PASSWORD_HASH);
+    const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
       return res.status(401).json({ success: false, message: "نام کاربری یا رمز عبور اشتباه است." });
     }
-    const token = generateToken({ username: ADMIN_USERNAME_VALUE, role: "admin" });
+    const token = generateToken({ username: user.username, role: user.role });
     res.cookie("token", token, {
       httpOnly: true,
       secure: req.protocol === "https",
@@ -264,7 +273,14 @@ export function registerMiscRoutes(app: Express) {
       maxAge: JWT_EXPIRES_IN * 1000,
       path: "/"
     });
-    res.json({ success: true, token });
+    res.json({
+      success: true,
+      token,
+      username: user.username,
+      role: user.role,
+      label: user.label,
+      permissions: getRolePermissions(user.role)
+    });
   });
 
   app.post("/api/auth/logout", async (_req, res) => {
@@ -278,10 +294,20 @@ export function registerMiscRoutes(app: Express) {
       return res.json({ authenticated: false });
     }
     const decoded = verifyToken(token);
-    res.json({ authenticated: !!decoded });
+    if (!decoded) {
+      return res.json({ authenticated: false });
+    }
+    const role = decoded.role as any;
+    res.json({
+      authenticated: true,
+      username: decoded.username,
+      role,
+      label: getRoleLabel(role),
+      permissions: getRolePermissions(role)
+    });
   });
 
-  app.post("/api/news", async (req, res) => {
+  app.post("/api/news", requirePermission("portal.news"), async (req, res) => {
     const currentDB = loadDB();
     const item = {
       ...req.body,
@@ -294,7 +320,7 @@ export function registerMiscRoutes(app: Express) {
     res.json({ success: true });
   });
 
-  app.put("/api/news/:id", async (req, res) => {
+  app.put("/api/news/:id", requirePermission("portal.news"), async (req, res) => {
     const currentDB = loadDB();
     const index = currentDB.news.findIndex((n: any) => n.id === req.params.id);
     if (index !== -1) {
@@ -306,14 +332,14 @@ export function registerMiscRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/news/:id", async (req, res) => {
+  app.delete("/api/news/:id", requirePermission("portal.news"), async (req, res) => {
     const currentDB = loadDB();
     currentDB.news = currentDB.news.filter((n: any) => n.id !== req.params.id);
     await saveDB();
     res.json({ success: true });
   });
 
-  app.post("/api/transfers", async (req, res) => {
+  app.post("/api/transfers", requirePermission("portal.transfers"), async (req, res) => {
     const currentDB = loadDB();
     const item = {
       ...req.body,
@@ -325,7 +351,7 @@ export function registerMiscRoutes(app: Express) {
     res.json({ success: true });
   });
 
-  app.put("/api/transfers/:id", async (req, res) => {
+  app.put("/api/transfers/:id", requirePermission("portal.transfers"), async (req, res) => {
     const currentDB = loadDB();
     const index = currentDB.transfers.findIndex((t: any) => t.id === req.params.id);
     if (index !== -1) {
@@ -337,14 +363,14 @@ export function registerMiscRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/transfers/:id", async (req, res) => {
+  app.delete("/api/transfers/:id", requirePermission("portal.transfers"), async (req, res) => {
     const currentDB = loadDB();
     currentDB.transfers = currentDB.transfers.filter((t: any) => t.id !== req.params.id);
     await saveDB();
     res.json({ success: true });
   });
 
-  app.post("/api/team-transfers", async (req, res) => {
+  app.post("/api/team-transfers", requirePermission("portal.teamTransfers"), async (req, res) => {
     const currentDB = loadDB();
     if (!currentDB.teamTransfersList) currentDB.teamTransfersList = [];
     const item = {
@@ -359,7 +385,7 @@ export function registerMiscRoutes(app: Express) {
     res.json({ success: true });
   });
 
-  app.put("/api/team-transfers/:id", async (req, res) => {
+  app.put("/api/team-transfers/:id", requirePermission("portal.teamTransfers"), async (req, res) => {
     const currentDB = loadDB();
     if (!currentDB.teamTransfersList) currentDB.teamTransfersList = [];
     const index = currentDB.teamTransfersList.findIndex((t: any) => t.id === req.params.id);
@@ -372,7 +398,7 @@ export function registerMiscRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/team-transfers/:id", async (req, res) => {
+  app.delete("/api/team-transfers/:id", requirePermission("portal.teamTransfers"), async (req, res) => {
     const currentDB = loadDB();
     if (!currentDB.teamTransfersList) currentDB.teamTransfersList = [];
     currentDB.teamTransfersList = currentDB.teamTransfersList.filter((t: any) => t.id !== req.params.id);
@@ -380,7 +406,7 @@ export function registerMiscRoutes(app: Express) {
     res.json({ success: true });
   });
 
-  app.post("/api/images", async (req, res) => {
+  app.post("/api/images", requirePermission("portal.gallery"), async (req, res) => {
     const currentDB = loadDB();
     const item = {
       ...req.body,
@@ -391,7 +417,7 @@ export function registerMiscRoutes(app: Express) {
     res.json({ success: true });
   });
 
-  app.put("/api/images/:id", async (req, res) => {
+  app.put("/api/images/:id", requirePermission("portal.gallery"), async (req, res) => {
     const currentDB = loadDB();
     const index = currentDB.images.findIndex((i: any) => i.id === req.params.id);
     if (index !== -1) {
@@ -403,14 +429,14 @@ export function registerMiscRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/images/:id", async (req, res) => {
+  app.delete("/api/images/:id", requirePermission("portal.gallery"), async (req, res) => {
     const currentDB = loadDB();
     currentDB.images = currentDB.images.filter((i: any) => i.id !== req.params.id);
     await saveDB();
     res.json({ success: true });
   });
 
-  app.post("/api/legionnaires", async (req, res) => {
+  app.post("/api/legionnaires", requirePermission("portal.legionnaires"), async (req, res) => {
     const snapshot = snapshotDB();
     const currentDB = loadDB();
     const item = {
@@ -428,7 +454,7 @@ export function registerMiscRoutes(app: Express) {
     }
   });
 
-  app.put("/api/legionnaires/:id", async (req, res) => {
+  app.put("/api/legionnaires/:id", requirePermission("portal.legionnaires"), async (req, res) => {
     const snapshot = snapshotDB();
     const currentDB = loadDB();
     const index = currentDB.legionnaires.findIndex((l: any) => l.id === req.params.id);
@@ -446,14 +472,14 @@ export function registerMiscRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/legionnaires/:id", async (req, res) => {
+  app.delete("/api/legionnaires/:id", requirePermission("portal.legionnaires"), async (req, res) => {
     const currentDB = loadDB();
     currentDB.legionnaires = currentDB.legionnaires.filter((l: any) => l.id !== req.params.id);
     await saveDB();
     res.json({ success: true });
   });
 
-  app.post("/api/selected-combinations", async (req, res) => {
+  app.post("/api/selected-combinations", requirePermission("selectedCombos"), async (req, res) => {
     const currentDB = loadDB();
     if (!currentDB.selectedCombinations) {
       currentDB.selectedCombinations = [];
@@ -467,7 +493,7 @@ export function registerMiscRoutes(app: Express) {
     res.json({ success: true, item });
   });
 
-  app.put("/api/selected-combinations/:id", async (req, res) => {
+  app.put("/api/selected-combinations/:id", requirePermission("selectedCombos"), async (req, res) => {
     const currentDB = loadDB();
     if (!currentDB.selectedCombinations) {
       currentDB.selectedCombinations = [];
@@ -482,7 +508,7 @@ export function registerMiscRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/selected-combinations/:id", async (req, res) => {
+  app.delete("/api/selected-combinations/:id", requirePermission("selectedCombos"), async (req, res) => {
     const currentDB = loadDB();
     if (!currentDB.selectedCombinations) {
       currentDB.selectedCombinations = [];
@@ -497,7 +523,7 @@ export function registerMiscRoutes(app: Express) {
     res.json(currentDB.heroSlides || []);
   });
 
-  app.post("/api/hero-slides", async (req, res) => {
+  app.post("/api/hero-slides", requirePermission("heroSlides"), async (req, res) => {
     const currentDB = loadDB();
     if (!currentDB.heroSlides) currentDB.heroSlides = [];
     const item = {
@@ -509,7 +535,7 @@ export function registerMiscRoutes(app: Express) {
     res.json({ success: true, item });
   });
 
-  app.put("/api/hero-slides/:id", async (req, res) => {
+  app.put("/api/hero-slides/:id", requirePermission("heroSlides"), async (req, res) => {
     const currentDB = loadDB();
     if (!currentDB.heroSlides) currentDB.heroSlides = [];
     const index = currentDB.heroSlides.findIndex((s: any) => s.id === req.params.id);
@@ -522,7 +548,7 @@ export function registerMiscRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/hero-slides/:id", async (req, res) => {
+  app.delete("/api/hero-slides/:id", requirePermission("heroSlides"), async (req, res) => {
     const currentDB = loadDB();
     if (!currentDB.heroSlides) currentDB.heroSlides = [];
     currentDB.heroSlides = currentDB.heroSlides.filter((s: any) => s.id !== req.params.id);

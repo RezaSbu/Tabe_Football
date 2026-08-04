@@ -60,6 +60,7 @@ export function useAppData() {
   const [isLoading, setIsLoading] = useState(true);
   const [activeArticle, setActiveArticle] = useState<NewsItem | null>(null);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  const [adminUser, setAdminUser] = useState<{ username: string; role: string; label: string; permissions: string[] } | null>(null);
   const [isScraping, setIsScraping] = useState(false);
   const [selectedLeagueFilterOnStats, setSelectedLeagueFilterOnStats] = useState("pro-league");
   const [currentSeason, setCurrentSeason] = useState<string>("1404");
@@ -217,7 +218,15 @@ export function useAppData() {
         const res = await fetch("/api/auth/check", { credentials: "same-origin" });
         if (res.ok) {
           const data = await res.json();
-          if (data.authenticated) setIsAdminLoggedIn(true);
+          if (data.authenticated) {
+            setIsAdminLoggedIn(true);
+            setAdminUser({
+              username: data.username || "",
+              role: data.role || "",
+              label: data.label || "",
+              permissions: data.permissions || []
+            });
+          }
         }
       } catch {
         // Not logged in
@@ -352,8 +361,9 @@ export function useAppData() {
     return false;
   };
 
-  const handleAdminLogin = () => {
+  const handleAdminLogin = (user: { username: string; role: string; label: string; permissions: string[] }) => {
     setIsAdminLoggedIn(true);
+    setAdminUser(user);
   };
 
   const handleAdminLogout = async () => {
@@ -363,6 +373,7 @@ export function useAppData() {
       // Ignore
     }
     setIsAdminLoggedIn(false);
+    setAdminUser(null);
   };
 
   const handleTriggerScrape = async () => {
@@ -528,6 +539,7 @@ export function useAppData() {
     weeklyPoll, popularTeams, historicalData, featureGames,
     isLoading, activeArticle, setActiveArticle,
     isAdminLoggedIn, setIsAdminLoggedIn,
+    adminUser, setAdminUser,
     isScraping, setIsScraping,
     selectedLeagueFilterOnStats, setSelectedLeagueFilterOnStats,
     currentSeason, setCurrentSeason,

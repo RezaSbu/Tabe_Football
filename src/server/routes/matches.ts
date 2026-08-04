@@ -3,16 +3,17 @@ import { db as pgDb } from "../db";
 import { loadDB } from "../state";
 import { logMessage } from "../utils/logger";
 import { saveDB, updateMatchInDb } from "../services/database";
+import { requirePermission } from "../middleware/auth";
 
 export function registerMatchRoutes(app: Express) {
-  app.put("/api/bracket", async (req, res) => {
+  app.put("/api/bracket", requirePermission("bracket"), async (req, res) => {
     const currentDB = loadDB();
     currentDB.bracket = req.body;
     await saveDB();
     res.json({ success: true });
   });
 
-  app.post("/api/sports-game", async (req, res) => {
+  app.post("/api/sports-game", requirePermission("matches"), async (req, res) => {
     const { sport, stage, matchData } = req.body;
     if (!sport || !stage || !matchData) {
       return res.status(400).json({ success: false, message: "اطلاعات ارسالی ناقص است." });
@@ -60,7 +61,7 @@ export function registerMatchRoutes(app: Express) {
     res.json({ success: true, match: item });
   });
 
-  app.put("/api/sports-game/:id", async (req, res) => {
+  app.put("/api/sports-game/:id", requirePermission("matches"), async (req, res) => {
     const { id } = req.params;
     const currentDB = loadDB();
     const success = updateMatchInDb(id, req.body);
@@ -73,7 +74,7 @@ export function registerMatchRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/sports-game/:sport/:stage/:id", async (req, res) => {
+  app.delete("/api/sports-game/:sport/:stage/:id", requirePermission("matches"), async (req, res) => {
     const { sport, stage, id } = req.params;
     const currentDB = loadDB();
     
@@ -105,7 +106,7 @@ export function registerMatchRoutes(app: Express) {
     res.json({ success: true });
   });
 
-  app.post("/api/matches", async (req, res) => {
+  app.post("/api/matches", requirePermission("matches"), async (req, res) => {
     const currentDB = loadDB();
     const isFutsal = req.body.league === "futsal" || req.body.sport === "futsal";
     const sport = isFutsal ? "futsal" : "football";
@@ -123,7 +124,7 @@ export function registerMatchRoutes(app: Express) {
     res.json({ success: true });
   });
 
-  app.put("/api/matches/:id", async (req, res) => {
+  app.put("/api/matches/:id", requirePermission("matches"), async (req, res) => {
     const { id } = req.params;
     const currentDB = loadDB();
     const success = updateMatchInDb(id, req.body);
@@ -135,7 +136,7 @@ export function registerMatchRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/matches/:id", async (req, res) => {
+  app.delete("/api/matches/:id", requirePermission("matches"), async (req, res) => {
     const { id } = req.params;
     const currentDB = loadDB();
     

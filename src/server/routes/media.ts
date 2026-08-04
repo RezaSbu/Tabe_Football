@@ -4,6 +4,7 @@ import { db as pgDb } from "../db";
 import { loadDB } from "../state";
 import { logMessage } from "../utils/logger";
 import { saveDB } from "../services/database";
+import { requirePermission } from "../middleware/auth";
 
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"];
 
@@ -98,7 +99,7 @@ export function registerMediaRoutes(app: Express) {
     }
   });
 
-  app.post("/api/media/upload", async (req, res) => {
+  app.post("/api/media/upload", requirePermission("media"), async (req, res) => {
     try {
       const { title, fileName, fileData, category } = req.body;
       if (!fileName || !fileData) {
@@ -167,7 +168,7 @@ export function registerMediaRoutes(app: Express) {
     }
   });
 
-  app.put("/api/media/:id", async (req, res) => {
+  app.put("/api/media/:id", requirePermission("media"), async (req, res) => {
     try {
       const { id } = req.params;
       const { title, category } = req.body;
@@ -194,7 +195,7 @@ export function registerMediaRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/media/:id", async (req, res) => {
+  app.delete("/api/media/:id", requirePermission("media"), async (req, res) => {
     try {
       const { id } = req.params;
       const currentDB = loadDB();
@@ -225,7 +226,7 @@ export function registerMediaRoutes(app: Express) {
     }
   });
 
-  app.post("/api/media/replace/:id", async (req, res) => {
+  app.post("/api/media/replace/:id", requirePermission("media"), async (req, res) => {
     try {
       const { id } = req.params;
       const { fileData, fileName } = req.body;
@@ -288,7 +289,7 @@ export function registerMediaRoutes(app: Express) {
     }
   });
 
-  app.post("/api/media/migrate", async (req, res) => {
+  app.post("/api/media/migrate", requirePermission("media"), async (req, res) => {
     try {
       const currentDB = loadDB();
       if (!currentDB.media_files) currentDB.media_files = [];

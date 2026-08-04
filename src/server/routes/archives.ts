@@ -4,6 +4,7 @@ import { logMessage } from "../utils/logger";
 import { normalizePersianString } from "../utils/persian";
 import { saveDB } from "../services/database";
 import { recalculateAndSyncDatabase } from "../services/stats";
+import { requirePermission } from "../middleware/auth";
 
 function getTeamLeague(teams: any[], teamId: string, teamName?: string): string {
   const teamObj = teams.find((t: any) =>
@@ -38,7 +39,7 @@ export function registerArchiveRoutes(app: Express) {
     res.json({ status: "ok", archives: currentDB.archives || [] });
   });
 
-  app.post("/api/current-season", async (req: Request, res: Response) => {
+  app.post("/api/current-season", requirePermission("archive"), async (req: Request, res: Response) => {
     const { currentSeason } = req.body;
     if (!currentSeason || !String(currentSeason).trim()) {
       return res.status(400).json({ error: "تگ فصل جاری الزامی است." });
@@ -58,7 +59,7 @@ export function registerArchiveRoutes(app: Express) {
     }
   });
 
-  app.post("/api/archives", async (req: Request, res: Response) => {
+  app.post("/api/archives", requirePermission("archive"), async (req: Request, res: Response) => {
     const { type, season_tag, new_current_season } = req.body;
     if (!type || !season_tag) {
       return res.status(400).json({ error: "نوع آرشیو و تگ فصل الزامی می‌باشند." });
@@ -645,7 +646,7 @@ export function registerArchiveRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/archives/:id", async (req: Request, res: Response) => {
+  app.delete("/api/archives/:id", requirePermission("archive"), async (req: Request, res: Response) => {
     const { id } = req.params;
     logMessage("info", "api", `درخواست حذف آرشیو با شناسه: ${id}`);
 

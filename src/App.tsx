@@ -257,6 +257,7 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
               onUpdateStats={d.handleUpdateStats} onSaveAds={d.setAds}
               onCentralSync={d.handleCentralSync} onLogout={d.handleAdminLogout}
               isAdminLoggedIn={d.isAdminLoggedIn} onLogin={d.handleAdminLogin}
+              adminUser={d.adminUser}
               onRefreshData={d.fetchData} />
           </div>
         )}
@@ -320,6 +321,7 @@ export default function App() {
             onUpdateStandings={d.handleUpdateStandings} onUpdateStats={d.handleUpdateStats}
             onSaveAds={d.setAds} onCentralSync={d.handleCentralSync}
             isAdminLoggedIn={d.isAdminLoggedIn} onLogin={d.handleAdminLogin}
+            adminUser={d.adminUser}
             onRefreshData={d.fetchData} onLogout={d.handleAdminLogout} />
         </div>
       </div>
