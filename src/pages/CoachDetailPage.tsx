@@ -67,10 +67,10 @@ export default function CoachDetailPage() {
       <Helmet>
         <title>{coach.name} | تب فوتبال</title>
         <meta name="description" content={`پروفایل مربی ${coach.name}`} />
-        <link rel="canonical" href={`https://tabefootball.com/coach/${id}`} />
+        <link rel="canonical" href={`https://tabefotbal.ir/coach/${id}`} />
         <meta property="og:type" content="profile" />
         <meta property="og:title" content={coach.name} />
-        <meta property="og:url" content={`https://tabefootball.com/coach/${id}`} />
+        <meta property="og:url" content={`https://tabefotbal.ir/coach/${id}`} />
         <script type="application/ld+json">
           {JSON.stringify({
             "@context": "https://schema.org",

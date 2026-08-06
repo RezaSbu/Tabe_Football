@@ -1,67 +1,67 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://tabefootball.com/</loc>
+    <loc>https://tabefotbal.ir/</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>https://tabefootball.com/news</loc>
+    <loc>https://tabefotbal.ir/news</loc>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://tabefootball.com/live-scores</loc>
+    <loc>https://tabefotbal.ir/live-scores</loc>
     <changefreq>always</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://tabefootball.com/pro-league</loc>
+    <loc>https://tabefotbal.ir/pro-league</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://tabefootball.com/league-1</loc>
+    <loc>https://tabefotbal.ir/league-1</loc>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://tabefootball.com/league-2</loc>
+    <loc>https://tabefotbal.ir/league-2</loc>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://tabefootball.com/hazfi-cup</loc>
+    <loc>https://tabefotbal.ir/hazfi-cup</loc>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://tabefootball.com/futsal</loc>
+    <loc>https://tabefotbal.ir/futsal</loc>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://tabefootball.com/stats</loc>
+    <loc>https://tabefotbal.ir/stats</loc>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://tabefootball.com/transfers</loc>
+    <loc>https://tabefotbal.ir/transfers</loc>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://tabefootball.com/legionnaires</loc>
+    <loc>https://tabefotbal.ir/legionnaires</loc>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://tabefootball.com/gallery</loc>
+    <loc>https://tabefotbal.ir/gallery</loc>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://tabefootball.com/predictions</loc>
+    <loc>https://tabefotbal.ir/predictions</loc>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
   </url>

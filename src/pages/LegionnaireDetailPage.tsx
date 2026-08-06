@@ -42,12 +42,12 @@ export default function LegionnaireDetailPage() {
       <Helmet>
         <title>{legionnaire.name} | لژیونر | تب فوتبال</title>
         <meta name="description" content={`عملکرد ${legionnaire.name} لژیونر ایرانی در ${legionnaire.league || ""} - ${legionnaire.team || ""}`} />
-        <link rel="canonical" href={`https://tabefootball.com/legionnaire/${id}`} />
+        <link rel="canonical" href={`https://tabefotbal.ir/legionnaire/${id}`} />
         <meta property="og:type" content="profile" />
         <meta property="og:title" content={`${legionnaire.name} | لژیونر`} />
         <meta property="og:description" content={`${legionnaire.team || ""} - ${legionnaire.league || ""}`} />
         {legionnaire.image && <meta property="og:image" content={imgSrc} />}
-        <meta property="og:url" content={`https://tabefootball.com/legionnaire/${id}`} />
+        <meta property="og:url" content={`https://tabefotbal.ir/legionnaire/${id}`} />
         <script type="application/ld+json">
           {JSON.stringify({ "@context": "https://schema.org", "@type": "Person", "name": legionnaire.name, "jobTitle": `فوتبالیست لژیونر - ${legionnaire.team || ""}`, "image": imgSrc })}
         </script>

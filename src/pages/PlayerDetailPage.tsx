@@ -75,12 +75,12 @@ export default function PlayerDetailPage() {
       <Helmet>
         <title>{player.name} | تب فوتبال</title>
         <meta name="description" content={`پروفایل ${player.name} - بازیکن ${player.teamName || ""} - آمار و عملکرد`} />
-        <link rel="canonical" href={`https://tabefootball.com/player/${id}`} />
+        <link rel="canonical" href={`https://tabefotbal.ir/player/${id}`} />
         <meta property="og:type" content="profile" />
         <meta property="og:title" content={player.name} />
         <meta property="og:description" content={`پروفایل ${player.name} - ${player.teamName || ""}`} />
         {player.image && <meta property="og:image" content={getSafeImageUrl(player.image)} />}
-        <meta property="og:url" content={`https://tabefootball.com/player/${id}`} />
+        <meta property="og:url" content={`https://tabefotbal.ir/player/${id}`} />
         <script type="application/ld+json">
           {JSON.stringify({
             "@context": "https://schema.org",
