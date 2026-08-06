@@ -232,7 +232,7 @@ export function requirePermission(permission: string) {
 }
 
 export function centralAuthGuard(req: express.Request, res: express.Response, next: express.NextFunction) {
-  if (req.method === "GET" || req.method === "OPTIONS") return next();
+  if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return next();
   const p = req.originalUrl.split("?")[0];
   const isPublic =
     p === "/api/auth/login" ||
