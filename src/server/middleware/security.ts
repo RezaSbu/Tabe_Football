@@ -2,17 +2,24 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import express from "express";
 
-const CORS_ORIGIN = process.env.CORS_ORIGIN || "";
+const CORS_ORIGINS = (process.env.CORS_ORIGIN || "")
+  .split(",")
+  .map((origin: string) => origin.trim())
+  .filter(Boolean);
 
-if (!CORS_ORIGIN) {
+if (CORS_ORIGINS.length === 0) {
   console.warn("[SECURITY] ⚠ CORS_ORIGIN تنظیم نشده است. CORS با محدودیت کار می‌کند.");
 }
 
 export function setupSecurityMiddleware(app: express.Application) {
   app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
   app.use((req, res, next) => {
-    if (CORS_ORIGIN) {
-      res.header("Access-Control-Allow-Origin", CORS_ORIGIN);
+    const origin = typeof req.headers.origin === "string" ? req.headers.origin : null;
+    if (origin && CORS_ORIGINS.includes(origin)) {
+      res.header("Access-Control-Allow-Origin", origin);
+      res.header("Vary", "Origin");
+    } else if (CORS_ORIGINS.length > 0) {
+      res.header("Access-Control-Allow-Origin", CORS_ORIGINS[0]);
     } else {
       res.header("Access-Control-Allow-Origin", "null");
     }
