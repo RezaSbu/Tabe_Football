@@ -265,8 +265,17 @@ export default function AdminMediaFiles() {
     }
   };
 
-  const copyToClipboard = (id: string, text: string) => {
-    navigator.clipboard.writeText(text);
+  const copyToClipboard = (id: string, url: string) => {
+    let resolvedUrl = url;
+    if (
+      url &&
+      !url.startsWith("http://") &&
+      !url.startsWith("https://") &&
+      !url.startsWith("data:")
+    ) {
+      resolvedUrl = new URL(url, window.location.origin).href;
+    }
+    navigator.clipboard.writeText(resolvedUrl);
     setCopiedId(id);
     showToast("لینک یا آدرس تصویر با موفقیت در کلیپ‌بورد کپی شد.", "success");
     setTimeout(() => setCopiedId(null), 2000);

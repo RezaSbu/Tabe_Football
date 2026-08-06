@@ -41,6 +41,16 @@ interface TestDbResult {
     nodeVersion: string;
     platform: string;
   };
+  storage?: {
+    databaseSizeBytes: number;
+    uploadsSizeBytes: number;
+    uploadsDir: string;
+    disk: {
+      totalBytes: number;
+      usedBytes: number;
+      freeBytes: number;
+    } | null;
+  };
   tables?: Record<string, number>;
 }
 
@@ -54,6 +64,14 @@ export default function DiagnosticsPanel() {
   const [logCategory, setLogCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [autoRefresh, setAutoRefresh] = useState(true);
+
+  const formatBytes = (bytes: number) => {
+    if (!bytes || bytes <= 0) return "0";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB", "TB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
 
   const formatUptime = (seconds: number) => {
     const d = Math.floor(seconds / 86400);
@@ -339,6 +357,89 @@ export default function DiagnosticsPanel() {
             <span>تمامی داده‌ها از حافظه داخلی سرور (In-Memory Cache) خوانده می‌شوند و به‌صورت دوره‌ای با PostgreSQL همگام می‌گردند.</span>
           </div>
         </div>
+      </div>
+
+      {/* Storage & Database Size */}
+      <div className="p-5 rounded-2xl bg-[#18181c]/90 border border-white/5 space-y-4">
+        <h3 className="font-bold text-sm text-slate-200 border-b border-white/5 pb-2 flex items-center gap-2">
+          <HardDrive className="h-4 w-4 text-amber-400" />
+          <span>فضای ذخیره‌سازی و حجم دیتابیس</span>
+        </h3>
+
+        {dbStatus && dbStatus.storage ? (
+          <div className="grid gap-4 sm:grid-cols-3">
+            {/* VPS Disk Usage */}
+            <div className="bg-black/20 p-3.5 rounded-xl border border-white/5">
+              <span className="flex items-center gap-1.5 text-[11px] text-slate-400 font-bold mb-2">
+                <HardDrive className="h-3.5 w-3.5 text-amber-400" />
+                <span>دیسک سرور (VPS)</span>
+              </span>
+              {dbStatus.storage.disk ? (
+                <div className="space-y-2">
+                  <div className="flex justify-between font-mono text-[10px]">
+                    <span className="text-slate-400">کل:</span>
+                    <span className="text-slate-200">{formatBytes(dbStatus.storage.disk.totalBytes)}</span>
+                  </div>
+                  <div className="flex justify-between font-mono text-[10px]">
+                    <span className="text-slate-400">استفاده‌شده:</span>
+                    <span className="text-amber-400 font-bold">{formatBytes(dbStatus.storage.disk.usedBytes)}</span>
+                  </div>
+                  <div className="flex justify-between font-mono text-[10px]">
+                    <span className="text-slate-400">آزاد:</span>
+                    <span className="text-emerald-400 font-bold">{formatBytes(dbStatus.storage.disk.freeBytes)}</span>
+                  </div>
+                  <div className="h-2 bg-slate-800/60 rounded-full overflow-hidden mt-1">
+                    <div
+                      className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full transition-all"
+                      style={{
+                        width: `${Math.min(100, (dbStatus.storage.disk.usedBytes / Math.max(1, dbStatus.storage.disk.totalBytes)) * 100)}%`
+                      }}
+                    />
+                  </div>
+                  <div className="text-[9px] text-slate-500 font-mono">
+                    {Math.round((dbStatus.storage.disk.usedBytes / Math.max(1, dbStatus.storage.disk.totalBytes)) * 100)}٪ استفاده
+                  </div>
+                </div>
+              ) : (
+                <div className="text-xs text-slate-500 py-3">در دسترس نیست</div>
+              )}
+            </div>
+
+            {/* Uploads Folder Size */}
+            <div className="bg-black/20 p-3.5 rounded-xl border border-white/5">
+              <span className="flex items-center gap-1.5 text-[11px] text-slate-400 font-bold mb-2">
+                <Server className="h-3.5 w-3.5 text-cyan-400" />
+                <span>حجم تصاویر (پوشه uploads)</span>
+              </span>
+              <div className="space-y-2">
+                <div className="flex justify-between font-mono text-[10px]">
+                  <span className="text-slate-400">حجم کل:</span>
+                  <span className="text-cyan-400 font-black text-sm">{formatBytes(dbStatus.storage.uploadsSizeBytes)}</span>
+                </div>
+                <div className="text-[9px] text-slate-500 font-mono truncate" dir="ltr">{dbStatus.storage.uploadsDir}</div>
+              </div>
+            </div>
+
+            {/* Database Size */}
+            <div className="bg-black/20 p-3.5 rounded-xl border border-white/5">
+              <span className="flex items-center gap-1.5 text-[11px] text-slate-400 font-bold mb-2">
+                <Database className="h-3.5 w-3.5 text-emerald-400" />
+                <span>حجم دیتابیس PostgreSQL</span>
+              </span>
+              <div className="space-y-2">
+                <div className="flex justify-between font-mono text-[10px]">
+                  <span className="text-slate-400">حجم کل:</span>
+                  <span className="text-emerald-400 font-black text-sm">{formatBytes(dbStatus.storage.databaseSizeBytes)}</span>
+                </div>
+                <div className="text-[9px] text-slate-500">شامل جداول، ایندکس‌ها و داده‌های هر جدول</div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-24 text-xs text-slate-500">
+            {dbStatus?.connected ? "درحال دریافت حجم فضای ذخیره‌سازی..." : "جهت مشاهده حجم فضا، دیتابیس را متصل کنید."}
+          </div>
+        )}
       </div>
 
       {/* Log Terminal */}

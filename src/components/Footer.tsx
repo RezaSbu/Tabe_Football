@@ -96,11 +96,11 @@ export default function Footer({ setActiveTab }: FooterProps) {
             <ul className="space-y-2.5 text-[11px] text-slate-400">
               <li className="flex items-center gap-2">
                 <MapPin className="h-3.5 w-3.5 text-slate-500" />
-                <span>تهران، مجتمع رسانه‌ای ورزشی آزادی، طبقه چهارم</span>
+                <span>تهران، میدان شیخ بهایی، ساختمان اوستا، طبقه ۳</span>
               </li>
               <li className="flex items-center gap-2">
                 <Mail className="h-3.5 w-3.5 text-slate-500 pr-0.5" />
-                <span>info@tabefootball.com</span>
+                <span>Tabefotbal@gmail.com</span>
               </li>
               <li className="flex items-center gap-2">
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />

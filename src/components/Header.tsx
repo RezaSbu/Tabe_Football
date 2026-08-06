@@ -212,7 +212,7 @@ export default function Header({
 
         {/* Left: Channel link */}
         <a
-          href="https://t.me/tabefootball"
+          href="https://t.me/tabefotbal"
           target="_blank"
           rel="noopener noreferrer"
           className="hidden md:flex items-center gap-2 shrink-0 px-3 py-2 rounded-xl bg-sky-500/10 border border-sky-500/20 text-sky-400 hover:bg-sky-500/20 transition-all text-[11px] font-semibold"
