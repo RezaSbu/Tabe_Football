@@ -70,12 +70,12 @@ export default function NewsDetailPage() {
       <Helmet>
         <title>{article.title} | تب فوتبال</title>
         <meta name="description" content={article.summary || article.title} />
-        <link rel="canonical" href={`https://tabefootball.com/news/${id}`} />
+        <link rel="canonical" href={`https://tabefotbal.ir/news/${id}`} />
         <meta property="og:type" content="article" />
         <meta property="og:title" content={article.title} />
         <meta property="og:description" content={article.summary || article.title} />
         <meta property="og:image" content={getSafeImageUrl(article.image)} />
-        <meta property="og:url" content={`https://tabefootball.com/news/${id}`} />
+        <meta property="og:url" content={`https://tabefotbal.ir/news/${id}`} />
         <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={article.title} />
         <meta name="twitter:description" content={article.summary || article.title} />

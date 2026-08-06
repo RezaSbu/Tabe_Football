@@ -78,12 +78,12 @@ export default function TeamDetailPage() {
       <Helmet>
         <title>{team.name} | تب فوتبال</title>
         <meta name="description" content={`اطلاعات تیم ${team.name} - بازیکنان، نتایج و جدول رده‌بندی`} />
-        <link rel="canonical" href={`https://tabefootball.com/team/${id}`} />
+        <link rel="canonical" href={`https://tabefotbal.ir/team/${id}`} />
         <meta property="og:type" content="sports_team" />
         <meta property="og:title" content={team.name} />
         <meta property="og:description" content={`اطلاعات تیم ${team.name}`} />
         {team.logo && <meta property="og:image" content={getSafeImageUrl(team.logo)} />}
-        <meta property="og:url" content={`https://tabefootball.com/team/${id}`} />
+        <meta property="og:url" content={`https://tabefotbal.ir/team/${id}`} />
         <script type="application/ld+json">
           {JSON.stringify({
             "@context": "https://schema.org",

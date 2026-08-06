@@ -3,4 +3,4 @@ Allow: /
 Disallow: /api/
 Disallow: /admin
 
-Sitemap: https://tabefootball.com/sitemap.xml
+Sitemap: https://tabefotbal.ir/sitemap.xml

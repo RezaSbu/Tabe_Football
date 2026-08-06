@@ -44,12 +44,12 @@ export default function TransferDetailPage() {
       <Helmet>
         <title>{`انتقال ${transfer.playerName} | تب فوتبال`}</title>
         <meta name="description" content={`انتقال رسمی ${transfer.playerName} از ${transfer.fromTeam} به ${transfer.toTeam}`} />
-        <link rel="canonical" href={`https://tabefootball.com/transfer/${id}`} />
+        <link rel="canonical" href={`https://tabefotbal.ir/transfer/${id}`} />
         <meta property="og:type" content="article" />
         <meta property="og:title" content={`انتقال ${transfer.playerName} به ${transfer.toTeam}`} />
         <meta property="og:description" content={`${transfer.fromTeam} → ${transfer.toTeam}`} />
         {transfer.playerImage && <meta property="og:image" content={imgSrc} />}
-        <meta property="og:url" content={`https://tabefootball.com/transfer/${id}`} />
+        <meta property="og:url" content={`https://tabefotbal.ir/transfer/${id}`} />
         <script type="application/ld+json">
           {JSON.stringify({ "@context": "https://schema.org", "@type": "NewsArticle", "headline": `انتقال ${transfer.playerName} به ${transfer.toTeam}`, "description": `${transfer.fromTeam} → ${transfer.toTeam}` })}
         </script>

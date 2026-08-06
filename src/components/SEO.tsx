@@ -22,7 +22,7 @@ export default function SEO({
   structuredData,
 }: SEOProps) {
   const fullTitle = title ? `${title} | ${SITE_NAME}` : `${SITE_NAME} | پورتال جامع فوتبال ایران`;
-  const canonicalUrl = url ? `https://tabefootball.com${url}` : "https://tabefootball.com";
+  const canonicalUrl = url ? `https://tabefotbal.ir${url}` : "https://tabefotbal.ir";
 
   return (
     <Helmet>
@@ -33,7 +33,7 @@ export default function SEO({
       <meta property="og:type" content={type} />
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
-      <meta property="og:image" content={image.startsWith("http") ? image : `https://tabefootball.com${image}`} />
+      <meta property="og:image" content={image.startsWith("http") ? image : `https://tabefotbal.ir${image}`} />
       <meta property="og:url" content={canonicalUrl} />
       <meta property="og:site_name" content={SITE_NAME} />
       <meta property="og:locale" content="fa_IR" />
@@ -41,7 +41,7 @@ export default function SEO({
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={description} />
-      <meta name="twitter:image" content={image.startsWith("http") ? image : `https://tabefootball.com${image}`} />
+      <meta name="twitter:image" content={image.startsWith("http") ? image : `https://tabefotbal.ir${image}`} />
 
       {structuredData && (
         <script type="application/ld+json">

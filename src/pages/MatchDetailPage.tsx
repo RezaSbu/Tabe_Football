@@ -82,10 +82,10 @@ export default function MatchDetailPage() {
       <Helmet>
         <title>{title} | تب فوتبال</title>
         <meta name="description" content={`نتیجه مسابقه ${match.teamHome} مقابل ${match.teamAway} - ${match.date || ""}`} />
-        <link rel="canonical" href={`https://tabefootball.com/match/${id}`} />
+        <link rel="canonical" href={`https://tabefotbal.ir/match/${id}`} />
         <meta property="og:type" content="sports_event" />
         <meta property="og:title" content={title} />
-        <meta property="og:url" content={`https://tabefootball.com/match/${id}`} />
+        <meta property="og:url" content={`https://tabefotbal.ir/match/${id}`} />
         <script type="application/ld+json">
           {JSON.stringify({
             "@context": "https://schema.org",

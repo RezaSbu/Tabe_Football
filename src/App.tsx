@@ -123,11 +123,11 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
                 "@context": "https://schema.org",
                 "@type": "WebSite",
                 "name": "تب فوتبال",
-                "url": "https://tabefootball.com",
+                "url": "https://tabefotbal.ir",
                 "description": "پورتال جامع فوتبال ایران",
                 "potentialAction": {
                   "@type": "SearchAction",
-                  "target": "https://tabefootball.com/news?q={search_term_string}",
+                  "target": "https://tabefotbal.ir/news?q={search_term_string}",
                   "query-input": "required name=search_term_string"
                 }
               }}
