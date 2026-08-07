@@ -74,7 +74,7 @@ export default function HomePage({
   setSelectedLeagueFilterOnStats,
 }: HomePageProps) {
   const [newsCategoryFilter, setNewsCategoryFilter] = useState("all");
-  const [visibleNewsCount, setVisibleNewsCount] = useState(6);
+  const [visibleNewsCount, setVisibleNewsCount] = useState(10);
   const [newsSearch, setNewsSearch] = useState("");
   const [sidebarLeagueTab, setSidebarLeagueTab] = useState("pro-league");
 
@@ -155,7 +155,7 @@ export default function HomePage({
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-[#121215] p-4 rounded-2xl border border-white/5">
               <div className="flex items-center gap-2">
                 <Newspaper className="h-5 w-5 text-red-500" />
-                <h2 className="font-black text-lg text-white">آخرین خبرها و سناریوهای داغ</h2>
+                <h2 className="font-black text-lg text-white">آخرین خبرها</h2>
               </div>
 
               <div className="flex flex-wrap gap-1.5 w-full sm:w-auto">
