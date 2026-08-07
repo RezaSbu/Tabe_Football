@@ -92,7 +92,7 @@ export default function TopStatsWidget({ stats, onShowAll }: TopStatsWidgetProps
 
   return (
     <section
-      className="space-y-4 bg-[#121215] p-4 rounded-2xl border border-white/5"
+      className="space-y-4 bg-[#121215] p-4 rounded-2xl border border-white/5 shadow"
       dir="rtl"
     >
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">

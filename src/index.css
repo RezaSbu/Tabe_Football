@@ -408,16 +408,31 @@ html.light .via-\[\#0d0d11\] { --tw-gradient-via: #f1f5f9; }
 html.light .bg-\[\#0e1017\] { background-color: #f1f5f9; }
 html.light .to-\[\#0e1017\] { --tw-gradient-to: #f1f5f9; }
 
-/* روی دکمه‌های پررنگ و گرادیان‌های رنگی، متن سفید حفظ شود */
+/* روی دکمه‌های پررنگ و گرادیان‌های رنگی، متن سفید حفظ شود.
+   چیپ‌های اکسنت تیره (زنده/داغ) در تم روشن تیره می‌مانند؛ متن اکسنت داخل آن‌ها
+   به نسخه روشن‌تر همان اکسنت تغییر می‌کند تا روی زمینه تیره خوانا بماند. */
 html.light :is(
   .bg-red-600, .bg-red-655, .bg-red-700, .bg-red-800, .bg-red-900, .bg-red-950,
-  .bg-emerald-600, .bg-emerald-700, .bg-emerald-800,
-  .bg-sky-600, .bg-cyan-600, .bg-purple-600,
+  .bg-emerald-600, .bg-emerald-700, .bg-emerald-800, .bg-emerald-900, .bg-emerald-950,
+  .bg-sky-600, .bg-sky-800, .bg-sky-900, .bg-sky-950,
+  .bg-cyan-600, .bg-cyan-700, .bg-cyan-800, .bg-cyan-950,
+  .bg-purple-600, .bg-purple-800, .bg-purple-950,
   .from-red-600, .to-red-700, .from-red-655, .to-red-655,
   .from-emerald-600, .to-emerald-700,
   .from-emerald-400, .to-cyan-400
 ) {
   --color-white: #fff;
+  --color-emerald-300: #6ee7b7;
+  --color-emerald-400: #34d399;
+  --color-emerald-500: #10b981;
+  --color-cyan-300: #67e8f9;
+  --color-cyan-400: #22d3ee;
+  --color-sky-300: #7dd3fc;
+  --color-sky-400: #38bdf8;
+  --color-amber-300: #fcd34d;
+  --color-amber-400: #fbbf24;
+  --color-red-300: #fca5a5;
+  --color-red-400: #f87171;
 }
 
 /* === اجزای گرافیکی که در تم روشن هم تیره می‌مانند === */
@@ -480,7 +495,14 @@ html.light .hover\:border-red-550\/20:hover { border-color: color-mix(in srgb, #
 html.light .hover\:border-red-555\/40:hover { border-color: color-mix(in srgb, #dc2626 50%, transparent); }
 html.light .hover\:border-emerald-500\/40:hover { border-color: color-mix(in srgb, #059669 50%, transparent); }
 html.light .hover\:border-emerald-900\/40:hover { border-color: color-mix(in srgb, #047857 50%, transparent); }
-html.light .hover\:border-gray-800:hover { border-color: var(--border-strong); }
+html.light .hover\:border-gray-800:hover { border-color: #cbd5e1; }
+html.light .hover\:border-red-950\/30:hover { border-color: color-mix(in srgb, #991b1b 35%, transparent); }
+
+/* === هویت سکشن‌های صفحه اصلی (Phase 2) === */
+
+/* جای‌نویسه (placeholder) ورودی جستجو در تم روشن -> خاکستری خوانا */
+html.light .placeholder-gray-50::placeholder { color: #94a3b8; }
+html.light .placeholder-slate-600::placeholder { color: #94a3b8; }
 
 /* === باز-اسکوپ گرافیک‌های تیره-ثابت: بوردر/سطح آن‌ها باید تیره بمانند ===
    این اسکوپ‌ها روی تصویر/گرادیان تیره با متن روشن طراحی شده‌اند و نباید

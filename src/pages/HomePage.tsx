@@ -96,7 +96,7 @@ export default function HomePage({
       .sort((a, b) => (b.priority || 0) - (a.priority || 0));
     if (slots.length === 0) return null;
     return (
-      <div className="space-y-4 bg-[#121215] p-4.5 rounded-2xl border border-white/5">
+      <div className="space-y-4 bg-[#121215] p-4.5 rounded-2xl border border-white/5 shadow">
         <div className="flex items-center justify-between border-b border-white/5 pb-2">
           <h2 className="font-bold text-sm text-white">{title}</h2>
         </div>
@@ -156,7 +156,7 @@ export default function HomePage({
           <MatchTicker matches={matches} onSelectMatch={setSelectedMatch} />
 
           <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-[#121215] p-4 rounded-2xl border border-white/5">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-[#121215] p-4 rounded-2xl border border-white/5 shadow">
               <div className="flex items-center gap-2">
                 <Newspaper className="h-5 w-5 text-red-500" />
                 <h2 className="font-black text-lg text-white">آخرین خبرها</h2>
@@ -272,7 +272,7 @@ export default function HomePage({
 
           {renderSlotGroup("سایر تبلیغات", "general")}
 
-          <div className="space-y-4 bg-[#121215] p-4.5 rounded-2xl border border-white/5 lg:sticky lg:top-16">
+          <div className="space-y-4 bg-[#121215] p-4.5 rounded-2xl border border-white/5 lg:sticky lg:top-16 shadow">
             <div className="flex items-center justify-between border-b border-white/5 pb-2">
               <div className="flex items-center gap-1.5">
                 <Trophy className="h-5 w-5 text-red-500" />
