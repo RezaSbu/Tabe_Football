@@ -48,3 +48,286 @@ input, textarea, select {
 ::-webkit-scrollbar-thumb:hover {
   background: #374151;
 }
+
+/* ==========================================================================
+   تم روشن (Light Theme)
+   اعمال کلاس .light روی <html> توسط سوییچ تم انجام می‌شود.
+   رنگ‌های تاریک سایت به هم‌ارز روشن نگاشت می‌شوند؛ متن‌ها برای خوانایی
+   روی زمینه روشن تیره‌تر می‌شوند. رنگ‌های اکسنت (قرمز/سبز/کهربایی...) ثابت می‌مانند.
+   ========================================================================== */
+
+html.light {
+  color-scheme: light;
+
+  /* متن‌ها: سفید به تیره (روی سطوح روشن) */
+  --color-white: #0f172a;
+
+  /* متن‌های خاکستری روشن -> تیره‌تر برای خوانایی */
+  --color-slate-400: #64748b;
+  --color-slate-300: #475569;
+  --color-slate-200: #334155;
+  --color-slate-100: #1e293b;
+  --color-slate-50: #0f172a;
+  --color-gray-400: #6b7280;
+  --color-gray-300: #4b5563;
+  --color-gray-200: #374151;
+  --color-gray-100: #1f2937;
+
+  /* متن‌های رنگی اکسنت -> تیره‌تر برای خوانایی روی زمینه روشن */
+  --color-red-400: #dc2626;
+  --color-red-500: #dc2626;
+  --color-emerald-400: #059669;
+  --color-emerald-500: #059669;
+  --color-cyan-400: #0891b2;
+  --color-cyan-500: #0891b2;
+  --color-sky-400: #0284c7;
+  --color-sky-500: #0284c7;
+  --color-amber-400: #d97706;
+  --color-amber-500: #d97706;
+  --color-purple-400: #9333ea;
+  --color-purple-500: #9333ea;
+  --color-red-300: #dc2626;
+  --color-amber-300: #d97706;
+  --color-emerald-300: #059669;
+  --color-cyan-300: #0891b2;
+  --color-sky-300: #0284c7;
+  --color-purple-300: #9333ea;
+
+  /* سطوح پس‌زمینه (کلاس‌های bg-*، استاپ‌های گرادیان و واریانت‌های شفافیت هم از این متغیرها پیروی می‌کنند) */
+  --color-slate-900: #eef2f7;
+  --color-slate-850: #e9eef5;
+  --color-slate-800: #e2e8f0;
+  --color-gray-950: #f8fafc;
+  --color-gray-901: #f1f5f9;
+  --color-gray-955: #eef2f7;
+  --color-gray-900: #f1f5f9;
+  --color-gray-850: #eef2f7;
+  --color-gray-800: #e2e8f0;
+  --color-gray-700: #cbd5e1;
+  --color-zinc-950: #f1f5f9;
+  --color-zinc-800: #e2e8f0;
+  --color-neutral-900: #f1f5f9;
+}
+
+html.light body {
+  background-color: #f8fafc;
+}
+
+html.light ::-webkit-scrollbar-track {
+  background: #f8fafc;
+}
+
+html.light ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+}
+
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* سطوح خاکستری/اسلیت -> روشن */
+html.light .bg-slate-950 { background-color: #f1f5f9; }
+html.light .bg-slate-900 { background-color: #eef2f7; }
+html.light .bg-slate-850 { background-color: #e9eef5; }
+html.light .bg-slate-800 { background-color: #e2e8f0; }
+html.light .bg-slate-700 { background-color: #cbd5e1; }
+html.light .bg-slate-500 { background-color: #94a3b8; }
+html.light .bg-gray-950 { background-color: #f8fafc; }
+html.light .bg-gray-901 { background-color: #f1f5f9; }
+html.light .bg-gray-955 { background-color: #eef2f7; }
+html.light .bg-gray-900 { background-color: #f1f5f9; }
+html.light .bg-gray-850 { background-color: #eef2f7; }
+html.light .bg-gray-800 { background-color: #e2e8f0; }
+html.light .bg-gray-700 { background-color: #cbd5e1; }
+html.light .bg-zinc-950 { background-color: #f1f5f9; }
+html.light .bg-zinc-800 { background-color: #e2e8f0; }
+html.light .bg-neutral-900 { background-color: #f1f5f9; }
+
+/* پس‌زمینه‌های هگز هاردکد تیره -> روشن */
+html.light .bg-\[\#121215\] { background-color: #f8fafc; }
+html.light .bg-\[\#0a0a0c\] { background-color: #f1f5f9; }
+html.light .bg-\[\#07070a\] { background-color: #f8fafc; }
+html.light .bg-\[\#18181c\] { background-color: #eef2f7; }
+html.light .bg-\[\#0b0b0f\] { background-color: #f1f5f9; }
+html.light .bg-\[\#131317\] { background-color: #f1f5f9; }
+html.light .bg-\[\#161619\] { background-color: #f1f5f9; }
+html.light .bg-\[\#0c0c10\] { background-color: #f1f5f9; }
+html.light .bg-\[\#1a1a1f\] { background-color: #eef2f7; }
+html.light .bg-\[\#111115\] { background-color: #f8fafc; }
+html.light .bg-\[\#222227\] { background-color: #e2e8f0; }
+html.light .bg-\[\#0b0c10\] { background-color: #f1f5f9; }
+html.light .bg-\[\#0c0c0f\] { background-color: #f8fafc; }
+html.light .bg-\[\#101014\] { background-color: #f1f5f9; }
+html.light .bg-\[\#1c1c21\] { background-color: #eef2f7; }
+html.light .bg-\[\#09090b\] { background-color: #f1f5f9; }
+html.light .bg-\[\#151518\] { background-color: #f1f5f9; }
+html.light .bg-\[\#0c0c0e\] { background-color: #f1f5f9; }
+html.light .bg-\[\#101012\] { background-color: #f1f5f9; }
+html.light .bg-\[\#08080a\] { background-color: #f1f5f9; }
+html.light .bg-\[\#0e0e12\] { background-color: #f1f5f9; }
+html.light .bg-\[\#070709\] { background-color: #f8fafc; }
+html.light .bg-\[\#090b11\] { background-color: #f1f5f9; }
+html.light .bg-\[\#0d0d12\] { background-color: #f1f5f9; }
+html.light .bg-\[\#121216\] { background-color: #f8fafc; }
+
+/* واریانت‌های شفافیت هگزهای تیره -> تن روشن */
+html.light .bg-\[\#121215\]\/20,
+html.light .bg-\[\#121215\]\/30,
+html.light .bg-\[\#121215\]\/35,
+html.light .bg-\[\#121215\]\/40,
+html.light .bg-\[\#121215\]\/50,
+html.light .bg-\[\#121215\]\/60,
+html.light .bg-\[\#121215\]\/85,
+html.light .bg-\[\#121215\]\/95 { background-color: #f8fafc; }
+html.light .bg-\[\#0a0a0c\]\/40,
+html.light .bg-\[\#0a0a0c\]\/55,
+html.light .bg-\[\#0a0a0c\]\/60,
+html.light .bg-\[\#0a0a0c\]\/70,
+html.light .bg-\[\#0a0a0c\]\/80 { background-color: #f1f5f9; }
+html.light .bg-\[\#18181c\]\/35,
+html.light .bg-\[\#18181c\]\/40,
+html.light .bg-\[\#18181c\]\/45,
+html.light .bg-\[\#18181c\]\/50,
+html.light .bg-\[\#18181c\]\/80,
+html.light .bg-\[\#18181c\]\/90 { background-color: #eef2f7; }
+html.light .bg-\[\#131317\]\/80 { background-color: #f1f5f9; }
+html.light .bg-\[\#161619\]\/60 { background-color: #f1f5f9; }
+html.light .bg-\[\#0b0c10\]\/90 { background-color: #f1f5f9; }
+html.light .bg-\[\#09090b\]\/80 { background-color: #f1f5f9; }
+html.light .bg-\[\#0e0e12\]\/95 { background-color: #f1f5f9; }
+html.light .bg-\[\#111115\]\/90 { background-color: #f8fafc; }
+html.light .bg-\[\#090b11\]\/25 { background-color: #f1f5f9; }
+
+/* سیاه -> سطوح روشن */
+html.light .bg-black { background-color: #f8fafc; }
+html.light .bg-black\/5 { background-color: color-mix(in srgb, #475569 5%, transparent); }
+html.light .bg-black\/10 { background-color: color-mix(in srgb, #475569 10%, transparent); }
+html.light .bg-black\/15 { background-color: color-mix(in srgb, #475569 15%, transparent); }
+html.light .bg-black\/20 { background-color: color-mix(in srgb, #475569 20%, transparent); }
+html.light .bg-black\/25 { background-color: color-mix(in srgb, #475569 25%, transparent); }
+html.light .bg-black\/30 { background-color: color-mix(in srgb, #475569 30%, transparent); }
+html.light .bg-black\/35 { background-color: color-mix(in srgb, #475569 35%, transparent); }
+html.light .bg-black\/40 { background-color: color-mix(in srgb, #475569 40%, transparent); }
+html.light .bg-black\/45 { background-color: color-mix(in srgb, #475569 45%, transparent); }
+html.light .bg-black\/50 { background-color: color-mix(in srgb, #475569 50%, transparent); }
+html.light .bg-black\/55 { background-color: color-mix(in srgb, #475569 55%, transparent); }
+html.light .bg-black\/60 { background-color: color-mix(in srgb, #475569 60%, transparent); }
+html.light .bg-black\/70 { background-color: color-mix(in srgb, #475569 70%, transparent); }
+html.light .bg-black\/80 { background-color: color-mix(in srgb, #475569 80%, transparent); }
+html.light .bg-black\/85 { background-color: color-mix(in srgb, #475569 85%, transparent); }
+html.light .bg-black\/90 { background-color: color-mix(in srgb, #475569 90%, transparent); }
+html.light .bg-black\/92 { background-color: color-mix(in srgb, #475569 92%, transparent); }
+html.light .bg-black\/95 { background-color: color-mix(in srgb, #475569 95%, transparent); }
+
+/* سفید خالص (مثل کلید سوییچ) دست‌نخورده می‌ماند */
+html.light .bg-white { background-color: #ffffff; }
+
+/* دایره‌های ناوبری اسلایدر هیرو روی گرادیان تیره باید سفید بمانند */
+html.light .bg-white\/40 { background-color: color-mix(in srgb, #ffffff 40%, transparent); }
+
+/* اسلایدرهای هیرو و اخبار: سطوح تیره (تصویر + گرادیان) با متن‌های روشن ثابت */
+html.light .hero-slider {
+  --color-white: #fff;
+  --color-slate-300: #e2e8f0;
+  --color-slate-400: #94a3b8;
+  --color-emerald-400: #34d399;
+}
+html.light .news-slider {
+  --color-white: #fff;
+  --color-gray-300: #e2e8f0;
+  --color-emerald-400: #34d399;
+  --color-cyan-400: #22d3ee;
+}
+
+/* روکش هایور گالری (گرادیان از-black تیره می‌ماند) -> متن سفید ثابت */
+html.light .image-hover-overlay {
+  --color-white: #fff;
+  --color-emerald-400: #34d399;
+}
+
+/* ویجت ترکیب منتخب هفته: استادیوم گرافیکی تیره در هر دو تم */
+html.light .team-of-week-card {
+  --color-white: #fff;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #6b7280;
+  --color-gray-950: #030712;
+  --color-slate-900: #0f172a;
+  --color-amber-400: #fbbf24;
+  --color-amber-500: #f59e0b;
+  --color-amber-300: #fcd34d;
+}
+html.light .team-of-week-card .bg-\[\#07070a\] { background-color: #07070a; }
+html.light .team-of-week-card .bg-\[\#0c0c0e\] { background-color: #0c0c0e; }
+html.light .team-of-week-card .bg-\[\#101014\] { background-color: #101014; }
+html.light .team-of-week-card .bg-\[\#1c1c24\] { background-color: #1c1c24; }
+
+/* متن آبی آربیتـری روی زمینه روشن خوانا شود */
+html.light .text-\[\#38bdf8\] { color: #0284c7; }
+
+/* متن‌های هگز آربیتـری روشن -> تیره برای خوانایی */
+html.light .text-\[\#fff\] { color: #0f172a; }
+html.light .text-\[\#dadcde\] { color: #475569; }
+html.light .text-\[\#a0a0ab\] { color: #64748b; }
+html.light .text-\[\#808092\] { color: #64748b; }
+html.light .text-\[\#10b981\] { color: #059669; }
+
+/* استاپ‌های گرادیان slate-950 (متن slate-950 باید تیره بماند، پس فقط استاپ‌ها روشن می‌شوند) */
+html.light .to-slate-950 { --tw-gradient-to: #f8fafc; }
+html.light .via-slate-950 { --tw-gradient-via: #f8fafc; }
+html.light .from-slate-950 { --tw-gradient-from: #f8fafc; }
+
+/* هگزهای تیره کم‌استفاده -> روشن */
+html.light .bg-\[\#0d0d11\] { background-color: #f1f5f9; }
+html.light .via-\[\#0d0d11\] { --tw-gradient-via: #f1f5f9; }
+html.light .bg-\[\#0e1017\] { background-color: #f1f5f9; }
+html.light .to-\[\#0e1017\] { --tw-gradient-to: #f1f5f9; }
+
+/* روی دکمه‌های پررنگ و گرادیان‌های رنگی، متن سفید حفظ شود */
+html.light :is(
+  .bg-red-600, .bg-red-655, .bg-red-700, .bg-red-800, .bg-red-900, .bg-red-950,
+  .bg-emerald-600, .bg-emerald-700, .bg-emerald-800,
+  .bg-sky-600, .bg-cyan-600, .bg-purple-600,
+  .from-red-600, .to-red-700, .from-red-655, .to-red-655,
+  .from-emerald-600, .to-emerald-700,
+  .from-emerald-400, .to-cyan-400
+) {
+  --color-white: #fff;
+}
+
+/* === اجزای گرافیکی که در تم روشن هم تیره می‌مانند === */
+
+/* اسلایدر اخبار: روکش گرادیان روی تصویر باید تیره بماند تا عنوان سفید خوانا بماند */
+html.light .news-slider .from-\[\#0a0a0c\] { --tw-gradient-from: #0a0a0c; }
+html.light .news-slider .via-\[\#0a0a0c\]\/40 { --tw-gradient-via: color-mix(in srgb, #0a0a0c 40%, transparent); }
+html.light .news-slider .from-\[\#0a0a0c\]\/30 { --tw-gradient-from: color-mix(in srgb, #0a0a0c 30%, transparent); }
+
+/* بنر اسپانسر تب فوتبال: گرافیک تبلیغاتی تیره ثابت */
+html.light .ad-banner-card {
+  --color-white: #fff;
+  --color-slate-300: #cbd5e1;
+  --color-emerald-400: #34d399;
+}
+html.light .ad-banner-card .to-\[\#121215\] { --tw-gradient-to: #121215; }
+
+/* کارت فینال جام حذفی: گرافیک جام طلایی روی زمینه تیره */
+html.light .hazfi-final-card {
+  --color-white: #fff;
+  --color-slate-300: #e2e8f0;
+  --color-slate-400: #94a3b8;
+  --color-emerald-400: #34d399;
+}
+html.light .hazfi-final-card .from-slate-900 { --tw-gradient-from: #0f172a; }
+html.light .hazfi-final-card .via-slate-950 { --tw-gradient-via: #020617; }
+html.light .hazfi-final-card .to-\[\#0e1017\] { --tw-gradient-to: #0e1017; }
+
+/* زمین ترکیب منتخب در پنل مدیریت: نمودار زمین فوتبال تیره */
+html.light .combo-pitch {
+  --color-white: #fff;
+  --color-zinc-950: #18181b;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #94a3b8;
+  --color-amber-400: #fbbf24;
+  --color-amber-500: #f59e0b;
+}
+html.light .combo-pitch .bg-slate-950 { background-color: #020617; }
+html.light .combo-pitch .bg-slate-900 { background-color: #0f172a; }
