@@ -298,7 +298,7 @@ export default function HazfiCupBracket({ bracket, onSelectTeam, onSelectMatch, 
           {/* Spotlight glowing effect */}
           <div className="absolute inset-0 bg-yellow-500/[0.02] blur-3xl rounded-full" />
 
-          <div className="relative max-w-xl mx-auto bg-gradient-to-b from-slate-900 via-slate-950 to-[#0e1017] border-2 border-yellow-500/40 rounded-3xl p-5 md:p-6 text-center shadow-2xl space-y-4">
+          <div className="hazfi-final-card relative max-w-xl mx-auto bg-gradient-to-b from-slate-900 via-slate-950 to-[#0e1017] border-2 border-yellow-500/40 rounded-3xl p-5 md:p-6 text-center shadow-2xl space-y-4">
             
             <div className="flex items-center justify-center gap-2">
               <Crown className="h-6 w-6 text-yellow-500 animate-spin" />

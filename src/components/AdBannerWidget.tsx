@@ -13,7 +13,7 @@ export default function AdBannerWidget({ ad }: AdBannerWidgetProps) {
   const promo = ad.promo || ad.settings?.promoCode || "";
 
   return (
-    <div className="w-full relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-950 via-cyan-950 to-[#121215] border border-white/5 p-4 sm:p-6 text-white shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4" dir="rtl">
+    <div className="ad-banner-card w-full relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-950 via-cyan-950 to-[#121215] border border-white/5 p-4 sm:p-6 text-white shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4" dir="rtl">
 
       {/* Visual neon light spots */}
       <div className="absolute -top-12 -left-12 h-32 w-32 rounded-full bg-emerald-500/10 blur-2xl" />

@@ -366,7 +366,7 @@ export default function AdminSelectedCombinations({
             {viewMode === "pitch" ? (
               /* INTERACTIVE TACTICAL FOOTBALL FIELD DIAGRAM */
               <div 
-                className="relative w-full aspect-[4/5] sm:aspect-[3/4] md:aspect-[4/5] max-w-2xl mx-auto rounded-3xl bg-gradient-to-b from-[#061510] via-[#092218] to-[#040c09] border-2 border-emerald-500/20 overflow-hidden shadow-2xl p-4 transition-all duration-300"
+                className="combo-pitch relative w-full aspect-[4/5] sm:aspect-[3/4] md:aspect-[4/5] max-w-2xl mx-auto rounded-3xl bg-gradient-to-b from-[#061510] via-[#092218] to-[#040c09] border-2 border-emerald-500/20 overflow-hidden shadow-2xl p-4 transition-all duration-300"
                 style={{ direction: "ltr" }}
               >
                 {/* Tactical pitch graphics lines */}

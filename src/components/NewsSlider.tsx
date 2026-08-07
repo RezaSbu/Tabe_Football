@@ -155,7 +155,7 @@ export default function NewsSlider({ news, transfers = [], heroSlides = [], legi
   };
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-[#121215] border border-white/5 shadow-xl group" dir="rtl" id="news-hero-slider">
+    <div className="news-slider relative overflow-hidden rounded-2xl bg-[#121215] border border-white/5 shadow-xl group" dir="rtl" id="news-hero-slider">
       {/* Slide Image Background with overlay */}
       <div className="relative h-[280px] sm:h-[380px] w-full overflow-hidden">
         <img loading="lazy" decoding="async"           src={getSafeImageUrl(currentArticle.image)}
