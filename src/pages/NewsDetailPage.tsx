@@ -125,10 +125,11 @@ export default function NewsDetailPage() {
               <img loading="lazy" decoding="async" src={getSafeImageUrl(article.image)} alt={article.title} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
             </div>
             {Array.isArray(article.gallery) && article.gallery.length > 0 && (
-              <div className={`grid gap-3 ${article.gallery.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+              <div className={`grid gap-3 ${article.gallery.length > 1 ? "grid-cols-2" : ""}`}>
                 {article.gallery.map((g: string, gi: number) => (
-                  <figure key={gi} className="overflow-hidden rounded-xl bg-gray-950 border border-white/5 shadow-lg">
-                    <img loading="lazy" decoding="async" src={getSafeImageUrl(g)} alt={article.title} referrerPolicy="no-referrer" className="h-28 w-full object-cover" />
+                  <figure key={gi} className={`overflow-hidden rounded-xl bg-gray-950 border border-white/5 shadow-lg ${article.gallery.length === 1 ? "p-2" : ""}`}>
+                    <img loading="lazy" decoding="async" src={getSafeImageUrl(g)} alt={article.title} referrerPolicy="no-referrer"
+                      className={article.gallery.length > 1 ? "h-28 w-full object-cover" : "mx-auto max-h-96 w-auto max-w-full rounded-lg"} />
                   </figure>
                 ))}
               </div>
@@ -170,11 +171,15 @@ export default function NewsDetailPage() {
                   </p>
                 )}
                 {Array.isArray(article.read_more?.images) && article.read_more.images.length > 0 && (
-                  <div className={`grid gap-3 ${article.read_more.images.length > 1 ? "sm:grid-cols-2" : "grid-cols-1"}`}>
-                    {article.read_more.images.map((g: string, gi: number) => (
-                      <img key={gi} loading="lazy" decoding="async" src={getSafeImageUrl(g)} alt={article.title} referrerPolicy="no-referrer" className="w-full max-h-80 rounded-xl object-cover border border-white/5 shadow-lg" />
-                    ))}
-                  </div>
+                  article.read_more.images.length > 1 ? (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {article.read_more.images.map((g: string, gi: number) => (
+                        <img key={gi} loading="lazy" decoding="async" src={getSafeImageUrl(g)} alt={article.title} referrerPolicy="no-referrer" className="w-full max-h-80 rounded-xl object-cover border border-white/5 shadow-lg" />
+                      ))}
+                    </div>
+                  ) : (
+                    <img loading="lazy" decoding="async" src={getSafeImageUrl(article.read_more.images[0])} alt={article.title} referrerPolicy="no-referrer" className="mx-auto max-h-[26rem] w-auto max-w-full rounded-xl border border-white/5 shadow-lg" />
+                  )
                 )}
               </div>
             )}
