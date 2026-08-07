@@ -525,6 +525,18 @@ html.light .hero-slider .bg-\[\#18181c\] { background-color: #18181c; }
 html.light .news-slider .bg-\[\#121215\] { background-color: #121215; }
 html.light .ad-banner-card .bg-black\/35 { background-color: color-mix(in srgb, #000 35%, transparent); }
 
+/* ریشه‌های تیره-ثابت که کلاس تیره روی خودِ عنصر است (سلفاسکوپ).
+   انتخاب‌گرهای نوادگان بالا فقط روی فرزندان اثر دارند؛ این قوانین
+   خودِ ریشه را نیز تیره نگه می‌دارند. */
+html.light .hero-slider.bg-\[\#0a0a0c\] { background-color: #0a0a0c; }
+html.light .news-slider.bg-\[\#121215\] { background-color: #121215; }
+html.light :is(.hero-slider, .news-slider, .ad-banner-card).border-white\/5 {
+  border-color: color-mix(in srgb, #ffffff 10%, transparent);
+}
+html.light .hazfi-final-card.from-slate-900 { --tw-gradient-from: #0f172a; }
+html.light .hazfi-final-card.via-slate-950 { --tw-gradient-via: #020617; }
+html.light .hazfi-final-card.to-\[\#0e1017\] { --tw-gradient-to: #0e1017; }
+
 /* ==========================================================================
    هدر، نوبار و فوتر (Phase 3)
    ========================================================================== */
