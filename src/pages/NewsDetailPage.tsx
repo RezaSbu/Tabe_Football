@@ -165,21 +165,31 @@ export default function NewsDetailPage() {
               </button>
             ) : (
               <div className="space-y-4 animate-in fade-in">
-                {article.read_more?.content && (
-                  <p className="text-gray-300 text-sm sm:text-base leading-loose whitespace-pre-line text-justify">
-                    {article.read_more.content}
-                  </p>
-                )}
-                {Array.isArray(article.read_more?.images) && article.read_more.images.length > 0 && (
-                  article.read_more.images.length > 1 ? (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {article.read_more.images.map((g: string, gi: number) => (
-                        <img key={gi} loading="lazy" decoding="async" src={getSafeImageUrl(g)} alt={article.title} referrerPolicy="no-referrer" className="w-full max-h-80 rounded-xl object-cover border border-white/5 shadow-lg" />
-                      ))}
-                    </div>
-                  ) : (
-                    <img loading="lazy" decoding="async" src={getSafeImageUrl(article.read_more.images[0])} alt={article.title} referrerPolicy="no-referrer" className="mx-auto max-h-[26rem] w-auto max-w-full rounded-xl border border-white/5 shadow-lg" />
-                  )
+                {Array.isArray(article.read_more?.images) && article.read_more.images.length === 1 && article.read_more?.content ? (
+                  <div className="flex flex-col gap-4 items-start sm:flex-row-reverse">
+                    <img loading="lazy" decoding="async" src={getSafeImageUrl(article.read_more.images[0])} alt={article.title} referrerPolicy="no-referrer" className="mx-auto sm:mx-0 w-auto max-h-[26rem] max-w-full rounded-xl border border-white/5 shadow-lg" />
+                    <p className="flex-1 text-gray-300 text-sm sm:text-base leading-loose whitespace-pre-line text-justify">
+                      {article.read_more.content}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {article.read_more?.content && (
+                      <p className="text-gray-300 text-sm sm:text-base leading-loose whitespace-pre-line text-justify">
+                        {article.read_more.content}
+                      </p>
+                    )}
+                    {Array.isArray(article.read_more?.images) && article.read_more.images.length > 1 && (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {article.read_more.images.map((g: string, gi: number) => (
+                          <img key={gi} loading="lazy" decoding="async" src={getSafeImageUrl(g)} alt={article.title} referrerPolicy="no-referrer" className="w-full max-h-80 rounded-xl object-cover border border-white/5 shadow-lg" />
+                        ))}
+                      </div>
+                    )}
+                    {Array.isArray(article.read_more?.images) && article.read_more.images.length === 1 && (
+                      <img loading="lazy" decoding="async" src={getSafeImageUrl(article.read_more.images[0])} alt={article.title} referrerPolicy="no-referrer" className="mx-auto max-h-[26rem] w-auto max-w-full rounded-xl border border-white/5 shadow-lg" />
+                    )}
+                  </>
                 )}
               </div>
             )}
