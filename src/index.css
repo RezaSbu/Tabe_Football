@@ -62,12 +62,12 @@ html.light {
   /* === توکن‌های معنایی عمق (Phase 0) ===
      کارت = سفید برجسته، فرعی = مات، فرو-رفته = sunken.
      بوردر و سایه‌ها تعریف شده تا کارت‌ها در تم روشن از صفحه جدا دیده شوند. */
-  --surface-page: #e7ecf3;
-  --surface-card: #ffffff;
-  --surface-muted: #f4f7fb;
-  --surface-sunken: #eef2f7;
-  --border-strong: #e2e8f0;
-  --border-soft: #e8eef5;
+  --surface-page: #dce3ee;
+  --surface-card: #f8fafc;
+  --surface-muted: #eef1f7;
+  --surface-sunken: #e5eaf2;
+  --border-strong: #d8e0ec;
+  --border-soft: #e2e9f3;
   --shadow-card: 0 1px 2px rgb(15 23 42 / 0.05), 0 6px 16px rgb(15 23 42 / 0.07);
   --shadow-raised: 0 2px 4px rgb(15 23 42 / 0.06), 0 12px 28px rgb(15 23 42 / 0.12);
   --shadow-sunken: inset 0 1px 2px rgb(15 23 42 / 0.06);
@@ -142,20 +142,20 @@ html.light {
   --color-pink-500: #db2777;
 
   /* سطوح پس‌زمینه (کلاس‌های bg-*، استاپ‌های گرادیان و واریانت‌های شفافیت هم از این متغیرها پیروی می‌کنند) */
-  --color-slate-950: #f4f7fb;
-  --color-slate-900: #e9eef6;
-  --color-slate-850: #e2e9f2;
-  --color-slate-800: #dde5ef;
-  --color-gray-950: #f1f5f9;
-  --color-gray-901: #eef2f8;
-  --color-gray-955: #e9eef6;
-  --color-gray-900: #eef2f8;
-  --color-gray-850: #e9eef6;
-  --color-gray-800: #e0e7f0;
+  --color-slate-950: #eef1f7;
+  --color-slate-900: #e5eaf2;
+  --color-slate-850: #e5eaf2;
+  --color-slate-800: #d8e0ec;
+  --color-gray-950: #eef1f7;
+  --color-gray-901: #eef1f7;
+  --color-gray-955: #e5eaf2;
+  --color-gray-900: #f8fafc;
+  --color-gray-850: #e5eaf2;
+  --color-gray-800: #d8e0ec;
   --color-gray-700: #cbd5e1;
-  --color-zinc-950: #eef2f8;
-  --color-zinc-800: #e0e7f0;
-  --color-neutral-900: #eef2f8;
+  --color-zinc-950: #f8fafc;
+  --color-zinc-800: #d8e0ec;
+  --color-neutral-900: #f8fafc;
 }
 
 /* === کلاس‌های کمکی عمق (Phase 0) — برای کارت/بخش‌های فازهای بعدی === */
@@ -536,6 +536,14 @@ html.light :is(.hero-slider, .news-slider, .ad-banner-card).border-white\/5 {
 html.light .hazfi-final-card.from-slate-900 { --tw-gradient-from: #0f172a; }
 html.light .hazfi-final-card.via-slate-950 { --tw-gradient-via: #020617; }
 html.light .hazfi-final-card.to-\[\#0e1017\] { --tw-gradient-to: #0e1017; }
+
+/* ویجت ترکیب منتخب (تم روشن): نوارهای چمن زمین باید سفیدِ نیمه‌شفاف
+   بمانند تا راهراه روشن/سبز (جلوه چمن چیده‌شده) درست دیده شود.
+   خودِ بدنه ویجت هم هم‌رنگ کارت‌ها شود تا سفیدی خالص‌تری نداشته باشد. */
+html.light .team-of-week-light .bg-white\/10 {
+  background-color: color-mix(in srgb, #ffffff 10%, transparent);
+}
+html.light .team-of-week-light.bg-white { background-color: var(--surface-card); }
 
 /* ==========================================================================
    هدر، نوبار و فوتر (Phase 3)
