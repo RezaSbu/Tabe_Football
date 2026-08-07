@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Search, Send } from "lucide-react";
 import { NewsItem, TeamItem, PlayerItem, CoachItem } from "../types";
 import TeamLogo from "./TeamLogo";
+import ThemeToggle from "./ThemeToggle";
 
 interface HeaderProps {
   news: NewsItem[];
@@ -210,7 +211,9 @@ export default function Header({
           )}
         </div>
 
-        {/* Left: Channel link */}
+        {/* Left: Theme toggle + Channel link */}
+        <ThemeToggle />
+
         <a
           href="https://t.me/tabefotbal"
           target="_blank"
