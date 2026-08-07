@@ -63,6 +63,55 @@ function startServer(uploadsDir: string, port: number): Promise<http.Server> {
       res.json({ success: true, file: record });
     });
 
+    app.post("/api/media/upload-multiple", async (req, res) => {
+      const { category, files } = req.body;
+      if (!Array.isArray(files) || files.length === 0) {
+        return res.status(400).json({ success: false, message: "no files" });
+      }
+
+      const storage = new StorageBuilder("media_assets", uploadsDir);
+      const uploadedFiles = [];
+      const errors = [];
+
+      for (const f of files) {
+        const { fileName, fileData } = f || {};
+        if (!fileName || !fileData) {
+          errors.push({ fileName: fileName || "unknown", error: "missing fields" });
+          continue;
+        }
+
+        const buffer = Buffer.from(fileData, "base64");
+        const ext = path.extname(fileName).toLowerCase();
+        const mimeType = ext === ".png" ? "image/png" : "image/jpeg";
+        const cleanFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
+        const uniquePath = `${category || "general"}/${Date.now()}_${Math.random().toString(36).slice(2)}_${cleanFileName}`;
+
+        const { error: uploadError } = await storage.upload(uniquePath, buffer, {
+          contentType: mimeType,
+          upsert: true,
+        });
+
+        if (uploadError) {
+          errors.push({ fileName, error: uploadError.message });
+          continue;
+        }
+
+        const { data: { publicUrl } } = storage.getPublicUrl(uniquePath);
+
+        uploadedFiles.push({
+          id: `media-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          file_name: cleanFileName,
+          file_path: uniquePath,
+          image_url: publicUrl,
+          file_size: buffer.length,
+          mime_type: mimeType,
+          category: category || "general",
+        });
+      }
+
+      res.json({ success: uploadedFiles.length > 0, files: uploadedFiles, errors });
+    });
+
     const server = http.createServer(app);
     server.listen(port, () => resolve(server));
   });
@@ -109,6 +158,48 @@ describe("Media Upload Route - Full Pipeline", () => {
     expect(record.image_url).toBe(`/uploads/media_assets/${record.file_path}`);
     expect(record.file_size).toBe(Buffer.from("test image content here").length);
     expect(record.mime_type).toBe("image/png");
+  });
+
+  it("uploads multiple files in one request with unique paths", async () => {
+    const files = [
+      { fileName: "multi-a.png", fileData: Buffer.from("aaa").toString("base64") },
+      { fileName: "multi-b.png", fileData: Buffer.from("bbb").toString("base64") },
+      { fileName: "multi-c.png", fileData: Buffer.from("ccc").toString("base64") },
+    ];
+
+    const res = await fetch(`${BASE}/api/media/upload-multiple`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "gallery", category: "news_image", files }),
+    });
+
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.success).toBe(true);
+    expect(data.files).toHaveLength(3);
+    expect(data.errors).toHaveLength(0);
+
+    const paths = data.files.map((f: any) => f.file_path);
+    expect(new Set(paths).size).toBe(3);
+    for (const p of paths) {
+      expect(p).toContain("news_image/");
+      expect(fs.existsSync(path.join(testDir, "media_assets", p))).toBe(true);
+    }
+
+    expect(data.files[0].file_size).toBe(3);
+    expect(data.files[0].mime_type).toBe("image/png");
+  });
+
+  it("rejects request with zero files", async () => {
+    const res = await fetch(`${BASE}/api/media/upload-multiple`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ files: [] }),
+    });
+
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.success).toBe(false);
   });
 
   it("file is actually written to disk at the correct path", async () => {

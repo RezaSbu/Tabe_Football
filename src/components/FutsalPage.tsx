@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import { MatchItem, StandingRow, NewsItem, TeamItem, PlayerItem } from "../types";
 import { Trophy, Calendar, Users, Newspaper, Award, Star, Zap, Flame, BarChart3, Shuffle, ChevronLeft, Search, X } from "lucide-react";
 import MatchCard from "./MatchCard";
@@ -605,9 +606,10 @@ export default function FutsalPage({
           ) : (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {futsalNews.map((item) => (
-                <div
+                <Link
                   key={item.id}
-                  onClick={() => onSelectNews(item)}
+                  to={`/news/${item.id}`}
+                  onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
                   className="group rounded-2xl border border-white/5 bg-gray-900 overflow-hidden hover:border-red-500/30 transition shadow cursor-pointer flex flex-col justify-between"
                 >
                   <div className="relative aspect-video w-full bg-slate-950 overflow-hidden">
@@ -632,7 +634,7 @@ export default function FutsalPage({
                     </div>
                     <span className="text-[10px] text-emerald-400 font-extrabold block text-left">← مطالعه خبر و آنالیز داغ</span>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}

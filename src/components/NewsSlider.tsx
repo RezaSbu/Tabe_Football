@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { NewsItem, TransferItem, HeroSlideItem, LegionnaireItem } from "../types";
 import { ChevronLeft, ChevronRight, Eye, Calendar, ArrowUpRight } from "lucide-react";
 import { getSafeImageUrl } from "../utils";
@@ -183,22 +184,18 @@ export default function NewsSlider({ news, transfers = [], heroSlides = [], legi
           </span>
         </div>
 
-        <h3 
-          onClick={() => {
+        <Link
+          to={(() => {
             const heroSlide = (currentArticle as any)._heroSlide as HeroSlideItem | undefined;
-            if (heroSlide?.link) {
-              window.location.href = heroSlide.link;
-            } else if (onSelectTransfer && (currentArticle as any)._originalTransferId) {
-              onSelectTransfer(String((currentArticle as any)._originalTransferId));
-            } else {
-              onSelectNews(currentArticle);
-            }
-          }}
+            if (heroSlide?.link) return heroSlide.link;
+            if (onSelectTransfer && (currentArticle as any)._originalTransferId) return `/transfer/${(currentArticle as any)._originalTransferId}`;
+            return `/news/${currentArticle.id}`;
+          })()}
           className="cursor-pointer font-black text-white hover:text-emerald-400 text-lg sm:text-2xl leading-snug sm:leading-normal tracking-tight line-clamp-2 md:max-w-4xl transition-colors duration-250 flex items-start gap-1"
         >
           {currentArticle.title}
           <ArrowUpRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-emerald-400 mt-1" />
-        </h3>
+        </Link>
 
         <p className="mt-2 text-xs sm:text-sm text-gray-300 line-clamp-2 leading-relaxed max-w-3xl hidden sm:block">
           {currentArticle.summary}

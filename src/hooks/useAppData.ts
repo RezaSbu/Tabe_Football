@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   NewsItem,
   MatchItem,
@@ -210,30 +210,47 @@ export function useAppData() {
     setActiveArticle(newsItem);
   };
 
+  const lastLoginAtRef = useRef(0);
+
   useEffect(() => {
     fetchData();
-    
-    const checkLogin = async () => {
+
+    const checkAuth = async () => {
+      const startedAt = Date.now();
       try {
         const res = await fetch("/api/auth/check", { credentials: "same-origin" });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.authenticated) {
-            setIsAdminLoggedIn(true);
-            setAdminUser({
-              username: data.username || "",
-              role: data.role || "",
-              label: data.label || "",
-              permissions: data.permissions || []
-            });
-          }
+        if (!res.ok) return;
+        const data = await res.json();
+        // اگر بعد از شروع این درخواست، لاگین/لاگ‌اوت جدیدی رخ داده باشد، پاسخ قدیمی را نادیده بگیر
+        if (startedAt < lastLoginAtRef.current) return;
+        if (data.authenticated) {
+          setIsAdminLoggedIn(true);
+          setAdminUser({
+            username: data.username || "",
+            role: data.role || "",
+            label: data.label || "",
+            permissions: data.permissions || []
+          });
+        } else {
+          // توکن منقضی/نامعتبر است -> ادمین را به حالت لاگ‌اوت برگردان
+          setIsAdminLoggedIn(false);
+          setAdminUser(null);
         }
       } catch {
-        // Not logged in
+        // سرور در دسترس نیست؛ وضعیت فعلی حفظ می‌شود
       }
     };
-    checkLogin();
 
+    checkAuth();
+
+    const authCheckInterval = setInterval(() => {
+      checkAuth();
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(authCheckInterval);
+  }, []);
+
+  useEffect(() => {
     const savedSubs = localStorage.getItem("subscribed_team_preferences");
     if (savedSubs) {
       try {
@@ -362,11 +379,13 @@ export function useAppData() {
   };
 
   const handleAdminLogin = (user: { username: string; role: string; label: string; permissions: string[] }) => {
+    lastLoginAtRef.current = Date.now();
     setIsAdminLoggedIn(true);
     setAdminUser(user);
   };
 
   const handleAdminLogout = async () => {
+    lastLoginAtRef.current = Date.now();
     try {
       await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" });
     } catch {

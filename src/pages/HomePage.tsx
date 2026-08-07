@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
 import { Trophy, Newspaper, ChevronDown } from "lucide-react";
 import NewsSlider from "../components/NewsSlider";
 import TopStatsWidget from "../components/TopStatsWidget";
@@ -198,12 +199,10 @@ export default function HomePage({
               <div className="space-y-4">
                 <div className="grid gap-4">
                   {filteredNewsList.slice(0, visibleNewsCount).map((art) => (
-                    <div
+                    <Link
                       key={art.id}
-                      onClick={() => {
-                        setActiveArticle(art);
-                        window.scrollTo({ top: 0, behavior: "smooth" });
-                      }}
+                      to={`/news/${art.id}`}
+                      onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
                       className="group flex flex-col sm:flex-row gap-4 rounded-xl bg-gray-900 border border-white/5 p-3.5 hover:border-gray-800 transition cursor-pointer shadow hover:shadow-lg"
                     >
                       <div className="sm:w-48 h-32 w-full shrink-0 overflow-hidden rounded-lg bg-gray-950 border border-white/5">
@@ -231,14 +230,14 @@ export default function HomePage({
                         {art.tags && art.tags.length > 0 && (
                           <div className="mt-3 flex flex-wrap gap-1">
                             {art.tags.slice(0, 3).map((tg: string) => (
-                              <button key={tg} onClick={(e) => { e.stopPropagation(); setNewsSearch(tg); }} className="rounded bg-gray-955 text-[9px] text-gray-500 border border-white/5 px-1.5 py-0.5 hover:bg-red-950/40 hover:text-red-400 hover:border-red-900/40 transition cursor-pointer">
+                              <button key={tg} onClick={(e) => { e.preventDefault(); e.stopPropagation(); setNewsSearch(tg); }} className="rounded bg-gray-955 text-[9px] text-gray-500 border border-white/5 px-1.5 py-0.5 hover:bg-red-950/40 hover:text-red-400 hover:border-red-900/40 transition cursor-pointer">
                                 #{tg}
                               </button>
                             ))}
                           </div>
                         )}
                       </div>
-                    </div>
+                    </Link>
                   ))}
                 </div>
 

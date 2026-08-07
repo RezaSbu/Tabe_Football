@@ -44,7 +44,7 @@ export default function AdminMediaFiles() {
   // Upload States
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploadCategory, setUploadCategory] = useState("player_photo");
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   
   // Edit States
@@ -129,18 +129,23 @@ export default function AdminMediaFiles() {
 
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!uploadFile) return;
+    if (uploadFiles.length === 0) return;
     setUploading(true);
     try {
-      const base64Data = await toBase64(uploadFile);
+      const filesPayload = await Promise.all(
+        uploadFiles.map(async (file) => ({
+          fileName: file.name,
+          fileData: await toBase64(file)
+        }))
+      );
+
       const payload = {
-        title: uploadTitle || uploadFile.name,
-        fileName: uploadFile.name,
+        title: uploadTitle,
         category: uploadCategory,
-        fileData: base64Data
+        files: filesPayload
       };
 
-      const response = await fetch("/api/media/upload", {
+      const response = await fetch("/api/media/upload-multiple", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -149,20 +154,25 @@ export default function AdminMediaFiles() {
 
       if (data.success) {
         setUploadTitle("");
-        setUploadFile(null);
+        setUploadFiles([]);
         // Clear file input value
         const fileInput = document.getElementById("file-upload-input") as HTMLInputElement;
         if (fileInput) fileInput.value = "";
-        
-        showToast("تصویر با موفقیت آپلود و در فضای ابری ذخیره شد.", "success");
+
+        const okCount = (data.files || []).length;
+        const failCount = (data.errors || []).length;
+        showToast(
+          `آپلود انجام شد: ${okCount} تصویر با موفقیت بارگذاری شد.${failCount > 0 ? ` (${failCount} تصویر ناموفق)` : ""}`,
+          okCount > 0 ? "success" : "error"
+        );
         setPage(1);
         fetchMedia();
       } else {
-        showToast(data.message || "خطا در آپلود تصویر.", "error");
+        showToast(data.message || "خطا در آپلود تصاویر.", "error");
       }
     } catch (err) {
       console.error("Upload error:", err);
-      showToast("خطا در آپلود تصویر از طریق شبکه.", "error");
+      showToast("خطا در آپلود تصاویر از طریق شبکه.", "error");
     } finally {
       setUploading(false);
     }
@@ -363,40 +373,41 @@ export default function AdminMediaFiles() {
                 ))}
               </select>
             </div>
-            <div>
-              <label className="block text-slate-400 font-bold mb-1.5">انتخاب فایل از هارد</label>
-              <div className="border border-dashed border-white/10 hover:border-red-500/30 rounded-xl p-4 text-center cursor-pointer relative bg-slate-950/40">
-                <input
-                  id="file-upload-input"
-                  type="file"
-                  accept="image/*"
-                  onChange={e => {
-                    if (e.target.files && e.target.files[0]) {
-                      setUploadFile(e.target.files[0]);
-                    }
-                  }}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
-                <FileImage className="h-8 w-8 text-slate-500 mx-auto mb-2" />
-                <p className="text-[11px] text-gray-400">
-                  {uploadFile ? (
-                    <span className="text-emerald-400 font-bold">{uploadFile.name}</span>
-                  ) : (
-                    "فایل را به اینجا بکشید یا کلیک کنید"
-                  )}
-                </p>
-                <p className="text-[9px] text-slate-500 mt-1">پسوندهای مجاز: WebP ,PNG ,JPEG ,SVG</p>
+              <div>
+                <label className="block text-slate-400 font-bold mb-1.5">انتخاب فایل از هارد</label>
+                <div className="border border-dashed border-white/10 hover:border-red-500/30 rounded-xl p-4 text-center cursor-pointer relative bg-slate-950/40">
+                  <input
+                    id="file-upload-input"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={e => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        setUploadFiles(Array.from(e.target.files));
+                      }
+                    }}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  />
+                  <FileImage className="h-8 w-8 text-slate-500 mx-auto mb-2" />
+                  <p className="text-[11px] text-gray-400">
+                    {uploadFiles.length > 0 ? (
+                      <span className="text-emerald-400 font-bold">{uploadFiles.length} فایل انتخاب شد: {uploadFiles.slice(0, 3).map(f => f.name).join("، ")}{uploadFiles.length > 3 ? " و ..." : ""}</span>
+                    ) : (
+                      "چندین فایل را به اینجا بکشید یا کلیک کنید"
+                    )}
+                  </p>
+                  <p className="text-[9px] text-slate-500 mt-1">پسوندهای مجاز: WebP ,PNG ,JPEG ,SVG (تا ۲۰ فایل در هر بار)</p>
+                </div>
               </div>
-            </div>
-            
-            <button
-              type="submit"
-              disabled={uploading || !uploadFile}
-              className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black text-xs py-3 rounded-xl transition flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-lg shadow-red-950/20"
-            >
-              <Upload className="h-3.5 w-3.5" />
-              <span>{uploading ? "در حال آپلود..." : "شروع بارگذاری ابری"}</span>
-            </button>
+              
+              <button
+                type="submit"
+                disabled={uploading || uploadFiles.length === 0}
+                className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black text-xs py-3 rounded-xl transition flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer shadow-lg shadow-red-950/20"
+              >
+                <Upload className="h-3.5 w-3.5" />
+                <span>{uploading ? "در حال آپلود..." : "شروع بارگذاری ابری"}</span>
+              </button>
           </form>
         </div>
 

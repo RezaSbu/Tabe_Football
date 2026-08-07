@@ -295,6 +295,7 @@ export function registerMiscRoutes(app: Express) {
     }
     const decoded = verifyToken(token);
     if (!decoded) {
+      res.clearCookie("token", { path: "/" });
       return res.json({ authenticated: false });
     }
     const role = decoded.role as any;
