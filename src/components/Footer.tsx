@@ -131,24 +131,9 @@ export default function Footer({ setActiveTab }: FooterProps) {
             <span className="font-bold bg-gradient-to-l from-emerald-400 to-cyan-400 bg-clip-text text-transparent group-hover:from-emerald-300 group-hover:to-cyan-300 transition-all">
               Reza
             </span>
-            <span className="animate-heartbeat">❤️</span>
           </a>
         </div>
       </div>
-
-      <style>{`
-        @keyframes heartbeat {
-          0%, 100% { transform: scale(1); }
-          15% { transform: scale(1.25); }
-          30% { transform: scale(1); }
-          45% { transform: scale(1.15); }
-          60% { transform: scale(1); }
-        }
-        .animate-heartbeat {
-          animation: heartbeat 1.5s ease-in-out infinite;
-          display: inline-block;
-        }
-      `}</style>
     </footer>
   );
 }
