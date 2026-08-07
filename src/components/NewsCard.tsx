@@ -56,7 +56,7 @@ export default function NewsCard({ newsItem, onClick, onTagClick }: NewsCardProp
           {newsItem.tags.slice(0, 3).map((tag: string) => (
             <button
               key={tag}
-              onClick={(e) => { e.stopPropagation(); onTagClick?.(tag); }}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onTagClick?.(tag); }}
               className="rounded-lg bg-gray-950 px-1.5 py-0.5 text-[9px] text-slate-400 border border-white/5 hover:bg-red-950/40 hover:text-red-400 hover:border-red-900/40 transition cursor-pointer"
             >
               <Tag className="h-2 w-2 inline ml-0.5" />{tag}

@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import NewsCard from "../components/NewsCard";
 import { NewsItem } from "../types";
 
@@ -110,9 +110,14 @@ export default function NewsPage({
         return (
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((item) => (
-              <div key={item.id} className="cursor-pointer" onClick={() => { setActiveArticle(item); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+              <Link
+                key={item.id}
+                to={`/news/${item.id}`}
+                onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+                className="block cursor-pointer"
+              >
                 <NewsCard newsItem={item} onClick={() => {}} onTagClick={(tag) => setNewsSearch(tag)} />
-              </div>
+              </Link>
             ))}
           </div>
         );

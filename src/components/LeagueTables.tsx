@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { StandingRow, NewsItem, MatchItem, TeamItem, PlayerItem, StatsData } from "../types";
 import { Trophy, Award, Newspaper, Calendar, BarChart3, List, ChevronLeft, Star, Flame, Zap, Target, Search, X } from "lucide-react";
 import { isTeamInDb, convertGregorianToShamsi } from "../utils";
@@ -815,9 +816,10 @@ export default function LeagueTables({
           ) : (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {filteredNews.map((item) => (
-                <div
+                <Link
                   key={item.id}
-                  onClick={() => onSelectNews && onSelectNews(item)}
+                  to={`/news/${item.id}`}
+                  onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
                   className={`group rounded-2xl border border-white/5 bg-gray-900 overflow-hidden hover:border-emerald-500/20 transition shadow cursor-pointer flex flex-col justify-between`}
                 >
                   <div className="relative aspect-video w-full bg-slate-950 overflow-hidden">
@@ -841,7 +843,7 @@ export default function LeagueTables({
                     </div>
                     <span className="text-[10px] text-emerald-400 font-extrabold block text-left">← مطالعه خبر و آمار مینیاتوری</span>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           )}
