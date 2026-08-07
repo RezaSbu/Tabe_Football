@@ -5,6 +5,8 @@ import NewsSlider from "../components/NewsSlider";
 import TopStatsWidget from "../components/TopStatsWidget";
 import MatchTicker from "../components/MatchTicker";
 import TeamOfTheWeekWidget from "../components/TeamOfTheWeekWidget";
+import TeamOfTheWeekWidgetLight from "../components/TeamOfTheWeekWidgetLight";
+import useLightTheme from "../hooks/useLightTheme";
 import AdSlot, { isAdActive } from "../components/AdSlot";
 import AdBannerWidget from "../components/AdBannerWidget";
 import { AdItem } from "../types";
@@ -77,6 +79,8 @@ export default function HomePage({
   const [visibleNewsCount, setVisibleNewsCount] = useState(10);
   const [newsSearch, setNewsSearch] = useState("");
   const [sidebarLeagueTab, setSidebarLeagueTab] = useState("pro-league");
+
+  const isLight = useLightTheme();
 
   const activeBanners = ads.filter((ad: AdItem) => ad.type === "banner" && isAdActive(ad));
   const activeSlots = ads.filter((ad: AdItem) => ad.type === "slot" && isAdActive(ad));
@@ -335,16 +339,29 @@ export default function HomePage({
         </div>
       </div>
 
-      <TeamOfTheWeekWidget
-        combinations={selectedCombinations}
-        allPlayers={players}
-        onSelectPlayer={(id: string) => {
-          setSelectedPlayerId(id);
-          setSelectedTeamId(null);
-          setSelectedMatch(null);
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        }}
-      />
+      {isLight ? (
+        <TeamOfTheWeekWidgetLight
+          combinations={selectedCombinations}
+          allPlayers={players}
+          onSelectPlayer={(id: string) => {
+            setSelectedPlayerId(id);
+            setSelectedTeamId(null);
+            setSelectedMatch(null);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+        />
+      ) : (
+        <TeamOfTheWeekWidget
+          combinations={selectedCombinations}
+          allPlayers={players}
+          onSelectPlayer={(id: string) => {
+            setSelectedPlayerId(id);
+            setSelectedTeamId(null);
+            setSelectedMatch(null);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+        />
+      )}
     </div>
   );
 }
