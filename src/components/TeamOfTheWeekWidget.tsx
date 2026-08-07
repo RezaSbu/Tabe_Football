@@ -85,7 +85,7 @@ export default function TeamOfTheWeekWidget({ combinations = [], allPlayers = []
   }, [rawActivePlayers, allPlayers]);
 
   return (
-    <div className="bg-gradient-to-b from-[#0c0d12] to-[#07070a] border border-white/5 rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden select-none" dir="rtl" id="team-of-the-week-section">
+    <div className="team-of-week-card bg-gradient-to-b from-[#0c0d12] to-[#07070a] border border-white/5 rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden select-none" dir="rtl" id="team-of-the-week-section">
       {/* Outer Atmospheric lighting overlays */}
       <div className="absolute top-0 right-1/4 w-[500px] h-[300px] bg-amber-500/[0.03] rounded-full blur-[130px] pointer-events-none animate-pulse duration-5000" />
       <div className="absolute bottom-0 left-1/4 w-[400px] h-[300px] bg-emerald-500/[0.03] rounded-full blur-[120px] pointer-events-none animate-pulse duration-7000" />
@@ -100,7 +100,6 @@ export default function TeamOfTheWeekWidget({ combinations = [], allPlayers = []
             <div>
               <h2 className="font-black text-xl text-white flex items-center gap-2">
                 <span>ترکیب منتخب هفته</span>
-                <span className="text-[10px] bg-amber-500/15 text-amber-400 border border-amber-500/20 px-2.5 py-0.5 rounded-full font-bold">بخش داستانی تب فوتبال</span>
               </h2>
               <p className="text-[11px] text-gray-400 mt-1">تیم منتخب برترین و تأثیرگذارترین بازیکنان هفته باشگاهی</p>
             </div>

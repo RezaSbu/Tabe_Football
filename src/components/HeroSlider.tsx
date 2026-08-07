@@ -57,7 +57,7 @@ export default function HeroSlider({ news = [], onSelectArticle }: HeroSliderPro
 
   return (
     <div 
-      className="relative w-full h-[320px] sm:h-[420px] rounded-2xl overflow-hidden border border-white/5 bg-[#0a0a0c] group cursor-pointer shadow-xl select-none" 
+      className="hero-slider relative w-full h-[320px] sm:h-[420px] rounded-2xl overflow-hidden border border-white/5 bg-[#0a0a0c] group cursor-pointer shadow-xl select-none" 
       onClick={() => onSelectArticle(activeArticle)}
       dir="rtl"
     >

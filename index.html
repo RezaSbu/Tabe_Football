@@ -29,6 +29,15 @@
     <meta name="theme-color" content="#030712" />
     <meta name="color-scheme" content="dark" />
 
+    <script>
+      // [تم روشن/تیره] اعمال تم پیش از رندر برای جلوگیری از فلش رنگ
+      try {
+        if (localStorage.getItem("tabefotbal-theme") === "light") {
+          document.documentElement.classList.add("light");
+        }
+      } catch (e) {}
+    </script>
+
     <link rel="canonical" href="https://tabefotbal.ir" />
   </head>
   <body>

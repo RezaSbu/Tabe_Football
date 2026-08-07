@@ -57,7 +57,7 @@ export default function GalleryWidget({ images = [], onSelectImage }: GalleryWid
                 referrerPolicy="no-referrer"
               />
               {/* Image info overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-2.5 flex flex-col justify-end">
+              <div className="image-hover-overlay absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-2.5 flex flex-col justify-end">
                 <p className="text-[9px] text-white font-medium line-clamp-2 leading-snug">
                   {img.caption}
                 </p>
