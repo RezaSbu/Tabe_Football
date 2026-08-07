@@ -106,6 +106,17 @@ export async function migrateAdsSchema(): Promise<void> {
   }
 }
 
+export async function migrateNewsGalleryColumns(): Promise<void> {
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`ALTER TABLE news ADD COLUMN IF NOT EXISTS gallery jsonb DEFAULT '[]'::jsonb`);
+    await pool.query(`ALTER TABLE news ADD COLUMN IF NOT EXISTS read_more jsonb DEFAULT NULL`);
+    logMessage("info", "database", "مهاجرت ستون‌های gallery و read_more جدول اخبار اعمال شد.");
+  } catch (err: any) {
+    logMessage("warn", "database", "خطا در مهاجرت ستون‌های اخبار:", err.message || err);
+  }
+}
+
 function mapAdRow(r: any) {
   let settings: Record<string, any> = {};
   if (r.settings) {
@@ -216,6 +227,8 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
         summary: fixMojibake(n.summary || ""),
         content: fixMojibake(n.content || ""),
         image: n.image,
+        gallery: Array.isArray(n.gallery) ? n.gallery.map((g: any) => fixMojibake(String(g))) : [],
+        read_more: n.read_more || null,
         category: n.category,
         tags: Array.isArray(n.tags) ? n.tags.map((t: any) => fixMojibake(String(t))) : (typeof n.tags === 'string' ? n.tags.replace(/[{}]/g, '').split(',').map((x: any) => fixMojibake(x.trim())).filter(Boolean) : []),
         viewCount: n.view_count || 0,
@@ -637,6 +650,8 @@ export async function saveDB(): Promise<void> {
         summary: n.summary,
         content: n.content,
         image: n.image,
+        gallery: Array.isArray(n.gallery) ? n.gallery : [],
+        read_more: n.read_more || null,
         category: n.category,
         tags: n.tags || [],
         view_count: n.viewCount || 0,

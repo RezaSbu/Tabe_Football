@@ -111,6 +111,9 @@ export default function AdminPortalHub({
   const [newsContent, setNewsContent] = useState("");
   const [newsCategory, setNewsCategory] = useState("pro-league");
   const [newsImage, setNewsImage] = useState("");
+  const [newsGallery, setNewsGallery] = useState("");
+  const [newsReadMore, setNewsReadMore] = useState("");
+  const [newsReadMoreImages, setNewsReadMoreImages] = useState("");
 
   // TRANSFER FORM STATE
   const [trPlayerName, setTrPlayerName] = useState("");
@@ -367,6 +370,9 @@ export default function AdminPortalHub({
     setNewsContent(item.content);
     setNewsCategory(item.category || "pro-league");
     setNewsImage(item.image || "");
+    setNewsGallery(Array.isArray(item.gallery) ? item.gallery.join(", ") : "");
+    setNewsReadMore(item.read_more?.content || "");
+    setNewsReadMoreImages(Array.isArray(item.read_more?.images) ? item.read_more.images.join(", ") : "");
     setNewsTags(item.tags ? item.tags.join(", ") : "");
     setShowForm("news");
   };
@@ -379,7 +385,12 @@ export default function AdminPortalHub({
       content: newsContent,
       category: newsCategory,
       image: newsImage || "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=800",
-      tags: newsTags.split(",").map(t => t.trim()).filter(Boolean)
+      tags: newsTags.split(",").map(t => t.trim()).filter(Boolean),
+      gallery: newsGallery.split(",").map(t => t.trim()).filter(Boolean),
+      read_more: (newsReadMore || newsReadMoreImages.trim()) ? {
+        content: newsReadMore,
+        images: newsReadMoreImages.split(",").map(t => t.trim()).filter(Boolean)
+      } : null
     };
 
     try {
@@ -716,6 +727,25 @@ export default function AdminPortalHub({
               <div>
                 <label className="block text-[10px] text-gray-500 mb-1">آدرس عکس خبر (اختیاری)</label>
                 <input type="text" value={newsImage} onChange={e => setNewsImage(e.target.value)} placeholder="https://unsplash.com/..." className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" />
+              </div>
+
+              <div>
+                <label className="block text-[10px] text-gray-500 mb-1">تصاویر اضافه داخل خبر (حداکثر ۲ - با کاما "," جدا کنید)</label>
+                <input type="text" value={newsGallery} onChange={e => setNewsGallery(e.target.value)} placeholder="https://..., https://..." className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" />
+              </div>
+
+              <div className="pt-1 border-t border-white/5">
+                <label className="block text-[10px] text-emerald-400 font-extrabold mb-2">ادامه مطلب (اختیاری)</label>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="md:col-span-2">
+                    <label className="block text-[10px] text-gray-500 mb-1">متن ادامه مطلب</label>
+                    <textarea rows={4} value={newsReadMore} onChange={e => setNewsReadMore(e.target.value)} className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white resize-none" placeholder="پاراگراف‌های بیشتر درباره خبر که با دکمه «ادامه مطلب» نمایش داده می‌شود..." />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-[10px] text-gray-500 mb-1">تصاویر ادامه مطلب (حداکثر ۲ - با کاما جدا کنید)</label>
+                    <input type="text" value={newsReadMoreImages} onChange={e => setNewsReadMoreImages(e.target.value)} placeholder="https://..., https://..." className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" />
+                  </div>
+                </div>
               </div>
 
               <div>
