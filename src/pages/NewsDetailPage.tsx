@@ -111,7 +111,7 @@ export default function NewsDetailPage() {
         </header>
 
         <div className="grid gap-6 md:grid-cols-12 items-start">
-          <div className="md:col-span-8 space-y-4">
+          <div className="md:col-span-8 space-y-4 order-2 md:order-1">
             <blockquote className="border-r-4 border-red-655 bg-[#0a0a0c]/55 p-4 rounded-l-xl text-gray-300 text-sm sm:text-base leading-loose text-justify">
               {article.summary}
             </blockquote>
@@ -119,7 +119,7 @@ export default function NewsDetailPage() {
               {article.content}
             </p>
           </div>
-          <div className="md:col-span-4 space-y-4">
+          <div className="md:col-span-4 space-y-4 order-1 md:order-2">
             <div className="overflow-hidden rounded-xl bg-gray-950 border border-white/5 shadow-lg sm:h-64 h-48">
               <img loading="lazy" decoding="async" src={getSafeImageUrl(article.image)} alt={article.title} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
             </div>
