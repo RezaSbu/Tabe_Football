@@ -8,6 +8,28 @@ import { requirePermission } from "../middleware/auth";
 
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"];
 
+const MAX_UPLOAD_FILES = 20;
+const MAX_FILE_BYTES = 8 * 1024 * 1024;
+
+// [امنیتی] جلوگیری از Path Traversal: دسته‌بندی فقط حروف/اعداد/خط تیره/زیرخط
+function sanitizeCategory(category: string): string {
+  const cleaned = String(category || "").trim().replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
+  return cleaned || "general";
+}
+
+// پسوند تصادفی برای تضمین یونیک بودن نام فایل حتی در آپلودهای هم‌زمان
+function randomSuffix(): string {
+  return Math.random().toString(36).slice(2, 8);
+}
+
+function mimeFromExt(ext: string): string {
+  if (ext === ".png") return "image/png";
+  if (ext === ".gif") return "image/gif";
+  if (ext === ".webp") return "image/webp";
+  if (ext === ".svg") return "image/svg+xml";
+  return "image/jpeg";
+}
+
 const MAGIC_BYTES: Record<string, [number, number[]][]> = {
   "image/jpeg": [[0, [0xFF, 0xD8, 0xFF]]],
   "image/png": [[0, [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]]],
@@ -109,20 +131,21 @@ export function registerMediaRoutes(app: Express) {
       const buffer = Buffer.from(fileData, "base64");
       const fileSize = buffer.length;
 
+      if (fileSize > MAX_FILE_BYTES) {
+        return res.status(400).json({ success: false, message: "حجم فایل بیش از حد مجاز است (حداکثر ۸ مگابایت)." });
+      }
+
       const validationError = validateUploadedFile(fileName, buffer);
       if (validationError) {
         return res.status(400).json({ success: false, message: validationError });
       }
 
       const ext = path.extname(fileName).toLowerCase();
-      let mimeType = "image/jpeg";
-      if (ext === ".png") mimeType = "image/png";
-      else if (ext === ".gif") mimeType = "image/gif";
-      else if (ext === ".webp") mimeType = "image/webp";
-      else if (ext === ".svg") mimeType = "image/svg+xml";
+      const mimeType = mimeFromExt(ext);
 
       const cleanFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
-      const uniquePath = `${category || "general"}/${Date.now()}_${cleanFileName}`;
+      const safeCategory = sanitizeCategory(category);
+      const uniquePath = `${safeCategory}/${Date.now()}_${randomSuffix()}_${cleanFileName}`;
 
       logMessage("info", "general", `در حال آپلود فایل به فضای محلی: ${uniquePath}`);
 
@@ -146,14 +169,14 @@ export function registerMediaRoutes(app: Express) {
       if (!currentDB.media_files) currentDB.media_files = [];
 
       const newRecord = {
-        id: `media-${Date.now()}`,
+        id: `media-${Date.now()}-${randomSuffix()}`,
         title: title || cleanFileName,
         file_name: cleanFileName,
         file_path: uniquePath,
         image_url: publicUrl,
         file_size: fileSize,
         mime_type: mimeType,
-        category: category || "general",
+        category: safeCategory,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
@@ -165,6 +188,101 @@ export function registerMediaRoutes(app: Express) {
     } catch (error: any) {
       console.error("Error in POST /api/media/upload:", error);
       res.status(500).json({ success: false, message: "خطا در آپلود رسانه" });
+    }
+  });
+
+  app.post("/api/media/upload-multiple", requirePermission("media"), async (req, res) => {
+    try {
+      const { title, category, files } = req.body;
+      if (!Array.isArray(files) || files.length === 0) {
+        return res.status(400).json({ success: false, message: "حداقل یک فایل برای آپلود انتخاب کنید." });
+      }
+      if (files.length > MAX_UPLOAD_FILES) {
+        return res.status(400).json({ success: false, message: `حداکثر ${MAX_UPLOAD_FILES} فایل در هر بار آپلود مجاز است.` });
+      }
+
+      const safeCategory = sanitizeCategory(category);
+      const currentDB = loadDB();
+      if (!currentDB.media_files) currentDB.media_files = [];
+
+      const uploadedFiles: any[] = [];
+      const errors: { fileName: string; error: string }[] = [];
+      let index = 0;
+
+      for (const f of files) {
+        const { fileName, fileData } = f || {};
+        if (!fileName || !fileData) {
+          errors.push({ fileName: fileName || "نامشخص", error: "فایل و نام فایل الزامی است." });
+          continue;
+        }
+
+        const buffer = Buffer.from(fileData, "base64");
+        const fileSize = buffer.length;
+
+        if (fileSize > MAX_FILE_BYTES) {
+          errors.push({ fileName, error: "حجم فایل بیش از حد مجاز است (حداکثر ۸ مگابایت)." });
+          continue;
+        }
+
+        const validationError = validateUploadedFile(fileName, buffer);
+        if (validationError) {
+          errors.push({ fileName, error: validationError });
+          continue;
+        }
+
+        const ext = path.extname(fileName).toLowerCase();
+        const mimeType = mimeFromExt(ext);
+
+        const cleanFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
+        const uniquePath = `${safeCategory}/${Date.now()}_${randomSuffix()}_${cleanFileName}`;
+
+        const { data: uploadData, error: uploadError } = await pgDb.storage
+          .from("media_assets")
+          .upload(uniquePath, buffer, {
+            contentType: mimeType,
+            upsert: true
+          });
+
+        if (uploadError) {
+          errors.push({ fileName, error: `خطا در آپلود استوریج: ${uploadError.message}` });
+          continue;
+        }
+
+        const { data: { publicUrl } } = pgDb.storage
+          .from("media_assets")
+          .getPublicUrl(uniquePath);
+
+        const newRecord = {
+          id: `media-${Date.now()}-${index}-${randomSuffix()}`,
+          title: title || cleanFileName,
+          file_name: cleanFileName,
+          file_path: uniquePath,
+          image_url: publicUrl,
+          file_size: fileSize,
+          mime_type: mimeType,
+          category: safeCategory,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+
+        currentDB.media_files.unshift(newRecord);
+        uploadedFiles.push(newRecord);
+        index++;
+      }
+
+      if (uploadedFiles.length > 0) {
+        await saveDB();
+      }
+
+      res.json({
+        success: uploadedFiles.length > 0,
+        files: uploadedFiles,
+        errors,
+        message: `آپلود انجام شد: ${uploadedFiles.length} فایل موفق${errors.length > 0 ? `، ${errors.length} فایل ناموفق` : ""}.`
+      });
+    } catch (error: any) {
+      console.error("Error in POST /api/media/upload-multiple:", error);
+      res.status(500).json({ success: false, message: "خطا در آپلود چندگانه رسانه" });
     }
   });
 

@@ -1,6 +1,7 @@
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import express from "express";
+import { verifyToken } from "./auth";
 
 const CORS_ORIGINS = (process.env.CORS_ORIGIN || "")
   .split(",")
@@ -9,6 +10,17 @@ const CORS_ORIGINS = (process.env.CORS_ORIGIN || "")
 
 if (CORS_ORIGINS.length === 0) {
   console.warn("[SECURITY] ⚠ CORS_ORIGIN تنظیم نشده است. CORS با محدودیت کار می‌کند.");
+}
+
+// [امنیتی] فقط درخواست‌هایی که توکن JWT واقعاً معتبر دارند از ریت‌لیمیت عمومی مستثنی می‌شوند.
+// وجود هدر/کوکی به تنهایی کافی نیست؛ امضا با JWT_SECRET تأیید می‌شود تا با کوکی جعلی دور نزنند.
+function hasValidToken(req: express.Request): boolean {
+  const authHeader = req.headers.authorization;
+  const token =
+    (authHeader && authHeader.startsWith("Bearer ") && authHeader.split(" ")[1]) ||
+    req.cookies?.token;
+  if (!token) return false;
+  return verifyToken(token) !== null;
 }
 
 export function setupSecurityMiddleware(app: express.Application) {
@@ -28,8 +40,8 @@ export function setupSecurityMiddleware(app: express.Application) {
     if (req.method === "OPTIONS") return res.sendStatus(204);
     next();
   });
-  app.use(express.json({ limit: "10mb" }));
-  app.use(express.urlencoded({ limit: "10mb", extended: true }));
+  app.use(express.json({ limit: "30mb" }));
+  app.use(express.urlencoded({ limit: "30mb", extended: true }));
 
   app.use((_req, res, next) => {
     const origJson = res.json.bind(res);
@@ -51,6 +63,7 @@ export function setupSecurityMiddleware(app: express.Application) {
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 200,
+    skip: (req) => hasValidToken(req),
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: "تعداد درخواست‌ها بیش از حد مجاز است. لطفاً بعداً تلاش کنید." }
