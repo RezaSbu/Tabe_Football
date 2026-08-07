@@ -59,6 +59,19 @@ input, textarea, select {
 html.light {
   color-scheme: light;
 
+  /* === توکن‌های معنایی عمق (Phase 0) ===
+     کارت = سفید برجسته، فرعی = مات، فرو-رفته = sunken.
+     بوردر و سایه‌ها تعریف شده تا کارت‌ها در تم روشن از صفحه جدا دیده شوند. */
+  --surface-page: #dce3ee;
+  --surface-card: #f8fafc;
+  --surface-muted: #eef1f7;
+  --surface-sunken: #e5eaf2;
+  --border-strong: #d8e0ec;
+  --border-soft: #e2e9f3;
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.05), 0 6px 16px rgb(15 23 42 / 0.07);
+  --shadow-raised: 0 2px 4px rgb(15 23 42 / 0.06), 0 12px 28px rgb(15 23 42 / 0.12);
+  --shadow-sunken: inset 0 1px 2px rgb(15 23 42 / 0.06);
+
   /* متن‌ها: سفید به تیره (روی سطوح روشن) */
   --color-white: #0f172a;
 
@@ -129,27 +142,51 @@ html.light {
   --color-pink-500: #db2777;
 
   /* سطوح پس‌زمینه (کلاس‌های bg-*، استاپ‌های گرادیان و واریانت‌های شفافیت هم از این متغیرها پیروی می‌کنند) */
-  --color-slate-900: #e9eef6;
-  --color-slate-850: #e2e9f2;
-  --color-slate-800: #dde5ef;
-  --color-gray-950: #f1f5f9;
-  --color-gray-901: #eef2f8;
-  --color-gray-955: #e9eef6;
-  --color-gray-900: #eef2f8;
-  --color-gray-850: #e9eef6;
-  --color-gray-800: #e0e7f0;
+  --color-slate-950: #eef1f7;
+  --color-slate-900: #e5eaf2;
+  --color-slate-850: #e5eaf2;
+  --color-slate-800: #d8e0ec;
+  --color-gray-950: #eef1f7;
+  --color-gray-901: #eef1f7;
+  --color-gray-955: #e5eaf2;
+  --color-gray-900: #f8fafc;
+  --color-gray-850: #e5eaf2;
+  --color-gray-800: #d8e0ec;
   --color-gray-700: #cbd5e1;
-  --color-zinc-950: #eef2f8;
-  --color-zinc-800: #e0e7f0;
-  --color-neutral-900: #eef2f8;
+  --color-zinc-950: #f8fafc;
+  --color-zinc-800: #d8e0ec;
+  --color-neutral-900: #f8fafc;
+}
+
+/* === کلاس‌های کمکی عمق (Phase 0) — برای کارت/بخش‌های فازهای بعدی === */
+html.light .surface-card {
+  background-color: var(--surface-card);
+  border-color: var(--border-soft);
+  box-shadow: var(--shadow-card);
+}
+
+html.light .surface-sunken {
+  background-color: var(--surface-sunken);
+  box-shadow: var(--shadow-sunken);
+}
+
+html.light .btn-accent {
+  --color-white: #fff;
+  background-color: #059669;
+  border-color: #047857;
+  box-shadow: var(--shadow-card);
+}
+
+html.light .btn-accent:hover {
+  background-color: #047857;
 }
 
 html.light body {
-  background-color: #e3e9f2;
+  background-color: var(--surface-page);
 }
 
 html.light ::-webkit-scrollbar-track {
-  background: #e3e9f2;
+  background: var(--surface-page);
 }
 
 html.light ::-webkit-scrollbar-thumb {
@@ -160,52 +197,56 @@ html.light ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
 
-/* سطوح خاکستری/اسلیت -> روشن */
-html.light .bg-slate-950 { background-color: #f1f5f9; }
-html.light .bg-slate-900 { background-color: #eef2f7; }
-html.light .bg-slate-850 { background-color: #e9eef5; }
-html.light .bg-slate-800 { background-color: #e2e8f0; }
+/* سطوح خاکستری/اسلیت -> عمق: کارت(سفید) / فرعی(مات) / فرو-رفته(sunken) */
+html.light .bg-slate-950 { background-color: var(--surface-muted); }
+html.light .bg-slate-900 { background-color: var(--surface-sunken); }
+html.light .bg-slate-850 { background-color: var(--surface-sunken); }
+html.light .bg-slate-800 { background-color: var(--border-strong); }
 html.light .bg-slate-700 { background-color: #cbd5e1; }
 html.light .bg-slate-500 { background-color: #94a3b8; }
-html.light .bg-gray-950 { background-color: #f1f5f9; }
-html.light .bg-gray-901 { background-color: #f1f5f9; }
-html.light .bg-gray-955 { background-color: #eef2f7; }
-html.light .bg-gray-900 { background-color: #f1f5f9; }
-html.light .bg-gray-850 { background-color: #eef2f7; }
-html.light .bg-gray-800 { background-color: #e2e8f0; }
+html.light .bg-gray-950 { background-color: var(--surface-muted); }
+html.light .bg-gray-901 { background-color: var(--surface-muted); }
+html.light .bg-gray-955 { background-color: var(--surface-sunken); }
+html.light .bg-gray-900 { background-color: var(--surface-card); }
+html.light .bg-gray-850 { background-color: var(--surface-sunken); }
+html.light .bg-gray-800 { background-color: var(--border-strong); }
 html.light .bg-gray-700 { background-color: #cbd5e1; }
-html.light .bg-zinc-950 { background-color: #f1f5f9; }
-html.light .bg-zinc-800 { background-color: #e2e8f0; }
-html.light .bg-neutral-900 { background-color: #f1f5f9; }
+html.light .bg-zinc-950 { background-color: var(--surface-card); }
+html.light .bg-zinc-800 { background-color: var(--border-strong); }
+html.light .bg-neutral-900 { background-color: var(--surface-card); }
 
-/* پس‌زمینه‌های هگز هاردکد تیره -> روشن */
-html.light .bg-\[\#121215\] { background-color: #f8fafc; }
-html.light .bg-\[\#0a0a0c\] { background-color: #f1f5f9; }
-html.light .bg-\[\#07070a\] { background-color: #f8fafc; }
-html.light .bg-\[\#18181c\] { background-color: #eef2f7; }
-html.light .bg-\[\#0b0b0f\] { background-color: #f1f5f9; }
-html.light .bg-\[\#131317\] { background-color: #f1f5f9; }
-html.light .bg-\[\#161619\] { background-color: #f1f5f9; }
-html.light .bg-\[\#0c0c10\] { background-color: #f1f5f9; }
-html.light .bg-\[\#1a1a1f\] { background-color: #eef2f7; }
-html.light .bg-\[\#111115\] { background-color: #f8fafc; }
-html.light .bg-\[\#222227\] { background-color: #e2e8f0; }
-html.light .bg-\[\#0b0c10\] { background-color: #f1f5f9; }
-html.light .bg-\[\#0c0c0f\] { background-color: #f8fafc; }
-html.light .bg-\[\#101014\] { background-color: #f1f5f9; }
-html.light .bg-\[\#1c1c21\] { background-color: #eef2f7; }
-html.light .bg-\[\#09090b\] { background-color: #f1f5f9; }
-html.light .bg-\[\#151518\] { background-color: #f1f5f9; }
-html.light .bg-\[\#0c0c0e\] { background-color: #f1f5f9; }
-html.light .bg-\[\#101012\] { background-color: #f1f5f9; }
-html.light .bg-\[\#08080a\] { background-color: #f1f5f9; }
-html.light .bg-\[\#0e0e12\] { background-color: #f1f5f9; }
-html.light .bg-\[\#070709\] { background-color: #f8fafc; }
-html.light .bg-\[\#090b11\] { background-color: #f1f5f9; }
-html.light .bg-\[\#0d0d12\] { background-color: #f1f5f9; }
-html.light .bg-\[\#121216\] { background-color: #f8fafc; }
+/* پس‌زمینه‌های هگز هاردکد تیره -> کارت‌های سفید (برجسته‌ترین سطح) */
+html.light .bg-\[\#121215\] { background-color: var(--surface-card); }
+html.light .bg-\[\#07070a\] { background-color: var(--surface-card); }
+html.light .bg-\[\#18181c\] { background-color: var(--surface-card); }
+html.light .bg-\[\#0b0b0f\] { background-color: var(--surface-card); }
+html.light .bg-\[\#111115\] { background-color: var(--surface-card); }
+html.light .bg-\[\#0c0c0f\] { background-color: var(--surface-card); }
+html.light .bg-\[\#09090b\] { background-color: var(--surface-card); }
+html.light .bg-\[\#070709\] { background-color: var(--surface-card); }
+html.light .bg-\[\#121216\] { background-color: var(--surface-card); }
 
-/* واریانت‌های شفافیت هگزهای تیره -> تن روشن */
+/* سطح فرعی (مات) — جعبه‌های داخلی، هدر جداول، ورودی‌ها */
+html.light .bg-\[\#0a0a0c\] { background-color: var(--surface-muted); }
+html.light .bg-\[\#131317\] { background-color: var(--surface-muted); }
+html.light .bg-\[\#161619\] { background-color: var(--surface-muted); }
+html.light .bg-\[\#0c0c10\] { background-color: var(--surface-muted); }
+html.light .bg-\[\#0b0c10\] { background-color: var(--surface-muted); }
+html.light .bg-\[\#101014\] { background-color: var(--surface-muted); }
+html.light .bg-\[\#151518\] { background-color: var(--surface-muted); }
+html.light .bg-\[\#0c0c0e\] { background-color: var(--surface-muted); }
+html.light .bg-\[\#101012\] { background-color: var(--surface-muted); }
+html.light .bg-\[\#08080a\] { background-color: var(--surface-muted); }
+html.light .bg-\[\#0e0e12\] { background-color: var(--surface-muted); }
+html.light .bg-\[\#090b11\] { background-color: var(--surface-muted); }
+html.light .bg-\[\#0d0d12\] { background-color: var(--surface-muted); }
+
+/* سطح فرو-رفته (sunken) — درونی‌ترین جای‌گیری در عمق */
+html.light .bg-\[\#1a1a1f\] { background-color: var(--surface-sunken); }
+html.light .bg-\[\#1c1c21\] { background-color: var(--surface-sunken); }
+html.light .bg-\[\#222227\] { background-color: var(--border-strong); }
+
+/* واریانت‌های شفافیت هگزهای تیره -> سطح کارت (سفید) */
 html.light .bg-\[\#121215\]\/20,
 html.light .bg-\[\#121215\]\/30,
 html.light .bg-\[\#121215\]\/35,
@@ -213,25 +254,25 @@ html.light .bg-\[\#121215\]\/40,
 html.light .bg-\[\#121215\]\/50,
 html.light .bg-\[\#121215\]\/60,
 html.light .bg-\[\#121215\]\/85,
-html.light .bg-\[\#121215\]\/95 { background-color: #f8fafc; }
-html.light .bg-\[\#0a0a0c\]\/40,
-html.light .bg-\[\#0a0a0c\]\/55,
-html.light .bg-\[\#0a0a0c\]\/60,
-html.light .bg-\[\#0a0a0c\]\/70,
-html.light .bg-\[\#0a0a0c\]\/80 { background-color: #f1f5f9; }
+html.light .bg-\[\#121215\]\/95 { background-color: var(--surface-card); }
 html.light .bg-\[\#18181c\]\/35,
 html.light .bg-\[\#18181c\]\/40,
 html.light .bg-\[\#18181c\]\/45,
 html.light .bg-\[\#18181c\]\/50,
 html.light .bg-\[\#18181c\]\/80,
-html.light .bg-\[\#18181c\]\/90 { background-color: #eef2f7; }
-html.light .bg-\[\#131317\]\/80 { background-color: #f1f5f9; }
-html.light .bg-\[\#161619\]\/60 { background-color: #f1f5f9; }
-html.light .bg-\[\#0b0c10\]\/90 { background-color: #f1f5f9; }
-html.light .bg-\[\#09090b\]\/80 { background-color: #f1f5f9; }
-html.light .bg-\[\#0e0e12\]\/95 { background-color: #f1f5f9; }
-html.light .bg-\[\#111115\]\/90 { background-color: #f8fafc; }
-html.light .bg-\[\#090b11\]\/25 { background-color: #f1f5f9; }
+html.light .bg-\[\#18181c\]\/90 { background-color: var(--surface-card); }
+html.light .bg-\[\#111115\]\/90 { background-color: var(--surface-card); }
+html.light .bg-\[\#0a0a0c\]\/40,
+html.light .bg-\[\#0a0a0c\]\/55,
+html.light .bg-\[\#0a0a0c\]\/60,
+html.light .bg-\[\#0a0a0c\]\/70,
+html.light .bg-\[\#0a0a0c\]\/80 { background-color: var(--surface-muted); }
+html.light .bg-\[\#131317\]\/80 { background-color: var(--surface-muted); }
+html.light .bg-\[\#161619\]\/60 { background-color: var(--surface-muted); }
+html.light .bg-\[\#0b0c10\]\/90 { background-color: var(--surface-muted); }
+html.light .bg-\[\#09090b\]\/80 { background-color: var(--surface-muted); }
+html.light .bg-\[\#0e0e12\]\/95 { background-color: var(--surface-muted); }
+html.light .bg-\[\#090b11\]\/25 { background-color: var(--surface-muted); }
 
 /* سیاه -> سطوح روشن */
 html.light .bg-black { background-color: #f8fafc; }
@@ -256,6 +297,19 @@ html.light .bg-black\/95 { background-color: color-mix(in srgb, #475569 95%, tra
 
 /* سفید خالص (مثل کلید سوییچ) دست‌نخورده می‌ماند */
 html.light .bg-white { background-color: #ffffff; }
+
+/* چیپ‌های نیمه‌سفید روی سطوح روشن -> سطوح مات/فرو-رفته */
+html.light .bg-white\/5 { background-color: var(--surface-muted); }
+html.light .bg-white\/10 { background-color: var(--surface-sunken); }
+
+/* بوردرهای سفید-کم-شفافیت -> بوردر قابل‌رؤیت روی سطوح روشن */
+html.light .border-white\/5 { border-color: var(--border-strong); }
+html.light .border-white\/10 { border-color: var(--border-strong); }
+html.light .border-white\/15 { border-color: var(--border-strong); }
+html.light .border-white\/20 { border-color: var(--border-strong); }
+html.light .border-white\/\[0.02\] { border-color: var(--border-soft); }
+html.light .border-white\/\[0.03\] { border-color: var(--border-soft); }
+html.light .border-white\/\[0.04\] { border-color: var(--border-soft); }
 
 /* دایره‌های ناوبری اسلایدر هیرو روی گرادیان تیره باید سفید بمانند */
 html.light .bg-white\/40 { background-color: color-mix(in srgb, #ffffff 40%, transparent); }
@@ -354,16 +408,32 @@ html.light .via-\[\#0d0d11\] { --tw-gradient-via: #f1f5f9; }
 html.light .bg-\[\#0e1017\] { background-color: #f1f5f9; }
 html.light .to-\[\#0e1017\] { --tw-gradient-to: #f1f5f9; }
 
-/* روی دکمه‌های پررنگ و گرادیان‌های رنگی، متن سفید حفظ شود */
+/* روی دکمه‌های پررنگ و گرادیان‌های رنگی، متن سفید حفظ شود.
+   چیپ‌های اکسنت تیره (زنده/داغ) در تم روشن تیره می‌مانند؛ متن اکسنت داخل آن‌ها
+   به نسخه روشن‌تر همان اکسنت تغییر می‌کند تا روی زمینه تیره خوانا بماند. */
 html.light :is(
   .bg-red-600, .bg-red-655, .bg-red-700, .bg-red-800, .bg-red-900, .bg-red-950,
-  .bg-emerald-600, .bg-emerald-700, .bg-emerald-800,
-  .bg-sky-600, .bg-cyan-600, .bg-purple-600,
+  .bg-emerald-600, .bg-emerald-700, .bg-emerald-800, .bg-emerald-900, .bg-emerald-950,
+  .bg-sky-600, .bg-sky-800, .bg-sky-900, .bg-sky-950,
+  .bg-cyan-600, .bg-cyan-700, .bg-cyan-800, .bg-cyan-950,
+  .bg-purple-600, .bg-purple-800, .bg-purple-950,
   .from-red-600, .to-red-700, .from-red-655, .to-red-655,
   .from-emerald-600, .to-emerald-700,
   .from-emerald-400, .to-cyan-400
 ) {
   --color-white: #fff;
+  --color-emerald-300: #6ee7b7;
+  --color-emerald-400: #34d399;
+  --color-emerald-500: #10b981;
+  --color-cyan-300: #67e8f9;
+  --color-cyan-400: #22d3ee;
+  --color-sky-300: #7dd3fc;
+  --color-sky-400: #38bdf8;
+  --color-amber-300: #fcd34d;
+  --color-amber-400: #fbbf24;
+  --color-red-300: #fca5a5;
+  --color-red-400: #f87171;
+  --color-red-500: #f87171;
 }
 
 /* === اجزای گرافیکی که در تم روشن هم تیره می‌مانند === */
@@ -403,3 +473,129 @@ html.light .combo-pitch {
 }
 html.light .combo-pitch .bg-slate-950 { background-color: #020617; }
 html.light .combo-pitch .bg-slate-900 { background-color: #0f172a; }
+
+/* === بازگردانی hoverهای تعاملی رایج (Phase 1) ===
+   نگاشت سراسری سطوح در تم روشن، hoverهای تیره را خاموش/معکوس می‌کند؛
+   این قوانین معادل روشنِ همان hoverها را بازمی‌گردانند. */
+html.light .hover\:bg-\[\#0a0a0c\]:hover { background-color: var(--surface-sunken); }
+html.light .hover\:bg-\[\#1a1a1f\]:hover { background-color: var(--surface-sunken); }
+html.light .hover\:bg-\[\#121215\]:hover { background-color: var(--surface-card); }
+html.light .hover\:bg-gray-900:hover { background-color: var(--surface-sunken); }
+html.light .hover\:bg-gray-900\/40:hover { background-color: var(--surface-sunken); }
+html.light .hover\:bg-gray-800:hover { background-color: var(--border-strong); }
+html.light .hover\:bg-gray-950\/20:hover { background-color: var(--surface-muted); }
+html.light .hover\:bg-slate-950\/40:hover { background-color: var(--surface-muted); }
+html.light .hover\:bg-slate-950\/70:hover { background-color: var(--surface-sunken); }
+html.light .hover\:bg-emerald-950\/40:hover { background-color: color-mix(in srgb, #047857 14%, transparent); }
+html.light .hover\:bg-emerald-950\/30:hover { background-color: color-mix(in srgb, #047857 12%, transparent); }
+html.light .hover\:bg-red-950\/40:hover { background-color: color-mix(in srgb, #b91c1c 12%, transparent); }
+html.light .hover\:border-red-900\/40:hover { border-color: color-mix(in srgb, #b91c1c 50%, transparent); }
+html.light .hover\:border-red-950\/30:hover { border-color: color-mix(in srgb, #991b1b 45%, transparent); }
+html.light .hover\:border-red-500\/25:hover { border-color: color-mix(in srgb, #dc2626 35%, transparent); }
+html.light .hover\:border-red-550\/20:hover { border-color: color-mix(in srgb, #dc2626 28%, transparent); }
+html.light .hover\:border-red-555\/40:hover { border-color: color-mix(in srgb, #dc2626 50%, transparent); }
+html.light .hover\:border-emerald-500\/40:hover { border-color: color-mix(in srgb, #059669 50%, transparent); }
+html.light .hover\:border-emerald-900\/40:hover { border-color: color-mix(in srgb, #047857 50%, transparent); }
+html.light .hover\:border-gray-800:hover { border-color: #cbd5e1; }
+html.light .hover\:border-red-950\/30:hover { border-color: color-mix(in srgb, #991b1b 35%, transparent); }
+
+/* === هویت سکشن‌های صفحه اصلی (Phase 2) === */
+
+/* جای‌نویسه (placeholder) ورودی جستجو در تم روشن -> خاکستری خوانا */
+html.light .placeholder-gray-50::placeholder { color: #94a3b8; }
+html.light .placeholder-slate-600::placeholder { color: #94a3b8; }
+
+/* === باز-اسکوپ گرافیک‌های تیره-ثابت: بوردر/سطح آن‌ها باید تیره بمانند ===
+   این اسکوپ‌ها روی تصویر/گرادیان تیره با متن روشن طراحی شده‌اند و نباید
+   با نگاشت سراسری سطوح و بوردرهای تم روشن عوض شوند. */
+html.light :is(.hero-slider, .news-slider, .ad-banner-card, .hazfi-final-card, .combo-pitch, .image-hover-overlay)
+  :is(.border-white\/5, .border-white\/10, .border-white\/15) {
+  border-color: color-mix(in srgb, #ffffff 10%, transparent);
+}
+html.light :is(.hero-slider, .news-slider, .ad-banner-card, .hazfi-final-card, .combo-pitch, .image-hover-overlay)
+  :is(.border-white\/\[0.02\], .border-white\/\[0.03\], .border-white\/\[0.04\]) {
+  border-color: color-mix(in srgb, #ffffff 4%, transparent);
+}
+html.light :is(.hero-slider, .news-slider, .ad-banner-card)
+  :is(.bg-white\/5, .bg-white\/10) {
+  background-color: color-mix(in srgb, #ffffff 8%, transparent);
+}
+html.light .hero-slider .bg-\[\#0a0a0c\] { background-color: #0a0a0c; }
+html.light .hero-slider .bg-\[\#18181c\] { background-color: #18181c; }
+html.light .news-slider .bg-\[\#121215\] { background-color: #121215; }
+html.light .ad-banner-card .bg-black\/35 { background-color: color-mix(in srgb, #000 35%, transparent); }
+
+/* ریشه‌های تیره-ثابت که کلاس تیره روی خودِ عنصر است (سلفاسکوپ).
+   انتخاب‌گرهای نوادگان بالا فقط روی فرزندان اثر دارند؛ این قوانین
+   خودِ ریشه را نیز تیره نگه می‌دارند. */
+html.light .hero-slider.bg-\[\#0a0a0c\] { background-color: #0a0a0c; }
+html.light .news-slider.bg-\[\#121215\] { background-color: #121215; }
+html.light :is(.hero-slider, .news-slider, .ad-banner-card).border-white\/5 {
+  border-color: color-mix(in srgb, #ffffff 10%, transparent);
+}
+html.light .hazfi-final-card.from-slate-900 { --tw-gradient-from: #0f172a; }
+html.light .hazfi-final-card.via-slate-950 { --tw-gradient-via: #020617; }
+html.light .hazfi-final-card.to-\[\#0e1017\] { --tw-gradient-to: #0e1017; }
+
+/* ویجت ترکیب منتخب (تم روشن): نوارهای چمن زمین باید سفیدِ نیمه‌شفاف
+   بمانند تا راهراه روشن/سبز (جلوه چمن چیده‌شده) درست دیده شود.
+   خودِ بدنه ویجت هم هم‌رنگ کارت‌ها شود تا سفیدی خالص‌تری نداشته باشد. */
+html.light .team-of-week-light .bg-white\/10 {
+  background-color: color-mix(in srgb, #ffffff 10%, transparent);
+}
+html.light .team-of-week-light.bg-white { background-color: var(--surface-card); }
+
+/* ==========================================================================
+   هدر، نوبار و فوتر (Phase 3)
+   ========================================================================== */
+
+/* ورودی جستجوی هدر: روی کارت سفید، فیلد فرورفته تا از سطح جدا دیده شود */
+html.light #app-header input[type="text"] {
+  background-color: var(--surface-sunken);
+}
+
+/* hoverهای نیمه‌سفید (نوبار، نتایج جستجو، منوی موبایل و...) -> سطوح روشن */
+html.light .hover\:bg-white\/5:hover { background-color: var(--surface-muted); }
+html.light .hover\:bg-white\/10:hover { background-color: var(--surface-sunken); }
+
+/* دکمه‌های CTA با متن مشکی (bg-emerald-500 text-black و مشابه): اکسنت روشن اصلی
+   حفظ می‌شود تا متن مشکی روی زمینه سبز روشن خوانا بماند (مانند تم تیره). */
+html.light .text-black {
+  --color-emerald-400: #34d399;
+  --color-emerald-500: #10b981;
+  --color-emerald-600: #059669;
+  --color-cyan-400: #22d3ee;
+  --color-cyan-500: #06b6d4;
+  --color-teal-400: #2dd4bf;
+  --color-teal-500: #14b8a6;
+  --color-sky-400: #38bdf8;
+  --color-sky-500: #0ea5e9;
+}
+html.light .hover\:bg-emerald-500:hover { background-color: #10b981; }
+html.light .hover\:bg-emerald-400:hover { background-color: #34d399; }
+
+/* در کارت تیره فینال جام حذفی، hoverهای نیمه‌سفید باید تیره بمانند */
+html.light .hazfi-final-card .hover\:bg-white\/10:hover {
+  background-color: color-mix(in srgb, #ffffff 10%, transparent);
+}
+
+/* ==========================================================================
+   صفحات فرعی، فرم‌ها و جزئیات (Phase 4)
+   ========================================================================== */
+
+/* کارت‌های خبر/بازیکن/تیم: hover به تیره می‌رود -> سطح فرورفته روشن */
+html.light .hover\:bg-\[\#18181c\]:hover { background-color: var(--surface-sunken); }
+
+/* سطوح سفیدِ بسیار کم‌شفافیت (ردیف‌های لیست و جدول) -> تینت ظریف اسلیت */
+html.light .bg-white\/\[0\.01\] { background-color: color-mix(in srgb, #0f172a 2%, transparent); }
+html.light .bg-white\/\[0\.02\] { background-color: color-mix(in srgb, #0f172a 3%, transparent); }
+html.light .hover\:bg-white\/\[0\.01\]:hover { background-color: color-mix(in srgb, #0f172a 4%, transparent); }
+html.light .hover\:bg-white\/\[0\.02\]:hover { background-color: color-mix(in srgb, #0f172a 5%, transparent); }
+html.light .hover\:bg-white\/\[0\.03\]:hover { background-color: color-mix(in srgb, #0f172a 6%, transparent); }
+html.light .hover\:bg-white\/\[0\.04\]:hover { background-color: color-mix(in srgb, #0f172a 7%, transparent); }
+
+/* کارت مسابقات صفحه نتایج زنده: پس‌زمینه تقریباً نامرئی -> کارت سفید */
+html.light .bg-gray-900\/10 { background-color: var(--surface-card); }
+
+/* واترمارک‌های بزرگ شماره روی کارت بازیکن -> تینت ظریف اسلیت */
+html.light .text-white\/5 { color: color-mix(in srgb, #0f172a 5%, transparent); }

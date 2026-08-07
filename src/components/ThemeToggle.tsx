@@ -25,7 +25,7 @@ export default function ThemeToggle() {
     }
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
-      meta.setAttribute("content", isLight ? "#f8fafc" : "#030712");
+      meta.setAttribute("content", isLight ? "#dce3ee" : "#030712");
     }
   }, [isLight]);
 
