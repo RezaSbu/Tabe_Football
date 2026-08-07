@@ -523,3 +523,37 @@ html.light .hero-slider .bg-\[\#0a0a0c\] { background-color: #0a0a0c; }
 html.light .hero-slider .bg-\[\#18181c\] { background-color: #18181c; }
 html.light .news-slider .bg-\[\#121215\] { background-color: #121215; }
 html.light .ad-banner-card .bg-black\/35 { background-color: color-mix(in srgb, #000 35%, transparent); }
+
+/* ==========================================================================
+   هدر، نوبار و فوتر (Phase 3)
+   ========================================================================== */
+
+/* ورودی جستجوی هدر: روی کارت سفید، فیلد فرورفته تا از سطح جدا دیده شود */
+html.light #app-header input[type="text"] {
+  background-color: var(--surface-sunken);
+}
+
+/* hoverهای نیمه‌سفید (نوبار، نتایج جستجو، منوی موبایل و...) -> سطوح روشن */
+html.light .hover\:bg-white\/5:hover { background-color: var(--surface-muted); }
+html.light .hover\:bg-white\/10:hover { background-color: var(--surface-sunken); }
+
+/* دکمه‌های CTA با متن مشکی (bg-emerald-500 text-black و مشابه): اکسنت روشن اصلی
+   حفظ می‌شود تا متن مشکی روی زمینه سبز روشن خوانا بماند (مانند تم تیره). */
+html.light .text-black {
+  --color-emerald-400: #34d399;
+  --color-emerald-500: #10b981;
+  --color-emerald-600: #059669;
+  --color-cyan-400: #22d3ee;
+  --color-cyan-500: #06b6d4;
+  --color-teal-400: #2dd4bf;
+  --color-teal-500: #14b8a6;
+  --color-sky-400: #38bdf8;
+  --color-sky-500: #0ea5e9;
+}
+html.light .hover\:bg-emerald-500:hover { background-color: #10b981; }
+html.light .hover\:bg-emerald-400:hover { background-color: #34d399; }
+
+/* در کارت تیره فینال جام حذفی، hoverهای نیمه‌سفید باید تیره بمانند */
+html.light .hazfi-final-card .hover\:bg-white\/10:hover {
+  background-color: color-mix(in srgb, #ffffff 10%, transparent);
+}
