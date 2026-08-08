@@ -8,15 +8,17 @@ import "./utils/envLoader";
 
 import { setupSecurityMiddleware } from "./middleware/security";
 import { centralAuthGuard } from "./middleware/auth";
+import { recordHttpRequest } from "./services/monitoring";
 
 import { loadDB, setDb } from "./state";
 import { dbLock } from "./utils/concurrency";
 import { logMessage } from "./utils/logger";
-import { fetchAndPopulateMemoryDB, saveDB, migrateConstraints, migrateSummaryColumn, migrateHeroSlidesColumns, migrateAdsSchema, migrateNewsGalleryColumns } from "./services/database";
+import { fetchAndPopulateMemoryDB, saveDB, migrateConstraints, migrateSummaryColumn, migrateHeroSlidesColumns, migrateAdsSchema, migrateNewsGalleryColumns, migrateMonitoringTables } from "./services/database";
 import { recalculateAndSyncDatabase } from "./services/stats";
 import { getUploadsDir } from "./db";
 
 import { registerSystemRoutes } from "./routes/system";
+import { registerDiagnosticsRoutes } from "./routes/diagnostics";
 import { registerArchiveRoutes } from "./routes/archives";
 import { registerTeamRoutes } from "./routes/teams";
 import { registerMatchRoutes } from "./routes/matches";
@@ -33,9 +35,19 @@ const PORT = 3000;
 app.set("trust proxy", 1);
 app.use(cookieParser());
 setupSecurityMiddleware(app);
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    if (req.path.startsWith("/api/")) {
+      recordHttpRequest({ at: start, method: req.method, path: req.path, status: res.statusCode, ms: Date.now() - start });
+    }
+  });
+  next();
+});
 app.use(centralAuthGuard);
 
 registerSystemRoutes(app);
+registerDiagnosticsRoutes(app);
 registerArchiveRoutes(app);
 registerTeamRoutes(app);
 registerMatchRoutes(app);
@@ -55,6 +67,7 @@ async function startServer() {
   await migrateHeroSlidesColumns();
   await migrateAdsSchema();
   await migrateNewsGalleryColumns();
+  await migrateMonitoringTables();
   await dbLock.acquire(() => fetchAndPopulateMemoryDB());
 
   const db = loadDB();

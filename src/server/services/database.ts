@@ -5,6 +5,7 @@ import { dbLock } from "../utils/concurrency";
 import { runDatabaseMigrationsAndTransitions } from "./migrations";
 import { recalculateAndSyncDatabase } from "./stats";
 import { normalizePersianString, fixMojibake } from "../utils/persian";
+import { markDataSync } from "./monitoring";
 
 let constraintsMigrated = false;
 
@@ -114,6 +115,44 @@ export async function migrateNewsGalleryColumns(): Promise<void> {
     logMessage("info", "database", "مهاجرت ستون‌های gallery و read_more جدول اخبار اعمال شد.");
   } catch (err: any) {
     logMessage("warn", "database", "خطا در مهاجرت ستون‌های اخبار:", err.message || err);
+  }
+}
+
+export async function migrateMonitoringTables(): Promise<void> {
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS public.audit_logs (
+        id bigserial PRIMARY KEY,
+        username varchar(100),
+        role varchar(50),
+        action varchar(50),
+        method varchar(10),
+        path text,
+        ip varchar(64),
+        details jsonb,
+        created_at timestamptz DEFAULT now()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS public.visits (
+        id bigserial PRIMARY KEY,
+        visitor_id varchar(64),
+        ip varchar(64),
+        user_agent text,
+        page text,
+        referrer text,
+        is_bot boolean DEFAULT false,
+        created_at timestamptz DEFAULT now()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON public.audit_logs(created_at DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_audit_logs_username ON public.audit_logs(username)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_visits_created_at ON public.visits(created_at DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_visits_visitor_id ON public.visits(visitor_id)`);
+    logMessage("info", "database", "مهاجرت جداول مانیتورینگ (audit_logs و visits) اعمال شد.");
+  } catch (err: any) {
+    logMessage("warn", "database", "خطا در مهاجرت جداول مانیتورینگ:", err.message || err);
   }
 }
 
@@ -601,9 +640,11 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
 
     logMessage("info", "database", "کل داده‌ها با موفقیت از PostgreSQL دریافت و همگام گردید.");
     setDb(parsed);
+    markDataSync(true);
   } catch (err: any) {
     logMessage("error", "database", "خطا در بارگذاری اولیه اطلاعات از PostgreSQL", err.message || err);
     setDb(seedData);
+    markDataSync(false);
   }
 }
 

@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import express from "express";
 import crypto from "crypto";
+import { auditLog } from "../utils/audit";
 
 const JWT_SECRET = process.env.JWT_SECRET || "";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
@@ -238,6 +239,7 @@ export function centralAuthGuard(req: express.Request, res: express.Response, ne
     p === "/api/auth/login" ||
     p === "/api/auth/logout" ||
     p === "/api/contact" ||
+    p === "/api/visit" ||
     p.startsWith("/api/predictions/") ||
     (req.method === "POST" && /^\/api\/news\/[^/]+\/view$/.test(p)) ||
     (req.method === "POST" && /^\/api\/images\/[^/]+\/view$/.test(p)) ||
@@ -253,5 +255,22 @@ export function centralAuthGuard(req: express.Request, res: express.Response, ne
     return res.status(401).json({ error: "توکن نامعتبر یا منقضی شده است." });
   }
   (req as any).user = { username: decoded.username, role: decoded.role };
+
+  // [مانیتورینگ] ثبت عملیات ادمین در گزارش فعالیت‌ها (Audit Trail)
+  if (p.startsWith("/api/") && !p.startsWith("/api/diagnostics")) {
+    const action =
+      req.method === "POST" ? "create" :
+      req.method === "PUT" || req.method === "PATCH" ? "update" :
+      req.method === "DELETE" ? "delete" : "admin_action";
+    auditLog({
+      username: decoded.username,
+      role: decoded.role,
+      action,
+      method: req.method,
+      path: p,
+      ip: req.ip
+    });
+  }
+
   next();
 }
