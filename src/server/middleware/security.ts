@@ -63,10 +63,17 @@ export function setupSecurityMiddleware(app: express.Application) {
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 200,
-    skip: (req) => hasValidToken(req),
+    skip: (req) => hasValidToken(req) || req.path === "/api/visit",
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: "تعداد درخواست‌ها بیش از حد مجاز است. لطفاً بعداً تلاش کنید." }
+  });
+  const visitLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "تعداد ثبت بازدید بیش از حد مجاز است." }
   });
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -83,6 +90,7 @@ export function setupSecurityMiddleware(app: express.Application) {
     message: { error: "تعداد پیام‌های ارسالی بیش از حد مجاز است. لطفاً یک ساعت بعد تلاش کنید." }
   });
   app.use("/api/", apiLimiter);
+  app.use("/api/visit", visitLimiter);
   app.use("/api/auth/login", authLimiter);
   app.use("/api/contact", contactLimiter);
 }

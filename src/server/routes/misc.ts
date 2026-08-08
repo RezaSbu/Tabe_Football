@@ -3,6 +3,7 @@ import bcrypt from "bcrypt";
 import { loadDB, snapshotDB, restoreDB } from "../state";
 import { logMessage } from "../utils/logger";
 import { saveDB } from "../services/database";
+import { recordAuthEvent, auditLog } from "../utils/audit";
 import {
   generateToken,
   verifyToken,
@@ -259,12 +260,18 @@ export function registerMiscRoutes(app: Express) {
     }
     const user = findAdminUser(username);
     if (!user) {
+      recordAuthEvent(username, false, req.ip);
+      auditLog({ username, action: "failed_login", method: "POST", path: "/api/auth/login", ip: req.ip });
       return res.status(401).json({ success: false, message: "نام کاربری یا رمز عبور اشتباه است." });
     }
     const valid = await bcrypt.compare(password, user.passwordHash);
     if (!valid) {
+      recordAuthEvent(username, false, req.ip);
+      auditLog({ username, role: user.role, action: "failed_login", method: "POST", path: "/api/auth/login", ip: req.ip });
       return res.status(401).json({ success: false, message: "نام کاربری یا رمز عبور اشتباه است." });
     }
+    recordAuthEvent(username, true, req.ip);
+    auditLog({ username: user.username, role: user.role, action: "login", method: "POST", path: "/api/auth/login", ip: req.ip });
     const token = generateToken({ username: user.username, role: user.role });
     res.cookie("token", token, {
       httpOnly: true,
@@ -283,7 +290,9 @@ export function registerMiscRoutes(app: Express) {
     });
   });
 
-  app.post("/api/auth/logout", async (_req, res) => {
+  app.post("/api/auth/logout", async (req, res) => {
+    const user = (req as any).user;
+    auditLog({ username: user?.username || "unknown", role: user?.role, action: "logout", method: "POST", path: "/api/auth/logout", ip: req.ip });
     res.clearCookie("token", { path: "/" });
     res.json({ success: true, message: "خروج با موفقیت انجام شد." });
   });
