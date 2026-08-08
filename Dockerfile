@@ -31,6 +31,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY src/ src/
+COPY src/server/assets/ dist/assets/
 COPY --from=frontend-builder /app/dist/ dist/
 
 RUN npx esbuild src/server/index.ts \
@@ -48,7 +49,7 @@ FROM node:20-alpine AS runtime
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
-RUN apk add --no-cache tzdata postgresql-client
+RUN apk add --no-cache tzdata postgresql-client fontconfig
 
 WORKDIR /app
 
@@ -56,6 +57,10 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
 COPY --from=backend-builder /app/dist/ dist/
+
+RUN mkdir -p /usr/share/fonts \
+    && cp dist/assets/fonts/Vazirmatn-Bold.ttf /usr/share/fonts/ \
+    && fc-cache -f
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 RUN mkdir -p uploads && chown -R appuser:appgroup /app
