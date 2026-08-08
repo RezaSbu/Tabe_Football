@@ -5,6 +5,7 @@ import { loadDB } from "../state";
 import { logMessage } from "../utils/logger";
 import { saveDB } from "../services/database";
 import { requirePermission } from "../middleware/auth";
+import { optimizeImageToWebp } from "../utils/image";
 
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"];
 
@@ -129,9 +130,9 @@ export function registerMediaRoutes(app: Express) {
       }
 
       const buffer = Buffer.from(fileData, "base64");
-      const fileSize = buffer.length;
+      const originalSize = buffer.length;
 
-      if (fileSize > MAX_FILE_BYTES) {
+      if (originalSize > MAX_FILE_BYTES) {
         return res.status(400).json({ success: false, message: "حجم فایل بیش از حد مجاز است (حداکثر ۸ مگابایت)." });
       }
 
@@ -140,10 +141,15 @@ export function registerMediaRoutes(app: Express) {
         return res.status(400).json({ success: false, message: validationError });
       }
 
-      const ext = path.extname(fileName).toLowerCase();
-      const mimeType = mimeFromExt(ext);
+      const optimized = await optimizeImageToWebp(buffer, fileName, mimeFromExt(path.extname(fileName).toLowerCase()));
+      const uploadBuffer = optimized.buffer;
+      const mimeType = optimized.mimeType;
+      const fileSize = uploadBuffer.length;
+      if (optimized.converted) {
+        logMessage("info", "general", `تبدیل خودکار تصویر به WebP انجام شد (${fileName} -> ${optimized.fileName}).`);
+      }
 
-      const cleanFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
+      const cleanFileName = optimized.fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
       const safeCategory = sanitizeCategory(category);
       const uniquePath = `${safeCategory}/${Date.now()}_${randomSuffix()}_${cleanFileName}`;
 
@@ -151,7 +157,7 @@ export function registerMediaRoutes(app: Express) {
 
       const { data: uploadData, error: uploadError } = await pgDb.storage
         .from("media_assets")
-        .upload(uniquePath, buffer, {
+        .upload(uniquePath, uploadBuffer, {
           contentType: mimeType,
           upsert: true
         });
@@ -217,9 +223,9 @@ export function registerMediaRoutes(app: Express) {
         }
 
         const buffer = Buffer.from(fileData, "base64");
-        const fileSize = buffer.length;
+        const originalSize = buffer.length;
 
-        if (fileSize > MAX_FILE_BYTES) {
+        if (originalSize > MAX_FILE_BYTES) {
           errors.push({ fileName, error: "حجم فایل بیش از حد مجاز است (حداکثر ۸ مگابایت)." });
           continue;
         }
@@ -230,15 +236,17 @@ export function registerMediaRoutes(app: Express) {
           continue;
         }
 
-        const ext = path.extname(fileName).toLowerCase();
-        const mimeType = mimeFromExt(ext);
+        const optimized = await optimizeImageToWebp(buffer, fileName, mimeFromExt(path.extname(fileName).toLowerCase()));
+        const uploadBuffer = optimized.buffer;
+        const mimeType = optimized.mimeType;
+        const fileSize = uploadBuffer.length;
 
-        const cleanFileName = fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
+        const cleanFileName = optimized.fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
         const uniquePath = `${safeCategory}/${Date.now()}_${randomSuffix()}_${cleanFileName}`;
 
         const { data: uploadData, error: uploadError } = await pgDb.storage
           .from("media_assets")
-          .upload(uniquePath, buffer, {
+          .upload(uniquePath, uploadBuffer, {
             contentType: mimeType,
             upsert: true
           });
@@ -363,25 +371,27 @@ export function registerMediaRoutes(app: Express) {
       const item = currentDB.media_files[index];
 
       const buffer = Buffer.from(fileData, "base64");
-      const fileSize = buffer.length;
 
       const validationError = validateUploadedFile(fileName, buffer);
       if (validationError) {
         return res.status(400).json({ success: false, message: validationError });
       }
 
-      const ext = path.extname(fileName).toLowerCase();
-      let mimeType = "image/jpeg";
-      if (ext === ".png") mimeType = "image/png";
-      else if (ext === ".gif") mimeType = "image/gif";
-      else if (ext === ".webp") mimeType = "image/webp";
-      else if (ext === ".svg") mimeType = "image/svg+xml";
+      const optimized = await optimizeImageToWebp(buffer, fileName, mimeFromExt(path.extname(fileName).toLowerCase()));
+      const uploadBuffer = optimized.buffer;
+      const mimeType = optimized.mimeType;
+      const fileSize = uploadBuffer.length;
 
-      logMessage("info", "general", `در حال جایگزینی تصویر در استوریج: ${item.file_path}`);
+      const oldPath = item.file_path;
+      const oldExt = path.extname(oldPath).toLowerCase();
+      const basePath = oldExt ? oldPath.slice(0, -oldExt.length) : oldPath;
+      const newPath = mimeType === "image/webp" ? `${basePath}.webp` : oldPath;
+
+      logMessage("info", "general", `در حال جایگزینی تصویر در استوریج: ${newPath}`);
 
       const { error: uploadError } = await pgDb.storage
         .from("media_assets")
-        .upload(item.file_path, buffer, {
+        .upload(newPath, uploadBuffer, {
           contentType: mimeType,
           upsert: true
         });
@@ -391,9 +401,22 @@ export function registerMediaRoutes(app: Express) {
         return res.status(500).json({ success: false, message: `خطا در آپلود استوریج: ${uploadError.message}` });
       }
 
+      if (newPath !== oldPath) {
+        const { error: removeError } = await pgDb.storage.from("media_assets").remove([oldPath]);
+        if (removeError) {
+          logMessage("warn", "general", `هشدار: حذف فایل قبلی ناموفق: ${removeError.message}`);
+        }
+      }
+
+      const { data: { publicUrl } } = pgDb.storage
+        .from("media_assets")
+        .getPublicUrl(newPath);
+
       currentDB.media_files[index] = {
         ...item,
-        file_name: fileName,
+        file_name: optimized.fileName,
+        file_path: newPath,
+        image_url: publicUrl,
         file_size: fileSize,
         mime_type: mimeType,
         updated_at: new Date().toISOString()
@@ -594,14 +617,11 @@ export function registerMediaRoutes(app: Express) {
 
           const arrayBuffer = await response.arrayBuffer();
           const buffer = Buffer.from(arrayBuffer);
-          const fileSize = buffer.length;
 
           const urlObj = new URL(url);
           const pathname = urlObj.pathname;
           let ext = path.extname(pathname).toLowerCase();
           if (!ext) ext = ".jpg";
-
-          const mimeType = response.headers.get("content-type") || "image/jpeg";
 
           let file_name = path.basename(pathname);
           if (!file_name || file_name.length < 3) {
@@ -611,14 +631,19 @@ export function registerMediaRoutes(app: Express) {
             file_name += ext;
           }
 
-          const cleanFileName = file_name.replace(/[^a-zA-Z0-9.-]/g, "_");
+          const optimized = await optimizeImageToWebp(buffer, file_name, response.headers.get("content-type") || "image/jpeg");
+          const uploadBuffer = optimized.buffer;
+          const mimeType = optimized.mimeType;
+          const fileSize = uploadBuffer.length;
+
+          const cleanFileName = optimized.fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
           const uniquePath = `migrated/${info.category}/${Date.now()}_${cleanFileName}`;
 
           logMessage("info", "general", `در حال آپلود مجدد تصویر مهاجرت یافته به استوریج: ${uniquePath}`);
 
           const { error: uploadError } = await pgDb.storage
             .from("media_assets")
-            .upload(uniquePath, buffer, { contentType: mimeType, upsert: true });
+            .upload(uniquePath, uploadBuffer, { contentType: mimeType, upsert: true });
 
           if (uploadError) {
             throw new Error(`آپلود استوریج ناموفق بود: ${uploadError.message}`);

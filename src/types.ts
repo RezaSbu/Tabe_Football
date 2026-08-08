@@ -4,6 +4,8 @@ export interface NewsItem {
   summary: string;
   content: string;
   image: string;
+  gallery?: string[];
+  read_more?: { content?: string; images?: string[] } | null;
   category: 'pro-league' | 'league-1' | 'league-2' | 'hazfi-cup' | 'legionnaires' | 'transfers' | 'futsal';
   tags: string[];
   viewCount: number;

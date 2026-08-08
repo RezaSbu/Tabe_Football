@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
-import { ArrowRight, Loader2, Tag } from "lucide-react";
+import { ArrowRight, ChevronDown, Loader2, Tag } from "lucide-react";
 import { getSafeImageUrl, toPersianDigits } from "../utils";
 
 export default function NewsDetailPage() {
@@ -10,6 +10,7 @@ export default function NewsDetailPage() {
   const [article, setArticle] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [showMore, setShowMore] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -123,6 +124,16 @@ export default function NewsDetailPage() {
             <div className="overflow-hidden rounded-xl bg-gray-950 border border-white/5 shadow-lg sm:h-64 h-48">
               <img loading="lazy" decoding="async" src={getSafeImageUrl(article.image)} alt={article.title} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
             </div>
+            {Array.isArray(article.gallery) && article.gallery.length > 0 && (
+              <div className={`grid gap-3 ${article.gallery.length > 1 ? "grid-cols-2" : ""}`}>
+                {article.gallery.map((g: string, gi: number) => (
+                  <figure key={gi} className={`overflow-hidden rounded-xl bg-gray-950 border border-white/5 shadow-lg ${article.gallery.length === 1 ? "p-2" : ""}`}>
+                    <img loading="lazy" decoding="async" src={getSafeImageUrl(g)} alt={article.title} referrerPolicy="no-referrer"
+                      className={article.gallery.length > 1 ? "h-28 w-full object-cover" : "mx-auto max-h-96 w-auto max-w-full rounded-lg"} />
+                  </figure>
+                ))}
+              </div>
+            )}
             {article.tags && article.tags.length > 0 && (
               <div className="rounded-xl border border-white/5 bg-gray-955 p-4">
                 <h2 className="font-bold text-xs text-white mb-2.5">برچسب‌ها</h2>
@@ -141,6 +152,49 @@ export default function NewsDetailPage() {
             )}
           </div>
         </div>
+
+        {(article.read_more?.content || (Array.isArray(article.read_more?.images) && article.read_more.images.length > 0)) && (
+          <div className="mt-6 border-t border-white/5 pt-5">
+            {!showMore ? (
+              <button
+                onClick={() => setShowMore(true)}
+                className="inline-flex items-center gap-2 rounded-xl bg-red-655 px-4 py-2 text-xs font-black text-white shadow shadow-red-950/30 hover:bg-red-700 transition"
+              >
+                ادامه مطلب
+                <ChevronDown className="h-4 w-4" />
+              </button>
+            ) : (
+              <div className="space-y-4 animate-in fade-in">
+                {Array.isArray(article.read_more?.images) && article.read_more.images.length === 1 && article.read_more?.content ? (
+                  <div className="flex flex-col gap-4 items-start sm:flex-row-reverse">
+                    <img loading="lazy" decoding="async" src={getSafeImageUrl(article.read_more.images[0])} alt={article.title} referrerPolicy="no-referrer" className="mx-auto sm:mx-0 w-auto max-h-[26rem] max-w-full rounded-xl border border-white/5 shadow-lg" />
+                    <p className="flex-1 text-gray-300 text-sm sm:text-base leading-loose whitespace-pre-line text-justify">
+                      {article.read_more.content}
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {article.read_more?.content && (
+                      <p className="text-gray-300 text-sm sm:text-base leading-loose whitespace-pre-line text-justify">
+                        {article.read_more.content}
+                      </p>
+                    )}
+                    {Array.isArray(article.read_more?.images) && article.read_more.images.length > 1 && (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {article.read_more.images.map((g: string, gi: number) => (
+                          <img key={gi} loading="lazy" decoding="async" src={getSafeImageUrl(g)} alt={article.title} referrerPolicy="no-referrer" className="w-full max-h-80 rounded-xl object-cover border border-white/5 shadow-lg" />
+                        ))}
+                      </div>
+                    )}
+                    {Array.isArray(article.read_more?.images) && article.read_more.images.length === 1 && (
+                      <img loading="lazy" decoding="async" src={getSafeImageUrl(article.read_more.images[0])} alt={article.title} referrerPolicy="no-referrer" className="mx-auto max-h-[26rem] w-auto max-w-full rounded-xl border border-white/5 shadow-lg" />
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </article>
     </>
   );
