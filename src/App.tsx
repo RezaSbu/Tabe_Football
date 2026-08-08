@@ -43,6 +43,7 @@ const LegionnaireDetailPage = React.lazy(() => import("./pages/LegionnaireDetail
 const TransferDetailPage = React.lazy(() => import("./pages/TransferDetailPage"));
 
 import { getSafeImageUrl, getRelativeDateLabel, convertGregorianToShamsi, toPersianDigits } from "./utils";
+import { trackPageView } from "./utils/visitor";
 
 const PATH_TO_TAB: Record<string, string> = {
   "/": "home",
@@ -282,6 +283,13 @@ export default function App() {
   });
 
   const [initialSyncDone, setInitialSyncDone] = useState(false);
+
+  useEffect(() => {
+    // [آمار بازدید] ثبت بازدید صفحه برای کاربران عادی (بدون پنل ادمین)
+    if (!location.pathname.startsWith("/admin")) {
+      trackPageView(location.pathname + location.search);
+    }
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     const pathTab = PATH_TO_TAB[location.pathname];
