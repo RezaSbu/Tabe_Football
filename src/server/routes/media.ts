@@ -141,12 +141,15 @@ export function registerMediaRoutes(app: Express) {
         return res.status(400).json({ success: false, message: validationError });
       }
 
-      const optimized = await optimizeImageToWebp(buffer, fileName, mimeFromExt(path.extname(fileName).toLowerCase()));
+      const optimized = await optimizeImageToWebp(buffer, fileName, mimeFromExt(path.extname(fileName).toLowerCase()), { category });
       const uploadBuffer = optimized.buffer;
       const mimeType = optimized.mimeType;
       const fileSize = uploadBuffer.length;
       if (optimized.converted) {
         logMessage("info", "general", `تبدیل خودکار تصویر به WebP انجام شد (${fileName} -> ${optimized.fileName}).`);
+      }
+      if (optimized.watermarked) {
+        logMessage("info", "general", `واترمارک تب فوتبال روی تصویر اعمال شد (${optimized.fileName}).`);
       }
 
       const cleanFileName = optimized.fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
@@ -236,7 +239,7 @@ export function registerMediaRoutes(app: Express) {
           continue;
         }
 
-        const optimized = await optimizeImageToWebp(buffer, fileName, mimeFromExt(path.extname(fileName).toLowerCase()));
+        const optimized = await optimizeImageToWebp(buffer, fileName, mimeFromExt(path.extname(fileName).toLowerCase()), { category });
         const uploadBuffer = optimized.buffer;
         const mimeType = optimized.mimeType;
         const fileSize = uploadBuffer.length;
@@ -377,7 +380,7 @@ export function registerMediaRoutes(app: Express) {
         return res.status(400).json({ success: false, message: validationError });
       }
 
-      const optimized = await optimizeImageToWebp(buffer, fileName, mimeFromExt(path.extname(fileName).toLowerCase()));
+      const optimized = await optimizeImageToWebp(buffer, fileName, mimeFromExt(path.extname(fileName).toLowerCase()), { category: item.category });
       const uploadBuffer = optimized.buffer;
       const mimeType = optimized.mimeType;
       const fileSize = uploadBuffer.length;
@@ -631,7 +634,7 @@ export function registerMediaRoutes(app: Express) {
             file_name += ext;
           }
 
-          const optimized = await optimizeImageToWebp(buffer, file_name, response.headers.get("content-type") || "image/jpeg");
+          const optimized = await optimizeImageToWebp(buffer, file_name, response.headers.get("content-type") || "image/jpeg", { category: info.category });
           const uploadBuffer = optimized.buffer;
           const mimeType = optimized.mimeType;
           const fileSize = uploadBuffer.length;
