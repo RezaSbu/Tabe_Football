@@ -30,7 +30,7 @@ async function getDirectorySize(dir: string): Promise<number> {
   return total;
 }
 
-async function getStorageStats() {
+export async function getStorageStats() {
   const storage: any = {
     databaseSizeBytes: 0,
     uploadsSizeBytes: 0,
@@ -72,6 +72,26 @@ export function registerSystemRoutes(app: Express) {
 
   app.get("/api/logs", (req: Request, res: Response) => {
     res.json({ status: "ok", logs: SYSTEM_LOGS });
+  });
+
+  app.get("/api/logs/export", requirePermission("diagnostics"), (req: Request, res: Response) => {
+    const format = String(req.query.format || "json").toLowerCase();
+    const ts = new Date().toISOString().replace(/[-:T.]/g, "").slice(0, 14);
+    if (format === "csv") {
+      const header = "timestamp,level,category,message";
+      const rows = SYSTEM_LOGS.map((log: any) => {
+        const message = String(log.message || "").replace(/"/g, '""');
+        const details = log.details ? ` details=${String(typeof log.details === "string" ? log.details : JSON.stringify(log.details)).replace(/"/g, '""')}` : "";
+        return `${log.timestamp},"${log.level}","${log.category}","${message}${details}"`;
+      });
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="system-logs-${ts}.csv"`);
+      res.send("\uFEFF" + [header, ...rows].join("\n"));
+      return;
+    }
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="system-logs-${ts}.json"`);
+    res.send(JSON.stringify(SYSTEM_LOGS, null, 2));
   });
 
   app.get("/api/testdb", async (req: Request, res: Response) => {
