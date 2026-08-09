@@ -50,6 +50,28 @@ describe("optimizeImageToWebp - Watermark", () => {
     expect(result.watermarked).toBeUndefined();
   });
 
+  it("force-watermarks all categories when watermark:true", async () => {
+    const src = await makeTestPng(1200, 800);
+    for (const category of ["team_logo", "ad_banner", "news_image", "player_photo"]) {
+      const result = await optimizeImageToWebp(src, "logo.png", "image/png", { category, watermark: true });
+      expect(result.converted).toBe(true);
+      expect(result.watermarked).toBe(true);
+    }
+  });
+
+  it("force-watermarks small images when watermark:true", async () => {
+    const src = await makeTestPng(300, 200);
+    const result = await optimizeImageToWebp(src, "small.png", "image/png", { category: "team_logo", watermark: true });
+    expect(result.watermarked).toBe(true);
+  });
+
+  it("skips watermark entirely when watermark:false", async () => {
+    const src = await makeTestPng(1200, 800);
+    const result = await optimizeImageToWebp(src, "photo.png", "image/png", { category: "news_image", watermark: false });
+    expect(result.converted).toBe(true);
+    expect(result.watermarked).toBeUndefined();
+  });
+
   it("resizes wide images to max width before watermarking", async () => {
     const src = await makeTestPng(3000, 1500);
     const result = await optimizeImageToWebp(src, "wide.png", "image/png", { category: "general" });

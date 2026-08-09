@@ -124,7 +124,7 @@ export function registerMediaRoutes(app: Express) {
 
   app.post("/api/media/upload", requirePermission("media"), async (req, res) => {
     try {
-      const { title, fileName, fileData, category } = req.body;
+      const { title, fileName, fileData, category, watermark } = req.body;
       if (!fileName || !fileData) {
         return res.status(400).json({ success: false, message: "فایل و نام فایل الزامی است." });
       }
@@ -141,7 +141,7 @@ export function registerMediaRoutes(app: Express) {
         return res.status(400).json({ success: false, message: validationError });
       }
 
-      const optimized = await optimizeImageToWebp(buffer, fileName, mimeFromExt(path.extname(fileName).toLowerCase()), { category });
+      const optimized = await optimizeImageToWebp(buffer, fileName, mimeFromExt(path.extname(fileName).toLowerCase()), { category, watermark });
       const uploadBuffer = optimized.buffer;
       const mimeType = optimized.mimeType;
       const fileSize = uploadBuffer.length;
@@ -202,7 +202,7 @@ export function registerMediaRoutes(app: Express) {
 
   app.post("/api/media/upload-multiple", requirePermission("media"), async (req, res) => {
     try {
-      const { title, category, files } = req.body;
+      const { title, category, files, watermark } = req.body;
       if (!Array.isArray(files) || files.length === 0) {
         return res.status(400).json({ success: false, message: "حداقل یک فایل برای آپلود انتخاب کنید." });
       }
@@ -239,7 +239,7 @@ export function registerMediaRoutes(app: Express) {
           continue;
         }
 
-        const optimized = await optimizeImageToWebp(buffer, fileName, mimeFromExt(path.extname(fileName).toLowerCase()), { category });
+        const optimized = await optimizeImageToWebp(buffer, fileName, mimeFromExt(path.extname(fileName).toLowerCase()), { category, watermark });
         const uploadBuffer = optimized.buffer;
         const mimeType = optimized.mimeType;
         const fileSize = uploadBuffer.length;

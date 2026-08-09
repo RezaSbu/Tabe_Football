@@ -130,10 +130,18 @@ export async function optimizeImageToWebp(
       .toBuffer();
 
     const category = String(options?.category || "").trim().toLowerCase();
-    const shouldWatermark =
-      options?.watermark !== false &&
-      !NO_WATERMARK_CATEGORIES.has(category) &&
-      finalW >= WATERMARK_MIN_WIDTH;
+    // تصمیم واترمارک: true = همیشه اعمال شود، false = هرگز، undefined = رفتار قدیمی (مستثنی دسته و حداقل عرض)
+    const watermarkFlag = options?.watermark;
+    let shouldWatermark: boolean;
+    if (watermarkFlag === true) {
+      shouldWatermark = true;
+    } else if (watermarkFlag === false) {
+      shouldWatermark = false;
+    } else {
+      shouldWatermark =
+        !NO_WATERMARK_CATEGORIES.has(category) &&
+        finalW >= WATERMARK_MIN_WIDTH;
+    }
 
     if (!shouldWatermark) {
       return {
