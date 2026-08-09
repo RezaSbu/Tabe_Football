@@ -60,13 +60,10 @@ export async function getStorageStats() {
 }
 
 export function registerSystemRoutes(app: Express) {
-  app.get("/api/data", async (req: Request, res: Response) => {
-    logMessage("info", "api", "درخواست دریافت داده‌های پایه (/api/data) دریافت شد. همگام‌سازی با PostgreSQL...");
-    try {
-      await dbLock.acquire(() => fetchAndPopulateMemoryDB());
-    } catch (err) {
-      logMessage("error", "api", "خطا در بازیابی بلادرنگ داده‌های ابری، استفاده از کش محلی", err);
-    }
+  app.get("/api/data", (req: Request, res: Response) => {
+    // داده‌ها از حافظه (منبع حقیقت) سرو می‌شوند؛ همگام‌سازی با PostgreSQL فقط در استارت سرور انجام می‌شود.
+    // هر همگام‌سازی بلادرنگ در این اندپوینت باعث جایگزینی آبجکت درون‌حافظه (setDb) می‌شد و
+    // آپلودهای هم‌زمانی را که قبل از saveDB رخ می‌دادند از بین می‌برد (باگ ثبت‌نشدن تصاویر).
     res.json({ status: "ok", ...loadDB() });
   });
 
