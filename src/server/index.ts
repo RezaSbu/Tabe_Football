@@ -8,7 +8,7 @@ import "./utils/envLoader";
 
 import { setupSecurityMiddleware } from "./middleware/security";
 import { centralAuthGuard } from "./middleware/auth";
-import { recordHttpRequest } from "./services/monitoring";
+import { recordHttpRequest, cleanupOldVisits, cleanupOldAuditLogs } from "./services/monitoring";
 
 import { loadDB, setDb } from "./state";
 import { dbLock } from "./utils/concurrency";
@@ -68,6 +68,12 @@ async function startServer() {
   await migrateAdsSchema();
   await migrateNewsGalleryColumns();
   await migrateMonitoringTables();
+  await cleanupOldVisits(30);
+  await cleanupOldAuditLogs(30);
+  setInterval(() => {
+    cleanupOldVisits(30);
+    cleanupOldAuditLogs(30);
+  }, 24 * 60 * 60 * 1000);
   await dbLock.acquire(() => fetchAndPopulateMemoryDB());
 
   const db = loadDB();

@@ -4,6 +4,7 @@ import path from "path";
 import { dbQuery, getUploadsDir } from "../db";
 import { loadDB } from "../state";
 import { AUTH_EVENTS } from "../utils/audit";
+import { logMessage } from "../utils/logger";
 
 // ============================================
 // سامانه نظارت: گردآوری متریک‌های سرور، دیتابیس، رسانه، بازدید و عملکرد
@@ -364,14 +365,15 @@ export async function getVisitorStats() {
 
   try {
     const totals = await dbQuery(
-      `SELECT count(*)::int AS visits,
-              count(DISTINCT visitor_id) AS uniques,
+      `SELECT count(*)::int AS total,
               count(*) FILTER (WHERE is_bot)::int AS bots,
-              min(created_at) AS first_visit,
               max(created_at) AS last_visit
        FROM public.visits`
     );
-    out.totals = totals.rows[0] || { visits: 0, uniques: 0, bots: 0 };
+    const t = totals.rows[0] || { total: 0, bots: 0, last_visit: null };
+    out.total = Number(t.total) || 0;
+    out.botsBlocked = Number(t.bots) || 0;
+    out.lastVisit = t.last_visit || null;
   } catch (e: any) {
     out.available = false;
     out.error = e?.message || String(e);
@@ -380,65 +382,133 @@ export async function getVisitorStats() {
 
   try {
     const today = await dbQuery(
-      `SELECT count(*)::int AS visits, count(DISTINCT visitor_id)::int AS uniques
+      `SELECT count(*)::int AS count
        FROM public.visits WHERE created_at >= date_trunc('day', now())`
     );
-    out.today = today.rows[0] || { visits: 0, uniques: 0 };
+    out.today = today.rows[0]?.count || 0;
   } catch {
-    out.today = { visits: 0, uniques: 0 };
+    out.today = 0;
   }
 
   try {
     const daily = await dbQuery(
-      `SELECT to_char(created_at, 'YYYY-MM-DD') AS day,
-              count(*)::int AS visits,
-              count(DISTINCT visitor_id)::int AS uniques
+      `SELECT to_char(created_at, 'YYYY-MM-DD') AS date, count(*)::int AS count
        FROM public.visits
        WHERE created_at >= now() - interval '30 days'
-       GROUP BY day ORDER BY day ASC`
+       GROUP BY date ORDER BY date ASC`
     );
-    out.daily = daily.rows;
+    out.daily = daily.rows || [];
+    const counts = out.daily.map((r: any) => Number(r.count) || 0);
+    out.avgDaily = counts.length
+      ? Math.round((counts.reduce((a: number, b: number) => a + b, 0) / counts.length) * 10) / 10
+      : 0;
+    out.maxDaily = counts.length ? Math.max(...counts) : 0;
   } catch {
     out.daily = [];
+    out.avgDaily = 0;
+    out.maxDaily = 0;
   }
 
   try {
-    const pages = await dbQuery(
-      `SELECT page, count(*)::int AS visits, count(DISTINCT visitor_id)::int AS uniques
+    const recent = await dbQuery(
+      `SELECT count(DISTINCT visitor_id)::int AS visitors,
+              count(DISTINCT visitor_id) FILTER (
+                WHERE visitor_id IN (
+                  SELECT visitor_id FROM public.visits
+                  WHERE created_at >= now() - interval '7 days' AND visitor_id IS NOT NULL
+                  GROUP BY visitor_id HAVING count(*) >= 2
+                )
+              )::int AS returning
        FROM public.visits
-       WHERE created_at >= now() - interval '30 days'
-       GROUP BY page ORDER BY visits DESC LIMIT 12`
+       WHERE created_at >= now() - interval '7 days' AND visitor_id IS NOT NULL`
     );
-    out.topPages = pages.rows;
+    const r = recent.rows[0] || { visitors: 0, returning: 0 };
+    out.recent7d = Number(r.visitors) || 0;
+    out.returnRate7d = Number(r.visitors) > 0 ? Math.round(((Number(r.returning) || 0) / Number(r.visitors)) * 100) : 0;
   } catch {
-    out.topPages = [];
+    out.recent7d = 0;
+    out.returnRate7d = 0;
   }
 
   try {
     const hours = await dbQuery(
-      `SELECT EXTRACT(HOUR FROM created_at)::int AS hour, count(*)::int AS visits
+      `SELECT EXTRACT(HOUR FROM created_at)::int AS hour, count(*)::int AS count
        FROM public.visits
        WHERE created_at >= now() - interval '7 days'
        GROUP BY hour ORDER BY hour ASC`
     );
-    out.peakHours = hours.rows;
+    out.peakHours = hours.rows || [];
   } catch {
     out.peakHours = [];
   }
 
   try {
-    const returning = await dbQuery(
-      `SELECT count(*)::int AS returning
-       FROM (SELECT visitor_id FROM public.visits
-             WHERE created_at >= now() - interval '7 days' AND visitor_id IS NOT NULL
-             GROUP BY visitor_id HAVING count(*) >= 2) t`
+    const weekdays = await dbQuery(
+      `SELECT EXTRACT(DOW FROM created_at)::int AS dow, count(*)::int AS count
+       FROM public.visits
+       WHERE created_at >= now() - interval '30 days'
+       GROUP BY dow ORDER BY dow ASC`
     );
-    out.returning7d = returning.rows[0]?.returning || 0;
+    const buckets: { count: number }[] = [];
+    for (let i = 0; i < 7; i++) buckets.push({ count: 0 });
+    for (const row of weekdays.rows || []) {
+      const dow = Number(row.dow);
+      if (dow >= 0 && dow <= 6) buckets[dow] = { count: Number(row.count) || 0 };
+    }
+    out.byWeekday = buckets;
+    out.maxWeekday = Math.max(1, ...buckets.map((b: any) => b.count));
   } catch {
-    out.returning7d = 0;
+    out.byWeekday = null;
+    out.maxWeekday = 0;
+  }
+
+  try {
+    const pages = await dbQuery(
+      `SELECT page AS path, count(*)::int AS count
+       FROM public.visits
+       WHERE created_at >= now() - interval '30 days' AND page IS NOT NULL AND page <> ''
+       GROUP BY path ORDER BY count DESC LIMIT 12`
+    );
+    out.topPages = pages.rows || [];
+  } catch {
+    out.topPages = [];
   }
 
   return out;
+}
+
+// ---------- پاکسازی خودکار بازدیدهای قدیمی ----------
+export async function cleanupOldVisits(retentionDays = 30): Promise<number> {
+  try {
+    const res = await dbQuery(
+      `DELETE FROM public.visits WHERE created_at < now() - ($1::int * interval '1 day')`,
+      [retentionDays]
+    );
+    if ((res.rowCount || 0) > 0) {
+      logMessage("info", "database", `پاکسازی خودکار بازدیدها: ${res.rowCount} ردیف قدیمی‌تر از ${retentionDays} روز حذف شد.`);
+    }
+    return res.rowCount || 0;
+  } catch (e: any) {
+    logMessage("warn", "database", "خطا در پاکسازی خودکار بازدیدهای قدیمی:", e?.message || e);
+    return 0;
+  }
+}
+
+// ---------- پاکسازی خودکار لاگ ادمین‌ها ----------
+export async function cleanupOldAuditLogs(retentionDays = 30): Promise<number> {
+  try {
+    const res = await dbQuery(
+      `DELETE FROM public.audit_logs WHERE created_at < now() - ($1::int * interval '1 day')`,
+      [retentionDays]
+    );
+    if ((res.rowCount || 0) > 0) {
+      logMessage("info", "database", `پاکسازی خودکار لاگ ادمین‌ها: ${res.rowCount} ردیف قدیمی‌تر از ${retentionDays} روز حذف شد.`);
+    }
+    return res.rowCount || 0;
+  } catch (e: any) {
+    logMessage("warn", "database", "خطا در پاکسازی خودکار لاگ ادمین‌ها:", e?.message || e);
+    return 0;
+  }
 }
 
 // ---------- گزارش فعالیت ادمین‌ها ----------
@@ -446,48 +516,66 @@ export async function getAuditStats() {
   const out: any = { available: true };
 
   try {
-    const perAdmin = await dbQuery(
-      `SELECT username, role, count(*)::int AS actions,
-              min(created_at) AS first_action, max(created_at) AS last_action,
-              count(*) FILTER (WHERE action = 'login')::int AS logins,
-              count(*) FILTER (WHERE action = 'failed_login')::int AS failed_logins
-       FROM public.audit_logs GROUP BY username, role ORDER BY actions DESC`
-    );
-    out.perAdmin = perAdmin.rows;
+    const [totalRes, perAdminRes, byActionRes, recentRes] = await Promise.all([
+      dbQuery(`SELECT count(*)::int AS total FROM public.audit_logs`),
+      dbQuery(
+        `SELECT username, count(*)::int AS count,
+                count(*) FILTER (WHERE action = 'login')::int AS logins,
+                count(*) FILTER (WHERE action = 'failed_login')::int AS failed_logins
+         FROM public.audit_logs GROUP BY username ORDER BY count DESC`
+      ),
+      dbQuery(`SELECT action, count(*)::int AS count FROM public.audit_logs GROUP BY action ORDER BY count DESC`),
+      dbQuery(
+        `SELECT id, username, role, action, method, path, ip, created_at
+         FROM public.audit_logs ORDER BY created_at DESC LIMIT 150`
+      )
+    ]);
+
+    out.total = totalRes.rows[0]?.total || 0;
+
+    const byUser: Record<string, number> = {};
+    for (const r of perAdminRes.rows || []) byUser[r.username] = Number(r.count) || 0;
+    out.byUser = byUser;
+
+    const byAction: Record<string, number> = {};
+    for (const r of byActionRes.rows || []) byAction[r.action] = Number(r.count) || 0;
+    out.byAction = byAction;
+
+    out.recent = (recentRes.rows || []).map((r: any) => ({
+      username: r.username,
+      role: r.role,
+      action: r.action,
+      route: r.path,
+      ip: r.ip,
+      createdAt: r.created_at
+    }));
   } catch (e: any) {
     out.available = false;
     out.error = e?.message || String(e);
     return out;
   }
 
-  try {
-    const byAction = await dbQuery(
-      `SELECT action, count(*)::int AS count FROM public.audit_logs GROUP BY action ORDER BY count DESC`
-    );
-    out.byAction = byAction.rows;
-  } catch {
-    out.byAction = [];
-  }
-
-  try {
-    const recent = await dbQuery(
-      `SELECT id, username, role, action, method, path, ip, created_at
-       FROM public.audit_logs ORDER BY created_at DESC LIMIT 150`
-    );
-    out.recent = recent.rows;
-  } catch {
-    out.recent = [];
-  }
-
-  // رویدادهای امنیتی حافظه (آخرین تلاش‌های ورود)
+  let authEventCount = 0;
+  let failedCount = 0;
   const failedByIp: Record<string, number> = {};
-  AUTH_EVENTS.slice(0, 200).forEach(ev => {
-    if (!ev.success && ev.ip) {
-      failedByIp[ev.ip] = (failedByIp[ev.ip] || 0) + 1;
+  for (const ev of AUTH_EVENTS) {
+    authEventCount++;
+    if (!ev.success) {
+      failedCount++;
+      if (ev.ip) failedByIp[ev.ip] = (failedByIp[ev.ip] || 0) + 1;
     }
-  });
-  out.authEvents = AUTH_EVENTS.slice(0, 100);
-  out.failedByIp = Object.entries(failedByIp).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  }
+  out.authEventCount = authEventCount;
+  out.failedCount = failedCount;
+  out.authEvents = AUTH_EVENTS.slice(0, 100).map(ev => ({
+    username: ev.username,
+    success: ev.success,
+    ip: ev.ip,
+    time: ev.at
+  }));
+  out.failedIps = Object.fromEntries(
+    Object.entries(failedByIp).sort((a, b) => b[1] - a[1]).slice(0, 10)
+  );
 
   return out;
 }
