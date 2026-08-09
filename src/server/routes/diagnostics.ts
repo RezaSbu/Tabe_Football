@@ -66,18 +66,28 @@ function runPgDump(outputFile: string): Promise<{ ok: boolean; error?: string }>
     });
     const out = fs.createWriteStream(outputFile);
     let errOutput = "";
+    let settled = false;
+    const settle = (ok: boolean, error?: string) => {
+      if (settled) return;
+      settled = true;
+      resolve({ ok, error });
+    };
+    out.on("error", (err: NodeJS.ErrnoException) => {
+      proc.kill("SIGTERM");
+      settle(false, `خطا در نوشتن فایل بکاپ: ${err.message}`);
+    });
     proc.stdout.pipe(out);
     proc.stderr.on("data", (d: Buffer) => {
       errOutput += String(d);
     });
-    proc.on("error", (err: any) => resolve({ ok: false, error: `pg_dump اجرا نشد: ${err.message}` }));
+    proc.on("error", (err: any) => settle(false, `pg_dump اجرا نشد: ${err.message}`));
     proc.on("close", code => {
       out.close();
       if (code === 0) {
-        resolve({ ok: true });
+        settle(true);
       } else {
         fs.unlink(outputFile, () => {});
-        resolve({ ok: false, error: errOutput.slice(0, 600) });
+        settle(false, errOutput.slice(0, 600));
       }
     });
   });
@@ -203,31 +213,36 @@ export function registerDiagnosticsRoutes(app: Express) {
 
   // ---------- ایجاد بکاپ ----------
   app.post("/api/diagnostics/backup", requirePermission("diagnostics"), async (req: Request, res: Response) => {
-    ensureBackupsDir();
-    const user = (req as any).user;
-    const ts = new Date().toISOString().replace(/[-:T.]/g, "").slice(0, 14);
-    const rawFile = path.join(BACKUPS_DIR, `backup_${ts}.sql`);
+    try {
+      ensureBackupsDir();
+      const user = (req as any).user;
+      const ts = new Date().toISOString().replace(/[-:T.]/g, "").slice(0, 14);
+      const rawFile = path.join(BACKUPS_DIR, `backup_${ts}.sql`);
 
-    logMessage("info", "api", "آغاز پشتیبان‌گیری از دیتابیس (pg_dump)");
-    auditLog({ username: user?.username || "unknown", role: user?.role, action: "backup", method: "POST", path: "/api/diagnostics/backup", ip: getClientIp(req) });
+      logMessage("info", "api", "آغاز پشتیبان‌گیری از دیتابیس (pg_dump)");
+      auditLog({ username: user?.username || "unknown", role: user?.role, action: "backup", method: "POST", path: "/api/diagnostics/backup", ip: getClientIp(req) });
 
-    let result = await runPgDump(rawFile);
-    if (!result.ok) {
-      // اگر pg_dump در دسترس نبود، از دامپ جایگزین استفاده کن
-      logMessage("warn", "api", `pg_dump در دسترس نیست؛ استفاده از دامپ جایگزین. (${result.error})`);
-      result = await fallbackSqlDump(rawFile);
+      let result = await runPgDump(rawFile);
+      if (!result.ok) {
+        // اگر pg_dump در دسترس نبود، از دامپ جایگزین استفاده کن
+        logMessage("warn", "api", `pg_dump در دسترس نیست؛ استفاده از دامپ جایگزین. (${result.error})`);
+        result = await fallbackSqlDump(rawFile);
+      }
+
+      if (!result.ok) {
+        logMessage("error", "api", "خطا در پشتیبان‌گیری", result.error);
+        return res.status(500).json({ success: false, message: `خطا در پشتیبان‌گیری: ${result.error}` });
+      }
+
+      const finalFile = gzipFile(rawFile);
+      pruneBackups();
+      const size = fs.statSync(finalFile).size;
+      logMessage("info", "api", `پشتیبان‌گیری با موفقیت انجام شد: ${path.basename(finalFile)} (${Math.round(size / 1024)} KB)`);
+      res.json({ success: true, message: "پشتیبان‌گیری با موفقیت انجام شد.", file: path.basename(finalFile), size });
+    } catch (err: any) {
+      logMessage("error", "api", "خطا در پشتیبان‌گیری", err?.message || err);
+      res.status(500).json({ success: false, message: `خطا در پشتیبان‌گیری: ${err?.message || err}` });
     }
-
-    if (!result.ok) {
-      logMessage("error", "api", "خطا در پشتیبان‌گیری", result.error);
-      return res.status(500).json({ success: false, message: `خطا در پشتیبان‌گیری: ${result.error}` });
-    }
-
-    const finalFile = gzipFile(rawFile);
-    pruneBackups();
-    const size = fs.statSync(finalFile).size;
-    logMessage("info", "api", `پشتیبان‌گیری با موفقیت انجام شد: ${path.basename(finalFile)} (${Math.round(size / 1024)} KB)`);
-    res.json({ success: true, message: "پشتیبان‌گیری با موفقیت انجام شد.", file: path.basename(finalFile), size });
   });
 
   // ---------- لیست بکاپ‌ها ----------
