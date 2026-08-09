@@ -46,6 +46,8 @@ export default function AdminMediaFiles() {
   const [uploadCategory, setUploadCategory] = useState("player_photo");
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [pendingUpload, setPendingUpload] = useState<{ title: string; category: string; files: { fileName: string; fileData: string }[] } | null>(null);
+  const [showWatermarkModal, setShowWatermarkModal] = useState(false);
   
   // Edit States
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -138,11 +140,27 @@ export default function AdminMediaFiles() {
           fileData: await toBase64(file)
         }))
       );
+      setPendingUpload({ title: uploadTitle, category: uploadCategory, files: filesPayload });
+      setShowWatermarkModal(true);
+    } catch {
+      showToast("خطا در آماده‌سازی فایل‌ها.", "error");
+    } finally {
+      setUploading(false);
+    }
+  };
 
+  const executeUpload = async (watermark: boolean) => {
+    if (!pendingUpload) return;
+    const upload = pendingUpload;
+    setShowWatermarkModal(false);
+    setPendingUpload(null);
+    setUploading(true);
+    try {
       const payload = {
-        title: uploadTitle,
-        category: uploadCategory,
-        files: filesPayload
+        title: upload.title,
+        category: upload.category,
+        watermark,
+        files: upload.files
       };
 
       const response = await fetch("/api/media/upload-multiple", {
@@ -628,6 +646,38 @@ export default function AdminMediaFiles() {
           )}
         </div>
       </div>
+
+      {/* Watermark Confirmation Modal */}
+      {showWatermarkModal && pendingUpload && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+          <div className="w-full max-w-sm bg-slate-900 border border-white/10 p-6 rounded-3xl" dir="rtl">
+            <div className="flex items-center gap-3 text-white mb-4">
+              <ImageIcon className="h-6 w-6 text-red-500" />
+              <h3 className="font-black text-sm">Watermark</h3>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed mb-2">
+              آیا روی {pendingUpload.files.length} تصویر انتخاب‌شده واترمارک «تب فوتبال» اعمال شود؟
+            </p>
+            <p className="text-[10px] text-slate-500 mb-6">
+              گزینه بله یعنی همه تصاویر (حتی لوگو و بنر) واترمارک می‌گیرند، گزینه خیر یعنی هیچ‌کدام.
+            </p>
+            <div className="flex items-center justify-end gap-3 font-sans">
+              <button
+                onClick={() => executeUpload(false)}
+                className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                خیر (No)
+              </button>
+              <button
+                onClick={() => executeUpload(true)}
+                className="px-5 py-2 bg-red-655 hover:bg-red-700 text-white rounded-xl text-xs font-black transition cursor-pointer"
+              >
+                بله (Yes)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast Notification */}
       {toastMessage && (

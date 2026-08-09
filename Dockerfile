@@ -63,7 +63,7 @@ RUN mkdir -p /usr/share/fonts \
     && fc-cache -f
 
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-RUN mkdir -p uploads && chown -R appuser:appgroup /app
+RUN mkdir -p uploads backups && chown -R appuser:appgroup /app
 
 USER appuser
 

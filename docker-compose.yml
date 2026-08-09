@@ -58,7 +58,7 @@ services:
       APP_URL: ${APP_URL}
     volumes:
       - ./uploads:/app/uploads
-      - ./backups:/app/backups
+      - backupdata:/app/backups
     ports:
       - "127.0.0.1:3000:3000"
 
@@ -85,3 +85,4 @@ services:
 
 volumes:
   pgdata:
+  backupdata:
