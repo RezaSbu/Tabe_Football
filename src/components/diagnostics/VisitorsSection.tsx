@@ -7,7 +7,7 @@ const dayNames = ["یکشنبه", "دوشنبه", "سه‌شنبه", "چهارش
 export default function VisitorsSection({ diag }: { diag: any }) {
   const v = diag?.visitors || {};
 
-  const hourly = (v.peakHours || []).slice(0, 8);
+  const hourly = v.peakHours || [];
   const maxHour = Math.max(1, ...hourly.map((h: any) => h.count));
   const pages = (v.topPages || []).slice(0, 10);
   const maxPage = Math.max(1, ...pages.map((p: any) => p.count));
