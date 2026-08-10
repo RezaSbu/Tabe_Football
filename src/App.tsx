@@ -35,6 +35,7 @@ const LegionnairesPage = React.lazy(() => import("./pages/LegionnairesPage"));
 const StatsPage = React.lazy(() => import("./pages/StatsPage"));
 
 const NewsDetailPage = React.lazy(() => import("./pages/NewsDetailPage"));
+const GalleryDetailPage = React.lazy(() => import("./pages/GalleryDetailPage"));
 const TeamDetailPage = React.lazy(() => import("./pages/TeamDetailPage"));
 const PlayerDetailPage = React.lazy(() => import("./pages/PlayerDetailPage"));
 const MatchDetailPage = React.lazy(() => import("./pages/MatchDetailPage"));
@@ -65,7 +66,7 @@ const TAB_TO_PATH: Record<string, string> = Object.fromEntries(
   Object.entries(PATH_TO_TAB).map(([path, tab]) => [tab, path])
 );
 
-const DETAIL_PREFIXES = ["/news/", "/team/", "/player/", "/match/", "/coach/", "/legionnaire/", "/transfer/"];
+const DETAIL_PREFIXES = ["/news/", "/gallery/", "/team/", "/player/", "/match/", "/coach/", "/legionnaire/", "/transfer/"];
 
 function isDetailPath(pathname: string) {
   return DETAIL_PREFIXES.some(p => pathname.startsWith(p));
@@ -357,6 +358,9 @@ export default function App() {
         <Routes>
           <Route path="/news/:id" element={
             <Suspense fallback={loadingFallback}><NewsDetailPage /></Suspense>
+          } />
+          <Route path="/gallery/:id" element={
+            <Suspense fallback={loadingFallback}><GalleryDetailPage /></Suspense>
           } />
           <Route path="/team/:id" element={
             <Suspense fallback={loadingFallback}><TeamDetailPage /></Suspense>
