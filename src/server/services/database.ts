@@ -120,6 +120,24 @@ export async function migrateNewsGalleryColumns(): Promise<void> {
   }
 }
 
+export async function migrateReadMoreContent2(): Promise<void> {
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`
+      UPDATE news
+      SET read_more = CASE
+        WHEN read_more IS NULL THEN NULL
+        WHEN jsonb_typeof(read_more) = 'object'
+          THEN read_more || jsonb_build_object('content2', COALESCE(read_more->>'content2', ''))
+        ELSE read_more
+      END
+    `);
+    logMessage("info", "database", "مهاجرت فیلد content2 (متن پایین ادامه مطلب) اخبار اعمال شد.");
+  } catch (err: any) {
+    logMessage("warn", "database", "خطا در مهاجرت content2 ادامه مطلب:", err.message || err);
+  }
+}
+
 export async function migrateMonitoringTables(): Promise<void> {
   try {
     const { pool } = await import("../db");

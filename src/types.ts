@@ -5,7 +5,7 @@ export interface NewsItem {
   content: string;
   image: string;
   gallery?: string[];
-  read_more?: { content?: string; images?: string[] } | null;
+  read_more?: { content?: string; content2?: string; images?: string[] } | null;
   category: 'pro-league' | 'league-1' | 'league-2' | 'hazfi-cup' | 'legionnaires' | 'transfers' | 'futsal';
   tags: string[];
   viewCount: number;

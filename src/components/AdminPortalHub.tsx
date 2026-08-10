@@ -114,6 +114,7 @@ export default function AdminPortalHub({
   const [newsGallery, setNewsGallery] = useState("");
   const [newsReadMore, setNewsReadMore] = useState("");
   const [newsReadMoreImages, setNewsReadMoreImages] = useState("");
+  const [newsReadMore2, setNewsReadMore2] = useState("");
 
   // TRANSFER FORM STATE
   const [trPlayerName, setTrPlayerName] = useState("");
@@ -376,6 +377,7 @@ export default function AdminPortalHub({
     setNewsGallery(Array.isArray(item.gallery) ? item.gallery.join(", ") : "");
     setNewsReadMore(item.read_more?.content || "");
     setNewsReadMoreImages(Array.isArray(item.read_more?.images) ? item.read_more.images.join(", ") : "");
+    setNewsReadMore2(item.read_more?.content2 || "");
     setNewsTags(item.tags ? item.tags.join(", ") : "");
     setShowForm("news");
   };
@@ -390,8 +392,9 @@ export default function AdminPortalHub({
       image: newsImage || "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=800",
       tags: newsTags.split(",").map(t => t.trim()).filter(Boolean),
       gallery: newsGallery.split(",").map(t => t.trim()).filter(Boolean),
-      read_more: (newsReadMore || newsReadMoreImages.trim()) ? {
+      read_more: (newsReadMore || newsReadMore2 || newsReadMoreImages.trim()) ? {
         content: newsReadMore,
+        content2: newsReadMore2,
         images: newsReadMoreImages.split(",").map(t => t.trim()).filter(Boolean)
       } : null
     };
@@ -747,15 +750,21 @@ export default function AdminPortalHub({
               </div>
 
               <div className="pt-1 border-t border-white/5">
-                <label className="block text-[10px] text-emerald-400 font-extrabold mb-2">ادامه مطلب (اختیاری)</label>
+                <label className="block text-[10px] text-emerald-400 font-extrabold mb-1.5">ادامه مطلب (اختیاری)</label>
+                <p className="text-[10px] text-gray-500 mb-3 leading-relaxed">ترتیب نمایش در صفحه خبر: <span className="text-emerald-400/80">متن بالای ادامه مطلب</span> ← <span className="text-emerald-400/80">تصویر(ها)</span> ← <span className="text-emerald-400/80">متن پایین ادامه مطلب</span></p>
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="md:col-span-2">
-                    <label className="block text-[10px] text-gray-500 mb-1">متن ادامه مطلب</label>
-                    <textarea rows={4} value={newsReadMore} onChange={e => setNewsReadMore(e.target.value)} className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white resize-none" placeholder="پاراگراف‌های بیشتر درباره خبر که با دکمه «ادامه مطلب» نمایش داده می‌شود..." />
+                    <label className="block text-[10px] text-gray-500 mb-1">متن بالای ادامه مطلب (قسمت ۱)</label>
+                    <textarea rows={3} value={newsReadMore} onChange={e => setNewsReadMore(e.target.value)} className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white resize-none" placeholder="متن بالای ادامه مطلب که ابتدا نمایش داده می‌شود..." />
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-[10px] text-gray-500 mb-1">تصاویر ادامه مطلب (حداکثر ۲ - با کاما جدا کنید)</label>
                     <input type="text" value={newsReadMoreImages} onChange={e => setNewsReadMoreImages(e.target.value)} placeholder="https://..., https://..." className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" />
+                    <p className="text-[10px] text-gray-600 mt-1">۱ عکس: بزرگ نمایش داده می‌شود | ۲ عکس: کنار هم و منظم نمایش داده می‌شوند</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-[10px] text-gray-500 mb-1">متن پایین ادامه مطلب (قسمت ۲)</label>
+                    <textarea rows={3} value={newsReadMore2} onChange={e => setNewsReadMore2(e.target.value)} className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white resize-none" placeholder="متن پایین ادامه مطلب که بعد از تصویرها نمایش داده می‌شود..." />
                   </div>
                 </div>
               </div>

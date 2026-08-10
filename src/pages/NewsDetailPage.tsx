@@ -153,7 +153,7 @@ export default function NewsDetailPage() {
           </div>
         </div>
 
-        {(article.read_more?.content || (Array.isArray(article.read_more?.images) && article.read_more.images.length > 0)) && (
+        {(article.read_more?.content || article.read_more?.content2 || (Array.isArray(article.read_more?.images) && article.read_more.images.length > 0)) && (
           <div className="mt-6 border-t border-white/5 pt-5">
             {!showMore ? (
               <button
@@ -164,32 +164,26 @@ export default function NewsDetailPage() {
                 <ChevronDown className="h-4 w-4" />
               </button>
             ) : (
-              <div className="space-y-4 animate-in fade-in">
-                {Array.isArray(article.read_more?.images) && article.read_more.images.length === 1 && article.read_more?.content ? (
-                  <div className="flex flex-col gap-4 items-start sm:flex-row-reverse">
-                    <img loading="lazy" decoding="async" src={getSafeImageUrl(article.read_more.images[0])} alt={article.title} referrerPolicy="no-referrer" className="mx-auto sm:mx-0 w-auto max-h-[26rem] max-w-full rounded-xl border border-white/5 shadow-lg" />
-                    <p className="flex-1 text-gray-300 text-sm sm:text-base leading-loose whitespace-pre-line text-justify">
-                      {article.read_more.content}
-                    </p>
+              <div className="space-y-5 animate-in fade-in">
+                {article.read_more?.content && (
+                  <p className="text-gray-300 text-sm sm:text-base leading-loose whitespace-pre-line text-justify">
+                    {article.read_more.content}
+                  </p>
+                )}
+                {Array.isArray(article.read_more?.images) && article.read_more.images.length === 1 && (
+                  <img loading="lazy" decoding="async" src={getSafeImageUrl(article.read_more.images[0])} alt={article.title} referrerPolicy="no-referrer" className="mx-auto max-h-[26rem] w-auto max-w-full rounded-xl border border-white/5 shadow-lg" />
+                )}
+                {Array.isArray(article.read_more?.images) && article.read_more.images.length > 1 && (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {article.read_more.images.map((g: string, gi: number) => (
+                      <img key={gi} loading="lazy" decoding="async" src={getSafeImageUrl(g)} alt={article.title} referrerPolicy="no-referrer" className="w-full h-56 sm:h-80 rounded-xl object-cover border border-white/5 shadow-lg" />
+                    ))}
                   </div>
-                ) : (
-                  <>
-                    {article.read_more?.content && (
-                      <p className="text-gray-300 text-sm sm:text-base leading-loose whitespace-pre-line text-justify">
-                        {article.read_more.content}
-                      </p>
-                    )}
-                    {Array.isArray(article.read_more?.images) && article.read_more.images.length > 1 && (
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        {article.read_more.images.map((g: string, gi: number) => (
-                          <img key={gi} loading="lazy" decoding="async" src={getSafeImageUrl(g)} alt={article.title} referrerPolicy="no-referrer" className="w-full max-h-80 rounded-xl object-cover border border-white/5 shadow-lg" />
-                        ))}
-                      </div>
-                    )}
-                    {Array.isArray(article.read_more?.images) && article.read_more.images.length === 1 && (
-                      <img loading="lazy" decoding="async" src={getSafeImageUrl(article.read_more.images[0])} alt={article.title} referrerPolicy="no-referrer" className="mx-auto max-h-[26rem] w-auto max-w-full rounded-xl border border-white/5 shadow-lg" />
-                    )}
-                  </>
+                )}
+                {article.read_more?.content2 && (
+                  <p className="text-gray-300 text-sm sm:text-base leading-loose whitespace-pre-line text-justify">
+                    {article.read_more.content2}
+                  </p>
                 )}
               </div>
             )}
