@@ -26,16 +26,13 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="theme-color" content="#030712" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#dce3ee" />
+    <meta name="color-scheme" content="light" />
 
     <script>
-      // [تم روشن/تیره] اعمال تم پیش از رندر برای جلوگیری از فلش رنگ
-      try {
-        if (localStorage.getItem("tabefotbal-theme") === "light") {
-          document.documentElement.classList.add("light");
-        }
-      } catch (e) {}
+      // تم روشن، پیش‌فرض اصلی سایت است؛ هر ورود/بازگشت به سایت با تم روشن شروع می‌شود.
+      // تم تیره فقط برای همان نشست فعال است و در localStorage ذخیره نمی‌شود.
+      document.documentElement.classList.add("light");
     </script>
 
     <link rel="canonical" href="https://tabefotbal.ir" />

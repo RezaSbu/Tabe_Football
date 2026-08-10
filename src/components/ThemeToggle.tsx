@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import { Sun, Moon } from "lucide-react";
 
-const THEME_KEY = "tabefotbal-theme";
-
 export default function ThemeToggle() {
   const [isLight, setIsLight] = useState(() => {
     if (typeof document !== "undefined") {
@@ -17,11 +15,6 @@ export default function ThemeToggle() {
       root.classList.add("light");
     } else {
       root.classList.remove("light");
-    }
-    try {
-      localStorage.setItem(THEME_KEY, isLight ? "light" : "dark");
-    } catch {
-      // localStorage در دسترس نیست
     }
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {

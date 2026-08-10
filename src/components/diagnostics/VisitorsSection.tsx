@@ -50,15 +50,22 @@ export default function VisitorsSection({ diag }: { diag: any }) {
           {hourly.length === 0 ? (
             <div className="text-[11px] text-slate-500 py-3">داده‌ای ثبت نشده است.</div>
           ) : (
-            <div className="grid grid-cols-4 gap-2">
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 px-1 text-[10px] text-slate-400 font-bold border-b border-white/5 pb-1.5">
+                <span className="w-20">ساعت</span>
+                <span className="flex-1" />
+                <span className="w-14 text-center">تعداد</span>
+              </div>
               {hourly.map((h: any) => (
-                <div key={h.hour} className="bg-black/15 rounded-xl p-2 text-center">
-                  <div className="text-[9px] text-slate-500">{h.hour}:۰۰ - {toPersian(h.count)}</div>
-                  <div className="h-1 bg-slate-800/60 rounded-full overflow-hidden mt-1.5">
-                    <div className="h-full bg-gradient-to-r from-cyan-500 to-blue-400" style={{ width: `${(h.count / maxHour) * 100}%` }} />
+                <div key={h.hour} className="flex items-center gap-2 text-[11px]">
+                  <span className="w-20 font-mono font-bold text-slate-200" dir="ltr">{toPersian(h.hour)}:۰۰</span>
+                  <div className="flex-1 h-2.5 bg-slate-800/60 rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-cyan-500 to-blue-400" style={{ width: `${Math.max(3, (h.count / maxHour) * 100)}%` }} />
                   </div>
+                  <span className="w-14 text-center font-mono font-bold text-cyan-300">{toPersian(h.count)}</span>
                 </div>
               ))}
+              <div className="pt-1.5 text-[10px] text-slate-500">بازدیدهای ۷ روز اخیر به تفکیک ساعت (۰ تا ۲۳)</div>
             </div>
           )}
         </Card>
