@@ -89,6 +89,9 @@ export function getHttpStats() {
 }
 
 // ---------- متریک‌های سیستم / VPS ----------
+// ---------- متریک‌های سیستم ----------
+let lastNetSample: { rx: number; tx: number; at: number } | null = null;
+
 export function getSystemMetrics() {
   const cpus = os.cpus();
   const totalMem = os.totalmem();
@@ -140,7 +143,19 @@ export function getSystemMetrics() {
         totals.txBytes += parseInt(parts[9] || "0", 10) || 0;
       }
     }
-    netStats = totals;
+    const now = Date.now();
+    let rates: { rxPerSec: number; txPerSec: number } | null = null;
+    if (lastNetSample && now - lastNetSample.at > 500) {
+      const dt = (now - lastNetSample.at) / 1000;
+      if (dt > 0) {
+        rates = {
+          rxPerSec: Math.max(0, (totals.rxBytes - lastNetSample.rx) / dt),
+          txPerSec: Math.max(0, (totals.txBytes - lastNetSample.tx) / dt)
+        };
+      }
+    }
+    lastNetSample = { rx: totals.rxBytes, tx: totals.txBytes, at: now };
+    netStats = rates ? { ...totals, ...rates } : totals;
   } catch {
     // ignore
   }

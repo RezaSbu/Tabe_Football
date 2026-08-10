@@ -8,6 +8,9 @@ export default function VpsSection({ diag }: { diag: any }) {
   const load = s.load || {};
   const net = s.network;
   const inode = s.inode;
+  const storage = diag?.storage || {};
+  const disk = storage.disk || null;
+  const diskPct = disk?.totalBytes ? Math.round((disk.usedBytes / disk.totalBytes) * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -70,21 +73,59 @@ export default function VpsSection({ diag }: { diag: any }) {
         </Card>
 
         {/* Network */}
-        <Card title="ترافیک شبکه (از زمان راه‌اندازی)" icon={<Network className="h-4 w-4 text-blue-400" />}>
+        <Card title="ترافیک شبکه" icon={<Network className="h-4 w-4 text-blue-400" />}>
           {net ? (
             <div className="space-y-3">
               <Stat label="دریافتی (RX)" value={formatBytes(net.rxBytes)} color="text-blue-400" />
               <Stat label="ارسال (TX)" value={formatBytes(net.txBytes)} color="text-emerald-400" />
-              <Stat label="مجموع" value={formatBytes((net.rxBytes || 0) + (net.txBytes || 0))} color="text-slate-200" />
-              <div className="text-[9px] text-slate-500">خوانده‌شده از /proc/net/dev (جمع همه اینترفیس‌ها به‌جز loopback)</div>
+              <Stat label="مجموع ترافیک" value={formatBytes((net.rxBytes || 0) + (net.txBytes || 0))} color="text-slate-200" />
+              <div className="border-t border-white/5 pt-2.5 grid grid-cols-2 gap-2">
+                <div className="bg-black/15 rounded-lg p-2 text-center">
+                  <div className="text-[9px] text-slate-500 mb-0.5">نرخ دریافت لحظه‌ای</div>
+                  <div className="font-mono text-[11px] font-black text-blue-400">{net.rxPerSec ? formatBytes(net.rxPerSec) + "/s" : "—"}</div>
+                </div>
+                <div className="bg-black/15 rounded-lg p-2 text-center">
+                  <div className="text-[9px] text-slate-500 mb-0.5">نرخ ارسال لحظه‌ای</div>
+                  <div className="font-mono text-[11px] font-black text-emerald-400">{net.txPerSec ? formatBytes(net.txPerSec) + "/s" : "—"}</div>
+                </div>
+              </div>
+              <div className="text-[9px] text-slate-500">خوانده‌شده از /proc/net/dev (جمع همه اینترفیس‌ها به‌جز loopback) از زمان راه‌اندازی سیستم.</div>
             </div>
           ) : (
             <div className="text-xs text-slate-500 py-3">فقط در لینوکس در دسترس است.</div>
           )}
         </Card>
 
-        {/* Disk & inode */}
-        <Card title="دیسک و ایندود (inode)" icon={<HardDrive className="h-4 w-4 text-amber-400" />}>
+        {/* Disk space */}
+        <Card title="حجم دیسک و فضای باقیمانده" icon={<HardDrive className="h-4 w-4 text-amber-400" />}>
+          {disk ? (
+            <div className="space-y-3">
+              <Stat label="حجم کل دیسک" value={formatBytes(disk.totalBytes)} color="text-slate-200" />
+              <Stat label="مصرف‌شده" value={formatBytes(disk.usedBytes)} color="text-amber-400" />
+              <Stat label="فضای باقیمانده (آزاد)" value={formatBytes(disk.freeBytes)} color="text-emerald-400" />
+              <ProgressBar
+                percent={diskPct}
+                colorClass={diskPct > 90 ? "from-red-500 to-red-400" : diskPct > 75 ? "from-amber-500 to-amber-400" : "from-emerald-500 to-emerald-400"}
+                label={`${diskPct}٪ از دیسک پر شده`}
+              />
+              <div className="border-t border-white/5 pt-2.5 grid grid-cols-2 gap-2">
+                <div className="bg-black/15 rounded-lg p-2">
+                  <div className="text-[9px] text-slate-500 mb-0.5">حجم دیتابیس</div>
+                  <div className="font-mono text-[11px] font-black text-cyan-400">{formatBytes(storage.databaseSizeBytes)}</div>
+                </div>
+                <div className="bg-black/15 rounded-lg p-2">
+                  <div className="text-[9px] text-slate-500 mb-0.5">حجم فایل‌های آپلود</div>
+                  <div className="font-mono text-[11px] font-black text-pink-400">{formatBytes(storage.uploadsSizeBytes)}</div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-xs text-slate-500 py-3">در دسترس نیست.</div>
+          )}
+        </Card>
+
+        {/* Inode */}
+        <Card title="ایندود (inode)" icon={<HardDrive className="h-4 w-4 text-amber-400" />}>
           <div className="space-y-3">
             {inode ? (
               <>

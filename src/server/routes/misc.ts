@@ -1,5 +1,6 @@
 import express, { Express, Request, Response } from "express";
 import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
 import { loadDB, snapshotDB, restoreDB } from "../state";
 import { logMessage } from "../utils/logger";
 import { saveDB } from "../services/database";
@@ -291,8 +292,28 @@ export function registerMiscRoutes(app: Express) {
   });
 
   app.post("/api/auth/logout", async (req, res) => {
-    const user = (req as any).user;
-    auditLog({ username: user?.username || "unknown", role: user?.role, action: "logout", method: "POST", path: "/api/auth/logout", ip: req.ip });
+    // مسیر logout عمومی است (توکن ممکن است منقضی باشد)؛ پس کاربر را از روی توکن استخراج می‌کنیم
+    const token = req.cookies?.token || req.headers.authorization?.split(" ")[1];
+    let username = "unknown";
+    let role: string | undefined;
+    if (token) {
+      const valid = verifyToken(token);
+      if (valid) {
+        username = valid.username;
+        role = valid.role;
+      } else {
+        try {
+          const decoded: any = jwt.decode(token);
+          if (decoded && typeof decoded.username === "string") {
+            username = decoded.username;
+            role = decoded.role;
+          }
+        } catch {
+          // توکن قابل خواندن نیست
+        }
+      }
+    }
+    auditLog({ username, role, action: "logout", method: "POST", path: "/api/auth/logout", ip: req.ip });
     res.clearCookie("token", { path: "/" });
     res.json({ success: true, message: "خروج با موفقیت انجام شد." });
   });
