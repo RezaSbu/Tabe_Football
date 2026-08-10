@@ -101,10 +101,19 @@ export interface LegionnaireItem {
   position?: string;
 }
 
+export interface GalleryPhoto {
+  url: string;
+  caption?: string;
+  altText?: string;
+  width?: number;
+  height?: number;
+}
+
 export interface ImageItem {
   id: string;
   url: string;
   caption: string;
+  title?: string;
   description?: string;
   tags: string[];
   width?: number;
@@ -115,6 +124,8 @@ export interface ImageItem {
   sourceUrl?: string;
   isFeatured?: boolean;
   viewCount?: number;
+  createdAt?: string;
+  photos?: GalleryPhoto[];
 }
 
 export interface StatsData {

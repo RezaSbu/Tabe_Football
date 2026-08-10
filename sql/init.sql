@@ -239,6 +239,8 @@ CREATE TABLE public.images (
   updated_at timestamptz DEFAULT now(),
   tags jsonb DEFAULT '[]'::jsonb,
   view_count integer DEFAULT 0,
+  photographer text,
+  photos jsonb DEFAULT '[]'::jsonb,
   CONSTRAINT images_pkey PRIMARY KEY (id)
 );
 

@@ -33,13 +33,15 @@ export async function migrateConstraints(): Promise<void> {
     `);
     await pool.query(`ALTER TABLE legionnaires DROP CONSTRAINT IF EXISTS chk_legionnaires_league;`);
     await pool.query(`ALTER TABLE images ADD COLUMN IF NOT EXISTS view_count integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE images ADD COLUMN IF NOT EXISTS photographer text`);
+    await pool.query(`ALTER TABLE images ADD COLUMN IF NOT EXISTS photos jsonb DEFAULT '[]'::jsonb`);
     await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS week varchar(50)`);
     await pool.query(`ALTER TABLE legionnaires ADD COLUMN IF NOT EXISTS summary text`);
     await pool.query(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS cover_image text`);
     await pool.query(`ALTER TABLE team_transfers_list ADD COLUMN IF NOT EXISTS league text DEFAULT 'pro-league'`);
     await pool.query(`ALTER TABLE bracket_slots DROP CONSTRAINT IF EXISTS fk_bracket_slots_match`);
     constraintsMigrated = true;
-    logMessage("info", "database", "مهاجرت محدودیت‌های CHECK و ستون view_count جدول images با موفقیت اعمال شد.");
+    logMessage("info", "database", "مهاجرت محدودیت‌های CHECK و ستون‌های view_count/photographer/photos جدول images با موفقیت اعمال شد.");
   } catch (err: any) {
     logMessage("warn", "database", "خطا در مهاجرت محدودیت‌های CHECK:", err.message || err);
   }
@@ -473,6 +475,21 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
             }
           }
         }
+        let parsedPhotos: any[] = [];
+        if (img.photos) {
+          if (Array.isArray(img.photos)) {
+            parsedPhotos = img.photos;
+          } else if (typeof img.photos === 'string') {
+            try {
+              const res = JSON.parse(img.photos);
+              if (Array.isArray(res)) {
+                parsedPhotos = res;
+              }
+            } catch (e) {
+              parsedPhotos = [];
+            }
+          }
+        }
         return {
           id: img.id,
           url: img.url,
@@ -480,8 +497,18 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
           caption: fixMojibake(img.caption || img.title || ""),
           description: fixMojibake(img.description || ""),
           tags: parsedTags.map((t: string) => fixMojibake(t)),
+          photographer: img.photographer ? fixMojibake(String(img.photographer)) : undefined,
           createdAt: img.created_at,
-          viewCount: img.view_count || 0
+          viewCount: img.view_count || 0,
+          photos: parsedPhotos
+            .map((p: any) => ({
+              url: p.url,
+              caption: p.caption ? fixMojibake(String(p.caption)) : "",
+              altText: p.altText ? fixMojibake(String(p.altText)) : undefined,
+              width: p.width,
+              height: p.height
+            }))
+            .filter((p: any) => Boolean(p.url))
         };
       });
     }
@@ -914,7 +941,9 @@ export async function saveDB(): Promise<void> {
         description: img.description || null,
         created_at: img.createdAt || img.created_at || new Date().toISOString(),
         tags: img.tags || [],
-        view_count: img.viewCount || 0
+        view_count: img.viewCount || 0,
+        photographer: img.photographer || null,
+        photos: Array.isArray(img.photos) ? img.photos : []
       }));
       promises.push(pgDb.from('images').upsert(formattedImages));
 

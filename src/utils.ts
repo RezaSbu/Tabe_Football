@@ -494,6 +494,27 @@ export function toPersianDigits(num: number | string): string {
 }
 
 /**
+ * Returns a Persian relative time label (e.g. "۳۴ دقیقه پیش", "۲ روز پیش") for an ISO timestamp.
+ */
+export function getTimeAgoPersian(iso?: string | null): string {
+  if (!iso) return "";
+  const ts = new Date(iso).getTime();
+  if (isNaN(ts)) return "";
+  const diff = Date.now() - ts;
+  if (diff < 60 * 1000) return "لحظاتی پیش";
+  const mins = Math.floor(diff / (60 * 1000));
+  if (mins < 60) return `${toPersianDigits(mins)} دقیقه پیش`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${toPersianDigits(hours)} ساعت پیش`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return "دیروز";
+  if (days < 30) return `${toPersianDigits(days)} روز پیش`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${toPersianDigits(months)} ماه پیش`;
+  return `${toPersianDigits(Math.floor(months / 12))} سال پیش`;
+}
+
+/**
  * Converts a Gregorian date string (YYYY-MM-DD) into Jalali / Shamsi format.
  * E.g., "2026-06-06" -> "۱۶ خرداد ۱۴۰۵"
  */
