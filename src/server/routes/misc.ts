@@ -421,7 +421,8 @@ export function registerMiscRoutes(app: Express) {
     const currentDB = loadDB();
     const item = {
       ...req.body,
-      id: `image-${Date.now()}`
+      id: `image-${Date.now()}`,
+      createdAt: req.body.createdAt || new Date().toISOString()
     };
     currentDB.images.unshift(item);
     await saveDB();

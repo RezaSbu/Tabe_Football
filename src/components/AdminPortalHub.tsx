@@ -127,7 +127,10 @@ export default function AdminPortalHub({
   // IMAGE FORM STATE
   const [imageUrl, setImageUrl] = useState("");
   const [imageCaption, setImageCaption] = useState("");
+  const [imageTitle, setImageTitle] = useState("");
   const [imageDescription, setImageDescription] = useState("");
+  const [imagePhotographer, setImagePhotographer] = useState("");
+  const [imagePhotosText, setImagePhotosText] = useState("");
 
   // LEGIONNAIRE FORM STATE
   const [legName, setLegName] = useState("");
@@ -485,20 +488,26 @@ export default function AdminPortalHub({
   // 3. IMAGE ACTIONS
   const handleEditImage = (item: any) => {
     setEditingId(item.id);
-    setImageUrl(item.url || "");
+    setImageUrl(item.url || item.photos?.[0]?.url || "");
     setImageCaption(item.caption || item.title || "");
+    setImageTitle(item.title || item.caption || "");
     setImageDescription(item.description || "");
+    setImagePhotographer(item.photographer || "");
+    setImagePhotosText(Array.isArray(item.photos) ? item.photos.map((p: any) => p.url).join("\n") : "");
     setImgTags(item.tags ? item.tags.join(", ") : "");
     setShowForm("gallery");
   };
 
   const handleSaveImage = async (e: React.FormEvent) => {
     e.preventDefault();
+    const photos = imagePhotosText.split("\n").map(t => t.trim()).filter(Boolean);
     const payload = {
-      url: imageUrl,
+      url: photos[0] || imageUrl,
       caption: imageCaption,
-      title: imageCaption,
+      title: imageTitle || imageCaption,
       description: imageDescription,
+      photographer: imagePhotographer,
+      photos: photos.map((url, idx) => ({ url, caption: idx === 0 ? imageCaption : "" })),
       tags: imgTags.split(",").map(t => t.trim()).filter(Boolean)
     };
 
@@ -515,7 +524,10 @@ export default function AdminPortalHub({
         setEditingId(null);
         setImageUrl("");
         setImageCaption("");
+        setImageTitle("");
         setImageDescription("");
+        setImagePhotographer("");
+        setImagePhotosText("");
         setImgTags("");
         onRefreshData();
       } else {
@@ -1281,26 +1293,34 @@ export default function AdminPortalHub({
           <div className="flex justify-between items-center border-b border-white/5 pb-2">
             <h3 className="font-extrabold text-sm text-white">سالن عکاسی ورزشی</h3>
             <button
-              onClick={() => { setEditingId(null); setImageUrl(""); setImageCaption(""); setImageDescription(""); setImgTags(""); setShowForm("gallery"); }}
+              onClick={() => { setEditingId(null); setImageUrl(""); setImageCaption(""); setImageTitle(""); setImageDescription(""); setImagePhotographer(""); setImagePhotosText(""); setImgTags(""); setShowForm("gallery"); }}
               className="bg-red-655 hover:bg-red-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl cursor-pointer"
             >
-              + اضافه کردن قاب عکاسی جدید
+              + اضافه کردن آلبوم گالری جدید
             </button>
           </div>
 
           {showForm === "gallery" && (
             <form onSubmit={handleSaveImage} className="bg-slate-900/40 border border-white/5 p-4 rounded-xl space-y-3">
               <div>
-                <label className="block text-[10px] text-gray-500 mb-1">آدرس دقیق عکس هوایی (Image URL)</label>
-                <input type="text" value={imageUrl} onChange={e => setImageUrl(e.target.value)} required className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" />
+                <label className="block text-[10px] text-gray-500 mb-1">عنوان آلبوم / تیتر گالری</label>
+                <input type="text" value={imageTitle} onChange={e => setImageTitle(e.target.value)} required className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" placeholder="مثلاً: قهرمانی استقلال در جام حذفی" />
               </div>
               <div>
-                <label className="block text-[10px] text-gray-500 mb-1">کپشن / زیرنویس تصویر</label>
-                <input type="text" value={imageCaption} onChange={e => setImageCaption(e.target.value)} required className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" />
+                <label className="block text-[10px] text-gray-500 mb-1">عکس‌های آلبوم (هر لینک در یک خط — تا ۳۰ عکس)</label>
+                <textarea rows={5} value={imagePhotosText} onChange={e => setImagePhotosText(e.target.value)} placeholder={"https://...\nhttps://...\nhttps://..."} className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white resize-y" />
               </div>
               <div>
-                <label className="block text-[10px] text-gray-500 mb-1">توضیحات و جزئیات مفصل عکس (توضیحات عکاس)</label>
-                <textarea rows={2} value={imageDescription} onChange={e => setImageDescription(e.target.value)} placeholder="بنویسید عکاس اختصاصی در چه دقیقه‌ای و برای کدام صحنه این عکس را ثبت کرد..." className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white resize-none" />
+                <label className="block text-[10px] text-gray-500 mb-1">کپشن / زیرنویس آلبوم</label>
+                <input type="text" value={imageCaption} onChange={e => setImageCaption(e.target.value)} className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" />
+              </div>
+              <div>
+                <label className="block text-[10px] text-gray-500 mb-1">توضیحات و جزئیات آلبوم</label>
+                <textarea rows={2} value={imageDescription} onChange={e => setImageDescription(e.target.value)} placeholder="شرح رویداد و جزئیات این مجموعه عکس..." className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white resize-none" />
+              </div>
+              <div>
+                <label className="block text-[10px] text-gray-500 mb-1">نام عکاس</label>
+                <input type="text" value={imagePhotographer} onChange={e => setImagePhotographer(e.target.value)} placeholder="مثلاً: امیرحسین عابدی" className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" />
               </div>
               <div>
                 <label className="block text-[10px] text-gray-500 mb-1">برچسب‌ها (با کاما "," جدا کنید)</label>
@@ -1309,7 +1329,7 @@ export default function AdminPortalHub({
 
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setShowForm(null)} className="px-3 py-1.5 text-xs bg-white/5 rounded">انصراف</button>
-                <button type="submit" className="px-4 py-1.5 text-xs bg-emerald-500 text-black font-bold rounded">ذخیره عکس</button>
+                <button type="submit" className="px-4 py-1.5 text-xs bg-emerald-500 text-black font-bold rounded">ذخیره آلبوم</button>
               </div>
             </form>
           )}
@@ -1317,9 +1337,16 @@ export default function AdminPortalHub({
           <div className="grid gap-4 md:grid-cols-4 max-h-[500px] overflow-y-auto">
             {images.map(img => (
               <div key={img.id} className="bg-slate-950 border border-white/5 p-2 rounded-xl relative group">
-                <img loading="lazy" decoding="async" src={img.url} alt={img.caption} referrerPolicy="no-referrer" className="h-28 w-full object-cover rounded-lg" />
+                <div className="relative">
+                  <img loading="lazy" decoding="async" src={img.photos?.[0]?.url || img.url} alt={img.caption} referrerPolicy="no-referrer" className="h-28 w-full object-cover rounded-lg" />
+                  {Array.isArray(img.photos) && img.photos.length > 1 && (
+                    <span className="absolute top-1 right-1 rounded-full bg-black/70 border border-white/10 px-1.5 py-0.5 text-[8px] font-bold text-white">
+                      {img.photos.length} عکس
+                    </span>
+                  )}
+                </div>
                 <div className="flex justify-between items-start mt-2">
-                  <span className="text-[10px] text-slate-400 block truncate max-w-[120px]">{img.caption}</span>
+                  <span className="text-[10px] text-slate-400 block truncate max-w-[120px]">{img.title || img.caption}</span>
                   <div className="flex gap-1.5">
                     <button onClick={() => handleEditImage(img)} className="p-1 rounded bg-white/5 text-slate-300 cursor-pointer hover:bg-white/10" title="ویرایش">
                       <Edit className="h-3.5 w-3.5" />
