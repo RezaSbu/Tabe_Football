@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { ArrowRight, Loader2 } from "lucide-react";
 import PlayerDetail from "../components/PlayerDetail";
-import { getSafeImageUrl } from "../utils";
+import { getSafeImageUrl, fetchCachedAppData } from "../utils";
 
 export default function PlayerDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -34,10 +34,9 @@ export default function PlayerDetailPage() {
       .catch(() => setError(true))
       .finally(() => setLoading(false));
 
-    fetch("/api/data")
-      .then(r => r.json())
+    fetchCachedAppData()
       .then(d => {
-        if (d.status === "ok") {
+        if (d && d.status === "ok") {
           setAllTeams(d.teams || []);
           if (!player) setAllMatches(d.matches || []);
         }

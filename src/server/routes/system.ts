@@ -64,6 +64,9 @@ export function registerSystemRoutes(app: Express) {
     // داده‌ها از حافظه (منبع حقیقت) سرو می‌شوند؛ همگام‌سازی با PostgreSQL فقط در استارت سرور انجام می‌شود.
     // هر همگام‌سازی بلادرنگ در این اندپوینت باعث جایگزینی آبجکت درون‌حافظه (setDb) می‌شد و
     // آپلودهای هم‌زمانی را که قبل از saveDB رخ می‌دادند از بین می‌برد (باگ ثبت‌نشدن تصاویر).
+    // کش کوتاه + ETag: کاهش ترافیک خروجی (بازدیدکننده در ۶۰ ثانیه از کش می‌خواند؛ بعدش شرطی 304).
+    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=300");
+    res.setHeader("Vary", "Accept-Encoding");
     res.json({ status: "ok", ...loadDB() });
   });
 

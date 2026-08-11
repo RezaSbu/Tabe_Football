@@ -16,7 +16,7 @@ export default function Footer({ setActiveTab }: FooterProps) {
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-lg overflow-hidden bg-slate-900 flex items-center justify-center">
                 <img loading="lazy" decoding="async" 
-                  src="/logo.png" 
+                  src="/logo.webp" 
                   alt="تب فوتبال" 
                   className="h-full w-full object-cover"
                   referrerPolicy="no-referrer"
