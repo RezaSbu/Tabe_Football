@@ -66,12 +66,12 @@ export function buildWatermarkSvg(width: number, height: number, fontBase64: str
     </style>
   </defs>
   <text x="${cx}" y="${cy}" font-family="Vazirmatn" font-weight="bold" font-size="${mainFontSize}"
-    fill="rgba(255,255,255,0.13)" text-anchor="middle" dominant-baseline="middle"
+    fill="rgba(255,255,255,0.30)" text-anchor="middle" dominant-baseline="middle"
     transform="rotate(-30 ${cx} ${cy})">تب فوتبال</text>
   <text x="${cornerMargin}" y="${cornerMargin}" font-family="Vazirmatn" font-weight="bold" font-size="${cornerFontSize}"
-    fill="rgba(255,255,255,0.15)" text-anchor="start" dominant-baseline="hanging">تب فوتبال</text>
+    fill="rgba(255,255,255,0.40)" text-anchor="start" dominant-baseline="hanging">تب فوتبال</text>
   <text x="${width - cornerMargin}" y="${height - cornerMargin}" font-family="Vazirmatn" font-weight="bold" font-size="${cornerFontSize}"
-    fill="rgba(255,255,255,0.18)" text-anchor="end" dominant-baseline="alphabetic">tabefotbal.ir</text>
+    fill="rgba(255,255,255,0.40)" text-anchor="end" dominant-baseline="alphabetic">tabefotbal.ir</text>
 </svg>`;
   return Buffer.from(svg);
 }
