@@ -18,7 +18,7 @@ import {
   LiveGoal,
   HeroSlideItem,
 } from "../types";
-import { computeDynamicAppletStats } from "../utils";
+import { computeDynamicAppletStats, fetchCachedAppData } from "../utils";
 import { playGoalSound, showSystemNotification } from "./useGoalSound";
 
 export function useAppData() {
@@ -149,9 +149,8 @@ export function useAppData() {
 
   const fetchData = async () => {
     try {
-      const response = await fetch("/api/data");
-      const data = await response.json();
-      if (response.ok && data.status === "ok") {
+      const data = await fetchCachedAppData();
+      if (data && data.status === "ok") {
         applyFetchedData(data);
       }
     } catch (err) {
@@ -163,9 +162,8 @@ export function useAppData() {
 
   const fetchDataQuietly = async () => {
     try {
-      const response = await fetch("/api/data");
-      const data = await response.json();
-      if (response.ok && data.status === "ok") {
+      const data = await fetchCachedAppData();
+      if (data && data.status === "ok") {
         applyFetchedData(data);
 
         const newGoals = data.liveGoals || [];

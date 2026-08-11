@@ -21,6 +21,37 @@ export const getSafeImageUrl = (url: string): string => {
 };
 
 /**
+ * Returns loaded database coaches from window global
+ */
+
+const APP_DATA_TTL_MS = 30_000;
+let appDataCache: { data: any; ts: number } | null = null;
+let appDataInFlight: Promise<any> | null = null;
+
+/**
+ * Fetches /api/data with a short in-memory cache (30s) + single-flight dedup.
+ * Reduces redundant full downloads of the ~1MB dataset on every route change.
+ * Uses browser cache ("default") so the server ETag can return 304 without body.
+ */
+export const fetchCachedAppData = (): Promise<any> => {
+  const now = Date.now();
+  if (appDataCache && now - appDataCache.ts < APP_DATA_TTL_MS) {
+    return Promise.resolve(appDataCache.data);
+  }
+  if (appDataInFlight) return appDataInFlight;
+  appDataInFlight = fetch("/api/data")
+    .then((r) => (r.ok ? r.json() : null))
+    .then((data) => {
+      if (data) appDataCache = { data, ts: Date.now() };
+      return data;
+    })
+    .finally(() => {
+      appDataInFlight = null;
+    });
+  return appDataInFlight;
+};
+
+/**
  * Returns loaded database teams from window global
  */
 export const getDbTeams = (): any[] => {

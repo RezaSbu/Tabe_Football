@@ -77,8 +77,9 @@ services:
       - ./nginx/certbot/conf:/etc/letsencrypt:ro
       - ./nginx/certbot/www:/var/www/certbot:ro
       - ./uploads:/uploads:ro
+      - ./public:/public:ro
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:80/"]
+      test: ["CMD", "wget", "--no-check-certificate", "-qO-", "-U", "Mozilla/5.0 healthcheck", "https://127.0.0.1/"]
       interval: 30s
       timeout: 5s
       retries: 3
