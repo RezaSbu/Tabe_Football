@@ -79,7 +79,7 @@ services:
       - ./uploads:/uploads:ro
       - ./public:/public:ro
     healthcheck:
-      test: ["CMD", "wget", "--no-check-certificate", "-qO-", "https://127.0.0.1/"]
+      test: ["CMD", "wget", "--no-check-certificate", "-qO-", "-U", "Mozilla/5.0 healthcheck", "https://127.0.0.1/"]
       interval: 30s
       timeout: 5s
       retries: 3
