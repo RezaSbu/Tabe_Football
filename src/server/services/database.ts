@@ -751,6 +751,8 @@ export async function saveDB(): Promise<void> {
       promises.push(pgDb.from('news').delete().neq('id', ''));
     }
 
+    const teamIdSet = new Set<string>((data.teams || []).map((t: any) => t.id));
+
     if (data.teams && data.teams.length > 0) {
       const formattedTeams = data.teams.map((t: any) => {
         const stats = {
@@ -780,19 +782,29 @@ export async function saveDB(): Promise<void> {
           is_eliminated: t.isEliminated || false
         };
       });
-      promises.push(pgDb.from('teams').upsert(formattedTeams));
+
+      const teamResults = await pgDb.from('teams').upsert(formattedTeams);
+      if (teamResults && teamResults.error) {
+        throw new Error(`Error updating teams: ${teamResults.error.message}`);
+      }
 
       const teamIds = data.teams.map((x: any) => x.id);
-      promises.push(pgDb.from('teams').delete().not('id', 'in', `(${teamIds.join(',')})`));
+      const teamDeleteResults = await pgDb.from('teams').delete().not('id', 'in', `(${teamIds.join(',')})`);
+      if (teamDeleteResults && teamDeleteResults.error) {
+        throw new Error(`Error deleting old teams: ${teamDeleteResults.error.message}`);
+      }
     } else if (data.teams) {
-      promises.push(pgDb.from('teams').delete().neq('id', ''));
+      const teamDeleteResults = await pgDb.from('teams').delete().neq('id', '');
+      if (teamDeleteResults && teamDeleteResults.error) {
+        throw new Error(`Error deleting old teams: ${teamDeleteResults.error.message}`);
+      }
     }
 
     if (data.players && data.players.length > 0) {
       const formattedPlayers = data.players.map((p: any) => ({
         id: p.id,
         name: p.name,
-        team_id: p.teamId || null,
+        team_id: p.teamId && teamIdSet.has(p.teamId) ? p.teamId : null,
         team_name: p.teamName,
         position: p.position,
         rating: p.rating,
@@ -830,7 +842,7 @@ export async function saveDB(): Promise<void> {
         id: c.id,
         name: c.name,
         image: c.image,
-        team_id: c.teamId || null,
+        team_id: c.teamId && teamIdSet.has(c.teamId) ? c.teamId : null,
         team_name: c.teamName,
         nationality: c.nationality,
         age: c.age || null,
@@ -867,8 +879,8 @@ export async function saveDB(): Promise<void> {
           id: m.id,
           team_home: m.teamHome,
           team_away: m.teamAway,
-          team_home_id: m.teamHomeId,
-          team_away_id: m.teamAwayId,
+          team_home_id: m.teamHomeId && teamIdSet.has(m.teamHomeId) ? m.teamHomeId : null,
+          team_away_id: m.teamAwayId && teamIdSet.has(m.teamAwayId) ? m.teamAwayId : null,
           team_home_logo: m.teamHomeLogo,
           team_away_logo: m.teamAwayLogo,
           score_home: m.scoreHome || 0,
