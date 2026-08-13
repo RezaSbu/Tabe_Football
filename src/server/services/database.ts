@@ -783,21 +783,13 @@ export async function saveDB(): Promise<void> {
         };
       });
 
-      const teamResults = await pgDb.from('teams').upsert(formattedTeams);
-      if (teamResults && teamResults.error) {
-        throw new Error(`Error updating teams: ${teamResults.error.message}`);
-      }
+      const teamResults = pgDb.from('teams').upsert(formattedTeams);
+      promises.push(teamResults);
 
       const teamIds = data.teams.map((x: any) => x.id);
-      const teamDeleteResults = await pgDb.from('teams').delete().not('id', 'in', `(${teamIds.join(',')})`);
-      if (teamDeleteResults && teamDeleteResults.error) {
-        throw new Error(`Error deleting old teams: ${teamDeleteResults.error.message}`);
-      }
+      promises.push(pgDb.from('teams').delete().not('id', 'in', `(${teamIds.join(',')})`));
     } else if (data.teams) {
-      const teamDeleteResults = await pgDb.from('teams').delete().neq('id', '');
-      if (teamDeleteResults && teamDeleteResults.error) {
-        throw new Error(`Error deleting old teams: ${teamDeleteResults.error.message}`);
-      }
+      promises.push(pgDb.from('teams').delete().neq('id', ''));
     }
 
     if (data.players && data.players.length > 0) {
