@@ -17,9 +17,10 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
+            set -e
             cd /opt/tabe-football
             git checkout main
-            git pull origin main
-            docker-compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.production up -d --build 2>&1
-            docker-compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.production restart nginx 2>&1
+            git fetch origin
+            git reset --hard origin/main
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.production up -d --build
             docker image prune -f
