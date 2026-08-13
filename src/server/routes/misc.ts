@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { loadDB, snapshotDB, restoreDB } from "../state";
 import { logMessage } from "../utils/logger";
 import { saveDB } from "../services/database";
+import { markViewDirty, VIEW_BOT_RE } from "../services/viewTracker";
 import { recordAuthEvent, auditLog } from "../utils/audit";
 import {
   generateToken,
@@ -66,6 +67,9 @@ export function registerMiscRoutes(app: Express) {
   });
 
   app.post("/api/news/:id/view", async (req, res) => {
+    if (VIEW_BOT_RE.test(req.headers["user-agent"] || "")) {
+      return res.json({ success: true, skipped: true });
+    }
     const { id } = req.params;
     const currentDB = loadDB();
 
@@ -74,7 +78,7 @@ export function registerMiscRoutes(app: Express) {
       const item = (currentDB.transfers || []).find((x: any) => String(x.id) === String(trId));
       if (item) {
         item.viewCount = (item.viewCount || 0) + 7;
-        await saveDB();
+        markViewDirty();
         return res.json({ success: true, viewCount: item.viewCount });
       } else {
         return res.status(404).json({ error: "انتقال یافت نشد." });
@@ -84,7 +88,7 @@ export function registerMiscRoutes(app: Express) {
       const item = (currentDB.legionnaires || []).find((x: any) => String(x.id) === String(legId));
       if (item) {
         item.viewCount = (item.viewCount || 0) + 7;
-        await saveDB();
+        markViewDirty();
         return res.json({ success: true, viewCount: item.viewCount });
       } else {
         return res.status(404).json({ error: "لژیونر یافت نشد." });
@@ -93,7 +97,7 @@ export function registerMiscRoutes(app: Express) {
       const item = (currentDB.news || []).find((x: any) => String(x.id) === String(id));
       if (item) {
         item.viewCount = (item.viewCount || 0) + 7;
-        await saveDB();
+        markViewDirty();
         return res.json({ success: true, viewCount: item.viewCount });
       } else {
         return res.status(404).json({ error: "گزارش خبری یافت نشد." });
@@ -102,12 +106,15 @@ export function registerMiscRoutes(app: Express) {
   });
 
   app.post("/api/images/:id/view", async (req, res) => {
+    if (VIEW_BOT_RE.test(req.headers["user-agent"] || "")) {
+      return res.json({ success: true, skipped: true });
+    }
     const { id } = req.params;
     const currentDB = loadDB();
     const item = (currentDB.images || []).find((x: any) => String(x.id) === String(id));
     if (item) {
       item.viewCount = (item.viewCount || 0) + 7;
-      await saveDB();
+      markViewDirty();
       return res.json({ success: true, viewCount: item.viewCount });
     } else {
       return res.status(404).json({ error: "تصویر یافت نشد." });
@@ -156,7 +163,7 @@ export function registerMiscRoutes(app: Express) {
         preds.scorePredictions[score] = (preds.scorePredictions[score] || 0) + 1;
       }
       matchFound.predictions = preds;
-      await saveDB();
+      markViewDirty();
       
       const responsePredictions: Record<string, any> = {};
       for (const sp of sports) {
