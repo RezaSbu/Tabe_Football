@@ -1,9 +1,13 @@
 import express, { Express, Request, Response } from "express";
 import { loadDB } from "../state";
-import { saveDB } from "../services/database";
+import { markViewDirty, VIEW_BOT_RE } from "../services/viewTracker";
 
 export function registerDetailRoutes(app: Express) {
   app.post("/api/detail/:type/:id/view", async (req: Request, res: Response) => {
+    if (VIEW_BOT_RE.test(req.headers["user-agent"] || "")) {
+      return res.json({ success: true, skipped: true });
+    }
+
     const db = loadDB();
     const { type, id } = req.params;
     let item: any = null;
@@ -37,7 +41,7 @@ export function registerDetailRoutes(app: Express) {
 
     if (item) {
       item.viewCount = (item.viewCount || 0) + 7;
-      await saveDB();
+      markViewDirty();
       return res.json({ success: true, viewCount: item.viewCount });
     }
     return res.status(404).json({ success: false, message: "یافت نشد." });
