@@ -18,7 +18,7 @@ import {
   LiveGoal,
   HeroSlideItem,
 } from "../types";
-import { computeDynamicAppletStats, fetchCachedAppData } from "../utils";
+import { computeDynamicAppletStats, fetchCachedAppData, invalidateAppDataCache } from "../utils";
 import { playGoalSound, showSystemNotification } from "./useGoalSound";
 
 export function useAppData() {
@@ -158,6 +158,12 @@ export function useAppData() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // بعد از هر تغییر ادمین، کش ۳۰ ثانیه‌ای باید باطل شود تا داده تازه لود شود.
+  const adminRefreshData = async () => {
+    invalidateAppDataCache();
+    await fetchData();
   };
 
   const fetchDataQuietly = async () => {
@@ -336,6 +342,7 @@ export function useAppData() {
         body: JSON.stringify({ rows })
       });
       if (response.ok) {
+        invalidateAppDataCache();
         await fetchDataQuietly();
         return true;
       }
@@ -353,6 +360,7 @@ export function useAppData() {
         body: JSON.stringify({ data: statsData })
       });
       if (response.ok) {
+        invalidateAppDataCache();
         await fetchDataQuietly();
         return true;
       }
@@ -367,6 +375,7 @@ export function useAppData() {
       const response = await fetch("/api/sync", { method: "POST" });
       const data = await response.json();
       if (response.ok && data.success) {
+        invalidateAppDataCache();
         await fetchData();
         return true;
       }
@@ -570,7 +579,7 @@ export function useAppData() {
     visibleNewsCount, setVisibleNewsCount,
     livescoreFilter, setLivescoreFilter,
     ads, setAds,
-    applyFetchedData, fetchData, fetchDataQuietly,
+    applyFetchedData, fetchData, fetchDataQuietly, adminRefreshData,
     handleSelectLegionnaire,
     handlePredictionVote, handleToggleSubscription,
     handleUpdateStandings, handleUpdateStats,

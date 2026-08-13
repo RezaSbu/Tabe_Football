@@ -52,6 +52,15 @@ export const fetchCachedAppData = (): Promise<any> => {
 };
 
 /**
+ * Invalidates the 30s in-memory /api/data cache so the next fetch is fresh.
+ * Must be called after any admin mutation before refreshing the UI.
+ */
+export const invalidateAppDataCache = (): void => {
+  appDataCache = null;
+  appDataInFlight = null;
+};
+
+/**
  * Returns loaded database teams from window global
  */
 export const getDbTeams = (): any[] => {
