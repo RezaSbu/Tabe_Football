@@ -1344,6 +1344,17 @@ export function updateMatchInDb(matchId: string, updates: any): boolean {
     delete mergedMatch.tag;
     delete mergedMatch.isAutoFinished;
   }
+
+  if (mergedMatch.status === "finished") {
+    const homeCoach = (dbObj.coaches || []).find((c: any) =>
+      c.teamId && (c.teamId === mergedMatch.teamHomeId || (mergedMatch.teamHome && normalizePersianString(c.teamName || "") === normalizePersianString(mergedMatch.teamHome)))
+    );
+    const awayCoach = (dbObj.coaches || []).find((c: any) =>
+      c.teamId && (c.teamId === mergedMatch.teamAwayId || (mergedMatch.teamAway && normalizePersianString(c.teamName || "") === normalizePersianString(mergedMatch.teamAway)))
+    );
+    if (homeCoach) mergedMatch.coachHomeId = homeCoach.id;
+    if (awayCoach) mergedMatch.coachAwayId = awayCoach.id;
+  }
   
   let targetStage = "Feature_Games";
   if (mergedMatch.status === "finished") {

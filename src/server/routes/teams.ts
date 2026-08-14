@@ -2,7 +2,7 @@ import express, { Express, Request, Response } from "express";
 import { loadDB, snapshotDB, restoreDB } from "../state";
 import { logMessage } from "../utils/logger";
 import { saveDB } from "../services/database";
-import { getPlayerCalculatedStatsFromMatches } from "../services/stats";
+import { getPlayerCalculatedStatsFromMatches, getCoachCalculatedStatsFromMatches } from "../services/stats";
 import { requirePermission } from "../middleware/auth";
 
 export function registerTeamRoutes(app: Express) {
@@ -74,7 +74,7 @@ export function registerTeamRoutes(app: Express) {
 
       const matchesList = currentDB.matches || [];
       matchesList.forEach((match: any) => {
-        if (match.status !== "finished") return;
+        if (match.status !== "finished" || match.isAutoFinished) return;
 
         const isHome = match.teamHome === updatedTeam.name || match.teamHomeId === updatedTeam.id;
         const isAway = match.teamAway === updatedTeam.name || match.teamAwayId === updatedTeam.id;
@@ -311,6 +311,7 @@ export function registerTeamRoutes(app: Express) {
     const currentDB = loadDB();
     const index = currentDB.coaches.findIndex((c: any) => c.id === req.params.id);
     if (index !== -1) {
+      const prevCoach = currentDB.coaches[index];
       const updatedCoach = { ...currentDB.coaches[index], ...req.body };
 
       const enteredMatches = parseInt(updatedCoach.seasonStats?.matches) || 0;
@@ -318,10 +319,11 @@ export function registerTeamRoutes(app: Express) {
       const enteredDraws = parseInt(updatedCoach.seasonStats?.draws) || 0;
       const enteredLosses = parseInt(updatedCoach.seasonStats?.losses) || 0;
 
-      updatedCoach.baseMatches = enteredMatches;
-      updatedCoach.baseWins = enteredWins;
-      updatedCoach.baseDraws = enteredDraws;
-      updatedCoach.baseLosses = enteredLosses;
+      const coachCalc = getCoachCalculatedStatsFromMatches(updatedCoach, currentDB.matches || []);
+      updatedCoach.baseMatches = Math.max(0, enteredMatches - coachCalc.matches);
+      updatedCoach.baseWins = Math.max(0, enteredWins - coachCalc.wins);
+      updatedCoach.baseDraws = Math.max(0, enteredDraws - coachCalc.draws);
+      updatedCoach.baseLosses = Math.max(0, enteredLosses - coachCalc.losses);
 
       updatedCoach.seasonStats = {
         matches: enteredMatches,
@@ -333,8 +335,26 @@ export function registerTeamRoutes(app: Express) {
         goalsAgainst: updatedCoach.seasonStats?.goalsAgainst || 0
       };
 
+      if (prevCoach.teamId && prevCoach.teamId !== updatedCoach.teamId) {
+        const prevTeam = currentDB.teams.find((t: any) => t.id === prevCoach.teamId);
+        if (prevTeam) {
+          const stillAssigned = currentDB.coaches.some((c: any) => c.id !== updatedCoach.id && c.teamId === prevCoach.teamId);
+          if (!stillAssigned) {
+            if (prevTeam.stats) prevTeam.stats.coach = "";
+            prevTeam.coach = "";
+          }
+        }
+      }
+
       if (updatedCoach.teamId) {
         const team = currentDB.teams.find((t: any) => t.id === updatedCoach.teamId);
+        if (team) {
+          if (!team.stats) team.stats = {};
+          team.stats.coach = updatedCoach.name;
+          team.coach = updatedCoach.name;
+        }
+      } else if (updatedCoach.teamName) {
+        const team = currentDB.teams.find((t: any) => t.name === updatedCoach.teamName);
         if (team) {
           if (!team.stats) team.stats = {};
           team.stats.coach = updatedCoach.name;

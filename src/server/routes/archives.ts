@@ -33,6 +33,16 @@ function getTeamLeague(teams: any[], teamId: string, teamName?: string): string 
   return "pro-league";
 }
 
+function hasActiveTeam(teams: any[], teamId: string, teamName?: string): boolean {
+  if (!teamId && !teamName) return false;
+  const name = normalizePersianString(teamName || "");
+  if (!name || name === "بازیکن آزاد" || name === "بدون باشگاه") return false;
+  return teams.some((t: any) =>
+    (teamId && t.id === teamId) ||
+    (teamName && normalizePersianString(t.name) === name)
+  );
+}
+
 export function registerArchiveRoutes(app: Express) {
   app.get("/api/archives", (req: Request, res: Response) => {
     const currentDB = loadDB();
@@ -225,7 +235,7 @@ export function registerArchiveRoutes(app: Express) {
               return (cStats.goals > 0 || cStats.assists > 0 || cStats.cleanSheets > 0);
             });
           } else {
-            eligiblePlayers = currentDB.players.filter((p: any) => getTeamLeague(currentDB.teams, p.teamId, p.teamName) === leagueKey);
+            eligiblePlayers = currentDB.players.filter((p: any) => hasActiveTeam(currentDB.teams, p.teamId, p.teamName) && getTeamLeague(currentDB.teams, p.teamId, p.teamName) === leagueKey);
           }
 
           const scorers = [...eligiblePlayers]

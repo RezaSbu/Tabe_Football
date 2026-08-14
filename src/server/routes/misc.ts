@@ -77,7 +77,7 @@ export function registerMiscRoutes(app: Express) {
       const trId = id.replace("transfer-det-", "");
       const item = (currentDB.transfers || []).find((x: any) => String(x.id) === String(trId));
       if (item) {
-        item.viewCount = (item.viewCount || 0) + 7;
+        item.viewCount = (item.viewCount || 0) + 12;
         markViewDirty();
         return res.json({ success: true, viewCount: item.viewCount });
       } else {
@@ -87,7 +87,7 @@ export function registerMiscRoutes(app: Express) {
       const legId = id.replace("legionnaire-det-", "");
       const item = (currentDB.legionnaires || []).find((x: any) => String(x.id) === String(legId));
       if (item) {
-        item.viewCount = (item.viewCount || 0) + 7;
+        item.viewCount = (item.viewCount || 0) + 12;
         markViewDirty();
         return res.json({ success: true, viewCount: item.viewCount });
       } else {
@@ -96,7 +96,7 @@ export function registerMiscRoutes(app: Express) {
     } else {
       const item = (currentDB.news || []).find((x: any) => String(x.id) === String(id));
       if (item) {
-        item.viewCount = (item.viewCount || 0) + 7;
+        item.viewCount = (item.viewCount || 0) + 12;
         markViewDirty();
         return res.json({ success: true, viewCount: item.viewCount });
       } else {
@@ -113,7 +113,7 @@ export function registerMiscRoutes(app: Express) {
     const currentDB = loadDB();
     const item = (currentDB.images || []).find((x: any) => String(x.id) === String(id));
     if (item) {
-      item.viewCount = (item.viewCount || 0) + 7;
+      item.viewCount = (item.viewCount || 0) + 12;
       markViewDirty();
       return res.json({ success: true, viewCount: item.viewCount });
     } else {
