@@ -331,7 +331,7 @@ export default function FutsalPage({
             <div className="flex items-center gap-1.5 border-b border-white/5 pb-3 mb-4">
               <Trophy className="h-5 w-5 text-yellow-500" />
               <h3 className="font-black text-sm text-white">
-                جدول {isCurrentSeason ? "زنده" : "آرشیوی"} لیگ برتر فوتسال {isCurrentSeason ? "(۱۴۰۴-۱۴۰۵)" : `(فصل ${toPersianDigits(selectedSeason)})`}
+                جدول {isCurrentSeason ? "زنده" : "آرشیوی"} لیگ برتر فوتسال {isCurrentSeason ? `(${toPersianDigits(selectedSeason)}-${toPersianDigits(String(parseInt(selectedSeason, 10) + 1))})` : `(فصل ${toPersianDigits(selectedSeason)})`}
               </h3>
             </div>
 
