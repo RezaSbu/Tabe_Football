@@ -275,8 +275,8 @@ describe("API - CRUD: Images", () => {
   });
 });
 
-describe("API - View Count x7", () => {
-  it("POST /api/news/:id/view increments by 7", async () => {
+describe("API - View Count x12", () => {
+  it("POST /api/news/:id/view increments by 12", async () => {
     const { data: before } = await apiGet("/api/data");
     const item = before.news.find((n: any) => n.id);
     if (!item) return;
@@ -285,10 +285,10 @@ describe("API - View Count x7", () => {
     await apiPost(`/api/news/${item.id}/view`, {});
     const { data: after } = await apiGet("/api/data");
     const afterItem = after.news.find((n: any) => n.id === item.id);
-    expect(afterItem.viewCount).toBe(beforeCount + 7);
+    expect(afterItem.viewCount).toBe(beforeCount + 12);
   });
 
-  it("POST /api/images/:id/view increments by 7", async () => {
+  it("POST /api/images/:id/view increments by 12", async () => {
     const { data: before } = await apiGet("/api/data");
     const item = before.images.find((i: any) => i.id);
     if (!item) return;
@@ -297,7 +297,7 @@ describe("API - View Count x7", () => {
     await apiPost(`/api/images/${item.id}/view`, {});
     const { data: after } = await apiGet("/api/data");
     const afterItem = after.images.find((i: any) => i.id === item.id);
-    expect(afterItem.viewCount).toBe(beforeCount + 7);
+    expect(afterItem.viewCount).toBe(beforeCount + 12);
   });
 });
 

@@ -91,7 +91,7 @@ export function getPlayerCalculatedStatsFromMatches(playerId: string, matches: a
   let redCount = 0;
   let cleanSheetsCount = 0;
 
-  const finishedGames = matches.filter((m: any) => m.status === "finished" && !m.archived_stats);
+  const finishedGames = matches.filter((m: any) => m.status === "finished" && !m.archived_stats && !m.isAutoFinished);
 
   const matchNames = (name1?: string, name2?: string) => {
     if (!name1 || !name2) return false;
@@ -196,6 +196,42 @@ export function getPlayerCalculatedStatsFromMatches(playerId: string, matches: a
   };
 }
 
+export function getCoachCalculatedStatsFromMatches(coach: any, matches: any[]): { matches: number; wins: number; draws: number; losses: number; goalsFor: number; goalsAgainst: number } {
+  const result = { matches: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0 };
+  if (!coach) return result;
+  const coachId = String(coach.id || "");
+  const coachTeamId = coach.teamId;
+  const normTeamName = normalizePersianString(coach.teamName || "");
+
+  (matches || []).forEach((m: any) => {
+    if (!m || m.status !== "finished" || m.isAutoFinished || m.archived_stats) return;
+
+    let isHome = m.coachHomeId && coachId && String(m.coachHomeId) === coachId;
+    let isAway = m.coachAwayId && coachId && String(m.coachAwayId) === coachId;
+
+    if (!isHome && !isAway) {
+      isHome = (coachTeamId && m.teamHomeId && String(m.teamHomeId) === String(coachTeamId)) ||
+        (normTeamName && m.teamHome && normalizePersianString(m.teamHome) === normTeamName);
+      isAway = (coachTeamId && m.teamAwayId && String(m.teamAwayId) === String(coachTeamId)) ||
+        (normTeamName && m.teamAway && normalizePersianString(m.teamAway) === normTeamName);
+    }
+    if (!isHome && !isAway) return;
+
+    result.matches += 1;
+    const hs = parseInt(String(m.scoreHome), 10) || 0;
+    const as = parseInt(String(m.scoreAway), 10) || 0;
+    const gf = isHome ? hs : as;
+    const ga = isHome ? as : hs;
+    result.goalsFor += gf;
+    result.goalsAgainst += ga;
+    if (gf > ga) result.wins += 1;
+    else if (gf < ga) result.losses += 1;
+    else result.draws += 1;
+  });
+
+  return result;
+}
+
 export function recalculateAndSyncDatabase(): void {
   const db = loadDB();
   if (!db) return;
@@ -228,6 +264,16 @@ export function recalculateAndSyncDatabase(): void {
       return "league-2";
     }
     return "pro-league";
+  };
+
+  const hasActiveTeam = (p: any): boolean => {
+    if (!p.teamId && !p.teamName) return false;
+    const name = normalizePersianString(p.teamName || "");
+    if (!name || name === "بازیکن آزاد" || name === "بدون باشگاه") return false;
+    return db.teams.some((t: any) =>
+      (p.teamId && t.id === p.teamId) ||
+      (p.teamName && normalizePersianString(t.name) === name)
+    );
   };
 
   logMessage("info", "database", "آغاز عملیات هماهنگ‌سازی بازگشتی آمار بازیکنان، تیم‌ها و لیدربردهای لیگ...");
@@ -352,7 +398,7 @@ export function recalculateAndSyncDatabase(): void {
   const finishedGames: any[] = [];
   const sourceMatches = Array.isArray(db.matches) ? db.matches : [];
   sourceMatches.forEach((m: any) => {
-    if (m && m.status === "finished") {
+    if (m && m.status === "finished" && !m.isAutoFinished) {
       finishedGames.push(m);
     }
   });
@@ -402,7 +448,9 @@ export function recalculateAndSyncDatabase(): void {
   });
 
   const coachMapByTeamId: Record<string, any> = {};
+  const coachById: Record<string, any> = {};
   db.coaches.forEach((c: any) => {
+    coachById[c.id] = c;
     if (c.teamId) {
       coachMapByTeamId[c.teamId] = c;
     }
@@ -417,7 +465,8 @@ export function recalculateAndSyncDatabase(): void {
 
     const isCup = match.league === "hazfi-cup";
 
-    if (!match.archived_standings) {
+    const standingsGate = isCup ? !match.archived_bracket : !match.archived_standings;
+    if (standingsGate) {
       if (isCup) {
         if (homeTeam) {
           if (!homeTeam.cupStats) homeTeam.cupStats = { played:0, won:0, drawn:0, lost:0, goalsFor:0, goalsAgainst:0 };
@@ -488,53 +537,57 @@ export function recalculateAndSyncDatabase(): void {
         }
       }
 
-      const homeCoach = homeTeam ? coachMapByTeamId[homeTeam.id] : null;
-      const awayCoach = awayTeam ? coachMapByTeamId[awayTeam.id] : null;
-      [homeCoach, awayCoach].forEach((coach) => {
-        if (coach) {
-          coach.seasonStats.matches = (coach.seasonStats.matches || 0) + 1;
-          coach.seasonStats.goalsFor = (coach.seasonStats.goalsFor || 0) + (coach === homeCoach ? hp : ap);
-          coach.seasonStats.goalsAgainst = (coach.seasonStats.goalsAgainst || 0) + (coach === homeCoach ? ap : hp);
-        }
-      });
-      if (homeCoach && awayCoach) {
-        if (hp > ap) {
-          homeCoach.seasonStats.wins = (homeCoach.seasonStats.wins || 0) + 1;
-          awayCoach.seasonStats.losses = (awayCoach.seasonStats.losses || 0) + 1;
-          homeCoach.recentForm.push("W");
-          awayCoach.recentForm.push("L");
-        } else if (hp < ap) {
-          homeCoach.seasonStats.losses = (homeCoach.seasonStats.losses || 0) + 1;
-          awayCoach.seasonStats.wins = (awayCoach.seasonStats.wins || 0) + 1;
-          homeCoach.recentForm.push("L");
-          awayCoach.recentForm.push("W");
-        } else {
-          homeCoach.seasonStats.draws = (homeCoach.seasonStats.draws || 0) + 1;
-          awayCoach.seasonStats.draws = (awayCoach.seasonStats.draws || 0) + 1;
-          homeCoach.recentForm.push("D");
-          awayCoach.recentForm.push("D");
-        }
-      } else if (homeCoach) {
-        if (hp > ap) {
-          homeCoach.seasonStats.wins = (homeCoach.seasonStats.wins || 0) + 1;
-          homeCoach.recentForm.push("W");
-        } else if (hp < ap) {
-          homeCoach.seasonStats.losses = (homeCoach.seasonStats.losses || 0) + 1;
-          homeCoach.recentForm.push("L");
-        } else {
-          homeCoach.seasonStats.draws = (homeCoach.seasonStats.draws || 0) + 1;
-          homeCoach.recentForm.push("D");
-        }
-      } else if (awayCoach) {
-        if (hp > ap) {
-          awayCoach.seasonStats.losses = (awayCoach.seasonStats.losses || 0) + 1;
-          awayCoach.recentForm.push("L");
-        } else if (hp < ap) {
-          awayCoach.seasonStats.wins = (awayCoach.seasonStats.wins || 0) + 1;
-          awayCoach.recentForm.push("W");
-        } else {
-          awayCoach.seasonStats.draws = (awayCoach.seasonStats.draws || 0) + 1;
-          awayCoach.recentForm.push("D");
+      const homeCoach = (match.coachHomeId && coachById[match.coachHomeId]) ||
+        (homeTeam ? coachMapByTeamId[homeTeam.id] : null) || null;
+      const awayCoach = (match.coachAwayId && coachById[match.coachAwayId]) ||
+        (awayTeam ? coachMapByTeamId[awayTeam.id] : null) || null;
+      if (!match.archived_stats && (homeCoach || awayCoach)) {
+        [homeCoach, awayCoach].forEach((coach) => {
+          if (coach) {
+            coach.seasonStats.matches = (coach.seasonStats.matches || 0) + 1;
+            coach.seasonStats.goalsFor = (coach.seasonStats.goalsFor || 0) + (coach === homeCoach ? hp : ap);
+            coach.seasonStats.goalsAgainst = (coach.seasonStats.goalsAgainst || 0) + (coach === homeCoach ? ap : hp);
+          }
+        });
+        if (homeCoach && awayCoach) {
+          if (hp > ap) {
+            homeCoach.seasonStats.wins = (homeCoach.seasonStats.wins || 0) + 1;
+            awayCoach.seasonStats.losses = (awayCoach.seasonStats.losses || 0) + 1;
+            homeCoach.recentForm.push("W");
+            awayCoach.recentForm.push("L");
+          } else if (hp < ap) {
+            homeCoach.seasonStats.losses = (homeCoach.seasonStats.losses || 0) + 1;
+            awayCoach.seasonStats.wins = (awayCoach.seasonStats.wins || 0) + 1;
+            homeCoach.recentForm.push("L");
+            awayCoach.recentForm.push("W");
+          } else {
+            homeCoach.seasonStats.draws = (homeCoach.seasonStats.draws || 0) + 1;
+            awayCoach.seasonStats.draws = (awayCoach.seasonStats.draws || 0) + 1;
+            homeCoach.recentForm.push("D");
+            awayCoach.recentForm.push("D");
+          }
+        } else if (homeCoach) {
+          if (hp > ap) {
+            homeCoach.seasonStats.wins = (homeCoach.seasonStats.wins || 0) + 1;
+            homeCoach.recentForm.push("W");
+          } else if (hp < ap) {
+            homeCoach.seasonStats.losses = (homeCoach.seasonStats.losses || 0) + 1;
+            homeCoach.recentForm.push("L");
+          } else {
+            homeCoach.seasonStats.draws = (homeCoach.seasonStats.draws || 0) + 1;
+            homeCoach.recentForm.push("D");
+          }
+        } else if (awayCoach) {
+          if (hp > ap) {
+            awayCoach.seasonStats.losses = (awayCoach.seasonStats.losses || 0) + 1;
+            awayCoach.recentForm.push("L");
+          } else if (hp < ap) {
+            awayCoach.seasonStats.wins = (awayCoach.seasonStats.wins || 0) + 1;
+            awayCoach.recentForm.push("W");
+          } else {
+            awayCoach.seasonStats.draws = (awayCoach.seasonStats.draws || 0) + 1;
+            awayCoach.recentForm.push("D");
+          }
         }
       }
     }
@@ -687,10 +740,6 @@ export function recalculateAndSyncDatabase(): void {
          const stats = playerStatsOnMatch[pId];
          const isCup = match.league === "hazfi-cup";
          const isGK = typeof pObj.position === "string" && pObj.position.includes("دروازه");
-         const isHome = pObj.teamName === match.teamHome || pObj.teamId === match.teamHomeId;
-         const conceded = isHome ? (parseInt(String(match.scoreAway), 10) || 0) : (parseInt(String(match.scoreHome), 10) || 0);
-         const cleanSheetCount = (isGK && conceded === 0) ? 1 : 0;
-         const isMvp = match.mvpId === pObj.id || match.mvpId === pObj.name || (match.mvpId && match.mvpId.includes(pObj.name)) || false;
 
          const lineups = match.lineups || { home: [], away: [] };
          const homeLineup = lineups.home || [];
@@ -702,6 +751,18 @@ export function recalculateAndSyncDatabase(): void {
          };
          const lp = homeLineup.find((x: any) => checkMatch(x.id) || checkMatch(x.name)) || 
                     awayLineup.find((x: any) => checkMatch(x.id) || checkMatch(x.name));
+         let isHome: boolean | null = homeLineup.some((x: any) => checkMatch(x.id) || checkMatch(x.name)) ? true :
+           awayLineup.some((x: any) => checkMatch(x.id) || checkMatch(x.name)) ? false : null;
+         if (isHome === null) {
+           const sideEvent = (match.events || []).find((ev: any) => ev && (checkMatch(ev.playerName) || checkMatch(ev.player2Name)) && (ev.team === "home" || ev.team === "away"));
+           isHome = sideEvent ? sideEvent.team === "home" : null;
+         }
+         if (isHome === null) {
+           isHome = pObj.teamName === match.teamHome || pObj.teamId === match.teamHomeId;
+         }
+         const conceded = isHome ? (parseInt(String(match.scoreAway), 10) || 0) : (parseInt(String(match.scoreHome), 10) || 0);
+         const cleanSheetCount = (isGK && conceded === 0) ? 1 : 0;
+         const isMvp = match.mvpId === pObj.id || match.mvpId === pObj.name || (match.mvpId && match.mvpId.includes(pObj.name)) || false;
          const ratingVal = lp && lp.rating ? (parseFloat(lp.rating) || 7.0) : (parseFloat(pObj.rating) || 7.0);
 
          if (isCup) {
@@ -745,7 +806,7 @@ export function recalculateAndSyncDatabase(): void {
          pObj.seasonStats.minutes = (pObj.seasonStats.minutes || 0) + stats.minutes;
          pObj.seasonStats.mvps = (pObj.seasonStats.mvps || 0) + (isMvp ? 1 : 0);
 
-         const oppTeam = (pObj.teamName === match.teamHome || pObj.teamId === match.teamHomeId) ? match.teamAway : match.teamHome;
+         const oppTeam = isHome ? match.teamAway : match.teamHome;
 
          const alreadyIn = pObj.ratingsHistory.some((item: any) => item.matchId === match.id);
          if (!alreadyIn) {
@@ -896,7 +957,7 @@ export function recalculateAndSyncDatabase(): void {
         return (cStats.goals > 0 || cStats.assists > 0 || cStats.cleanSheets > 0);
       });
     } else {
-      eligiblePlayers = db.players.filter((p: any) => getTeamLeague(p.teamId, p.teamName) === leagueKey);
+      eligiblePlayers = db.players.filter((p: any) => hasActiveTeam(p) && getTeamLeague(p.teamId, p.teamName) === leagueKey);
     }
 
     const scorers = [...eligiblePlayers]
@@ -960,9 +1021,7 @@ export function recalculateAndSyncDatabase(): void {
         rating: item.rating
       }));
 
-    if (scorers.length > 0 || assists.length > 0 || cleansheets.length > 0 || !db.stats[leagueKey]) {
-      db.stats[leagueKey] = { scorers, assists, cleansheets, ratings };
-    }
+    db.stats[leagueKey] = { scorers, assists, cleansheets, ratings };
   });
 
   db.coaches.forEach((c: any) => {

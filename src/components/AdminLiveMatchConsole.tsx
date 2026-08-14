@@ -24,7 +24,9 @@ interface MatchEvent {
   minute: string;
   team: "home" | "away";
   playerName: string;
+  playerId?: string;
   player2Name?: string;
+  player2Id?: string;
   details?: string;
 }
 
@@ -66,6 +68,19 @@ export default function AdminLiveMatchConsole({
   const [eventPlayer2, setEventPlayer2] = useState<string>(""); // for assist / sub
   const [eventMin, setEventMin] = useState<string>("");
   const [eventDetails, setEventDetails] = useState<string>("");
+
+  // MVP explicit selection
+  const [mvpPlayerId, setMvpPlayerId] = useState<string>(() => {
+    if (!match.mvpId) return "";
+    const found = (players || []).find(p => p.id === match.mvpId || p.name === match.mvpId);
+    return found ? found.id : "";
+  });
+
+  const resolvePlayerId = (nameOrId: string): string => {
+    if (!nameOrId) return "";
+    const found = (players || []).find(p => p.id === nameOrId || p.name === nameOrId);
+    return found ? found.id : "";
+  };
 
   // Suggestions states
   const [showPlayerSuggestions1, setShowPlayerSuggestions1] = useState<boolean>(false);
@@ -156,7 +171,9 @@ export default function AdminLiveMatchConsole({
       minute: eventMin || String(minutes),
       team: eventTeam,
       playerName: eventPlayer,
+      playerId: resolvePlayerId(eventPlayer) || undefined,
       player2Name: eventPlayer2 || undefined,
+      player2Id: resolvePlayerId(eventPlayer2) || undefined,
       details: eventDetails || undefined
     };
 
@@ -232,17 +249,36 @@ export default function AdminLiveMatchConsole({
       const scorersList = events
         .filter(e => e.type === "goal" || e.type === "penalty")
         .map(e => ({
-          scorerId: e.playerName,
+          scorerId: e.playerId || resolvePlayerId(e.playerName),
           scorerName: e.playerName,
+          name: e.playerName,
+          goals: 1,
           assistName: e.player2Name || "",
+          assistId: e.player2Id || resolvePlayerId(e.player2Name || ""),
           minute: e.minute
         }));
+
+      const goalEventsHome = events.filter(e => (e.type === "goal" || e.type === "penalty") && e.team === "home").length;
+      const goalEventsAway = events.filter(e => (e.type === "goal" || e.type === "penalty") && e.team === "away").length;
+      if (goalEventsHome !== scoreHome || goalEventsAway !== scoreAway) {
+        const ok = window.confirm(
+          `تعداد رویدادهای گل با نتیجه ثبت‌شده همخوانی ندارد!\n` +
+          `${match.teamHome}: ${scoreHome} گل ثبت‌شده ولی ${goalEventsHome} رویداد گل\n` +
+          `${match.teamAway}: ${scoreAway} گل ثبت‌شده ولی ${goalEventsAway} رویداد گل\n` +
+          `در صورت ادامه، آمار بر اساس نتیجه (اسکور) ثبت می‌شود. ادامه می‌دهید؟`
+        );
+        if (!ok) return;
+      }
+
+      const mvpPlayer = (players || []).find(p => p.id === mvpPlayerId);
+      const mvpName = mvpPlayer ? mvpPlayer.name : (mvpPlayerId || events[0]?.playerName || "نامعلوم");
 
       const finalReport = {
         ...match,
         ...payload,
         scorersList,
-        mvpId: events[0]?.playerName || "نامعلوم"
+        mvpId: mvpPlayer ? mvpPlayer.id : mvpName,
+        mvpName: mvpName
       };
 
       const success = await onFinishMatch(match.id, finalReport);
@@ -1154,6 +1190,32 @@ export default function AdminLiveMatchConsole({
             ))}
           </div>
         )}
+      </div>
+
+      {/* MVP SELECTION */}
+      <div className="bg-[#08080a] p-4 rounded-xl border border-white/5 mt-5">
+        <h3 className="font-extrabold text-xs text-amber-500 border-b border-white/5 pb-2 mb-3">
+          🏅 انتخاب بهترین بازیکن زمین (MVP)
+        </h3>
+        <div className="flex flex-col gap-2">
+          <select
+            value={mvpPlayerId}
+            onChange={(e) => setMvpPlayerId(e.target.value)}
+            className="w-full text-xs rounded bg-[#07070a] border border-white/5 p-2 text-white focus:outline-none focus:border-amber-500 font-bold"
+          >
+            <option value="">— انتخاب نشده (در صورت خالی بودن: اولین گل‌زن) —</option>
+            {[...homeRoster, ...awayRoster]
+              .filter((p, idx, arr) => arr.findIndex((x) => x.id === p.id) === idx)
+              .map(p => (
+                <option key={p.id} value={p.id}>{p.name} — {p.teamName}</option>
+              ))}
+          </select>
+          {mvpPlayerId && (
+            <div className="text-[10px] text-amber-400 font-bold">
+              🏅 MVP انتخابی: {(players || []).find(p => p.id === mvpPlayerId)?.name || mvpPlayerId}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* FOOTER CONTROLS: TERMINATION TRIGGER */}
