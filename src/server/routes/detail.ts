@@ -40,7 +40,7 @@ export function registerDetailRoutes(app: Express) {
     }
 
     if (item) {
-      item.viewCount = (item.viewCount || 0) + 12;
+      item.viewCount = (item.viewCount || 0) + 13;
       markViewDirty();
       return res.json({ success: true, viewCount: item.viewCount });
     }
