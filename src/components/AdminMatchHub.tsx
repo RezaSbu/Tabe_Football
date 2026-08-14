@@ -24,6 +24,7 @@ interface AdminMatchHubProps {
   players: PlayerItem[];
   standings: Record<string, StandingRow[]>;
   stats: Record<string, any>;
+  currentSeason?: string;
   onRefreshData: () => void;
   onUpdateStandings: (leagueKey: string, rows: StandingRow[]) => Promise<boolean>;
   onUpdateStats: (leagueKey: string, statsData: any) => Promise<boolean>;
@@ -37,6 +38,7 @@ export default function AdminMatchHub({
   players = [],
   standings = {},
   stats = {},
+  currentSeason,
   onRefreshData,
   onUpdateStandings,
   onUpdateTeam,
@@ -369,6 +371,7 @@ export default function AdminMatchHub({
               match={editingMatch}
               teams={teams}
               sport={sportTab}
+              currentSeason={currentSeason}
               onSave={handleSaveMatch}
               onCancel={() => { setShowForm(false); setEditingMatch(null); }}
             />

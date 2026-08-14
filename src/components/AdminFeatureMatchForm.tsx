@@ -12,10 +12,20 @@ const normalizeWeekLabel = (w?: string): string => {
   return `هفته ${n}`;
 };
 
+const formatSeasonDefault = (currentSeason?: string): string => {
+  if (!currentSeason) return "۱۴۰۴-۱۴۰۵";
+  const en = currentSeason.replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
+  const m = en.match(/\d{4}/);
+  if (!m) return currentSeason;
+  const start = parseInt(m[0], 10);
+  return `${toPersianDigits(String(start))}-${toPersianDigits(String(start + 1))}`;
+};
+
 interface AdminFeatureMatchFormProps {
   match?: MatchItem | null; // index/null for edit/create
   teams: TeamItem[];
   sport: "football" | "futsal";
+  currentSeason?: string;
   onSave: (matchData: any) => void;
   onCancel: () => void;
 }
@@ -24,13 +34,14 @@ export default function AdminFeatureMatchForm({
   match,
   teams = [],
   sport,
+  currentSeason,
   onSave,
   onCancel
 }: AdminFeatureMatchFormProps) {
   // Local state for all fields
   const [selectedSport, setSelectedSport] = useState<"football" | "futsal">(sport);
   const [league, setLeague] = useState("");
-  const [season, setSeason] = useState("۱۴۰۴-۱۴۰۵");
+  const [season, setSeason] = useState(formatSeasonDefault(currentSeason));
   const [week, setWeek] = useState("هفته 1");
   const [teamHome, setTeamHome] = useState("");
   const [teamAway, setTeamAway] = useState("");
@@ -58,7 +69,7 @@ export default function AdminFeatureMatchForm({
     if (match) {
       setSelectedSport(match.sport || sport);
       setLeague(match.league || "");
-      setSeason(match.season || "۱۴۰۴-۱۴۰۵");
+      setSeason(match.season || formatSeasonDefault(currentSeason));
       setWeek(normalizeWeekLabel(match.week));
       setTeamHome(match.teamHome || "");
       setTeamAway(match.teamAway || "");
@@ -103,7 +114,7 @@ export default function AdminFeatureMatchForm({
       setScoreHome(0);
       setScoreAway(0);
     }
-  }, [match, sport]);
+  }, [match, sport, currentSeason]);
 
   // Handle home team change - auto lookup logo
   const handleHomeTeamChange = (name: string) => {

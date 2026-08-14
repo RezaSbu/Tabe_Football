@@ -492,6 +492,7 @@ export default function AdminPanel({
             players={players}
             standings={standings}
             stats={stats}
+            currentSeason={currentSeason}
             onRefreshData={onRefreshData}
             onUpdateStandings={onUpdateStandings}
             onUpdateStats={onUpdateStats}
