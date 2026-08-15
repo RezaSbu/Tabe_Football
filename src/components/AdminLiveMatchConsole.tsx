@@ -197,6 +197,13 @@ export default function AdminLiveMatchConsole({
       } else {
         setScoreAway(prev => prev + 1);
       }
+    } else if (eventType === "own-goal") {
+      // Own goal: the goal counts for the OPPOSITE team
+      if (eventTeam === "home") {
+        setScoreAway(prev => prev + 1);
+      } else {
+        setScoreHome(prev => prev + 1);
+      }
     }
 
     // Reset fields
@@ -215,6 +222,12 @@ export default function AdminLiveMatchConsole({
         setScoreHome(prev => Math.max(0, prev - 1));
       } else {
         setScoreAway(prev => Math.max(0, prev - 1));
+      }
+    } else if (type === "own-goal") {
+      if (team === "home") {
+        setScoreAway(prev => Math.max(0, prev - 1));
+      } else {
+        setScoreHome(prev => Math.max(0, prev - 1));
       }
     }
   };
@@ -268,8 +281,10 @@ export default function AdminLiveMatchConsole({
           minute: e.minute
         }));
 
-      const goalEventsHome = events.filter(e => (e.type === "goal" || e.type === "penalty") && e.team === "home").length;
-      const goalEventsAway = events.filter(e => (e.type === "goal" || e.type === "penalty") && e.team === "away").length;
+      const ownGoalsHome = events.filter(e => e.type === "own-goal" && e.team === "home").length;
+      const ownGoalsAway = events.filter(e => e.type === "own-goal" && e.team === "away").length;
+      const goalEventsHome = events.filter(e => (e.type === "goal" || e.type === "penalty") && e.team === "home").length + ownGoalsAway;
+      const goalEventsAway = events.filter(e => (e.type === "goal" || e.type === "penalty") && e.team === "away").length + ownGoalsHome;
       if (goalEventsHome !== scoreHome || goalEventsAway !== scoreAway) {
         const ok = window.confirm(
           `تعداد رویدادهای گل با نتیجه ثبت‌شده همخوانی ندارد!\n` +
@@ -665,12 +680,18 @@ export default function AdminLiveMatchConsole({
               <label className="block text-[10px] text-slate-500 mb-1 font-bold">نوع رویداد بازی</label>
               <select
                 value={eventType}
-                onChange={(e) => setEventType(e.target.value)}
+                onChange={(e) => {
+                  setEventType(e.target.value);
+                  if (e.target.value === "own-goal") {
+                    setEventPlayer2("");
+                  }
+                }}
                 className="w-full text-xs rounded bg-[#07070a] border border-white/5 p-2 text-white font-bold focus:outline-none"
               >
                 <option value="goal">⚽ گل</option>
                 <option value="assist">👟 پاس گل</option>
                 <option value="penalty">🥅 پنالتی (گل)</option>
+                <option value="own-goal">🎯 گل به خودی</option>
                 <option value="missed-penalty">❌ پنالتی از دست رفته</option>
                 <option value="yellow-card">🟨 کارت زرد</option>
                 <option value="red-card">🟥 کارت قرمز</option>
@@ -679,6 +700,11 @@ export default function AdminLiveMatchConsole({
                 <option value="var">📺 بازبینی ویدئویی VAR</option>
                 <option value="other">💬 سایر رویدادها / متن آزاد</option>
               </select>
+              {eventType === "own-goal" && (
+                <p className="mt-1 text-[10px] text-amber-500/90">
+                  🎯 گل به خودی برای تیم مقابل محاسبه می‌شود و در آمار گلِ این بازیکن ثبت نمی‌شود.
+                </p>
+              )}
             </div>
 
             {/* Player details */}
@@ -1211,6 +1237,7 @@ export default function AdminLiveMatchConsole({
                     {ev.type === "goal" ? "⚽ گل " : 
                      ev.type === "assist" ? "👟 پاسور " : 
                      ev.type === "penalty" ? "🥅 پنالتی " : 
+                     ev.type === "own-goal" ? "🎯 گل به خودی " : 
                      ev.type === "yellow-card" ? "🟨 کارت زرد " : 
                      ev.type === "red-card" ? "🟥 کارت قرمز " : 
                      ev.type === "substitution" ? "🔁 تعویض " : 
