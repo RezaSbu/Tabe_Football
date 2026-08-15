@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveTeam, isExactTeamName, resolveTeamLeague } from "../../shared/teamMatch";
+import { resolveTeam, isExactTeamName, resolveTeamLeague, normalizeLeagueKey } from "../../shared/teamMatch";
 
 const teams = [
   { id: "team-1785484986454", name: "استقلال خوزستان", logo: "khuzestan.png", divisionKey: "pro-league" },
@@ -72,5 +72,15 @@ describe("resolveTeamLeague", () => {
   it("returns null when no record carries a divisionKey", () => {
     expect(resolveTeamLeague([{ id: "t1", name: "بدون لیگ" }], "", "بدون لیگ")).toBeNull();
     expect(resolveTeamLeague([], "", "گل گهر")).toBeNull();
+  });
+});
+
+describe("normalizeLeagueKey", () => {
+  it("collapses league-2 groups into league-2", () => {
+    expect(normalizeLeagueKey("league-2-group-a")).toBe("league-2");
+    expect(normalizeLeagueKey("league-2-group-b")).toBe("league-2");
+    expect(normalizeLeagueKey("league-1")).toBe("league-1");
+    expect(normalizeLeagueKey("pro-league")).toBe("pro-league");
+    expect(normalizeLeagueKey(null)).toBe("");
   });
 });
