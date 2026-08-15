@@ -17,6 +17,8 @@ export interface MatchItem {
   id: string;
   teamHome: string;
   teamAway: string;
+  teamHomeId?: string;
+  teamAwayId?: string;
   teamHomeLogo: string;
   teamAwayLogo: string;
   scoreHome: number;

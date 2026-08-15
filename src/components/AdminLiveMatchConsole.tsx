@@ -278,14 +278,14 @@ export default function AdminLiveMatchConsole({
         if (!ok) return;
       }
 
-      const mvpPlayer = (players || []).find(p => p.id === mvpPlayerId);
-      const mvpName = mvpPlayer ? mvpPlayer.name : (mvpPlayerId || events[0]?.playerName || "نامعلوم");
+      const mvpPlayer = mvpPlayerId ? (players || []).find(p => p.id === mvpPlayerId) : undefined;
+      const mvpName = mvpPlayer ? mvpPlayer.name : "";
 
       const finalReport = {
         ...match,
         ...payload,
         scorersList,
-        mvpId: mvpPlayer ? mvpPlayer.id : mvpName,
+        mvpId: mvpPlayer ? mvpPlayer.id : "",
         mvpName: mvpName
       };
 
@@ -312,19 +312,26 @@ export default function AdminLiveMatchConsole({
   };
 
   const currentTeamName = eventTeam === "home" ? match.teamHome : match.teamAway;
+  const currentTeamId = eventTeam === "home" ? match.teamHomeId : match.teamAwayId;
+  const sameTeamId = (playerTeamId?: string, matchTeamId?: string) =>
+    !!playerTeamId && !!matchTeamId && String(playerTeamId) === String(matchTeamId);
+
   const roster = (players || []).filter(p => 
+    sameTeamId(p.teamId, currentTeamId) ||
     p.teamName === currentTeamName || 
     (p.teamName && currentTeamName && p.teamName.includes(currentTeamName)) ||
     (currentTeamName && p.teamName && currentTeamName.includes(p.teamName))
   );
 
   const homeRoster = (players || []).filter(p => 
+    sameTeamId(p.teamId, match.teamHomeId) ||
     p.teamName === match.teamHome || 
     (p.teamName && match.teamHome && p.teamName.includes(match.teamHome)) ||
     (match.teamHome && p.teamName && match.teamHome.includes(p.teamName))
   );
 
   const awayRoster = (players || []).filter(p => 
+    sameTeamId(p.teamId, match.teamAwayId) ||
     p.teamName === match.teamAway || 
     (p.teamName && match.teamAway && p.teamName.includes(match.teamAway)) ||
     (match.teamAway && p.teamName && match.teamAway.includes(p.teamName))
@@ -1226,7 +1233,7 @@ export default function AdminLiveMatchConsole({
             onChange={(e) => setMvpPlayerId(e.target.value)}
             className="w-full text-xs rounded bg-[#07070a] border border-white/5 p-2 text-white focus:outline-none focus:border-amber-500 font-bold"
           >
-            <option value="">— انتخاب نشده (در صورت خالی بودن: اولین گل‌زن) —</option>
+            <option value="">— بدون انتخاب (هیچکس: MVP ثبت نشود) —</option>
             {[...homeRoster, ...awayRoster]
               .filter((p, idx, arr) => arr.findIndex((x) => x.id === p.id) === idx)
               .map(p => (
