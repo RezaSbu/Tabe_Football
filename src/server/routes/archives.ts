@@ -5,14 +5,12 @@ import { normalizePersianString } from "../utils/persian";
 import { saveDB } from "../services/database";
 import { recalculateAndSyncDatabase } from "../services/stats";
 import { requirePermission } from "../middleware/auth";
+import { resolveTeam, resolveTeamLeague } from "../../shared/teamMatch";
 
 function getTeamLeague(teams: any[], teamId: string, teamName?: string): string {
-  const teamObj = teams.find((t: any) =>
-    (teamId && t.id === teamId) ||
-    (teamName && normalizePersianString(t.name) === normalizePersianString(teamName))
-  );
-  if (teamObj && teamObj.divisionKey) {
-    return teamObj.divisionKey;
+  const resolvedLeague = resolveTeamLeague(teams, teamId, teamName);
+  if (resolvedLeague) {
+    return resolvedLeague;
   }
 
   const id = (teamId || "").toLowerCase();
@@ -37,10 +35,7 @@ function hasActiveTeam(teams: any[], teamId: string, teamName?: string): boolean
   if (!teamId && !teamName) return false;
   const name = normalizePersianString(teamName || "");
   if (!name || name === "بازیکن آزاد" || name === "بدون باشگاه") return false;
-  return teams.some((t: any) =>
-    (teamId && t.id === teamId) ||
-    (teamName && normalizePersianString(t.name) === name)
-  );
+  return !!resolveTeam(teams, teamId || teamName);
 }
 
 export function registerArchiveRoutes(app: Express) {
