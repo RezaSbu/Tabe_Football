@@ -46,6 +46,9 @@ export default function MatchDetailView({
       case "penalty":
         desc = `🥅 گل پنالتی توسط ${p1}${details ? ` — ${details}` : ""}`;
         break;
+      case "own-goal":
+        desc = `🎯 گل به خودی توسط ${p1}${details ? ` — ${details}` : ""}`;
+        break;
       case "missed-penalty":
         desc = `❌ پنالتی از دست رفته توسط ${p1}${details ? ` — ${details}` : ""}`;
         break;
