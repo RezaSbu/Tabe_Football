@@ -69,3 +69,13 @@ export function resolveTeamLeague<T extends TeamLike>(
   if (resolved && resolved.divisionKey) return String(resolved.divisionKey);
   return null;
 }
+
+/**
+ * Maps the league-2 group keys to the aggregate "league-2" key used by the
+ * individual (scorer/assist) statistics lists, so players of both groups
+ * land in the same league-2 stats table instead of falling out entirely.
+ */
+export const normalizeLeagueKey = (key?: string | null): string => {
+  if (key === "league-2-group-a" || key === "league-2-group-b") return "league-2";
+  return key || "";
+};

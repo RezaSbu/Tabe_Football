@@ -2,7 +2,7 @@
  * Returns a robust image URL, proxying third-party assets (like Varzesh3)
  * to bypass referrer blocks and hotlinking prevention in iframe environments.
  */
-import { resolveTeamLeague } from "./shared/teamMatch";
+import { resolveTeamLeague, normalizeLeagueKey } from "./shared/teamMatch";
 
 export const getSafeImageUrl = (url: string): string => {
   if (!url) {
@@ -362,7 +362,7 @@ export function computeDynamicAppletStats(
         return (cStats.goals > 0 || cStats.assists > 0 || cStats.cleanSheets > 0 || cStats.averageRating > 0);
       });
     } else {
-      eligiblePlayers = processedPlayers.filter((p: any) => getTeamLeague(p.teamId, p.teamName) === leagueKey);
+      eligiblePlayers = processedPlayers.filter((p: any) => normalizeLeagueKey(getTeamLeague(p.teamId, p.teamName)) === leagueKey);
     }
     
     const scorers = [...eligiblePlayers]

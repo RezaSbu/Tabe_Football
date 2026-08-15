@@ -2,7 +2,7 @@ import { loadDB, setDb } from "../state";
 import { normalizePersianString, toPersianDigits } from "../utils/persian";
 import { logMessage } from "../utils/logger";
 import { realMinute } from "../../shared/matchMinute";
-import { resolveTeam, resolveTeamLeague } from "../../shared/teamMatch";
+import { resolveTeam, resolveTeamLeague, normalizeLeagueKey } from "../../shared/teamMatch";
 
 export function calculatePlayerMinutesAndPlayed(player: any, match: any): { played: boolean; minutes: number; started: boolean } {
   const isFutsal = match.sport === "futsal" || match.league === "futsal";
@@ -954,7 +954,7 @@ export function recalculateAndSyncDatabase(): void {
         return (cStats.goals > 0 || cStats.assists > 0 || cStats.cleanSheets > 0);
       });
     } else {
-      eligiblePlayers = db.players.filter((p: any) => hasActiveTeam(p) && getTeamLeague(p.teamId, p.teamName) === leagueKey);
+      eligiblePlayers = db.players.filter((p: any) => hasActiveTeam(p) && normalizeLeagueKey(getTeamLeague(p.teamId, p.teamName)) === leagueKey);
     }
 
     const scorers = [...eligiblePlayers]

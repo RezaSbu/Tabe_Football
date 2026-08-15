@@ -5,7 +5,7 @@ import { normalizePersianString } from "../utils/persian";
 import { saveDB } from "../services/database";
 import { recalculateAndSyncDatabase } from "../services/stats";
 import { requirePermission } from "../middleware/auth";
-import { resolveTeam, resolveTeamLeague } from "../../shared/teamMatch";
+import { resolveTeam, resolveTeamLeague, normalizeLeagueKey } from "../../shared/teamMatch";
 
 function getTeamLeague(teams: any[], teamId: string, teamName?: string): string {
   const resolvedLeague = resolveTeamLeague(teams, teamId, teamName);
@@ -230,7 +230,7 @@ export function registerArchiveRoutes(app: Express) {
               return (cStats.goals > 0 || cStats.assists > 0 || cStats.cleanSheets > 0);
             });
           } else {
-            eligiblePlayers = currentDB.players.filter((p: any) => hasActiveTeam(currentDB.teams, p.teamId, p.teamName) && getTeamLeague(currentDB.teams, p.teamId, p.teamName) === leagueKey);
+            eligiblePlayers = currentDB.players.filter((p: any) => hasActiveTeam(currentDB.teams, p.teamId, p.teamName) && normalizeLeagueKey(getTeamLeague(currentDB.teams, p.teamId, p.teamName)) === leagueKey);
           }
 
           const scorers = [...eligiblePlayers]
