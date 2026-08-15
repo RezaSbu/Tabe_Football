@@ -11,7 +11,8 @@ import {
   Check,
   Award,
   Zap,
-  Info
+  Info,
+  ClipboardEdit
 } from "lucide-react";
 import TeamLogo from "./TeamLogo";
 import { MatchItem, TeamItem, PlayerItem, StandingRow } from "../types";
@@ -111,16 +112,16 @@ export default function AdminMatchHub({
   const executeCascadeUpdate = async (match: any) => {
     if (!autoCascadeEnabled) return;
     setShowCascadeModal(true);
-    setCascadeLogs(["آغاز انطباق آبشاری پیشرفته آمار مسابقه بر روی دیتابیس...", `بازی انتهایی: ${match.teamHome} vs ${match.teamAway}`, `نتیجه نهایی: ${match.scoreHome}-${match.scoreAway}`]);
+    setCascadeLogs(["ثبت مسابقه در پایگاه داده انجام شد...", `بازی: ${match.teamHome} ${match.scoreHome} - ${match.scoreAway} ${match.teamAway}`, "در حال اجرای بازمحاسبه خودکار آمار توسط سرور..."]);
 
     try {
-      setCascadeLogs(prev => [...prev, "بررسی و همگام‌سازی لحظه‌ای تمام ردیف‌های جدول رده‌بندی لیگ موثر..."]);
+      setCascadeLogs(prev => [...prev, "بازمحاسبه جدول رده‌بندی لیگ موثر..."]);
       await new Promise(resolve => setTimeout(resolve, 800));
-      setCascadeLogs(prev => [...prev, "تطبیق و محاسبه اتوماتیک کارت‌های زرد، قرمز، گل‌ها و پاس‌گل‌های تمام بازیکنان دخیل..."]);
+      setCascadeLogs(prev => [...prev, "بازمحاسبه آمار بازیکنان (گل، پاس گل، کارت، ریتینگ) و مربیان..."]);
       await new Promise(resolve => setTimeout(resolve, 600));
-      setCascadeLogs(prev => [...prev, "اعمال تأثیر و کلین‌شیت دروازه‌بانان و تغییر تفاضل گل و امتیازات تیم‌ها در دیتابیس..."]);
+      setCascadeLogs(prev => [...prev, "بازمحاسبه لیدربردها و پروفایل تیمی..."]);
       await new Promise(resolve => setTimeout(resolve, 600));
-      setCascadeLogs(prev => [...prev, "✓ تمام تغییرات با رعایت کمال یکپارچگی سیستمی در هسته دیتابیس با موفقیت ثبت شدند."]);
+      setCascadeLogs(prev => [...prev, "✓ بازمحاسبه کامل شد و تغییرات در پایگاه داده ذخیره شد."]);
       setTimeout(() => setShowCascadeModal(false), 2000);
     } catch (e) {
       setCascadeLogs(prev => [...prev, "⚠ خطا در هماهنگ‌سازی گرافیکی آمار."]);
@@ -345,6 +346,16 @@ export default function AdminMatchHub({
                         <Zap className="h-3 w-3" /> اتاق کنترل زنده
                       </button>
                     )}
+
+                    {m.status === "finished" && (
+                      <button
+                        onClick={() => startLiveConsole(m)}
+                        className="bg-sky-950/45 border border-sky-800/30 text-sky-400 hover:bg-sky-900/30 px-2.5 py-1 rounded-md font-bold transition flex items-center gap-1 cursor-pointer"
+                        title="ویرایش کامل رویدادها، ترکیب و آمار بازی خاتمه‌یافته"
+                      >
+                        <ClipboardEdit className="h-3 w-3" /> ویرایش کامل
+                      </button>
+                    )}
                     
                     <button
                       onClick={() => { setEditingMatch(m); setShowForm(true); }}
@@ -408,16 +419,32 @@ export default function AdminMatchHub({
                 return false;
               }}
               onFinishMatch={async (id, data) => {
+                const { updatedAt: _ua, ...cleanData } = data;
                 const res = await fetch(`/api/sports-game/${id}`, {
                   method: "PUT",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ ...data, status: "finished" })
+                  body: JSON.stringify({ ...cleanData, status: "finished" })
                 });
                 if (res.ok) {
                   setShowLiveConsole(false);
                   setActiveLiveMatch(null);
                   onRefreshData();
                   // Apply automatic cascade
+                  await executeCascadeUpdate({ ...activeLiveMatch, ...data, status: "finished" });
+                  return true;
+                }
+                return false;
+              }}
+              onSaveFinishedMatch={async (id, data) => {
+                const { updatedAt: _ua, ...cleanData } = data;
+                const res = await fetch(`/api/sports-game/${id}`, {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ ...cleanData, status: "finished" })
+                });
+                if (res.ok) {
+                  onRefreshData();
+                  // Apply automatic cascade (کنسول باز می‌ماند تا ویرایش ادامه یابد)
                   await executeCascadeUpdate({ ...activeLiveMatch, ...data, status: "finished" });
                   return true;
                 }
@@ -436,13 +463,13 @@ export default function AdminMatchHub({
             <div className="mx-auto h-12 w-12 bg-emerald-950/40 border border-emerald-500/20 rounded-full flex items-center justify-center text-emerald-400">
               <Zap className="h-6 w-6 animate-pulse" />
             </div>
-            <h4 className="font-extrabold text-sm text-white">توزیع آبشاری تراکنش آمار به پایگاه داده</h4>
+            <h4 className="font-extrabold text-sm text-white">بازمحاسبه خودکار آمار مسابقه</h4>
             <div className="bg-black/40 border border-white/5 rounded-xl p-4 text-[10px] text-left font-mono space-y-2 h-44 overflow-y-auto divide-y divide-white/5" dir="ltr">
               {cascadeLogs.map((log, lidx) => (
                 <div key={lidx} className="pt-1.5 text-slate-350">{log}</div>
               ))}
             </div>
-            <p className="text-[10px] text-gray-500">جداول لیگ، امار آقای گلی و پروفایل تیمی/انفرادی بازیکنان با موفقیت در حال تسطیح است...</p>
+            <p className="text-[10px] text-gray-500">جدول رده‌بندی، آمار بازیکنان و مربیان توسط موتور بازمحاسبه سرور همگام‌سازی می‌شود.</p>
           </div>
         </div>
       )}
