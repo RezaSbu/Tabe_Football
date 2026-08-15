@@ -18,6 +18,8 @@ import {
   RotateCcw,
   Save
 } from "lucide-react";
+import { toPersianDigits } from "../utils";
+import { parseMatchMinute } from "../shared/matchMinute";
 
 interface MatchEvent {
   id: string;
@@ -782,8 +784,21 @@ export default function AdminLiveMatchConsole({
                   type="text"
                   value={eventMin}
                   onChange={(e) => setEventMin(e.target.value)}
+                  placeholder="مثلاً 45+5 یا 50"
                   className="w-full text-center text-xs rounded bg-[#07070a] border border-white/5 p-2 text-white font-mono"
                 />
+                {(() => {
+                  const parsed = parseMatchMinute(eventMin);
+                  if (parsed.total <= 0) return null;
+                  const halfLabel = parsed.half === 1 ? "نیمه اول" : "نیمه دوم";
+                  return (
+                    <p className="text-[9px] text-slate-500 mt-1 leading-relaxed">
+                      {parsed.isStoppage
+                        ? `${toPersianDigits(parsed.base)} + ${toPersianDigits(parsed.added)} → دقیقه ${toPersianDigits(parsed.total)} (${halfLabel}، وقت اضافه)`
+                        : `دقیقه ${toPersianDigits(parsed.total)} (${halfLabel})`}
+                    </p>
+                  );
+                })()}
               </div>
               <div className="col-span-2">
                 <label className="block text-[10px] text-slate-500 mb-1">توضیحات کوتاه</label>

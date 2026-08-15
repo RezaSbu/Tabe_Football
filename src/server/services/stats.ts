@@ -1,6 +1,7 @@
 import { loadDB, setDb } from "../state";
 import { normalizePersianString, toPersianDigits } from "../utils/persian";
 import { logMessage } from "../utils/logger";
+import { realMinute } from "../../shared/matchMinute";
 
 export function calculatePlayerMinutesAndPlayed(player: any, match: any): { played: boolean; minutes: number; started: boolean } {
   const isFutsal = match.sport === "futsal" || match.league === "futsal";
@@ -47,28 +48,26 @@ export function calculatePlayerMinutesAndPlayed(player: any, match: any): { play
   let minutes = fullDuration;
   if (started) {
     if (subOutEvent) {
-      const outMin = parseInt(subOutEvent.minute, 10) || fullDuration;
-      minutes = outMin;
+      minutes = realMinute(subOutEvent.minute, fullDuration) || fullDuration;
     } else if (redCardEvent) {
-      const redMin = parseInt(redCardEvent.minute, 10) || fullDuration;
-      minutes = redMin;
+      minutes = realMinute(redCardEvent.minute, fullDuration) || fullDuration;
     }
   } else if (subInEvent) {
-    const inMin = parseInt(subInEvent.minute, 10) || 0;
+    const inMin = realMinute(subInEvent.minute, fullDuration) || 0;
     if (subOutEvent) {
-      const outMin = parseInt(subOutEvent.minute, 10) || fullDuration;
+      const outMin = realMinute(subOutEvent.minute, fullDuration) || fullDuration;
       minutes = Math.max(0, outMin - inMin);
     } else if (redCardEvent) {
-      const redMin = parseInt(redCardEvent.minute, 10) || fullDuration;
+      const redMin = realMinute(redCardEvent.minute, fullDuration) || fullDuration;
       minutes = Math.max(0, redMin - inMin);
     } else {
       minutes = Math.max(0, fullDuration - inMin);
     }
   } else {
     if (redCardEvent) {
-      minutes = parseInt(redCardEvent.minute, 10) || fullDuration;
+      minutes = realMinute(redCardEvent.minute, fullDuration) || fullDuration;
     } else if (subOutEvent) {
-      minutes = parseInt(subOutEvent.minute, 10) || fullDuration;
+      minutes = realMinute(subOutEvent.minute, fullDuration) || fullDuration;
     } else {
       minutes = fullDuration;
     }
@@ -640,6 +639,9 @@ export function recalculateAndSyncDatabase(): void {
       const pObj = playerMap[pId];
       if (!pObj || match.archived_stats) return;
 
+      const isFutsal = match.sport === "futsal" || match.league === "futsal";
+      const fullDuration = isFutsal ? 40 : 90;
+
       const normPName = normalizePersianString(pObj.name || "");
       const normPId = String(pId);
 
@@ -672,7 +674,7 @@ export function recalculateAndSyncDatabase(): void {
         lYellow = (lp.yellowCard || lp.yellowCards) ? 1 : 0;
         lRed = (lp.redCard || lp.redCards) ? 1 : 0;
         if (lp.minutesPlayed !== undefined) {
-          minutesPlayed = parseInt(lp.minutesPlayed) || minutesPlayed;
+          minutesPlayed = realMinute(lp.minutesPlayed, fullDuration) || minutesPlayed;
         }
       }
 

@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { MatchItem, PlayerItem } from "../types";
 import { getSafeImageUrl, convertGregorianToShamsi, toPersianDigits } from "../utils";
+import { minuteSortKey } from "../shared/matchMinute";
 import TeamLogo from "./TeamLogo";
 
 interface MatchDetailViewProps {
@@ -81,18 +82,8 @@ export default function MatchDetailView({
     };
   })) || [];
 
-  const getNumericMinute = (m: any) => {
-    if (typeof m === "number") return m;
-    const s = String(m || "0").trim();
-    if (s.includes("+")) {
-      const parts = s.split("+");
-      return (parseFloat(parts[0]) || 0) + (parseFloat(parts[1]) || 0);
-    }
-    return parseFloat(s) || 0;
-  };
-
-  // Force sorting of events by minute ascending
-  const sortedTimeline = [...defaultTimeline].sort((a, b) => getNumericMinute(a.minute) - getNumericMinute(b.minute));
+  // Force sorting of events by minute ascending (half-aware: first-half stoppage "45+5" before second-half "50")
+  const sortedTimeline = [...defaultTimeline].sort((a, b) => minuteSortKey(a.minute) - minuteSortKey(b.minute));
 
   // Normalize stats comparisons
   const teamStatsObj = match.teamStats || {};
