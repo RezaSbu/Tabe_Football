@@ -1,8 +1,16 @@
 import React from "react";
 import { Trophy, Calendar, Sparkles, Medal, ArrowDown, ArrowUp, Crown, Tv, Activity, Eye } from "lucide-react";
 import { TeamItem, MatchItem } from "../types";
-import { isTeamInDb, convertGregorianToShamsi } from "../utils";
+import { isTeamInDb, convertGregorianToShamsi, toPersianDigits } from "../utils";
 import TeamLogo from "./TeamLogo";
+
+const formatSeasonRange = (s?: string): string => {
+  if (!s) return "۱۴۰۴";
+  const en = String(s).replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
+  const m = en.match(/\d{4}/);
+  if (!m) return String(s);
+  return `${toPersianDigits(m[0])}-${toPersianDigits(String(parseInt(m[0], 10) + 1))}`;
+};
 
 interface HazfiCupBracketProps {
   bracket: {
@@ -15,9 +23,10 @@ interface HazfiCupBracketProps {
   onSelectMatch?: (match: MatchItem) => void;
   teams?: TeamItem[];
   matches?: MatchItem[];
+  currentSeason?: string;
 }
 
-export default function HazfiCupBracket({ bracket, onSelectTeam, onSelectMatch, teams = [], matches = [] }: HazfiCupBracketProps) {
+export default function HazfiCupBracket({ bracket, onSelectTeam, onSelectMatch, teams = [], matches = [], currentSeason }: HazfiCupBracketProps) {
   if (!bracket) {
     return (
       <div className="w-full text-center py-16 text-xs text-slate-400 bg-slate-950/40 border border-white/5 border-dashed rounded-3xl" id="bracket-loading">
@@ -197,7 +206,7 @@ export default function HazfiCupBracket({ bracket, onSelectTeam, onSelectMatch, 
 
         <div className="flex items-center gap-2 bg-purple-500/15 border border-purple-500/25 px-4 py-2 rounded-xl font-bold text-[11px] text-purple-300 shrink-0">
           <Medal className="h-4 w-4 text-purple-400 animate-spin" />
-          <span>فرمت مستقیم حذفی تکراری | فصل جاری ۱۴۰۴</span>
+          <span>فرمت مستقیم حذفی تکراری | فصل جاری {formatSeasonRange(currentSeason)}</span>
         </div>
       </div>
 
@@ -337,7 +346,7 @@ export default function HazfiCupBracket({ bracket, onSelectTeam, onSelectMatch, 
             )}
 
             <div className="pt-4 border-t border-white/[0.03] text-[9.5px] text-slate-400 flex flex-col sm:flex-row items-center justify-between gap-3 px-1">
-              <span>تاریخ فینال: {f.date || "جام حذفی ۱۴۰۴-۱۴۰۵"}</span>
+              <span>تاریخ فینال: {f.date || `جام حذفی ${formatSeasonRange(currentSeason)}`}</span>
               <span className="sm:text-left text-slate-300">محل برگزاری: تهران، استلادیوم مجهز آزادی</span>
             </div>
           </div>

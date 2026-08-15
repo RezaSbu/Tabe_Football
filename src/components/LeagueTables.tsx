@@ -460,6 +460,7 @@ export default function LeagueTables({
                 onSelectMatch={onSelectMatch} 
                 teams={teams}
                 matches={isCurrentSeason ? matches : filteredMatches}
+                currentSeason={selectedSeason}
               />
             </div>
           </div>
