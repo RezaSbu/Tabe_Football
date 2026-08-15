@@ -146,6 +146,33 @@ export function registerTeamRoutes(app: Express) {
         founded: updatedTeam.founded
       };
 
+      // Propagate name/logo changes to existing match snapshots and roster refs
+      // so team cards and player profiles stay consistent after an edit.
+      const prevName = existingTeam.name;
+      const prevLogo = existingTeam.logo;
+      if (updatedTeam.name !== prevName || updatedTeam.logo !== prevLogo) {
+        (currentDB.matches || []).forEach((match: any) => {
+          const isHome = match.teamHomeId === updatedTeam.id || (match.teamHome && match.teamHome === prevName);
+          const isAway = match.teamAwayId === updatedTeam.id || (match.teamAway && match.teamAway === prevName);
+          if (isHome) {
+            if (updatedTeam.name !== prevName) match.teamHome = updatedTeam.name;
+            if (updatedTeam.logo !== prevLogo) match.teamHomeLogo = updatedTeam.logo;
+          }
+          if (isAway) {
+            if (updatedTeam.name !== prevName) match.teamAway = updatedTeam.name;
+            if (updatedTeam.logo !== prevLogo) match.teamAwayLogo = updatedTeam.logo;
+          }
+        });
+        if (updatedTeam.name !== prevName) {
+          (currentDB.players || []).forEach((p: any) => {
+            if (p.teamId === updatedTeam.id || (p.teamName && p.teamName === prevName)) p.teamName = updatedTeam.name;
+          });
+          (currentDB.coaches || []).forEach((c: any) => {
+            if (c.teamId === updatedTeam.id || (c.teamName && c.teamName === prevName)) c.teamName = updatedTeam.name;
+          });
+        }
+      }
+
       currentDB.teams[index] = updatedTeam;
       await saveDB();
       res.json({ success: true });
