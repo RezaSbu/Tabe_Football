@@ -86,7 +86,7 @@ export const isTeamInDb = (teamIdentifier: string): boolean => {
   const teams = getDbTeams();
   return teams.some(t => 
     t.id?.toString() === teamIdentifier?.toString() || 
-    t.name === teamIdentifier || 
+    (t.name && teamIdentifier && normalizePersianString(t.name) === normalizePersianString(teamIdentifier)) || 
     (t.name && teamIdentifier && t.name.includes(teamIdentifier)) || 
     (t.name && teamIdentifier && teamIdentifier.includes(t.name))
   );

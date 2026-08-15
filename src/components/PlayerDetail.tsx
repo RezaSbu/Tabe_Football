@@ -4,6 +4,7 @@ import {
   Star, Activity, Trophy, Clock, UserRound, Sparkles 
 } from "lucide-react";
 import { getSafeImageUrl, isTeamInDb, convertGregorianToShamsi, toPersianDigits, normalizePersianString } from "../utils";
+import { resolveTeam } from "../shared/teamMatch";
 import { realMinute } from "../shared/matchMinute";
 
 interface PlayerDetailProps {
@@ -195,8 +196,9 @@ export default function PlayerDetail({
     let inAway = lpAway;
 
     if (!inHome && !inAway) {
-      const isHomeTeam = player.teamName === match.teamHome || (player.teamName && match.teamHome && player.teamName.includes(match.teamHome)) || (match.teamHome && player.teamName && match.teamHome.includes(player.teamName));
-      const isAwayTeam = player.teamName === match.teamAway || (player.teamName && match.teamAway && player.teamName.includes(match.teamAway)) || (match.teamAway && player.teamName && match.teamAway.includes(player.teamName));
+      const sameTeam = (a?: string, b?: string) => !!a && !!b && normalize(a) === normalize(b);
+      const isHomeTeam = sameTeam(player.teamName, match.teamHome);
+      const isAwayTeam = sameTeam(player.teamName, match.teamAway);
 
       let assumedTeam: "home" | "away" | null = null;
       if (isHomeTeam) assumedTeam = "home";
@@ -368,9 +370,7 @@ export default function PlayerDetail({
   const activeRed = selectedCompet === "all" ? displayedRed : (selectedCompet === "league" ? leagueRed : cupRed);
 
   // Find club reference to open team detail
-  const myClubRef = allTeams.find(
-    (t) => t.id === player.teamId || t.name === player.teamName || (player.teamName && t.name && player.teamName.includes(t.name))
-  );
+  const myClubRef = resolveTeam(allTeams, player.teamId || player.teamName);
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">

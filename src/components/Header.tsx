@@ -3,6 +3,7 @@ import { Search, Send } from "lucide-react";
 import { NewsItem, TeamItem, PlayerItem, CoachItem } from "../types";
 import TeamLogo from "./TeamLogo";
 import ThemeToggle from "./ThemeToggle";
+import { normalizePersianString } from "../utils";
 
 interface HeaderProps {
   news: NewsItem[];
@@ -32,7 +33,15 @@ export default function Header({
 
   // Search logic across news, teams, and players
   const filteredTeams = searchTerm
-    ? teams.filter((t) => t.name.includes(searchTerm))
+    ? teams
+        .filter((t) => t.name.includes(searchTerm))
+        .sort((a, b) => {
+          const normTerm = normalizePersianString(searchTerm);
+          const exactA = normalizePersianString(a.name) === normTerm ? 0 : 1;
+          const exactB = normalizePersianString(b.name) === normTerm ? 0 : 1;
+          if (exactA !== exactB) return exactA - exactB;
+          return (a.name || "").length - (b.name || "").length;
+        })
     : [];
   const filteredPlayers = searchTerm
     ? players.filter((p) => p.name.includes(searchTerm))

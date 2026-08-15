@@ -106,10 +106,10 @@ export function registerDetailRoutes(app: Express) {
     const item = (db.teams || []).find((t: any) => String(t.id) === String(req.params.id));
     if (item) {
       const teamPlayers = (db.players || []).filter((p: any) =>
-        p.teamName && item.name && p.teamName.includes(item.name)
+        p.teamId === item.id || (p.teamName && item.name && normalizePersianString(p.teamName) === normalizePersianString(item.name))
       );
       const teamCoaches = (db.coaches || []).filter((c: any) =>
-        c.teamId === item.id || (c.teamName && item.name && c.teamName.includes(item.name))
+        c.teamId === item.id || (c.teamName && item.name && normalizePersianString(c.teamName) === normalizePersianString(item.name))
       );
       const normTeamName = normalizePersianString(item.name || "");
       const teamNews = (db.news || [])
@@ -135,9 +135,13 @@ export function registerDetailRoutes(app: Express) {
       const sameId = (a?: any) => !!a && String(a) === String(item.id);
 
       const playerMatches = (db.matches || []).filter((m: any) => {
+        const normTeamName = normalizePersianString(item.teamName || "");
         const teamMatch =
-          (m.teamHome && item.teamName && m.teamHome.includes(item.teamName)) ||
-          (m.teamAway && item.teamName && m.teamAway.includes(item.teamName));
+          (item.teamId && (String(m.teamHomeId) === String(item.teamId) || String(m.teamAwayId) === String(item.teamId))) ||
+          (normTeamName && (
+            normalizePersianString(m.teamHome || "") === normTeamName ||
+            normalizePersianString(m.teamAway || "") === normTeamName
+          ));
         if (teamMatch) return true;
 
         const lineups = m.lineups || { home: [], away: [] };

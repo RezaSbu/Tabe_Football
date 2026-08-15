@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { StandingRow, NewsItem, MatchItem, TeamItem, PlayerItem, StatsData } from "../types";
 import { Trophy, Award, Newspaper, Calendar, BarChart3, List, ChevronLeft, Star, Flame, Zap, Target, Search, X } from "lucide-react";
 import { isTeamInDb, convertGregorianToShamsi } from "../utils";
+import { resolveTeam } from "../shared/teamMatch";
 import HazfiCupBracket from "./HazfiCupBracket";
 import TeamLogo from "./TeamLogo";
 
@@ -518,7 +519,7 @@ export default function LeagueTables({
                   </thead>
                   <tbody className="divide-y divide-white/[0.02]">
                     {currentStandings.map((row, i) => {
-                      const correlatedTeam = teams.find(t => t.name.includes(row.team) || row.team.includes(t.name));
+                      const correlatedTeam = resolveTeam(teams, row.team);
                       const isTopTeam = i < 3;
                       const isBottomTeam = currentStandings.length >= 10 && i >= currentStandings.length - 2;
 

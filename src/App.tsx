@@ -13,6 +13,7 @@ import {
 } from "./types";
 import Navbar from "./components/Navbar";
 import Header from "./components/Header";
+import { resolveTeam } from "./shared/teamMatch";
 import Footer from "./components/Footer";
 import { useAppData } from "./hooks/useAppData";
 import { useGoalNotifications } from "./hooks/useGoalNotifications";
@@ -104,7 +105,7 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
       currentSeason={d.currentSeason}
       onSelectNews={(art: NewsItem) => navigate(`/news/${art.id}`)}
       onSelectTeam={(nameOrId: string) => {
-        const tm = d.teams.find((t: any) => t.id === nameOrId || t.name.includes(nameOrId));
+        const tm = resolveTeam(d.teams, nameOrId);
         if (tm) navigate(`/team/${tm.id}`);
       }}
       onSelectPlayer={(id: string) => navigate(`/player/${id}`)}

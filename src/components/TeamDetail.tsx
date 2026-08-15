@@ -4,7 +4,7 @@ import {
   Shield, Activity 
 } from "lucide-react";
 import { StandingRow } from "../types";
-import { getSafeImageUrl, convertGregorianToShamsi, toPersianDigits } from "../utils";
+import { getSafeImageUrl, convertGregorianToShamsi, toPersianDigits, normalizePersianString } from "../utils";
 import TeamLogo from "./TeamLogo";
 
 interface TeamDetailProps {
@@ -73,13 +73,32 @@ export default function TeamDetail({
                        (team.name || "").includes("فوتسال");
 
   // Filter squad players for this team
-  const teamPlayers = players.filter((p) => p.teamId === team.id || p.teamName?.includes(team.name) || p.teamName === team.name);
+  const teamPlayers = players.filter((p) => p.teamId === team.id || normalizePersianString(p.teamName || "") === normalizePersianString(team.name || ""));
 
   // Find position in the table across all available leagues dynamically and robustly
+  // Prefer the live standings row (matched by exact id, then exact normalized name)
+  // so the displayed rank always matches the actual table; stats.rank is only a fallback.
   let teamInStandings: any = null;
   let leagueKeyFound = team.stats?.league || "pro-league";
 
-  if (team.stats && team.stats.rank) {
+  for (const leagueKey of Object.keys(allStandings)) {
+    const rows = allStandings[leagueKey] || [];
+    const found =
+      rows.find((row: any) => String(row.id) === String(team.id)) ||
+      rows.find((row: any) => {
+        const rowTeamName = (row.team || row.teamName || "").trim();
+        const mainTeamName = (team.name || "").trim();
+        if (!rowTeamName || !mainTeamName) return false;
+        return normalizePersianString(rowTeamName) === normalizePersianString(mainTeamName);
+      });
+    if (found) {
+      teamInStandings = found;
+      leagueKeyFound = leagueKey;
+      break;
+    }
+  }
+
+  if (!teamInStandings && team.stats && team.stats.rank) {
     teamInStandings = {
       rank: team.stats.rank,
       played: team.stats.played,
@@ -90,25 +109,6 @@ export default function TeamDetail({
       goalsAgainst: team.stats.goalsAgainst,
       points: team.stats.points
     };
-  } else {
-    for (const leagueKey of Object.keys(allStandings)) {
-      const rows = allStandings[leagueKey] || [];
-      const found = rows.find((row) => {
-        const rowTeamName = (row.team || row.teamName || "").trim();
-        const mainTeamName = (team.name || "").trim();
-        if (!rowTeamName || !mainTeamName) return false;
-        return (
-          rowTeamName === mainTeamName ||
-          rowTeamName.includes(mainTeamName) ||
-          mainTeamName.includes(rowTeamName)
-        );
-      });
-      if (found) {
-        teamInStandings = found;
-        leagueKeyFound = leagueKey;
-        break;
-      }
-    }
   }
 
   // DYNAMIC MATCHES RETRIEVAL FROM GLOBAL DATABASE

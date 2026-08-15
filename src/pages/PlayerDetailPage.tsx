@@ -4,6 +4,7 @@ import { Helmet } from "react-helmet-async";
 import { ArrowRight, Loader2 } from "lucide-react";
 import PlayerDetail from "../components/PlayerDetail";
 import { getSafeImageUrl, fetchCachedAppData } from "../utils";
+import { resolveTeam } from "../shared/teamMatch";
 
 export default function PlayerDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -102,7 +103,7 @@ export default function PlayerDetailPage() {
         allTeams={allTeams}
         onBack={() => navigate(-1)}
         onSelectTeam={(teamName: string) => {
-          const tm = allTeams.find((t: any) => t.name.includes(teamName) || teamName.includes(t.name));
+          const tm = resolveTeam(allTeams, teamName);
           if (tm) navigate(`/team/${tm.id}`);
         }}
         onSelectMatch={(matchId: string) => navigate(`/match/${matchId}`)}
