@@ -18,7 +18,7 @@ import {
   RotateCcw,
   Save
 } from "lucide-react";
-import { toPersianDigits } from "../utils";
+import { toPersianDigits, normalizePersianString } from "../utils";
 import { parseMatchMinute } from "../shared/matchMinute";
 
 interface MatchEvent {
@@ -318,25 +318,22 @@ export default function AdminLiveMatchConsole({
   const sameTeamId = (playerTeamId?: string, matchTeamId?: string) =>
     !!playerTeamId && !!matchTeamId && String(playerTeamId) === String(matchTeamId);
 
+  const sameTeamName = (a?: string, b?: string) =>
+    !!a && !!b && normalizePersianString(a) === normalizePersianString(b);
+
   const roster = (players || []).filter(p => 
     sameTeamId(p.teamId, currentTeamId) ||
-    p.teamName === currentTeamName || 
-    (p.teamName && currentTeamName && p.teamName.includes(currentTeamName)) ||
-    (currentTeamName && p.teamName && currentTeamName.includes(p.teamName))
+    sameTeamName(p.teamName, currentTeamName)
   );
 
   const homeRoster = (players || []).filter(p => 
     sameTeamId(p.teamId, match.teamHomeId) ||
-    p.teamName === match.teamHome || 
-    (p.teamName && match.teamHome && p.teamName.includes(match.teamHome)) ||
-    (match.teamHome && p.teamName && match.teamHome.includes(p.teamName))
+    sameTeamName(p.teamName, match.teamHome)
   );
 
   const awayRoster = (players || []).filter(p => 
     sameTeamId(p.teamId, match.teamAwayId) ||
-    p.teamName === match.teamAway || 
-    (p.teamName && match.teamAway && p.teamName.includes(match.teamAway)) ||
-    (match.teamAway && p.teamName && match.teamAway.includes(p.teamName))
+    sameTeamName(p.teamName, match.teamAway)
   );
 
   return (
