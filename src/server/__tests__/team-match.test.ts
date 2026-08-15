@@ -1,10 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { resolveTeam, isExactTeamName } from "../../shared/teamMatch";
+import { resolveTeam, isExactTeamName, resolveTeamLeague } from "../../shared/teamMatch";
 
 const teams = [
-  { id: "team-1785484986454", name: "استقلال خوزستان", logo: "khuzestan.png" },
-  { id: "team-1785483285455", name: "استقلال", logo: "esteghlal.png" },
-  { id: "futsal-sun", name: "سونگون" },
+  { id: "team-1785484986454", name: "استقلال خوزستان", logo: "khuzestan.png", divisionKey: "pro-league" },
+  { id: "team-1785483285455", name: "استقلال", logo: "esteghlal.png", divisionKey: "pro-league" },
+  { id: "team-gol-gohar", name: "گل گهر سیرجان", divisionKey: "pro-league" },
+  { id: "futsal-sun", name: "سونگون", divisionKey: "futsal" },
 ];
 
 describe("resolveTeam", () => {
@@ -50,5 +51,26 @@ describe("isExactTeamName", () => {
   it("matches equal normalized names", () => {
     expect(isExactTeamName("استقلال", "استقلال")).toBe(true);
     expect(isExactTeamName("استقلال", "استقلال خوزستان")).toBe(false);
+  });
+});
+
+describe("resolveTeamLeague", () => {
+  it("inherits divisionKey from a team record matched by id", () => {
+    expect(resolveTeamLeague(teams, "team-gol-gohar")).toBe("pro-league");
+  });
+
+  it("resolves a short name like 'گل گهر' to its record and current division", () => {
+    expect(resolveTeamLeague(teams, "", "گل گهر")).toBe("pro-league");
+    expect(resolveTeamLeague(teams, undefined, "گل گهر")).toBe("pro-league");
+  });
+
+  it("resolves overlapping names to the exact team", () => {
+    expect(resolveTeamLeague(teams, "", "استقلال")).toBe("pro-league");
+    expect(resolveTeamLeague(teams, "", "استقلال خوزستان")).toBe("pro-league");
+  });
+
+  it("returns null when no record carries a divisionKey", () => {
+    expect(resolveTeamLeague([{ id: "t1", name: "بدون لیگ" }], "", "بدون لیگ")).toBeNull();
+    expect(resolveTeamLeague([], "", "گل گهر")).toBeNull();
   });
 });

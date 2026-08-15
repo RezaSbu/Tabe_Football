@@ -2,6 +2,7 @@ import { loadDB, setDb } from "../state";
 import { normalizePersianString, toPersianDigits } from "../utils/persian";
 import { logMessage } from "../utils/logger";
 import { realMinute } from "../../shared/matchMinute";
+import { resolveTeam, resolveTeamLeague } from "../../shared/teamMatch";
 
 export function calculatePlayerMinutesAndPlayed(player: any, match: any): { played: boolean; minutes: number; started: boolean } {
   const isFutsal = match.sport === "futsal" || match.league === "futsal";
@@ -239,12 +240,9 @@ export function recalculateAndSyncDatabase(): void {
   if (!db.standings) db.standings = {};
 
   const getTeamLeague = (teamId: string, teamName?: string): string => {
-    const teamObj = db.teams.find((t: any) => 
-      (teamId && t.id === teamId) || 
-      (teamName && normalizePersianString(t.name) === normalizePersianString(teamName))
-    );
-    if (teamObj && teamObj.divisionKey) {
-      return teamObj.divisionKey;
+    const resolvedLeague = resolveTeamLeague(db.teams, teamId, teamName);
+    if (resolvedLeague) {
+      return resolvedLeague;
     }
 
     const id = (teamId || "").toLowerCase();
@@ -269,10 +267,7 @@ export function recalculateAndSyncDatabase(): void {
     if (!p.teamId && !p.teamName) return false;
     const name = normalizePersianString(p.teamName || "");
     if (!name || name === "بازیکن آزاد" || name === "بدون باشگاه") return false;
-    return db.teams.some((t: any) =>
-      (p.teamId && t.id === p.teamId) ||
-      (p.teamName && normalizePersianString(t.name) === name)
-    );
+    return !!resolveTeam(db.teams, p.teamId || p.teamName);
   };
 
   logMessage("info", "database", "آغاز عملیات هماهنگ‌سازی بازگشتی آمار بازیکنان، تیم‌ها و لیدربردهای لیگ...");

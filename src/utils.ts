@@ -2,6 +2,8 @@
  * Returns a robust image URL, proxying third-party assets (like Varzesh3)
  * to bypass referrer blocks and hotlinking prevention in iframe environments.
  */
+import { resolveTeamLeague } from "./shared/teamMatch";
+
 export const getSafeImageUrl = (url: string): string => {
   if (!url) {
     return "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&q=80&w=800";
@@ -284,6 +286,10 @@ export function computeDynamicAppletStats(
 
   // Helper keyword to determine league dynamically for players
   const getTeamLeague = (teamId: string, teamName?: string): string => {
+    const resolvedLeague = resolveTeamLeague(processedTeams, teamId, teamName);
+    if (resolvedLeague) {
+      return resolvedLeague;
+    }
     const id = (teamId || "").toLowerCase();
     const name = (teamName || "").toLowerCase();
     if (id.startsWith("futsal-") || id.includes("futsal") || id.includes("sungun") || id.includes("giti") || name.includes("فوتسال") || name.includes("سونگون") || name.includes("گیتی")) {

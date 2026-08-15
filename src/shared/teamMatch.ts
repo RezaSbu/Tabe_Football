@@ -51,3 +51,21 @@ export function resolveTeam<T extends TeamLike>(teams: T[], identifier?: string 
  */
 export const isExactTeamName = (a?: string, b?: string): boolean =>
   !!a && !!b && normalizePersianString(a) === normalizePersianString(b);
+
+/**
+ * Resolves the league of a team (or of a player's team reference) from the
+ * team records' divisionKey. Falls back to id/exact/substring resolution so
+ * short names like "گل گهر" resolve to the record "گل گهر سیرجان" and inherit
+ * its current division (promotion/relegation) instead of stale keyword lists.
+ * Returns null when no team record carries a divisionKey.
+ */
+export function resolveTeamLeague<T extends TeamLike>(
+  teams: T[],
+  teamId?: string | number | null,
+  teamName?: string | null
+): string | null {
+  if (!Array.isArray(teams) || teams.length === 0) return null;
+  const resolved = resolveTeam(teams, teamId) || resolveTeam(teams, teamName);
+  if (resolved && resolved.divisionKey) return String(resolved.divisionKey);
+  return null;
+}
