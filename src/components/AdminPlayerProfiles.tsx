@@ -3,6 +3,18 @@ import { PlayerItem, TeamItem } from "../types";
 import { toPersianDigits, getSafeImageUrl } from "../utils";
 import { Users, Plus, Trash2, Edit2, Search, X, Check, Save } from "lucide-react";
 
+const PLAYER_POSITIONS = [
+  "دروازه‌بان",
+  "مدافع",
+  "مدافع کناری",
+  "هافبک",
+  "هافبک دفاعی",
+  "هافبک هجومی",
+  "وینگر",
+  "مهاجم",
+  "مهاجم نوک"
+];
+
 interface AdminPlayerProfilesProps {
   players: PlayerItem[];
   teams: TeamItem[];
@@ -266,13 +278,19 @@ export default function AdminPlayerProfiles({
 
             <div>
               <label className="block text-[11px] text-gray-400 font-bold mb-1.5">پست تخصصى بازیکن</label>
-              <input
-                type="text"
+              <select
                 value={editingItem?.position || ""}
                 onChange={e => setEditingItem({ ...editingItem, position: e.target.value })}
-                className="w-full bg-slate-950 border border-white/5 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-red-655"
-                placeholder="مثال: هافبک دفاعی، مهاجم نوک، دروازه‌بان"
-              />
+                className="w-full bg-slate-950 border border-white/5 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-red-655 font-bold"
+              >
+                <option value="">انتخاب پست تخصصی</option>
+                {editingItem?.position && !PLAYER_POSITIONS.includes(editingItem.position) && (
+                  <option value={editingItem.position}>{editingItem.position}</option>
+                )}
+                {PLAYER_POSITIONS.map(pos => (
+                  <option key={pos} value={pos}>{pos}</option>
+                ))}
+              </select>
             </div>
 
             <div>
