@@ -4,6 +4,7 @@ import {
   Star, Activity, Trophy, Clock, UserRound, Sparkles 
 } from "lucide-react";
 import { getSafeImageUrl, isTeamInDb, convertGregorianToShamsi, toPersianDigits, normalizePersianString } from "../utils";
+import { realMinute } from "../shared/matchMinute";
 
 interface PlayerDetailProps {
   player: any;
@@ -99,26 +100,26 @@ export default function PlayerDetail({
     let minutes = fullDuration;
     if (started) {
       if (subOutEvent) {
-        minutes = parseInt(subOutEvent.minute, 10) || fullDuration;
+        minutes = realMinute(subOutEvent.minute, fullDuration) || fullDuration;
       } else if (redCardEvent) {
-        minutes = parseInt(redCardEvent.minute, 10) || fullDuration;
+        minutes = realMinute(redCardEvent.minute, fullDuration) || fullDuration;
       }
     } else if (subInEvent) {
-      const inMin = parseInt(subInEvent.minute, 10) || 0;
+      const inMin = realMinute(subInEvent.minute, fullDuration) || 0;
       if (subOutEvent) {
-        const outMin = parseInt(subOutEvent.minute, 10) || fullDuration;
+        const outMin = realMinute(subOutEvent.minute, fullDuration) || fullDuration;
         minutes = Math.max(0, outMin - inMin);
       } else if (redCardEvent) {
-        const redMin = parseInt(redCardEvent.minute, 10) || fullDuration;
+        const redMin = realMinute(redCardEvent.minute, fullDuration) || fullDuration;
         minutes = Math.max(0, redMin - inMin);
       } else {
         minutes = Math.max(0, fullDuration - inMin);
       }
     } else {
       if (redCardEvent) {
-        minutes = parseInt(redCardEvent.minute, 10) || fullDuration;
+        minutes = realMinute(redCardEvent.minute, fullDuration) || fullDuration;
       } else if (subOutEvent) {
-        minutes = parseInt(subOutEvent.minute, 10) || fullDuration;
+        minutes = realMinute(subOutEvent.minute, fullDuration) || fullDuration;
       } else {
         minutes = fullDuration;
       }
