@@ -15,7 +15,8 @@ import {
   Activity, 
   Volume2,
   BookmarkCheck,
-  RotateCcw
+  RotateCcw,
+  Save
 } from "lucide-react";
 
 interface MatchEvent {
@@ -36,6 +37,7 @@ interface AdminLiveMatchConsoleProps {
   players?: PlayerItem[];
   onUpdateMatch: (id: string, updatedFields: any) => Promise<boolean>;
   onFinishMatch: (id: string, finalMatchData: any) => Promise<boolean>;
+  onSaveFinishedMatch?: (id: string, finalMatchData: any) => Promise<boolean>;
   onCancel: () => void;
 }
 
@@ -45,12 +47,18 @@ export default function AdminLiveMatchConsole({
   players = [],
   onUpdateMatch,
   onFinishMatch,
+  onSaveFinishedMatch,
   onCancel
 }: AdminLiveMatchConsoleProps) {
   const isFutsal = match.sport === "futsal";
+  const isFinishedMode = match.status === "finished";
   
   // Timer States
-  const [minutes, setMinutes] = useState<number>(parseInt(match.minutes || "1", 10) || 1);
+  const [minutes, setMinutes] = useState<number>(() => {
+    const parsedMin = parseInt(match.minutes || "", 10);
+    if (!isNaN(parsedMin)) return parsedMin;
+    return isFinishedMode ? (isFutsal ? 40 : 90) : 1;
+  });
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [period, setPeriod] = useState<string>(match.minutes && parseInt(match.minutes, 10) > 45 ? "Second Half" : "First Half");
 
@@ -281,12 +289,17 @@ export default function AdminLiveMatchConsole({
         mvpName: mvpName
       };
 
-      const success = await onFinishMatch(match.id, finalReport);
+      const success = isFinishedMode && onSaveFinishedMatch
+        ? await onSaveFinishedMatch(match.id, finalReport)
+        : await onFinishMatch(match.id, finalReport);
+
       if (success) {
-        alert("مسابقه با موفقیت به اتمام رسید و جدول رده‌بندی فورا آپدیت شد!");
-        onCancel();
+        alert(isFinishedMode
+          ? "تغییرات مسابقه با موفقیت ثبت شد و جدول رده‌بندی و آمارها بازمحاسبه و همگام‌سازی شد!"
+          : "مسابقه با موفقیت به اتمام رسید و جدول رده‌بندی فورا آپدیت شد!");
+        if (!isFinishedMode) onCancel();
       } else {
-        alert("خطا در ثبت پایان مسابقه.");
+        alert("خطا در ثبت اطلاعات مسابقه.");
       }
     } else {
       const success = await onUpdateMatch(match.id, payload);
@@ -322,9 +335,13 @@ export default function AdminLiveMatchConsole({
       {/* Header Info Banner */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-white/5 pb-4 mb-5">
         <div>
-          <span className="text-[10px] bg-red-950 text-red-400 font-extrabold px-2.5 py-0.5 rounded-full border border-red-900/30 animate-pulse flex items-center gap-1 w-max">
-            <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-ping" />
-            اتاق کنترل زنده {isFutsal ? "فوتسال" : "فوتبال"}
+          <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border flex items-center gap-1 w-max ${
+            isFinishedMode 
+              ? "bg-sky-950 text-sky-400 border-sky-900/40" 
+              : "bg-red-950 text-red-400 border-red-900/30 animate-pulse"
+          }`}>
+            <span className={`h-1.5 w-1.5 rounded-full ${isFinishedMode ? "bg-sky-400" : "bg-red-500 animate-ping"}`} />
+            {isFinishedMode ? `اتاق کنترل مسابقه (ویرایش بازی خاتمه‌یافته) ${isFutsal ? "فوتسال" : "فوتبال"}` : `اتاق کنترل زنده ${isFutsal ? "فوتسال" : "فوتبال"}`}
           </span>
           <h2 className="font-extrabold text-base text-white mt-1">
             {match.teamHome} {scoreHome} - {scoreAway} {match.teamAway}
@@ -501,9 +518,11 @@ export default function AdminLiveMatchConsole({
         {/* Left Column: Timer & Score Overrides */}
         <div className="md:col-span-1 space-y-4 bg-slate-900/30 p-4 rounded-xl border border-white/[0.02]">
           <h3 className="font-black text-xs text-emerald-400 flex items-center gap-1.5 border-b border-white/5 pb-2">
-            <Clock className="h-4 w-4" /> زمان‌سنج و ناوبری نیمه
+            <Clock className="h-4 w-4" /> {isFinishedMode ? "نتیجه نهایی بازی" : "زمان‌سنج و ناوبری نیمه"}
           </h3>
 
+          {!isFinishedMode && (
+            <>
           {/* Time Dial */}
           <div className="bg-[#070709] p-4 rounded-xl border border-white/5 text-center relative group">
             <span className="text-[10px] text-slate-500 font-bold block mb-1">دقیقه مسابقه</span>
@@ -571,6 +590,8 @@ export default function AdminLiveMatchConsole({
               <option value="Second Half">نیمه دوم</option>
             </select>
           </div>
+            </>
+          )}
 
           {/* Core score manual override */}
           <div className="grid grid-cols-2 gap-3 pt-2">
@@ -595,12 +616,14 @@ export default function AdminLiveMatchConsole({
           </div>
 
           {/* Action trigger */}
-          <button
-            onClick={() => handleSaveState("live")}
-            className="w-full bg-[#10b981] text-black font-black text-xs py-2.5 rounded-lg hover:bg-emerald-400 transition flex items-center justify-center gap-1.5 shadow cursor-pointer mt-4"
-          >
-            <Check className="h-4 w-4" /> ذخیره موقت جزئیات زنده
-          </button>
+          {!isFinishedMode && (
+            <button
+              onClick={() => handleSaveState("live")}
+              className="w-full bg-[#10b981] text-black font-black text-xs py-2.5 rounded-lg hover:bg-emerald-400 transition flex items-center justify-center gap-1.5 shadow cursor-pointer mt-4"
+            >
+              <Check className="h-4 w-4" /> ذخیره موقت جزئیات زنده
+            </button>
+          )}
         </div>
 
         {/* Central Column: Event Logging */}
@@ -780,7 +803,7 @@ export default function AdminLiveMatchConsole({
         {/* Right Column: Statistics */}
         <div className="md:col-span-1 space-y-4 bg-slate-900/30 p-4 rounded-xl border border-white/[0.02]">
           <h3 className="font-black text-xs text-sky-400 flex items-center gap-1.5 border-b border-white/5 pb-2">
-            <Sliders className="h-4 w-4" /> آمار تیمی و درصدهای بازی زنده
+            <Sliders className="h-4 w-4" /> {isFinishedMode ? "آمار تیمی مسابقه" : "آمار تیمی و درصدهای بازی زنده"}
           </h3>
 
           <div className="space-y-4 pt-1">
@@ -1218,22 +1241,42 @@ export default function AdminLiveMatchConsole({
         </div>
       </div>
 
-      {/* FOOTER CONTROLS: TERMINATION TRIGGER */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-5 border-t border-white/5 mt-5">
-        <span className="text-[10px] text-slate-500 italic">پس از ثبت تمام وقایع، با دکمه قرمز رنگ "سوت پایان و اتمام بازی" را اعلام کنید تا جدول رقابت‌ها آپدیت گردد.</span>
+      {/* FOOTER CONTROLS: TERMINATION / UPDATE TRIGGER */}
+      {isFinishedMode ? (
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-5 border-t border-white/5 mt-5">
+          <span className="text-[10px] text-slate-500 italic">
+            ترکیب، رویدادها و آمار این بازی خاتمه‌یافته را ویرایش کرده و برای اعمال بازمحاسبه جدول رده‌بندی و آمار بازیکنان توسط سرور، دکمه زیر را بزنید.
+          </span>
 
-        <button
-          onClick={() => {
-            if (window.confirm("آیا از اتمام رسمی این مسابقه و بسته شدن آن مطمئن هستید؟ با اتمام بازی، مسابقه مستقیما به Finished_Games منتقل شده و جدول لیگ موثر خواهد شد.")) {
-              handleSaveState("finished");
-            }
-          }}
-          className="bg-red-500 hover:bg-red-600 font-extrabold text-[#000] text-xs px-5 py-2.5 rounded-lg flex items-center gap-1.5 shadow"
-          id="btn-finish-live-match"
-        >
-          <BookmarkCheck className="h-4 w-4" /> سوت پایان و اتمام رسمی مسابقه (Finished_Games)
-        </button>
-      </div>
+          <button
+            onClick={() => {
+              if (window.confirm("آیا از ثبت تغییرات این بازی خاتمه‌یافته مطمئن هستید؟ پس از ذخیره، جدول رده‌بندی و آمارها بازمحاسبه می‌شوند.")) {
+                handleSaveState("finished");
+              }
+            }}
+            className="bg-emerald-500 hover:bg-emerald-600 font-extrabold text-[#000] text-xs px-5 py-2.5 rounded-lg flex items-center gap-1.5 shadow cursor-pointer"
+            id="btn-update-finished-match"
+          >
+            <Save className="h-4 w-4" /> ثبت تغییرات و به‌روزرسانی کامل مسابقه
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-3 pt-5 border-t border-white/5 mt-5">
+          <span className="text-[10px] text-slate-500 italic">پس از ثبت تمام وقایع، با دکمه قرمز رنگ "سوت پایان و اتمام بازی" را اعلام کنید تا جدول رقابت‌ها آپدیت گردد.</span>
+
+          <button
+            onClick={() => {
+              if (window.confirm("آیا از اتمام رسمی این مسابقه و بسته شدن آن مطمئن هستید؟ با اتمام بازی، مسابقه مستقیما به Finished_Games منتقل شده و جدول لیگ موثر خواهد شد.")) {
+                handleSaveState("finished");
+              }
+            }}
+            className="bg-red-500 hover:bg-red-600 font-extrabold text-[#000] text-xs px-5 py-2.5 rounded-lg flex items-center gap-1.5 shadow"
+            id="btn-finish-live-match"
+          >
+            <BookmarkCheck className="h-4 w-4" /> سوت پایان و اتمام رسمی مسابقه (Finished_Games)
+          </button>
+        </div>
+      )}
     </div>
   );
 }
