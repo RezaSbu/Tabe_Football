@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { ArrowRight, Loader2 } from "lucide-react";
@@ -13,11 +13,13 @@ export default function PlayerDetailPage() {
   const [allTeams, setAllTeams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const relatedMatchesRef = useRef<any[] | null>(null);
 
   useEffect(() => {
     if (!id) return;
     setLoading(true);
     setError(false);
+    relatedMatchesRef.current = null;
     fetch(`/api/detail/player/${id}`)
       .then(res => {
         if (!res.ok) throw new Error("not found");
@@ -26,7 +28,8 @@ export default function PlayerDetailPage() {
       .then(data => {
         if (data.success && data.data) {
           setPlayer(data.data);
-          setAllMatches(data.relatedMatches || []);
+          relatedMatchesRef.current = data.data.relatedMatches || [];
+          setAllMatches(relatedMatchesRef.current || []);
         } else {
           setError(true);
         }
@@ -38,7 +41,9 @@ export default function PlayerDetailPage() {
       .then(d => {
         if (d && d.status === "ok") {
           setAllTeams(d.teams || []);
-          if (!player) setAllMatches(d.matches || []);
+          if (!relatedMatchesRef.current || relatedMatchesRef.current.length === 0) {
+            setAllMatches(d.matches || []);
+          }
         }
       })
       .catch(() => {});

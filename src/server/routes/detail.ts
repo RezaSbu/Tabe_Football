@@ -1,6 +1,7 @@
 import express, { Express, Request, Response } from "express";
 import { loadDB } from "../state";
 import { markViewDirty, VIEW_BOT_RE } from "../services/viewTracker";
+import { normalizePersianString } from "../utils/persian";
 
 export function registerDetailRoutes(app: Express) {
   app.post("/api/detail/:type/:id/view", async (req: Request, res: Response) => {
@@ -110,7 +111,16 @@ export function registerDetailRoutes(app: Express) {
       const teamCoaches = (db.coaches || []).filter((c: any) =>
         c.teamId === item.id || (c.teamName && item.name && c.teamName.includes(item.name))
       );
-      res.json({ success: true, data: { ...item, players: teamPlayers, coaches: teamCoaches } });
+      const normTeamName = normalizePersianString(item.name || "");
+      const teamNews = (db.news || [])
+        .filter((n: any) => {
+          if (!n || !item.name) return false;
+          const haystack = `${n.title || ""} ${n.summary || ""} ${n.content || ""} ${(n.tags || []).join(" ")}`;
+          return normalizePersianString(haystack).includes(normTeamName);
+        })
+        .sort((a: any, b: any) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
+        .slice(0, 3);
+      res.json({ success: true, data: { ...item, players: teamPlayers, coaches: teamCoaches, news: teamNews } });
     } else {
       res.status(404).json({ success: false, message: "تیم یافت نشد." });
     }
@@ -120,10 +130,35 @@ export function registerDetailRoutes(app: Express) {
     const db = loadDB();
     const item = (db.players || []).find((p: any) => String(p.id) === String(req.params.id));
     if (item) {
-      const playerMatches = (db.matches || []).filter((m: any) =>
-        (m.teamHome && item.teamName && m.teamHome.includes(item.teamName)) ||
-        (m.teamAway && item.teamName && m.teamAway.includes(item.teamName))
-      );
+      const normName = normalizePersianString(item.name || "");
+      const sameName = (a?: string) => !!a && !!item.name && normalizePersianString(a) === normName;
+      const sameId = (a?: any) => !!a && String(a) === String(item.id);
+
+      const playerMatches = (db.matches || []).filter((m: any) => {
+        const teamMatch =
+          (m.teamHome && item.teamName && m.teamHome.includes(item.teamName)) ||
+          (m.teamAway && item.teamName && m.teamAway.includes(item.teamName));
+        if (teamMatch) return true;
+
+        const lineups = m.lineups || { home: [], away: [] };
+        const inLineup = [...(lineups.home || []), ...(lineups.away || [])].some(
+          (lp: any) => lp && (sameId(lp.id) || sameName(lp.name))
+        );
+        if (inLineup) return true;
+
+        const events = m.events || [];
+        const inEvents = events.some(
+          (ev: any) => ev && (sameName(ev.playerName) || sameName(ev.player2Name))
+        );
+        if (inEvents) return true;
+
+        const scorers = m.scorersList || [];
+        return scorers.some(
+          (sc: any) => sc && (sameId(sc.scorerId) || sameName(sc.scorerName) || sameName(sc.name) || sameName(sc.assistName) || sameName(sc.assist))
+        );
+      });
+
+      playerMatches.sort((a: any, b: any) => String(b.date || "").localeCompare(String(a.date || "")));
       res.json({ success: true, data: { ...item, relatedMatches: playerMatches.slice(0, 20) } });
     } else {
       res.status(404).json({ success: false, message: "بازیکن یافت نشد." });

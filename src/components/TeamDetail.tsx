@@ -13,10 +13,12 @@ interface TeamDetailProps {
   allStandings: Record<string, StandingRow[]>;
   allMatches?: any[];
   coaches?: any[];
+  teamNews?: any[];
   onBack: () => void;
   onSelectPlayer: (id: string) => void;
   onSelectCoach?: (id: string) => void;
   onSelectMatch?: (id: string) => void;
+  onSelectNews?: (id: string) => void;
 }
 
 export default function TeamDetail({
@@ -25,10 +27,12 @@ export default function TeamDetail({
   allStandings = {},
   allMatches = [],
   coaches = [],
+  teamNews = [],
   onBack,
   onSelectPlayer,
   onSelectCoach,
-  onSelectMatch
+  onSelectMatch,
+  onSelectNews
 }: TeamDetailProps) {
   const [activeSubTab, setActiveSubTab] = useState<"overview" | "fixtures" | "squad">("overview");
   const [statsCompet, setStatsCompet] = useState<"league" | "cup">("league");
@@ -364,14 +368,45 @@ export default function TeamDetail({
                     </div>
 
                     <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-3">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-400 font-bold">نرخ گلزنی واقعی: {toPersianDigits(targetStats.goalsFor || 0)}</span>
-                        <span className="text-emerald-450 text-emerald-400 font-black">شاخص امید گل تجمعی (xG): {toPersianDigits(((targetStats.goalsFor || 2) * 1.05).toFixed(2))}</span>
-                      </div>
-                      <div className="h-2 rounded-full bg-slate-900 border border-white/5 overflow-hidden flex">
-                        <div className="h-full bg-emerald-500 transition-all duration-300" style={{ width: "70%" }}></div>
-                        <div className="h-full bg-cyan-500 transition-all duration-300" style={{ width: "30%" }}></div>
-                      </div>
+                      <h3 className="font-bold text-xs text-slate-400 flex items-center gap-1.5">
+                        <Activity className="h-4 w-4 text-emerald-500" />
+                        <span>آخرین اخبار {team.name}</span>
+                      </h3>
+                      {teamNews.length > 0 ? (
+                        <div className="space-y-2">
+                          {teamNews.map((nw: any) => (
+                            <button
+                              key={nw.id}
+                              onClick={() => onSelectNews && onSelectNews(nw.id)}
+                              className="w-full flex items-start gap-3 text-right p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.05] border border-white/5 hover:border-emerald-500/30 transition cursor-pointer group"
+                            >
+                              {nw.image ? (
+                                <img
+                                  src={getSafeImageUrl(nw.image)}
+                                  alt={nw.title}
+                                  loading="lazy"
+                                  className="w-16 h-16 rounded-lg object-cover shrink-0 bg-slate-800"
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <div className="w-16 h-16 rounded-lg shrink-0 bg-slate-800 flex items-center justify-center text-lg">📰</div>
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <h4 className="text-xs font-bold text-white leading-snug line-clamp-2 group-hover:text-emerald-400 transition">
+                                  {nw.title}
+                                </h4>
+                                {nw.summary && (
+                                  <p className="text-[10px] text-slate-500 line-clamp-2 mt-1 leading-relaxed">
+                                    {nw.summary}
+                                  </p>
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-slate-500">خبری با کلیدواژه «{team.name}» یافت نشد.</p>
+                      )}
                     </div>
                   </div>
                 );
