@@ -5,6 +5,7 @@ import { loadDB, snapshotDB, restoreDB } from "../state";
 import { logMessage } from "../utils/logger";
 import { saveDB } from "../services/database";
 import { markViewDirty, VIEW_BOT_RE } from "../services/viewTracker";
+import { detectConflict } from "../utils/versioning";
 import { recordAuthEvent, auditLog } from "../utils/audit";
 import {
   generateToken,
@@ -362,7 +363,11 @@ export function registerMiscRoutes(app: Express) {
     const currentDB = loadDB();
     const index = currentDB.news.findIndex((n: any) => n.id === req.params.id);
     if (index !== -1) {
-      currentDB.news[index] = { ...currentDB.news[index], ...req.body };
+      const existingNews = currentDB.news[index];
+      if (detectConflict(existingNews, req.body.updatedAt)) {
+        return res.status(409).json({ success: false, conflict: true, message: "این خبر پس از باز کردن فرم توسط شخص دیگری ویرایش شده است. لطفاً دوباره بارگذاری کنید.", current: existingNews });
+      }
+      currentDB.news[index] = { ...existingNews, ...req.body, updatedAt: new Date().toISOString() };
       await saveDB();
       res.json({ success: true });
     } else {

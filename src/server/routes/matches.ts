@@ -3,7 +3,20 @@ import { db as pgDb } from "../db";
 import { loadDB } from "../state";
 import { logMessage } from "../utils/logger";
 import { saveDB, updateMatchInDb } from "../services/database";
+import { detectConflict } from "../utils/versioning";
 import { requirePermission } from "../middleware/auth";
+
+function findCurrentMatch(id: string): any | null {
+  const currentDB = loadDB();
+  for (const sp of ["football", "futsal"]) {
+    for (const st of ["Feature_Games", "Now_Games", "Finished_Games"]) {
+      const list = currentDB[`${sp}_${st}`] || [];
+      const found = list.find((m: any) => String(m.id) === String(id));
+      if (found) return found;
+    }
+  }
+  return null;
+}
 
 export function registerMatchRoutes(app: Express) {
   app.put("/api/bracket", requirePermission("bracket"), async (req, res) => {
@@ -63,8 +76,16 @@ export function registerMatchRoutes(app: Express) {
 
   app.put("/api/sports-game/:id", requirePermission("matches"), async (req, res) => {
     const { id } = req.params;
-    const currentDB = loadDB();
-    const success = updateMatchInDb(id, req.body);
+    const baseVersion = req.body.updatedAt;
+    const current = findCurrentMatch(id);
+    if (!current) {
+      return res.status(404).json({ success: false, message: "بازی یافت نشد." });
+    }
+    if (detectConflict(current, baseVersion)) {
+      return res.status(409).json({ success: false, conflict: true, message: "این مسابقه پس از باز کردن فرم توسط شخص دیگری ویرایش شده است. لطفاً دوباره بارگذاری کنید.", current });
+    }
+    const { updatedAt, ...body } = req.body;
+    const success = updateMatchInDb(id, { ...body, updatedAt: new Date().toISOString() });
     if (success) {
       await saveDB();
       logMessage("info", "api", `بروزرسانی بازی با شناسه ${id} انجام شد.`);
@@ -126,8 +147,16 @@ export function registerMatchRoutes(app: Express) {
 
   app.put("/api/matches/:id", requirePermission("matches"), async (req, res) => {
     const { id } = req.params;
-    const currentDB = loadDB();
-    const success = updateMatchInDb(id, req.body);
+    const baseVersion = req.body.updatedAt;
+    const current = findCurrentMatch(id);
+    if (!current) {
+      return res.status(404).json({ success: false, message: "بازی یافت نشد." });
+    }
+    if (detectConflict(current, baseVersion)) {
+      return res.status(409).json({ success: false, conflict: true, message: "این مسابقه پس از باز کردن فرم توسط شخص دیگری ویرایش شده است. لطفاً دوباره بارگذاری کنید.", current });
+    }
+    const { updatedAt, ...body } = req.body;
+    const success = updateMatchInDb(id, { ...body, updatedAt: new Date().toISOString() });
     if (success) {
       await saveDB();
       res.json({ success: true });

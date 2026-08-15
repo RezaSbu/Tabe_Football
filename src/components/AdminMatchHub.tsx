@@ -138,7 +138,7 @@ export default function AdminMatchHub({
         const response = await fetch(`/api/sports-game/${editingMatch.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(matchData)
+          body: JSON.stringify({ ...matchData, updatedAt: editingMatch.updatedAt })
         });
         if (response.ok) {
           setShowForm(false);
@@ -146,6 +146,14 @@ export default function AdminMatchHub({
           onRefreshData();
           if (isFinishedNow) {
             await executeCascadeUpdate({ ...editingMatch, ...matchData });
+          }
+        } else if (response.status === 409) {
+          const data = await response.json();
+          const reload = window.confirm(`${data.message || "این مسابقه توسط شخص دیگری ویرایش شده است."}\nبرای بارگذاری اطلاعات جدید «تایید» را بزنید.`);
+          if (reload) {
+            setShowForm(false);
+            setEditingMatch(null);
+            onRefreshData();
           }
         } else {
           alert("خطا در همگام‌سازی بازی با سرور.");
