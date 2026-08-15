@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
-import { ArrowRight, ChevronDown, Loader2, Tag } from "lucide-react";
+import { ArrowRight, Loader2, Tag } from "lucide-react";
 import { getSafeImageUrl, toPersianDigits } from "../utils";
 
 export default function NewsDetailPage() {
@@ -10,7 +10,6 @@ export default function NewsDetailPage() {
   const [article, setArticle] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [showMore, setShowMore] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -154,38 +153,26 @@ export default function NewsDetailPage() {
         </div>
 
         {(article.read_more?.content || article.read_more?.content2 || (Array.isArray(article.read_more?.images) && article.read_more.images.length > 0)) && (
-          <div className="mt-6 border-t border-white/5 pt-5">
-            {!showMore ? (
-              <button
-                onClick={() => setShowMore(true)}
-                className="inline-flex items-center gap-2 rounded-xl bg-red-655 px-4 py-2 text-xs font-black text-white shadow shadow-red-950/30 hover:bg-red-700 transition"
-              >
-                ادامه مطلب
-                <ChevronDown className="h-4 w-4" />
-              </button>
-            ) : (
-              <div className="space-y-5 animate-in fade-in">
-                {article.read_more?.content && (
-                  <p className="text-gray-300 text-sm sm:text-base leading-loose whitespace-pre-line text-justify">
-                    {article.read_more.content}
-                  </p>
-                )}
-                {Array.isArray(article.read_more?.images) && article.read_more.images.length === 1 && (
-                  <img loading="lazy" decoding="async" src={getSafeImageUrl(article.read_more.images[0])} alt={article.title} referrerPolicy="no-referrer" className="mx-auto max-h-[26rem] w-auto max-w-full rounded-xl border border-white/5 shadow-lg" />
-                )}
-                {Array.isArray(article.read_more?.images) && article.read_more.images.length > 1 && (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {article.read_more.images.map((g: string, gi: number) => (
-                      <img key={gi} loading="lazy" decoding="async" src={getSafeImageUrl(g)} alt={article.title} referrerPolicy="no-referrer" className="w-full h-56 sm:h-80 rounded-xl object-cover border border-white/5 shadow-lg" />
-                    ))}
-                  </div>
-                )}
-                {article.read_more?.content2 && (
-                  <p className="text-gray-300 text-sm sm:text-base leading-loose whitespace-pre-line text-justify">
-                    {article.read_more.content2}
-                  </p>
-                )}
+          <div className="mt-6 border-t border-white/5 pt-5 space-y-5 animate-in fade-in">
+            {article.read_more?.content && (
+              <p className="text-gray-300 text-sm sm:text-base leading-loose whitespace-pre-line text-justify">
+                {article.read_more.content}
+              </p>
+            )}
+            {Array.isArray(article.read_more?.images) && article.read_more.images.length === 1 && (
+              <img loading="lazy" decoding="async" src={getSafeImageUrl(article.read_more.images[0])} alt={article.title} referrerPolicy="no-referrer" className="mx-auto max-h-[26rem] w-auto max-w-full rounded-xl border border-white/5 shadow-lg" />
+            )}
+            {Array.isArray(article.read_more?.images) && article.read_more.images.length > 1 && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {article.read_more.images.map((g: string, gi: number) => (
+                  <img key={gi} loading="lazy" decoding="async" src={getSafeImageUrl(g)} alt={article.title} referrerPolicy="no-referrer" className="w-full h-56 sm:h-80 rounded-xl object-cover border border-white/5 shadow-lg" />
+                ))}
               </div>
+            )}
+            {article.read_more?.content2 && (
+              <p className="text-gray-300 text-sm sm:text-base leading-loose whitespace-pre-line text-justify">
+                {article.read_more.content2}
+              </p>
             )}
           </div>
         )}
