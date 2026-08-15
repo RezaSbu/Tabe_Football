@@ -10,6 +10,7 @@ export interface NewsItem {
   tags: string[];
   viewCount: number;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface MatchItem {
@@ -40,6 +41,7 @@ export interface MatchItem {
   previewDesc?: string;
   mediaInfo?: string;
   probableLineups?: { home: string[]; away: string[] };
+  updatedAt?: string;
   events?: any[];
   stats?: any;
   teamStats?: any;

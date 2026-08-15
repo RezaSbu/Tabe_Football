@@ -96,6 +96,14 @@ export default function AdminTeamProfiles({
         setIsEditing(false);
         setEditingItem(null);
         onRefreshData();
+      } else if (res.status === 409) {
+        const data = await res.json();
+        const reload = window.confirm(`${data.message || "این تیم توسط شخص دیگری ویرایش شده است."}\nبرای بارگذاری اطلاعات جدید «تایید» را بزنید.`);
+        if (reload) {
+          setIsEditing(false);
+          setEditingItem(null);
+          onRefreshData();
+        }
       } else {
         alert("خطا در ذخیره‌سازی.");
       }

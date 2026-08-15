@@ -104,6 +104,7 @@ export default function AdminPortalHub({
   // FORM / EDIT COMMON STATE
   const [showForm, setShowForm] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [newsBaseVersion, setNewsBaseVersion] = useState<string | undefined>(undefined);
 
   // NEWS FORM STATE
   const [newsTitle, setNewsTitle] = useState("");
@@ -369,6 +370,7 @@ export default function AdminPortalHub({
   // 1. CHOOSE & EDIT HANDLERS
   const handleEditNews = (item: NewsItem) => {
     setEditingId(item.id);
+    setNewsBaseVersion(item.updatedAt);
     setNewsTitle(item.title);
     setNewsSummary(item.summary);
     setNewsContent(item.content);
@@ -396,7 +398,8 @@ export default function AdminPortalHub({
         content: newsReadMore,
         content2: newsReadMore2,
         images: newsReadMoreImages.split(",").map(t => t.trim()).filter(Boolean)
-      } : null
+      } : null,
+      updatedAt: editingId ? newsBaseVersion : undefined
     };
 
     try {
@@ -411,6 +414,14 @@ export default function AdminPortalHub({
         setShowForm(null);
         setEditingId(null);
         onRefreshData();
+      } else if (res.status === 409) {
+        const data = await res.json();
+        const reload = window.confirm(`${data.message || "این خبر توسط شخص دیگری ویرایش شده است."}\nبرای بارگذاری اطلاعات جدید «تایید» را بزنید.`);
+        if (reload) {
+          setShowForm(null);
+          setEditingId(null);
+          onRefreshData();
+        }
       } else {
         alert("خطا در ذخیره خبر.");
       }

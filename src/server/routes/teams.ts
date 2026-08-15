@@ -4,6 +4,7 @@ import { logMessage } from "../utils/logger";
 import { saveDB } from "../services/database";
 import { getPlayerCalculatedStatsFromMatches, getCoachCalculatedStatsFromMatches } from "../services/stats";
 import { requirePermission } from "../middleware/auth";
+import { detectConflict } from "../utils/versioning";
 
 export function registerTeamRoutes(app: Express) {
   app.post("/api/teams", requirePermission("teams"), async (req: Request, res: Response) => {
@@ -62,7 +63,11 @@ export function registerTeamRoutes(app: Express) {
     const currentDB = loadDB();
     const index = currentDB.teams.findIndex((t: any) => t.id === req.params.id);
     if (index !== -1) {
-      const updatedTeam = { ...currentDB.teams[index], ...req.body };
+      const existingTeam = currentDB.teams[index];
+      if (detectConflict(existingTeam, req.body.updatedAt)) {
+        return res.status(409).json({ success: false, conflict: true, message: "این تیم پس از باز کردن فرم توسط شخص دیگری ویرایش شده است. لطفاً دوباره بارگذاری کنید.", current: existingTeam });
+      }
+      const updatedTeam = { ...existingTeam, ...req.body, updatedAt: new Date().toISOString() };
 
       let matchPlayed = 0;
       let matchWon = 0;
@@ -207,7 +212,11 @@ export function registerTeamRoutes(app: Express) {
     const currentDB = loadDB();
     const index = currentDB.players.findIndex((p: any) => p.id === req.params.id);
     if (index !== -1) {
-      const updatedPlayer = { ...currentDB.players[index], ...req.body };
+      const existingPlayer = currentDB.players[index];
+      if (detectConflict(existingPlayer, req.body.updatedAt)) {
+        return res.status(409).json({ success: false, conflict: true, message: "این بازیکن پس از باز کردن فرم توسط شخص دیگری ویرایش شده است. لطفاً دوباره بارگذاری کنید.", current: existingPlayer });
+      }
+      const updatedPlayer = { ...existingPlayer, ...req.body, updatedAt: new Date().toISOString() };
 
       const matchesList = currentDB.matches || [];
       const matchStats = getPlayerCalculatedStatsFromMatches(String(updatedPlayer.id), matchesList, currentDB.players);
@@ -312,7 +321,10 @@ export function registerTeamRoutes(app: Express) {
     const index = currentDB.coaches.findIndex((c: any) => c.id === req.params.id);
     if (index !== -1) {
       const prevCoach = currentDB.coaches[index];
-      const updatedCoach = { ...currentDB.coaches[index], ...req.body };
+      if (detectConflict(prevCoach, req.body.updatedAt)) {
+        return res.status(409).json({ success: false, conflict: true, message: "این مربی پس از باز کردن فرم توسط شخص دیگری ویرایش شده است. لطفاً دوباره بارگذاری کنید.", current: prevCoach });
+      }
+      const updatedCoach = { ...currentDB.coaches[index], ...req.body, updatedAt: new Date().toISOString() };
 
       const enteredMatches = parseInt(updatedCoach.seasonStats?.matches) || 0;
       const enteredWins = parseInt(updatedCoach.seasonStats?.wins) || 0;
