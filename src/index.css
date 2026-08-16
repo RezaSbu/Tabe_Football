@@ -599,3 +599,42 @@ html.light .bg-gray-900\/10 { background-color: var(--surface-card); }
 
 /* واترمارک‌های بزرگ شماره روی کارت بازیکن -> تینت ظریف اسلیت */
 html.light .text-white\/5 { color: color-mix(in srgb, #0f172a 5%, transparent); }
+
+/* ==========================================================================
+   هیرو مسابقه (MatchDetailView): بک‌گراند عکس واقعی ورزشگاه + گرادیان تیره
+   باید در هر دو تم، متن/آیکون‌ها روشن بمانند؛ ازاین‌رو متغیرهای رنگ
+   اسکُپ این ناحیه در تم روشن به پالت تیره-ثابت بازنشانی می‌شوند.
+   ========================================================================== */
+html.light .match-hero {
+  --color-white: #ffffff;
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #94a3b8;
+  --color-emerald-300: #6ee7b7;
+  --color-emerald-400: #34d399;
+  --color-emerald-500: #10b981;
+  --color-emerald-600: #059669;
+  --color-cyan-300: #67e8f9;
+  --color-cyan-400: #22d3ee;
+  --color-cyan-500: #06b6d4;
+  --color-cyan-600: #0891b2;
+  --color-red-300: #fca5a5;
+  --color-red-400: #f87171;
+  --color-red-500: #ef4444;
+  --color-amber-300: #fcd34d;
+  --color-amber-400: #fbbf24;
+  --color-amber-500: #f59e0b;
+  --color-rose-400: #fb7185;
+}
+/* سطح‌های نیمه‌شفاف داخل هیرو باید تیره بمانند (روی عکس) */
+html.light .match-hero .bg-black\/55 { background-color: color-mix(in srgb, #000 55%, transparent); }
+html.light .match-hero .bg-black\/30 { background-color: color-mix(in srgb, #000 30%, transparent); }
+html.light .match-hero .bg-white\/10 { background-color: color-mix(in srgb, #ffffff 10%, transparent); }
+html.light .match-hero .bg-white\/15 { background-color: color-mix(in srgb, #ffffff 15%, transparent); }
+html.light .match-hero .bg-white\/5 { background-color: color-mix(in srgb, #ffffff 5%, transparent); }
+html.light .match-hero .border-white\/15 { border-color: color-mix(in srgb, #ffffff 15%, transparent); }
+html.light .match-hero .border-white\/20 { border-color: color-mix(in srgb, #ffffff 20%, transparent); }
+html.light .match-hero .border-white\/10 { border-color: color-mix(in srgb, #ffffff 10%, transparent); }
