@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { ArrowRight, Loader2 } from "lucide-react";
 import MatchDetailView from "../components/MatchDetailView";
-import { computeDynamicAppletStats } from "../utils";
+import { computeDynamicAppletStats, fetchCachedAppData } from "../utils";
 
 export default function MatchDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -11,6 +11,8 @@ export default function MatchDetailPage() {
   const [match, setMatch] = useState<any>(null);
   const [players, setPlayers] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
+  const [allMatches, setAllMatches] = useState<any[]>([]);
+  const [standings, setStandings] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -49,6 +51,18 @@ export default function MatchDetailPage() {
     const interval = setInterval(fetchMatch, 30000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchCachedAppData()
+      .then(d => {
+        if (cancelled) return;
+        setAllMatches(d.matches || []);
+        setStandings(d.standings || {});
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -99,9 +113,10 @@ export default function MatchDetailPage() {
 
       <MatchDetailView
         match={match}
-        allMatches={[]}
+        allMatches={allMatches}
         allTeams={teams}
         players={players}
+        standings={standings}
         onBack={() => navigate(-1)}
         onSelectPlayer={(pid: string) => navigate(`/player/${pid}`)}
       />

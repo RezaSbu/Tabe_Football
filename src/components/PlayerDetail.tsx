@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { 
   ArrowLeft, Award, Calendar, Zap, Heart, ShieldCheck, 
-  Star, Activity, Trophy, Clock, UserRound, Sparkles 
+  Star, Activity, Trophy, Clock, UserRound, Sparkles, Newspaper
 } from "lucide-react";
 import { getSafeImageUrl, isTeamInDb, convertGregorianToShamsi, toPersianDigits, normalizePersianString } from "../utils";
 import { resolveTeam } from "../shared/teamMatch";
@@ -11,18 +11,22 @@ interface PlayerDetailProps {
   player: any;
   allMatches?: any[];
   allTeams?: any[];
+  news?: any[];
   onBack: () => void;
   onSelectTeam?: (name: string) => void;
   onSelectMatch?: (id: string) => void;
+  onSelectNews?: (id: string) => void;
 }
 
 export default function PlayerDetail({ 
   player, 
   allMatches = [], 
   allTeams = [], 
+  news = [],
   onBack, 
   onSelectTeam,
-  onSelectMatch
+  onSelectMatch,
+  onSelectNews
 }: PlayerDetailProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "matches" | "career">("overview");
   const [imageError, setImageError] = useState(false);
@@ -47,6 +51,16 @@ export default function PlayerDetail({
                          player.teamId?.startsWith("futsal-") || 
                          player.teamId?.includes("futsal") || 
                          (player.teamName || "").includes("فوتسال");
+
+  // Latest 3 news mentioning this player (matched on normalized name)
+  const playerNews = [...(news || [])]
+    .filter((n: any) => {
+      if (!n) return false;
+      const haystack = normalizePersianString(`${n.title || ""} ${n.summary || ""} ${n.content || ""}`);
+      return haystack.includes(normalizePersianString(player.name || ""));
+    })
+    .sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+    .slice(0, 3);
 
   const getPlayerMinutesAndPlayed = (m: any, p: any) => {
     const isFutsal = m.sport === "futsal" || m.league === "futsal";
@@ -235,6 +249,10 @@ export default function PlayerDetail({
       let playerYellow = 0;
       let playerRed = 0;
       let playerAssistsEvents = 0;
+      let playerOwnGoals = 0;
+      let playerPenalties = 0;
+      let playerSubIn = false;
+      let playerSubOut = false;
       const matchEvents = match.events || [];
       matchEvents.forEach((ev: any) => {
         if (!ev) return;
@@ -245,11 +263,24 @@ export default function PlayerDetail({
           if (ev.type === "yellow-card") playerYellow += 1;
           if (ev.type === "red-card") playerRed += 1;
           if (ev.type === "assist") playerAssistsEvents += 1;
+          if (ev.type === "own-goal") playerOwnGoals += 1;
+          if (ev.type === "penalty") playerPenalties += 1;
+          if (ev.type === "substitution") playerSubOut = true;
         }
         if (isPlayer2) {
           if (ev.type === "goal") playerAssistsEvents += 1;
+          if (ev.type === "substitution") playerSubIn = true;
         }
       });
+
+      const homeGoals = Number(match.scoreHome) || 0;
+      const awayGoals = Number(match.scoreAway) || 0;
+      const computeResult = (isTeamHome: boolean): "W" | "D" | "L" => {
+        if (homeGoals === awayGoals) return "D";
+        return isTeamHome
+          ? (homeGoals > awayGoals ? "W" : "L")
+          : (awayGoals > homeGoals ? "W" : "L");
+      };
 
       if (inHome) {
         playerMatches.push({
@@ -264,6 +295,11 @@ export default function PlayerDetail({
           assists: Math.max(inHome.assists || 0, playerAssistsEvents),
           yellowCards: playerYellow,
           redCards: playerRed,
+          ownGoals: playerOwnGoals,
+          penalties: playerPenalties,
+          subbedIn: playerSubIn,
+          subbedOut: playerSubOut,
+          result: computeResult(true),
           rating: inHome.rating || 7.0,
           minutesPlayed: calculatedMins || inHome.minutesPlayed || 90,
           isMvp: match.mvpId === player.id || match.mvpId === player.name || inHome.rating >= 8.5,
@@ -284,6 +320,11 @@ export default function PlayerDetail({
           assists: Math.max(inAway.assists || 0, playerAssistsEvents),
           yellowCards: playerYellow,
           redCards: playerRed,
+          ownGoals: playerOwnGoals,
+          penalties: playerPenalties,
+          subbedIn: playerSubIn,
+          subbedOut: playerSubOut,
+          result: computeResult(false),
           rating: inAway.rating || 7.0,
           minutesPlayed: calculatedMins || inAway.minutesPlayed || 90,
           isMvp: match.mvpId === player.id || match.mvpId === player.name || inAway.rating >= 8.5,
@@ -528,6 +569,44 @@ export default function PlayerDetail({
                   </p>
                 </div>
               </div>
+
+              {playerNews.length > 0 && (
+                <div className="p-4.5 rounded-2xl bg-[#131317] border border-white/5 space-y-3 shadow-lg">
+                  <h3 className="font-black text-sm text-white flex items-center gap-1.5">
+                    <Newspaper className="h-4 w-4 text-emerald-500" />
+                    <span>آخرین اخبار {player.name}</span>
+                  </h3>
+                  <div className="space-y-2">
+                    {playerNews.map((nw: any) => (
+                      <button
+                        key={nw.id}
+                        onClick={() => onSelectNews && onSelectNews(nw.id)}
+                        className="w-full flex items-start gap-2.5 text-right p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.05] border border-white/5 hover:border-emerald-500/30 transition cursor-pointer group"
+                      >
+                        {nw.image ? (
+                          <img
+                            src={getSafeImageUrl(nw.image)}
+                            alt={nw.title}
+                            loading="lazy"
+                            className="w-14 h-14 rounded-lg object-cover shrink-0 bg-slate-800"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <div className="w-14 h-14 rounded-lg shrink-0 bg-slate-800 flex items-center justify-center text-base">📰</div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <h4 className="text-xs font-bold text-white leading-snug line-clamp-2 group-hover:text-emerald-400 transition">
+                            {nw.title}
+                          </h4>
+                          {nw.summary && (
+                            <p className="text-[10px] text-slate-500 line-clamp-2 mt-1 leading-relaxed">{nw.summary}</p>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Right Column: Key Stats Bento Grid */}
@@ -750,6 +829,11 @@ export default function PlayerDetail({
                     
                     {/* Club match label / Opponent details */}
                     <div className="flex items-center gap-3">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-black shrink-0 ${
+                        m.result === "W" ? "bg-emerald-950/80 text-[#6ee7b7] border border-emerald-900/50" : m.result === "D" ? "bg-[#1e293b] text-[#cbd5e1]" : "bg-red-950/80 text-[#fca5a5] border border-red-900/50"
+                      }`}>
+                        {m.result === "W" ? "برد" : m.result === "D" ? "تساوی" : "باخت"}
+                      </span>
                       <div className="flex items-center gap-1 text-[13px] text-white font-bold">
                         <span>{m.teamName}</span>
                         <span className="text-slate-500 text-xs">مقابل</span>
@@ -766,7 +850,7 @@ export default function PlayerDetail({
                     </div>
 
                     {/* Stats registered in match */}
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-wrap items-center gap-2.5">
                       {m.goals > 0 && (
                         <span className="bg-emerald-950 text-emerald-400 px-2 py-1 rounded text-[10px] font-black border border-emerald-900/30">
                           ⚽ {toPersianDigits(m.goals)} گل زده
@@ -777,7 +861,37 @@ export default function PlayerDetail({
                           🎯 {toPersianDigits(m.assists)} پاس گل
                         </span>
                       )}
-                      
+                      {m.penalties > 0 && (
+                        <span className="bg-purple-500/10 border border-purple-500/20 text-purple-400 px-2 py-1 rounded text-[10px] font-black">
+                          ⚽ پنالتی {toPersianDigits(m.penalties)}
+                        </span>
+                      )}
+                      {m.ownGoals > 0 && (
+                        <span className="bg-orange-500/10 border border-orange-500/20 text-orange-400 px-2 py-1 rounded text-[10px] font-black">
+                          🥅 گل به خودی
+                        </span>
+                      )}
+                      {m.yellowCards > 0 && (
+                        <span className="bg-amber-500/10 border border-amber-500/20 text-amber-400 px-2 py-1 rounded text-[10px] font-black">
+                          🟨 {toPersianDigits(m.yellowCards)} اخطار
+                        </span>
+                      )}
+                      {m.redCards > 0 && (
+                        <span className="bg-red-500/10 border border-red-500/20 text-red-400 px-2 py-1 rounded text-[10px] font-black">
+                          🟥 {toPersianDigits(m.redCards)} اخراج
+                        </span>
+                      )}
+                      {m.subbedIn && (
+                        <span className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2 py-1 rounded text-[10px] font-black">
+                          🔄 تعویضی
+                        </span>
+                      )}
+                      {m.subbedOut && (
+                        <span className="bg-slate-500/10 border border-slate-500/20 text-slate-400 px-2 py-1 rounded text-[10px] font-black">
+                          🔄 تعویض شد
+                        </span>
+                      )}
+
                       <span className="text-slate-500 font-mono">
                         {toPersianDigits(m.minutesPlayed)}' بازی
                       </span>
