@@ -447,6 +447,76 @@ export default function TeamDetail({
                   </p>
                   </div>
               </div>
+
+              {/* Mini live standings widget (top 3 + current + bottom 3) */}
+              {(() => {
+                const rows = allStandings[leagueKeyFound] || [];
+                const teamIdx = rows.findIndex((row: any) =>
+                  String(row.id) === String(team.id) ||
+                  normalizePersianString((row.team || row.teamName || "").trim()) === normalizePersianString((team.name || "").trim())
+                );
+                if (teamIdx < 0 || rows.length === 0) return null;
+                const rowsTotal = rows.length;
+                const inTop = teamIdx < 3;
+                const inBottom = teamIdx >= rowsTotal - 3;
+
+                const seq: Array<number | "gap"> = [];
+                const seen = new Set<number>();
+                const addIdx = (i: number) => {
+                  if (i >= 0 && i < rowsTotal && !seen.has(i)) { seen.add(i); seq.push(i); }
+                };
+                const addGap = () => { if (seq[seq.length - 1] !== "gap") seq.push("gap"); };
+
+                addIdx(0); addIdx(1); addIdx(2);
+                if (!inTop && !inBottom) {
+                  if (teamIdx - 3 > 0) addGap();
+                  addIdx(teamIdx);
+                }
+                const bottomStart = Math.max(0, rowsTotal - 3);
+                const shownMax = seen.size ? Math.max(...Array.from(seen)) : -1;
+                if (bottomStart - shownMax > 1) addGap();
+                addIdx(bottomStart); addIdx(bottomStart + 1); addIdx(bottomStart + 2);
+
+                return (
+                  <div className="p-4.5 rounded-xl bg-black/20 border border-white/5 space-y-3">
+                    <h3 className="font-bold text-xs text-slate-400 border-b border-white/5 pb-2 flex items-center gap-1.5">
+                      <Trophy className="h-4 w-4 text-emerald-500" />
+                      <span>جایگاه تیم در جدول زنده</span>
+                    </h3>
+                    <div className="space-y-1">
+                      {seq.map((item, idx) => {
+                        if (item === "gap") {
+                          return <div key={`gap-${idx}`} className="text-center text-slate-500 text-[10px] font-black tracking-widest select-none py-0.5">•••</div>;
+                        }
+                        const row = rows[item];
+                        const isCurrent = item === teamIdx;
+                        const rowName = row.team || row.teamName || "";
+                        const rowRank = item + 1;
+                        return (
+                          <div
+                            key={String((row as any).id || `${item}-${rowName}`)}
+                            className={`flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-[11px] border ${
+                              isCurrent
+                                ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-300 font-black"
+                                : "bg-white/[0.02] border-white/5 text-slate-300 font-medium"
+                            }`}
+                          >
+                            <span className="flex items-center gap-2 min-w-0">
+                              <span className={`font-mono font-black text-[10px] w-5 text-center shrink-0 ${rowRank <= 3 ? "text-emerald-400" : "text-slate-500"}`}>
+                                {toPersianDigits(rowRank)}
+                              </span>
+                              <span className="truncate">{rowName}</span>
+                            </span>
+                            <span className={`font-mono font-black text-[10px] shrink-0 ${isCurrent ? "text-emerald-300" : "text-slate-400"}`}>
+                              {toPersianDigits(row.points || 0)} امتیاز
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}
@@ -487,12 +557,12 @@ export default function TeamDetail({
                             <span className="font-bold text-slate-200 truncate block">با {isHome ? m.teamAway : m.teamHome}</span>
                             <TeamLogo logo={isHome ? m.teamAwayLogo : m.teamHomeLogo} fallback="⚽" size="xs" />
                           </div>
-                          <span className="text-[9px] text-slate-500 font-mono block">{convertGregorianToShamsi(m.date)}</span>
+                          <span className="text-[11px] text-slate-400 font-mono block">{convertGregorianToShamsi(m.date)}</span>
                         </div>
 
                         <div className="flex items-center gap-2 font-mono shrink-0">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-black ${
-                            outcome === "W" ? "bg-emerald-950/80 text-emerald-450 border border-emerald-900/50" : outcome === "D" ? "bg-slate-800 text-slate-400" : "bg-red-950/80 text-red-500 border border-red-900/50"
+                            outcome === "W" ? "bg-emerald-950/80 text-[#6ee7b7] border border-emerald-900/50" : outcome === "D" ? "bg-[#1e293b] text-[#cbd5e1]" : "bg-red-950/80 text-[#fca5a5] border border-red-900/50"
                           }`}>
                             {outcome === "W" ? "برد" : outcome === "D" ? "تساوی" : "باخت"}
                           </span>
