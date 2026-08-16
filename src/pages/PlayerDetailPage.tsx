@@ -12,6 +12,7 @@ export default function PlayerDetailPage() {
   const [player, setPlayer] = useState<any>(null);
   const [allMatches, setAllMatches] = useState<any[]>([]);
   const [allTeams, setAllTeams] = useState<any[]>([]);
+  const [news, setNews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const relatedMatchesRef = useRef<any[] | null>(null);
@@ -42,6 +43,7 @@ export default function PlayerDetailPage() {
       .then(d => {
         if (d && d.status === "ok") {
           setAllTeams(d.teams || []);
+          setNews(d.news || []);
           if (!relatedMatchesRef.current || relatedMatchesRef.current.length === 0) {
             setAllMatches(d.matches || []);
           }
@@ -101,12 +103,14 @@ export default function PlayerDetailPage() {
         player={player}
         allMatches={allMatches}
         allTeams={allTeams}
+        news={news}
         onBack={() => navigate(-1)}
         onSelectTeam={(teamName: string) => {
           const tm = resolveTeam(allTeams, teamName);
           if (tm) navigate(`/team/${tm.id}`);
         }}
         onSelectMatch={(matchId: string) => navigate(`/match/${matchId}`)}
+        onSelectNews={(newsId: string) => navigate(`/news/${newsId}`)}
       />
     </>
   );
