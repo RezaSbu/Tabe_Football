@@ -317,10 +317,10 @@ function convertEvent(ev: any, _meta: Varzesh3MatchResult['matchMeta']): any {
       break;
     case 4: // Substitution
       base.type = 'substitution';
-      base.playerName = ev.incomingPlayerName || '';
-      base.playerId = ev.incomingPlayerId ? String(ev.incomingPlayerId) : undefined;
-      base.player2Name = ev.outgoingPlayerName || '';
-      base.player2Id = ev.outgoingPlayerId ? String(ev.outgoingPlayerId) : undefined;
+      base.playerName = ev.outgoingPlayerName || '';
+      base.playerId = ev.outgoingPlayerId ? String(ev.outgoingPlayerId) : undefined;
+      base.player2Name = ev.incomingPlayerName || '';
+      base.player2Id = ev.incomingPlayerId ? String(ev.incomingPlayerId) : undefined;
       break;
     case 5: // VAR
       base.type = 'var';
