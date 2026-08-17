@@ -90,6 +90,13 @@ export default function MatchDetailView({
     ? match.events
     : ((match.timeline && match.timeline.length) ? match.timeline : []);
 
+  const resolvePlayer = (name: string, _fallbackId?: string): string => {
+    if (!name) return "";
+    const nName = normalizePersianString(name);
+    const found = players.find((p: any) => normalizePersianString(p.name || "") === nName);
+    return found ? String(found.id) : "";
+  };
+
   const defaultTimeline: any[] = rawEvents.map((ev: any) => {
     const p1 = ev.playerName || ev.player1 || "";
     const p2 = ev.player2Name || ev.assistPlayerName || ev.player2 || "";
@@ -98,15 +105,17 @@ export default function MatchDetailView({
     const team = ev.team === "home" || ev.team === "away"
       ? ev.team
       : (ev.teamId === match.teamHomeId ? "home" : "away");
+    const resolvedId1 = resolvePlayer(p1, ev.playerId);
+    const resolvedId2 = resolvePlayer(p2, ev.player2Id);
     return {
       minute: ev.minute,
       type,
       team,
       description: ev.description || describeEvent(type, p1, p2, details),
       playerName: p1,
-      playerId: ev.playerId || "",
+      playerId: resolvedId1,
       player2Name: p2,
-      playerId2: ev.player2Id || "",
+      playerId2: resolvedId2,
       details,
     };
   });
@@ -506,15 +515,15 @@ export default function MatchDetailView({
                     {match.scorersList.map((sc: any, idx: number) => {
                       const side = scorerSide(sc);
                       const name = sc.scorerName || sc.name || "";
-                      const scorerId = sc.scorerId || "";
+                      const resolvedScorerId = resolvePlayer(name, sc.scorerId);
                       return (
                         <span key={idx} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black border ${
                           side === "away"
                             ? "bg-cyan-500/10 border-cyan-500/25 text-cyan-400"
                             : "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
                         }`}>
-                          ⚽ {scorerId && onSelectPlayer ? (
-                            <button onClick={() => onSelectPlayer(scorerId)} className="hover:underline cursor-pointer">{name}</button>
+                          ⚽ {resolvedScorerId && onSelectPlayer ? (
+                            <button onClick={() => onSelectPlayer(resolvedScorerId)} className="hover:underline cursor-pointer">{name}</button>
                           ) : name}
                           {sc.minute && <span className="font-mono text-[10px] opacity-80">{toPersianDigits(sc.minute)}'</span>}
                         </span>

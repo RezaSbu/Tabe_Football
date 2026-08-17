@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Flame, Zap, Award, ChevronDown, ChevronUp } from "lucide-react";
 import { StatsData } from "../types";
+import { normalizePersianString } from "../utils";
 
 interface StatsPageProps {
   stats: Record<string, StatsData>;
@@ -13,6 +14,7 @@ interface StatsPageProps {
   toPersianDigits: (s: string) => string;
   onSelectPlayer?: (id: string) => void;
   onSelectTeam?: (id: string) => void;
+  players?: any[];
 }
 
 const VISIBLE_DEFAULT = 10;
@@ -27,6 +29,7 @@ interface StatColumnProps {
   onToggle: () => void;
   onSelectPlayer?: (id: string) => void;
   onSelectTeam?: (id: string) => void;
+  players?: any[];
 }
 
 function StatColumn({
@@ -39,8 +42,17 @@ function StatColumn({
   onToggle,
   onSelectPlayer,
   onSelectTeam,
+  players,
 }: StatColumnProps) {
   const shown = expanded ? items : items.slice(0, VISIBLE_DEFAULT);
+
+  const resolveId = (item: any): string => {
+    if (item.playerId) return item.playerId;
+    if (!players || !item.name) return "";
+    const nName = normalizePersianString(item.name);
+    const found = players.find((p: any) => normalizePersianString(p.name || "") === nName);
+    return found ? String(found.id) : "";
+  };
   return (
     <div className="rounded-2xl bg-gray-900 p-4 border border-white/5 shadow space-y-3">
       <div className="flex items-center gap-1.5 border-b border-white/5 pb-2.5">
@@ -62,16 +74,19 @@ function StatColumn({
                 <span className="text-gray-550 font-mono text-[10px]">
                   {p.rank || idx + 1}.
                 </span>
-                {p.playerId && onSelectPlayer ? (
-                  <button
-                    onClick={() => onSelectPlayer(p.playerId)}
-                    className="hover:text-emerald-400 transition cursor-pointer truncate"
-                  >
-                    {p.name}
-                  </button>
-                ) : (
-                  <span className="truncate">{p.name}</span>
-                )}
+                {(() => {
+                  const resolvedId = resolveId(p);
+                  return resolvedId && onSelectPlayer ? (
+                    <button
+                      onClick={() => onSelectPlayer(resolvedId)}
+                      className="hover:text-emerald-400 transition cursor-pointer truncate"
+                    >
+                      {p.name}
+                    </button>
+                  ) : (
+                    <span className="truncate">{p.name}</span>
+                  );
+                })()}
                 <span className="text-[10px] text-gray-500">
                   ({p.team})
                 </span>
@@ -116,6 +131,7 @@ export default function StatsPage({
   toPersianDigits,
   onSelectPlayer,
   onSelectTeam,
+  players,
 }: StatsPageProps) {
   const availableSeasons = (archives || [])
     .filter((a: any) => a.type === "stats")
@@ -226,6 +242,7 @@ export default function StatsPage({
             onToggle={() => toggleCol("scorers")}
             onSelectPlayer={onSelectPlayer}
             onSelectTeam={onSelectTeam}
+            players={players}
           />
 
           <StatColumn
@@ -238,6 +255,7 @@ export default function StatsPage({
             onToggle={() => toggleCol("assists")}
             onSelectPlayer={onSelectPlayer}
             onSelectTeam={onSelectTeam}
+            players={players}
           />
 
           <StatColumn
@@ -250,6 +268,7 @@ export default function StatsPage({
             onToggle={() => toggleCol("cleansheets")}
             onSelectPlayer={onSelectPlayer}
             onSelectTeam={onSelectTeam}
+            players={players}
           />
         </div>
       )}
