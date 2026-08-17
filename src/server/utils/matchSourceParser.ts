@@ -116,36 +116,47 @@ function findMatchBlock(blocks: string[]): string | null {
 }
 
 /**
- * Extract a balanced JSON substring starting at a key within the decoded block.
- * e.g. extract JSON object after '"events":[' or '"lineup":{'
+ * Find the enclosing JSON object that contains both "events" and "lineup" keys.
+ * RSC blocks have format like: 5:["$","$L1f",null,{"children":[...,{...,"events":[...],"lineup":{...}}]}]
+ * The match data is nested inside children, not under a "match": key.
  */
-function extractBalancedJSON(text: string, searchKey: string, openChar: string, closeChar: string): string | null {
-  const idx = text.indexOf(searchKey);
-  if (idx === -1) return null;
-  const start = idx + searchKey.length;
+function findMatchDataObject(text: string): any | null {
+  // Find where "events":[ starts
+  const eventsIdx = text.indexOf('"events":[');
+  if (eventsIdx === -1) return null;
+
+  // Walk backwards from "events" tracking brace depth to find the enclosing {
   let depth = 0;
-  for (let i = start; i < text.length; i++) {
-    if (text[i] === openChar) depth++;
-    else if (text[i] === closeChar) {
+  let braceIdx = -1;
+  for (let i = eventsIdx - 1; i >= 0; i--) {
+    if (text[i] === '}') depth++;
+    else if (text[i] === '{') {
+      if (depth === 0) {
+        braceIdx = i;
+        break;
+      }
       depth--;
-      if (depth === 0) return text.substring(start, i + 1);
+    }
+  }
+  if (braceIdx === -1) return null;
+
+  // Now find the matching closing } for this {
+  depth = 0;
+  for (let i = braceIdx; i < text.length; i++) {
+    if (text[i] === '{') depth++;
+    else if (text[i] === '}') {
+      depth--;
+      if (depth === 0) {
+        const objStr = text.substring(braceIdx, i + 1);
+        try {
+          return JSON.parse(objStr);
+        } catch {
+          return null;
+        }
+      }
     }
   }
   return null;
-}
-
-/**
- * Find a JSON object after a key.
- */
-function extractJSONObject(text: string, key: string): string | null {
-  return extractBalancedJSON(text, `"${key}":{`, '{', '}');
-}
-
-/**
- * Find a JSON array after a key.
- */
-function extractJSONArray(text: string, key: string): string | null {
-  return extractBalancedJSON(text, `"${key}":[`, '[', ']');
 }
 
 /**
@@ -159,50 +170,50 @@ export function parseVarzesh3HTML(html: string): ParseResult {
       return { success: false, error: 'Could not find match data in page HTML (no eventType block found).' };
     }
 
-    // Extract match metadata
-    const matchMetaJSON = extractJSONObject(matchBlock, 'match');
-    if (!matchMetaJSON) {
-      return { success: false, error: 'Could not extract match metadata.' };
-    }
-    let matchMeta: Varzesh3MatchResult['matchMeta'];
-    try {
-      matchMeta = JSON.parse(matchMetaJSON);
-    } catch {
-      return { success: false, error: 'Failed to parse match metadata JSON.' };
+    // RSC format: data is nested inside a children array, not under a "match" key.
+    // Find the enclosing object that contains "events" and "lineup".
+    const dataObj = findMatchDataObject(matchBlock);
+    if (!dataObj) {
+      return { success: false, error: 'Could not extract match data object from RSC block.' };
     }
 
-    // Extract events array
-    const eventsJSON = extractJSONArray(matchBlock, 'events');
-    if (!eventsJSON) {
-      return { success: false, error: 'Could not extract events array.' };
-    }
-    let rawEvents: any[];
-    try {
-      rawEvents = JSON.parse(eventsJSON);
-    } catch {
-      return { success: false, error: 'Failed to parse events JSON.' };
+    // The dataObj may itself contain the match fields, or they may be inside a "children" array.
+    // Walk children to find the object with "events" + "lineup".
+    let matchData = dataObj;
+    if (dataObj.children && Array.isArray(dataObj.children)) {
+      const found = findInChildren(dataObj.children);
+      if (found) matchData = found;
     }
 
-    // Extract lineup object
-    const lineupJSON = extractJSONObject(matchBlock, 'lineup');
-    if (!lineupJSON) {
-      return { success: false, error: 'Could not extract lineup data.' };
+    // Extract match metadata from the match data object
+    const matchMeta: Varzesh3MatchResult['matchMeta'] = {
+      id: matchData.id || 0,
+      title: matchData.title || '',
+      referee: matchData.referee || '',
+      stadium: matchData.stadium || '',
+      date: matchData.date || '',
+      time: matchData.time || '',
+      status: matchData.status || 0,
+      goals: matchData.goals || { host: 0, guest: 0 },
+      host: matchData.host || { id: 0, name: '', logo: '' },
+      guest: matchData.guest || { id: 0, name: '', logo: '' },
+      league: matchData.league || {},
+    };
+
+    // Extract events
+    const rawEvents: any[] = Array.isArray(matchData.events) ? matchData.events : [];
+    if (rawEvents.length === 0) {
+      return { success: false, error: 'Events array is empty or missing.' };
     }
-    let lineup: Varzesh3MatchResult['lineup'];
-    try {
-      lineup = JSON.parse(lineupJSON);
-    } catch {
-      return { success: false, error: 'Failed to parse lineup JSON.' };
+
+    // Extract lineup
+    const lineup: Varzesh3MatchResult['lineup'] = matchData.lineup || { host: { formation: '', players: [], benchedPlayers: [] }, guest: { formation: '', players: [], benchedPlayers: [] } };
+    if (!lineup.host || !lineup.guest) {
+      return { success: false, error: 'Lineup data is incomplete.' };
     }
 
     // Extract stats (optional)
-    let stats: any[] = [];
-    const statsJSON = extractJSONArray(matchBlock, 'stats');
-    if (statsJSON) {
-      try {
-        stats = JSON.parse(statsJSON);
-      } catch { /* stats are optional */ }
-    }
+    const stats: any[] = Array.isArray(matchData.stats) ? matchData.stats : [];
 
     // Validate goal count
     const eventGoals = rawEvents.filter((e: any) => e.eventType === 1).length;
@@ -219,6 +230,31 @@ export function parseVarzesh3HTML(html: string): ParseResult {
   } catch (err: any) {
     return { success: false, error: `Parse error: ${err.message}` };
   }
+}
+
+/**
+ * Recursively search a children array for an object that has both "events" and "lineup".
+ */
+function findInChildren(children: any[]): any | null {
+  for (const child of children) {
+    if (child && typeof child === 'object') {
+      // Check if this object has both events and lineup
+      if (Array.isArray(child.events) && child.lineup) {
+        return child;
+      }
+      // Recurse into children if present
+      if (Array.isArray(child.children)) {
+        const found = findInChildren(child.children);
+        if (found) return found;
+      }
+      // Check props.children (React pattern)
+      if (child.props && Array.isArray(child.props.children)) {
+        const found = findInChildren(child.props.children);
+        if (found) return found;
+      }
+    }
+  }
+  return null;
 }
 
 /**
