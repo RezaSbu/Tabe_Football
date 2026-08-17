@@ -5,6 +5,133 @@ import { requirePermission } from "../middleware/auth";
 import { parseMatchFromUrl } from "../utils/matchSourceParser";
 import { parseMatchWithGemini } from "../utils/geminiClient";
 import { logMessage } from "../utils/logger";
+import { resolvePlayerNames, type PlayerLike } from "../utils/nameResolver";
+
+/**
+ * Extract all unique player references from parsed match data
+ * and resolve them against our DB using 3-tier resolution.
+ */
+async function resolveAllPlayerRefs(data: any, matchMeta: any): Promise<{
+  events: any[];
+  scorersList: any[];
+  lineups: { home: any[]; away: any[] };
+  resolvedCount: number;
+  unresolvedCount: number;
+}> {
+  const currentDB = loadDB();
+  const dbPlayers: PlayerLike[] = (currentDB.players || []).map((p: any) => ({
+    id: String(p.id),
+    name: p.name || "",
+    teamId: p.teamId || "",
+    teamName: p.teamName || "",
+  }));
+
+  const homeTeamName = matchMeta?.host?.name || data.lineups?.home?.[0]?.teamName || "";
+  const awayTeamName = matchMeta?.guest?.name || data.lineups?.away?.[0]?.teamName || "";
+
+  // Collect all unique player refs from events
+  interface PlayerRef { name: string; id?: string; teamHint?: string; source: string; }
+  const refsMap = new Map<string, PlayerRef>();
+
+  const addRef = (name: string, id: string | undefined, teamHint: string, source: string) => {
+    if (!name && !id) return;
+    const key = `${name}::${id || ""}`;
+    if (!refsMap.has(key)) {
+      refsMap.set(key, { name: name || "", id, teamHint, source });
+    }
+  };
+
+  for (const ev of (data.events || [])) {
+    const teamHint = ev.team === "home" ? homeTeamName : awayTeamName;
+    addRef(ev.playerName, ev.playerId, teamHint, "event");
+    addRef(ev.player2Name, ev.player2Id, teamHint, "event");
+  }
+
+  for (const sc of (data.scorersList || [])) {
+    addRef(sc.scorerName, sc.scorerId, homeTeamName + "|" + awayTeamName, "scorer");
+    addRef(sc.assistName, sc.assistId, homeTeamName + "|" + awayTeamName, "scorer");
+  }
+
+  for (const p of (data.lineups?.home || [])) {
+    addRef(p.name, p.id, homeTeamName, "lineup");
+  }
+  for (const p of (data.lineups?.away || [])) {
+    addRef(p.name, p.id, awayTeamName, "lineup");
+  }
+
+  const refs = Array.from(refsMap.values());
+  logMessage("info", "sync", `Resolving ${refs.length} unique player references...`);
+
+  const results = await resolvePlayerNames(
+    refs.map(r => ({ name: r.name, id: r.id, teamHint: r.teamHint })),
+    dbPlayers,
+  );
+
+  // Build lookup: original key → resolved DB player
+  const resolvedMap = new Map<string, PlayerLike>();
+  let resolvedCount = 0;
+  let unresolvedCount = 0;
+
+  for (let i = 0; i < refs.length; i++) {
+    const r = results[i];
+    if (r) {
+      const key = `${refs[i].name}::${refs[i].id || ""}`;
+      resolvedMap.set(key, r.dbPlayer);
+      resolvedCount++;
+    } else {
+      unresolvedCount++;
+    }
+  }
+
+  logMessage("info", "sync", `Name resolution: ${resolvedCount} resolved, ${unresolvedCount} unresolved.`);
+
+  // Apply resolved IDs back to events
+  const events = (data.events || []).map((ev: any) => {
+    const ev2 = { ...ev };
+    if (ev2.playerName || ev2.playerId) {
+      const key = `${ev2.playerName}::${ev2.playerId || ""}`;
+      const db = resolvedMap.get(key);
+      if (db) {
+        ev2.playerId = db.id;
+        ev2.playerName = db.name; // normalize to our DB name
+      }
+    }
+    if (ev2.player2Name || ev2.player2Id) {
+      const key = `${ev2.player2Name}::${ev2.player2Id || ""}`;
+      const db = resolvedMap.get(key);
+      if (db) {
+        ev2.player2Id = db.id;
+        ev2.player2Name = db.name;
+      }
+    }
+    return ev2;
+  });
+
+  // Apply resolved IDs back to scorersList
+  const scorersList = (data.scorersList || []).map((sc: any) => {
+    const sc2 = { ...sc };
+    if (sc2.scorerName || sc2.scorerId) {
+      const key = `${sc2.scorerName}::${sc2.scorerId || ""}`;
+      const db = resolvedMap.get(key);
+      if (db) {
+        sc2.scorerId = db.id;
+        sc2.scorerName = db.name;
+        sc2.name = db.name;
+      }
+    }
+    if (sc2.assistName || sc2.assistId) {
+      const key = `${sc2.assistName}::${sc2.assistId || ""}`;
+      const db = resolvedMap.get(key);
+      if (db) {
+        sc2.assistId = db.id;
+        sc2.assistName = db.name;
+      }
+    }
+    return sc2;
+  });
+
+  return { events, scorersList, lineups: data.lineups, resolvedCount, unresolvedCount };
+}
 
 function findCurrentMatch(id: string): any | null {
   const currentDB = loadDB();
@@ -91,15 +218,29 @@ export function registerSyncRoutes(app: Express) {
 
     const data = parseResult.data;
 
+    // Step 3: Resolve player names against our DB (3-tier: ID → normalize → Gemini)
+    let resolvedEvents = data.events;
+    let resolvedScorers = data.scorersList;
+    let resolvedLineups = data.lineups;
+    try {
+      const resolved = await resolveAllPlayerRefs(data, parseResult.raw?.matchMeta);
+      resolvedEvents = resolved.events;
+      resolvedScorers = resolved.scorersList;
+      resolvedLineups = resolved.lineups;
+      logMessage("info", "sync", `Player resolution complete: ${resolved.resolvedCount} resolved, ${resolved.unresolvedCount} unresolved.`);
+    } catch (resolveErr: any) {
+      logMessage("warn", "sync", `Player name resolution failed (continuing with raw names): ${resolveErr.message}`);
+    }
+
     // Apply parsed data to the match
     const updates: any = {
       scoreHome: data.scoreHome,
       scoreAway: data.scoreAway,
       referee: data.referee || currentMatch.referee,
       venue: data.venue || currentMatch.venue,
-      events: data.events,
-      scorersList: data.scorersList,
-      lineups: data.lineups,
+      events: resolvedEvents,
+      scorersList: resolvedScorers,
+      lineups: resolvedLineups,
       lastDataFetchAt: new Date().toISOString(),
       syncStatus: "idle",
       dataUrl: url,
