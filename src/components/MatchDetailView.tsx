@@ -345,7 +345,7 @@ export default function MatchDetailView({
   ];
 
   return (
-    <div className="rounded-2xl bg-[#121215] border border-white/5 overflow-hidden shadow-2xl animate-in fade-in slide-in-from-bottom-3 duration-300 relative text-white" dir="rtl">
+    <div className="match-scope rounded-2xl bg-[#121215] border border-white/5 overflow-hidden shadow-2xl animate-in fade-in slide-in-from-bottom-3 duration-300 relative text-white" dir="rtl">
       
       {/* ===== HERO : real stadium photo + scoreboard ===== */}
       <div className="match-hero relative overflow-hidden bg-[#0c0f14]">

@@ -638,3 +638,80 @@ html.light .match-hero .bg-white\/5 { background-color: color-mix(in srgb, #ffff
 html.light .match-hero .border-white\/15 { border-color: color-mix(in srgb, #ffffff 15%, transparent); }
 html.light .match-hero .border-white\/20 { border-color: color-mix(in srgb, #ffffff 20%, transparent); }
 html.light .match-hero .border-white\/10 { border-color: color-mix(in srgb, #ffffff 10%, transparent); }
+
+/* ==========================================================================
+   محتوای کامل صفحه مسابقه (MatchDetailView) در تم روشن:
+   کل کارت — از جمله تب‌ها، تایم‌لاین، ترکیب و آمار — روی بک‌گراند تیره
+   نمایش داده می‌شود؛ پس تمام توکن‌های رنگی باید در این حوزه به مقادیر
+   تم تیره بازگردند تا متن‌ها، بوردرها و دایره‌های دقیقه خوانا بمانند.
+   ========================================================================== */
+html.light .match-scope {
+  /* رنگ‌های متن اصلی */
+  --color-white: #ffffff;
+  --color-slate-50: #f8fafc;
+  --color-slate-100: #f1f5f9;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+
+  /* اکسنت‌های اصلی */
+  --color-emerald-300: #6ee7b7;
+  --color-emerald-400: #34d399;
+  --color-emerald-500: #10b981;
+  --color-emerald-600: #059669;
+  --color-emerald-950: #022c22;
+  --color-cyan-300: #67e8f9;
+  --color-cyan-400: #22d3ee;
+  --color-cyan-500: #06b6d4;
+  --color-cyan-950: #083344;
+  --color-red-300: #fca5a5;
+  --color-red-400: #f87171;
+  --color-red-500: #ef4444;
+  --color-red-950: #450a0a;
+  --color-amber-300: #fcd34d;
+  --color-amber-400: #fbbf24;
+  --color-amber-500: #f59e0b;
+  --color-purple-400: #c084fc;
+  --color-purple-500: #a855f7;
+  --color-orange-400: #fb923c;
+  --color-orange-500: #f97316;
+  --color-rose-400: #fb7185;
+  --color-slate-900: #0f172a;
+  --color-slate-950: #020617;
+}
+/* سطوح نیمه‌شفاف و بوردرها در محتوای مسابقه باید تیره بمانند */
+html.light .match-scope .bg-black\/10 { background-color: color-mix(in srgb, #000 10%, transparent); }
+html.light .match-scope .bg-black\/15 { background-color: color-mix(in srgb, #000 15%, transparent); }
+html.light .match-scope .bg-black\/20 { background-color: color-mix(in srgb, #000 20%, transparent); }
+html.light .match-scope .bg-black\/30 { background-color: color-mix(in srgb, #000 30%, transparent); }
+html.light .match-scope .bg-black\/35 { background-color: color-mix(in srgb, #000 35%, transparent); }
+html.light .match-scope .bg-black\/40 { background-color: color-mix(in srgb, #000 40%, transparent); }
+html.light .match-scope .bg-white\/\[0\.02\] { background-color: color-mix(in srgb, #ffffff 2%, transparent); }
+html.light .match-scope .bg-white\/\[0\.04\] { background-color: color-mix(in srgb, #ffffff 4%, transparent); }
+html.light .match-scope :is(.bg-white\/5, .bg-white\/10) { background-color: color-mix(in srgb, #ffffff 8%, transparent); }
+html.light .match-scope .bg-white\/15 { background-color: color-mix(in srgb, #ffffff 15%, transparent); }
+html.light .match-scope .border-white\/5 { border-color: color-mix(in srgb, #ffffff 5%, transparent); }
+html.light .match-scope .border-white\/10 { border-color: color-mix(in srgb, #ffffff 10%, transparent); }
+html.light .match-scope .border-white\/15 { border-color: color-mix(in srgb, #ffffff 15%, transparent); }
+html.light .match-scope .border-white\/20 { border-color: color-mix(in srgb, #ffffff 20%, transparent); }
+html.light .match-scope .border-white\/25 { border-color: color-mix(in srgb, #ffffff 25%, transparent); }
+html.light .match-scope .divide-y > :is(+ *) { border-color: color-mix(in srgb, #ffffff 4%, transparent); }
+/* hover روی ردیف‌های لیست */
+html.light .match-scope .hover\:bg-white\/\[0\.01\]:hover { background-color: color-mix(in srgb, #ffffff 1%, transparent); }
+html.light .match-scope .hover\:bg-white\/\[0\.04\]:hover { background-color: color-mix(in srgb, #ffffff 4%, transparent); }
+html.light .match-scope .hover\:bg-white\/\[0\.05\]:hover { background-color: color-mix(in srgb, #ffffff 5%, transparent); }
+html.light .match-scope .hover\:bg-emerald-500\/\[0\.03\]:hover { background-color: color-mix(in srgb, #10b981 3%, transparent); }
+html.light .match-scope .hover\:border-emerald-500\/30:hover { border-color: color-mix(in srgb, #10b981 30%, transparent); }
+/* گرادیان‌ها و سایه‌های رادیال روی بک‌گراند تیره */
+html.light .match-scope .bg-\[\#0c0f14\] { background-color: #0c0f14; }
+html.light .match-scope .bg-\[\#121215\] { background-color: #121215; }
+html.light .match-scope .bg-\[\#141418\] { background-color: #141418; }
+html.light .match-scope .bg-\[\#161619\] { background-color: #161619; }
+html.light .match-scope .bg-\[\#18181c\] { background-color: #18181c; }
+html.light .match-scope .bg-\[\#1c1c21\] { background-color: #1c1c21; }
+html.light .match-scope .bg-gray-900\/10 { background-color: color-mix(in srgb, #0f172a 10%, transparent); }
+/* متن‌های رنگی روی بوردر/سطوح */
+html.light .match-scope .border-r-4 { border-right-color: var(--color-emerald-500); }
+/* shadow و backdrop */
+html.light .match-scope .shadow-2xl { box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.35); }
