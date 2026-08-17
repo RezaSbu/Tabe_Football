@@ -2,7 +2,7 @@
  * geminiClient.ts — Gemini AI fallback for match data parsing.
  * 
  * Used when the deterministic parser fails.
- * Model: gemini-3.1-flash-lite
+ * Model: gemini-2.5-flash
  * 
  * IMPORTANT: API key is server-side only — never exposed to the client.
  */
@@ -11,7 +11,7 @@ import { GoogleGenAI } from "@google/genai";
 import { logMessage } from "./logger";
 import type { ParsedMatchData } from "./matchSourceParser";
 
-const MODEL = 'gemini-3.1-flash-lite';
+const MODEL = 'gemini-2.5-flash';
 
 let genaiClient: GoogleGenAI | null = null;
 

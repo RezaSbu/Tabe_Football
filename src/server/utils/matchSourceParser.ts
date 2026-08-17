@@ -1,10 +1,13 @@
 /**
  * matchSourceParser.ts — Deterministic HTML parser for varzesh3 match pages.
- * 
+ *
  * Varzesh3 match URL format: https://www.varzesh3.com/football/match/{id}/{slug}
- * OR https://www.varzesh3.com/handball/match/{id}/{slug}
  *
  * Data is embedded in self.__next_f.push() RSC blocks.
+ * RSC blocks contain $D... and $L... references that break JSON.parse on the
+ * full object. Strategy: extract events[], lineup{}, stats[] individually
+ * (they are pure JSON), and extract metadata via regex on surrounding text.
+ *
  * eventType: 1=goal, 2=card, 4=substitution, 5=VAR
  * cardType: 1=yellow, 3=red
  * side: 0=host/home, 1=guest/away
@@ -28,8 +31,8 @@ export interface Varzesh3MatchResult {
   };
   events: any[];
   lineup: {
-    host: { formation: string; players: any[]; benchedPlayers: any[]; coach?: any };
-    guest: { formation: string; players: any[]; benchedPlayers: any[]; coach?: any };
+    host: { formation?: string; formationLines?: any[]; players?: any[]; benchedPlayers?: any[]; coach?: any };
+    guest: { formation?: string; formationLines?: any[]; players?: any[]; benchedPlayers?: any[]; coach?: any };
   };
   stats: any[];
 }
@@ -55,9 +58,7 @@ export interface ParseResult {
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 /**
- * Fetch varzesh3 match page and extract embedded RSC data.
- * URL must be the full match page URL including slug, e.g.:
- *   https://www.varzesh3.com/football/match/482809/بازی-آرارات-ریگا
+ * Fetch varzesh3 match page HTML.
  */
 export async function fetchVarzesh3Page(url: string): Promise<string> {
   const resp = await fetch(url, {
@@ -116,47 +117,79 @@ function findMatchBlock(blocks: string[]): string | null {
 }
 
 /**
- * Find the enclosing JSON object that contains both "events" and "lineup" keys.
- * RSC blocks have format like: 5:["$","$L1f",null,{"children":[...,{...,"events":[...],"lineup":{...}}]}]
- * The match data is nested inside children, not under a "match": key.
+ * Extract a balanced JSON substring. Finds `searchKey` then extracts the
+ * balanced `openChar`/`closeChar` pair that follows.
+ * The opening char is part of searchKey, so we start at depth 1.
  */
-function findMatchDataObject(text: string): any | null {
-  // Find where "events":[ starts
-  const eventsIdx = text.indexOf('"events":[');
-  if (eventsIdx === -1) return null;
-
-  // Walk backwards from "events" tracking brace depth to find the enclosing {
-  let depth = 0;
-  let braceIdx = -1;
-  for (let i = eventsIdx - 1; i >= 0; i--) {
-    if (text[i] === '}') depth++;
-    else if (text[i] === '{') {
-      if (depth === 0) {
-        braceIdx = i;
-        break;
-      }
+function extractBalanced(text: string, searchKey: string, openChar: string, closeChar: string): string | null {
+  const idx = text.indexOf(searchKey);
+  if (idx === -1) return null;
+  const start = idx + searchKey.length;
+  let depth = 1;
+  let inString = false;
+  let escape = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escape) { escape = false; continue; }
+    if (ch === '\\') { escape = true; continue; }
+    if (ch === '"') { inString = !inString; continue; }
+    if (inString) continue;
+    if (ch === openChar) depth++;
+    else if (ch === closeChar) {
       depth--;
-    }
-  }
-  if (braceIdx === -1) return null;
-
-  // Now find the matching closing } for this {
-  depth = 0;
-  for (let i = braceIdx; i < text.length; i++) {
-    if (text[i] === '{') depth++;
-    else if (text[i] === '}') {
-      depth--;
-      if (depth === 0) {
-        const objStr = text.substring(braceIdx, i + 1);
-        try {
-          return JSON.parse(objStr);
-        } catch {
-          return null;
-        }
-      }
+      if (depth === 0) return text.substring(start - 1, i + 1);
     }
   }
   return null;
+}
+
+/**
+ * Extract metadata fields from the text before "events":[ using regex.
+ * These fields are always in the same order and are pure JSON values.
+ */
+function extractMetadata(text: string, eventsOffset: number): Varzesh3MatchResult['matchMeta'] | null {
+  // Only look at the text between the enclosing { and "events":[
+  // The enclosing { is found by walking backward from eventsOffset
+  let braceDepth = 0;
+  let enclosingStart = 0;
+  for (let i = eventsOffset - 1; i >= 0; i--) {
+    if (text[i] === '}') braceDepth++;
+    else if (text[i] === '{') {
+      if (braceDepth === 0) { enclosingStart = i; break; }
+      braceDepth--;
+    }
+  }
+
+  const header = text.substring(enclosingStart, eventsOffset);
+
+  // Extract fields using regex
+  const idMatch = header.match(/"id":(\d+)/);
+  const titleMatch = header.match(/"title":"((?:[^"\\]|\\.)*)"/);
+  const refereeMatch = header.match(/"referee":"((?:[^"\\]|\\.)*)"/);
+  const stadiumMatch = header.match(/"stadium":"((?:[^"\\]|\\.)*)"/);
+  const dateMatch = header.match(/"date":"((?:[^"\\]|\\.)*)"/);
+  const timeMatch = header.match(/"time":"((?:[^"\\]|\\.)*)"/);
+  const statusMatch = header.match(/"status":(\d+)/);
+  const goalsMatch = header.match(/"goals":\{"host":(\d+),"guest":(\d+)\}/);
+  const hostMatch = header.match(/"host":\{"id":(\d+),"name":"((?:[^"\\]|\\.)*)","logo":"((?:[^"\\]|\\.)*)"/);
+  const guestMatch = header.match(/"guest":\{"id":(\d+),"name":"((?:[^"\\]|\\.)*)","logo":"((?:[^"\\]|\\.)*)"/);
+  const leagueMatch = header.match(/"league":\{"title":"((?:[^"\\]|\\.)*)","logo":"[^"]*","link":"[^"]*","season":"((?:[^"\\]|\\.)*)"/);
+
+  if (!idMatch) return null;
+
+  return {
+    id: parseInt(idMatch[1], 10),
+    title: titleMatch ? titleMatch[1] : '',
+    referee: refereeMatch ? refereeMatch[1] : '',
+    stadium: stadiumMatch ? stadiumMatch[1] : '',
+    date: dateMatch ? dateMatch[1] : '',
+    time: timeMatch ? timeMatch[1] : '',
+    status: statusMatch ? parseInt(statusMatch[1], 10) : 0,
+    goals: goalsMatch ? { host: parseInt(goalsMatch[1], 10), guest: parseInt(goalsMatch[2], 10) } : { host: 0, guest: 0 },
+    host: hostMatch ? { id: parseInt(hostMatch[1], 10), name: hostMatch[2], logo: hostMatch[3] } : { id: 0, name: '', logo: '' },
+    guest: guestMatch ? { id: parseInt(guestMatch[1], 10), name: guestMatch[2], logo: guestMatch[3] } : { id: 0, name: '', logo: '' },
+    league: leagueMatch ? { title: leagueMatch[1], season: leagueMatch[2] } : {},
+  };
 }
 
 /**
@@ -170,50 +203,47 @@ export function parseVarzesh3HTML(html: string): ParseResult {
       return { success: false, error: 'Could not find match data in page HTML (no eventType block found).' };
     }
 
-    // RSC format: data is nested inside a children array, not under a "match" key.
-    // Find the enclosing object that contains "events" and "lineup".
-    const dataObj = findMatchDataObject(matchBlock);
-    if (!dataObj) {
-      return { success: false, error: 'Could not extract match data object from RSC block.' };
+    // Extract "events":[...] — pure JSON, no RSC refs inside event objects
+    const eventsJSON = extractBalanced(matchBlock, '"events":[', '[', ']');
+    if (!eventsJSON) {
+      return { success: false, error: 'Could not extract events array from RSC block.' };
+    }
+    let rawEvents: any[];
+    try {
+      rawEvents = JSON.parse(eventsJSON);
+    } catch (e: any) {
+      return { success: false, error: `Failed to parse events JSON: ${e.message}` };
     }
 
-    // The dataObj may itself contain the match fields, or they may be inside a "children" array.
-    // Walk children to find the object with "events" + "lineup".
-    let matchData = dataObj;
-    if (dataObj.children && Array.isArray(dataObj.children)) {
-      const found = findInChildren(dataObj.children);
-      if (found) matchData = found;
+    // Extract "lineup":{...} — pure JSON
+    const lineupJSON = extractBalanced(matchBlock, '"lineup":{', '{', '}');
+    if (!lineupJSON) {
+      return { success: false, error: 'Could not extract lineup data from RSC block.' };
+    }
+    let lineup: Varzesh3MatchResult['lineup'];
+    try {
+      lineup = JSON.parse(lineupJSON);
+    } catch (e: any) {
+      return { success: false, error: `Failed to parse lineup JSON: ${e.message}` };
     }
 
-    // Extract match metadata from the match data object
-    const matchMeta: Varzesh3MatchResult['matchMeta'] = {
-      id: matchData.id || 0,
-      title: matchData.title || '',
-      referee: matchData.referee || '',
-      stadium: matchData.stadium || '',
-      date: matchData.date || '',
-      time: matchData.time || '',
-      status: matchData.status || 0,
-      goals: matchData.goals || { host: 0, guest: 0 },
-      host: matchData.host || { id: 0, name: '', logo: '' },
-      guest: matchData.guest || { id: 0, name: '', logo: '' },
-      league: matchData.league || {},
-    };
-
-    // Extract events
-    const rawEvents: any[] = Array.isArray(matchData.events) ? matchData.events : [];
-    if (rawEvents.length === 0) {
-      return { success: false, error: 'Events array is empty or missing.' };
+    // Extract "stats":[...] — optional, pure JSON
+    let stats: any[] = [];
+    const statsJSON = extractBalanced(matchBlock, '"stats":[', '[', ']');
+    if (statsJSON) {
+      try { stats = JSON.parse(statsJSON); } catch { /* optional */ }
     }
 
-    // Extract lineup
-    const lineup: Varzesh3MatchResult['lineup'] = matchData.lineup || { host: { formation: '', players: [], benchedPlayers: [] }, guest: { formation: '', players: [], benchedPlayers: [] } };
-    if (!lineup.host || !lineup.guest) {
-      return { success: false, error: 'Lineup data is incomplete.' };
+    // Extract metadata via regex on the text before "events":[
+    const eventsIdx = matchBlock.indexOf('"events":[');
+    const matchMeta = extractMetadata(matchBlock, eventsIdx);
+    if (!matchMeta) {
+      return { success: false, error: 'Could not extract match metadata from RSC block.' };
     }
 
-    // Extract stats (optional)
-    const stats: any[] = Array.isArray(matchData.stats) ? matchData.stats : [];
+    if (!Array.isArray(lineup.host?.formationLines) || !Array.isArray(lineup.guest?.formationLines)) {
+      return { success: false, error: 'Lineup data is incomplete (missing formationLines).' };
+    }
 
     // Validate goal count
     const eventGoals = rawEvents.filter((e: any) => e.eventType === 1).length;
@@ -230,31 +260,6 @@ export function parseVarzesh3HTML(html: string): ParseResult {
   } catch (err: any) {
     return { success: false, error: `Parse error: ${err.message}` };
   }
-}
-
-/**
- * Recursively search a children array for an object that has both "events" and "lineup".
- */
-function findInChildren(children: any[]): any | null {
-  for (const child of children) {
-    if (child && typeof child === 'object') {
-      // Check if this object has both events and lineup
-      if (Array.isArray(child.events) && child.lineup) {
-        return child;
-      }
-      // Recurse into children if present
-      if (Array.isArray(child.children)) {
-        const found = findInChildren(child.children);
-        if (found) return found;
-      }
-      // Check props.children (React pattern)
-      if (child.props && Array.isArray(child.props.children)) {
-        const found = findInChildren(child.props.children);
-        if (found) return found;
-      }
-    }
-  }
-  return null;
 }
 
 /**
@@ -286,7 +291,7 @@ function convertToOurFormat(
 /**
  * Convert a single varzesh3 event to our event format.
  */
-function convertEvent(ev: any, meta: Varzesh3MatchResult['matchMeta']): any {
+function convertEvent(ev: any, _meta: Varzesh3MatchResult['matchMeta']): any {
   const side = ev.side === 0 ? 'home' : 'away';
   const base: any = {
     id: String(ev.id),
@@ -331,9 +336,9 @@ function convertEvent(ev: any, meta: Varzesh3MatchResult['matchMeta']): any {
 }
 
 /**
- * Build scorersList from goal events, matching our internal format.
+ * Build scorersList from goal events.
  */
-function buildScorersList(rawEvents: any[], meta: Varzesh3MatchResult['matchMeta']): any[] {
+function buildScorersList(rawEvents: any[], _meta: Varzesh3MatchResult['matchMeta']): any[] {
   const goals = rawEvents.filter((ev: any) => ev.eventType === 1);
   return goals.map((g: any) => ({
     scorerName: g.strickerName || '',
@@ -397,7 +402,7 @@ function convertStats(rawStats: any[]): any {
 }
 
 /**
- * Full pipeline: fetch URL → parse → convert.
+ * Full pipeline: fetch URL -> parse -> convert.
  * This is the main entry point for the deterministic parser.
  */
 export async function parseMatchFromUrl(url: string): Promise<ParseResult> {
