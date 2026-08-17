@@ -85,7 +85,11 @@ export default function CoachDetailPage() {
         coach={coach}
         allMatches={allMatches}
         onBack={() => navigate(-1)}
-        onSelectTeam={(teamName: string) => navigate("/")}
+        onSelectTeam={(teamName: string) => {
+          if (coach?.teamId) navigate(`/team/${coach.teamId}`);
+          else if (coach?.teamName) navigate(`/team/${encodeURIComponent(coach.teamName)}`);
+          else navigate("/");
+        }}
       />
     </>
   );

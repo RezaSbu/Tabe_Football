@@ -247,7 +247,9 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
             <StatsPage stats={d.stats} archives={d.archives} statsSeason={d.statsSeason}
               setStatsSeason={d.setStatsSeason} selectedLeagueFilterOnStats={d.selectedLeagueFilterOnStats}
               setSelectedLeagueFilterOnStats={d.setSelectedLeagueFilterOnStats}
-              currentSeason={d.currentSeason} toPersianDigits={toPersianDigits} />
+              currentSeason={d.currentSeason} toPersianDigits={toPersianDigits}
+              onSelectPlayer={(id: string) => navigate(`/player/${id}`)}
+              onSelectTeam={(id: string) => navigate(`/team/${id}`)} />
           </>
         )}
 

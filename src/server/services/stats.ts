@@ -967,7 +967,9 @@ export function recalculateAndSyncDatabase(): void {
       .slice(0, 10)
       .map((item: any, idx: number) => ({
         rank: idx + 1,
+        playerId: item.p.id,
         name: item.p.name,
+        teamId: item.p.teamId,
         team: item.p.teamName,
         goals: item.goals,
         penalties: 0
@@ -983,7 +985,9 @@ export function recalculateAndSyncDatabase(): void {
       .slice(0, 10)
       .map((item: any, idx: number) => ({
         rank: idx + 1,
+        playerId: item.p.id,
         name: item.p.name,
+        teamId: item.p.teamId,
         team: item.p.teamName,
         assists: item.assists
       }));
@@ -998,7 +1002,9 @@ export function recalculateAndSyncDatabase(): void {
       .slice(0, 10)
       .map((item: any, idx: number) => ({
         rank: idx + 1,
+        playerId: item.p.id,
         name: item.p.name,
+        teamId: item.p.teamId,
         team: item.p.teamName,
         cleanSheets: item.cleanSheets
       }));
@@ -1013,7 +1019,9 @@ export function recalculateAndSyncDatabase(): void {
       .slice(0, 10)
       .map((item: any, idx: number) => ({
         rank: idx + 1,
+        playerId: item.p.id,
         name: item.p.name,
+        teamId: item.p.teamId,
         team: item.p.teamName,
         rating: item.rating
       }));

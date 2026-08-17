@@ -104,7 +104,9 @@ export default function MatchDetailView({
       team,
       description: ev.description || describeEvent(type, p1, p2, details),
       playerName: p1,
+      playerId: ev.playerId || "",
       player2Name: p2,
+      playerId2: ev.player2Id || "",
       details,
     };
   });
@@ -504,13 +506,16 @@ export default function MatchDetailView({
                     {match.scorersList.map((sc: any, idx: number) => {
                       const side = scorerSide(sc);
                       const name = sc.scorerName || sc.name || "";
+                      const scorerId = sc.scorerId || "";
                       return (
                         <span key={idx} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black border ${
                           side === "away"
                             ? "bg-cyan-500/10 border-cyan-500/25 text-cyan-400"
                             : "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
                         }`}>
-                          ⚽ {name}
+                          ⚽ {scorerId && onSelectPlayer ? (
+                            <button onClick={() => onSelectPlayer(scorerId)} className="hover:underline cursor-pointer">{name}</button>
+                          ) : name}
                           {sc.minute && <span className="font-mono text-[10px] opacity-80">{toPersianDigits(sc.minute)}'</span>}
                         </span>
                       );
@@ -526,15 +531,26 @@ export default function MatchDetailView({
                       const meta = EVENT_META[item.type] || EVENT_META.other;
                       const isHome = item.team === "home";
 
-                      let title = item.playerName || meta.label;
+                      let titleText = item.playerName || meta.label;
                       let subtitle = meta.label;
                       if (item.type === "goal" || item.type === "penalty") {
-                        if (item.player2Name) subtitle += ` — پاس گل: ${item.player2Name}`;
+                        if (item.player2Name) subtitle = `پاس گل`;
                       } else if (item.type === "substitution") {
-                        title = "تعویض";
-                        subtitle = `خروج ${item.playerName || "—"} / ورود ${item.player2Name || "—"}`;
+                        titleText = "تعویض";
+                        subtitle = `خروج / ورود`;
                       }
                       if (item.details) subtitle += ` — ${item.details}`;
+
+                      const PlayerLink = ({ name, pid }: { name: string; pid?: string }) => {
+                        if (pid && onSelectPlayer) {
+                          return (
+                            <button onClick={() => onSelectPlayer(pid)} className="hover:text-emerald-400 transition cursor-pointer">
+                              {name}
+                            </button>
+                          );
+                        }
+                        return <>{name}</>;
+                      };
 
                       const card = (
                         <div className={`max-w-[210px] sm:max-w-xs rounded-xl border p-2.5 ${
@@ -545,8 +561,23 @@ export default function MatchDetailView({
                           <div className="flex items-center gap-2">
                             <span className="text-base shrink-0">{meta.icon}</span>
                             <div className="min-w-0">
-                              <span className="block text-xs font-black text-white truncate">{title}</span>
-                              <span className="block text-[10px] text-slate-400 font-semibold truncate">{subtitle}</span>
+                              <span className="block text-xs font-black text-white truncate">
+                                {item.type === "substitution" ? (
+                                  <>
+                                    <PlayerLink name={item.playerName || "—"} pid={item.playerId} />
+                                    {" → "}
+                                    <PlayerLink name={item.player2Name || "—"} pid={item.playerId2} />
+                                  </>
+                                ) : (
+                                  <PlayerLink name={titleText} pid={item.playerId} />
+                                )}
+                              </span>
+                              <span className="block text-[10px] text-slate-400 font-semibold truncate">
+                                {subtitle}
+                                {(item.type === "goal" || item.type === "penalty") && item.player2Name && (
+                                  <> — <PlayerLink name={item.player2Name} pid={item.playerId2} /></>
+                                )}
+                              </span>
                             </div>
                           </div>
                         </div>

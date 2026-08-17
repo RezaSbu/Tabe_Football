@@ -11,6 +11,8 @@ interface StatsPageProps {
   setSelectedLeagueFilterOnStats: (s: string) => void;
   currentSeason: string;
   toPersianDigits: (s: string) => string;
+  onSelectPlayer?: (id: string) => void;
+  onSelectTeam?: (id: string) => void;
 }
 
 const VISIBLE_DEFAULT = 10;
@@ -23,6 +25,8 @@ interface StatColumnProps {
   valueRenderer: (p: any) => string;
   expanded: boolean;
   onToggle: () => void;
+  onSelectPlayer?: (id: string) => void;
+  onSelectTeam?: (id: string) => void;
 }
 
 function StatColumn({
@@ -33,6 +37,8 @@ function StatColumn({
   valueRenderer,
   expanded,
   onToggle,
+  onSelectPlayer,
+  onSelectTeam,
 }: StatColumnProps) {
   const shown = expanded ? items : items.slice(0, VISIBLE_DEFAULT);
   return (
@@ -56,7 +62,16 @@ function StatColumn({
                 <span className="text-gray-550 font-mono text-[10px]">
                   {p.rank || idx + 1}.
                 </span>
-                {p.name}
+                {p.playerId && onSelectPlayer ? (
+                  <button
+                    onClick={() => onSelectPlayer(p.playerId)}
+                    className="hover:text-emerald-400 transition cursor-pointer truncate"
+                  >
+                    {p.name}
+                  </button>
+                ) : (
+                  <span className="truncate">{p.name}</span>
+                )}
                 <span className="text-[10px] text-gray-500">
                   ({p.team})
                 </span>
@@ -99,6 +114,8 @@ export default function StatsPage({
   setSelectedLeagueFilterOnStats,
   currentSeason,
   toPersianDigits,
+  onSelectPlayer,
+  onSelectTeam,
 }: StatsPageProps) {
   const availableSeasons = (archives || [])
     .filter((a: any) => a.type === "stats")
@@ -207,6 +224,8 @@ export default function StatsPage({
             }
             expanded={!!expandedCols.scorers}
             onToggle={() => toggleCol("scorers")}
+            onSelectPlayer={onSelectPlayer}
+            onSelectTeam={onSelectTeam}
           />
 
           <StatColumn
@@ -217,6 +236,8 @@ export default function StatsPage({
             valueRenderer={(p: any) => `${p.assists} پاس`}
             expanded={!!expandedCols.assists}
             onToggle={() => toggleCol("assists")}
+            onSelectPlayer={onSelectPlayer}
+            onSelectTeam={onSelectTeam}
           />
 
           <StatColumn
@@ -227,6 +248,8 @@ export default function StatsPage({
             valueRenderer={(p: any) => `${p.cleanSheets} کلین‌شیت`}
             expanded={!!expandedCols.cleansheets}
             onToggle={() => toggleCol("cleansheets")}
+            onSelectPlayer={onSelectPlayer}
+            onSelectTeam={onSelectTeam}
           />
         </div>
       )}
