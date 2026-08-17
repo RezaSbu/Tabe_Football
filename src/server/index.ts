@@ -13,7 +13,7 @@ import { recordHttpRequest, cleanupOldVisits, cleanupOldAuditLogs } from "./serv
 import { loadDB, setDb } from "./state";
 import { dbLock } from "./utils/concurrency";
 import { logMessage } from "./utils/logger";
-import { fetchAndPopulateMemoryDB, saveDB, migrateConstraints, migrateSummaryColumn, migrateHeroSlidesColumns, migrateAdsSchema, migrateNewsGalleryColumns, migrateReadMoreContent2, migrateMonitoringTables } from "./services/database";
+import { fetchAndPopulateMemoryDB, saveDB, migrateConstraints, migrateSummaryColumn, migrateHeroSlidesColumns, migrateAdsSchema, migrateNewsGalleryColumns, migrateReadMoreContent2, migrateMonitoringTables, migrateSyncColumns } from "./services/database";
 import { recalculateAndSyncDatabase } from "./services/stats";
 import { getUploadsDir } from "./db";
 
@@ -26,6 +26,7 @@ import { registerStandingsRoutes } from "./routes/standings";
 import { registerMediaRoutes } from "./routes/media";
 import { registerMiscRoutes } from "./routes/misc";
 import { registerDetailRoutes } from "./routes/detail";
+import { registerSyncRoutes } from "./routes/sync";
 
 logMessage("info", "general", "پورتال فوتبال ۳۶۰ در حال راه‌اندازی است...");
 
@@ -55,6 +56,7 @@ registerStandingsRoutes(app);
 registerMediaRoutes(app);
 registerMiscRoutes(app);
 registerDetailRoutes(app);
+registerSyncRoutes(app);
 
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   logMessage("error", "general", "Unhandled route error:", err.message || err);
@@ -69,6 +71,7 @@ async function startServer() {
   await migrateNewsGalleryColumns();
   await migrateReadMoreContent2();
   await migrateMonitoringTables();
+  await migrateSyncColumns();
   await cleanupOldVisits(30);
   await cleanupOldAuditLogs(30);
   setInterval(() => {

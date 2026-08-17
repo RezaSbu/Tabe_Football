@@ -1,7 +1,7 @@
 export interface SystemLog {
   timestamp: string;
   level: "info" | "warn" | "error";
-  category: "database" | "api" | "auth" | "general";
+  category: "database" | "api" | "auth" | "general" | "sync" | "parser" | "gemini";
   message: string;
   details?: any;
 }
@@ -10,7 +10,7 @@ export const SYSTEM_LOGS: SystemLog[] = [];
 
 export function logMessage(
   level: "info" | "warn" | "error",
-  category: "database" | "api" | "auth" | "general",
+  category: "database" | "api" | "auth" | "general" | "sync" | "parser" | "gemini",
   message: string,
   details?: any
 ): void {

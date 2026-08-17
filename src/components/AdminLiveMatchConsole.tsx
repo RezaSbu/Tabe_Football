@@ -16,7 +16,11 @@ import {
   Volume2,
   BookmarkCheck,
   RotateCcw,
-  Save
+  Save,
+  RefreshCw,
+  ExternalLink,
+  CheckCircle2,
+  AlertCircle
 } from "lucide-react";
 import { toPersianDigits, normalizePersianString } from "../utils";
 import { parseMatchMinute } from "../shared/matchMinute";
@@ -85,6 +89,11 @@ export default function AdminLiveMatchConsole({
     const found = (players || []).find(p => p.id === match.mvpId || p.name === match.mvpId);
     return found ? found.id : "";
   });
+
+  // Varzesh3 Sync states
+  const [dataUrl, setDataUrl] = useState<string>(match.dataUrl || "");
+  const [syncStatus, setSyncStatus] = useState<string>(match.syncStatus || "idle");
+  const [syncMessage, setSyncMessage] = useState<string>("");
 
   const resolvePlayerId = (nameOrId: string): string => {
     if (!nameOrId) return "";
@@ -325,6 +334,43 @@ export default function AdminLiveMatchConsole({
       } else {
         alert("خطا در همگام‌سازی جزئیات زنده.");
       }
+    }
+  };
+
+  const handleSyncFromVarzesh3 = async () => {
+    if (!dataUrl.trim()) {
+      alert("لطفاً لینک صفحه بازی ورزش۳ را وارد کنید.");
+      return;
+    }
+    if (!dataUrl.includes("varzesh3.com")) {
+      alert("لینک باید از سایت ورزش۳ باشد.");
+      return;
+    }
+
+    setSyncStatus("syncing");
+    setSyncMessage("در حال دریافت و پردازش داده...");
+
+    try {
+      const res = await fetch(`/api/match-sync/${match.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: dataUrl.trim() }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setSyncStatus("idle");
+        setSyncMessage(`همگام‌سازی موفق: ${data.data.scoreHome}-${data.data.scoreAway} | ${data.data.eventsCount} رویداد | روش: ${data.data.method}`);
+        alert("همگام‌سازی با موفقیت انجام شد! صفحه را رفرش کنید تا تغییرات اعمال شود.");
+      } else {
+        setSyncStatus("error");
+        setSyncMessage(`خطا: ${data.message}`);
+        alert(`خطا در هگام‌سازی: ${data.message}`);
+      }
+    } catch (err: any) {
+      setSyncStatus("error");
+      setSyncMessage(`خطای شبکه: ${err.message}`);
+      alert(`خطای شبکه: ${err.message}`);
     }
   };
 
@@ -1286,6 +1332,56 @@ export default function AdminLiveMatchConsole({
           )}
         </div>
       </div>
+
+      {/* VARZESH3 DATA SYNC BOX — only for finished matches */}
+      {isFinishedMode && (
+        <div className="bg-[#08080a] p-4 rounded-xl border border-white/5 mt-5">
+          <h3 className="font-extrabold text-xs text-blue-400 border-b border-white/5 pb-2 mb-3 flex items-center gap-2">
+            <RefreshCw className="h-3.5 w-3.5" /> هگام‌سازی داده از ورزش۳
+          </h3>
+          <p className="text-[10px] text-slate-500 mb-3">
+            لینک صفحه بازی در ورزش۳ را وارد کنید تا رویدادها، ترکیب و گل‌ها به‌صورت خودکار استخراج و جایگزین شوند.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+            <input
+              type="text"
+              value={dataUrl}
+              onChange={(e) => { setDataUrl(e.target.value); setSyncMessage(""); }}
+              placeholder="https://www.varzesh3.com/football/match/XXXXX/بازی-..."
+              className="flex-1 text-xs rounded bg-[#07070a] border border-white/5 p-2 text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500 font-mono ltr"
+              dir="ltr"
+            />
+            <button
+              onClick={handleSyncFromVarzesh3}
+              disabled={syncStatus === "syncing"}
+              className={`font-extrabold text-[11px] px-4 py-2 rounded-lg flex items-center gap-1.5 shadow whitespace-nowrap ${
+                syncStatus === "syncing"
+                  ? "bg-slate-600 text-slate-300 cursor-wait"
+                  : "bg-blue-600 hover:bg-blue-500 text-white cursor-pointer"
+              }`}
+            >
+              {syncStatus === "syncing" ? (
+                <><RefreshCw className="h-3.5 w-3.5 animate-spin" /> در حال پردازش...</>
+              ) : (
+                <><ExternalLink className="h-3.5 w-3.5" /> تست و هگام‌سازی</>
+              )}
+            </button>
+          </div>
+          {syncMessage && (
+            <div className={`mt-2 text-[10px] font-bold flex items-center gap-1.5 ${
+              syncStatus === "error" ? "text-red-400" : syncStatus === "syncing" ? "text-blue-400" : "text-emerald-400"
+            }`}>
+              {syncStatus === "error" ? <AlertCircle className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
+              {syncMessage}
+            </div>
+          )}
+          {match.lastDataFetchAt && (
+            <div className="mt-2 text-[9px] text-slate-600">
+              آخرین دریافت داده: {new Date(match.lastDataFetchAt).toLocaleString("fa-IR")}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* FOOTER CONTROLS: TERMINATION / UPDATE TRIGGER */}
       {isFinishedMode ? (

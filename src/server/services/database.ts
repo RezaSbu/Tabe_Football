@@ -138,6 +138,18 @@ export async function migrateReadMoreContent2(): Promise<void> {
   }
 }
 
+export async function migrateSyncColumns(): Promise<void> {
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS data_url text`);
+    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS last_data_fetch_at timestamptz`);
+    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS sync_status varchar(20) DEFAULT 'idle'`);
+    logMessage("info", "database", "مهاجرت ستون‌های data_url/last_data_fetch_at/sync_status جدول matches اعمال شد.");
+  } catch (err: any) {
+    logMessage("warn", "database", "خطا در مهاجرت ستون‌های sync matches:", err.message || err);
+  }
+}
+
 export async function migrateMonitoringTables(): Promise<void> {
   try {
     const { pool } = await import("../db");
@@ -420,7 +432,10 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
           events: m.events,
           scorersList: m.scorers_list,
           teamStats: m.team_stats,
-          referee: m.referee
+          referee: m.referee,
+          dataUrl: m.data_url || null,
+          lastDataFetchAt: m.last_data_fetch_at || null,
+          syncStatus: m.sync_status || 'idle'
         };
 
         parsed.matches.push(mappedMatch);
@@ -895,7 +910,10 @@ export async function saveDB(): Promise<void> {
           scorers_list: m.scorersList,
           team_stats: m.teamStats,
           referee: m.referee || null,
-          week: m.week || null
+          week: m.week || null,
+          data_url: m.dataUrl || null,
+          last_data_fetch_at: m.lastDataFetchAt || null,
+          sync_status: m.syncStatus || 'idle'
         };
       });
       promises.push(pgDb.from('matches').upsert(formattedMatches));

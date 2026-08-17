@@ -49,6 +49,11 @@ export interface MatchItem {
   teamStats?: any;
   scorersList?: any[];
   winner?: string;
+
+  // Varzesh3 sync fields
+  dataUrl?: string;
+  lastDataFetchAt?: string;
+  syncStatus?: 'idle' | 'syncing' | 'error';
 }
 
 export interface StandingRow {

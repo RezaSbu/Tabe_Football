@@ -1,0 +1,384 @@
+/**
+ * matchSourceParser.ts — Deterministic HTML parser for varzesh3 match pages.
+ * 
+ * Varzesh3 match URL format: https://www.varzesh3.com/football/match/{id}/{slug}
+ * OR https://www.varzesh3.com/handball/match/{id}/{slug}
+ *
+ * Data is embedded in self.__next_f.push() RSC blocks.
+ * eventType: 1=goal, 2=card, 4=substitution, 5=VAR
+ * cardType: 1=yellow, 3=red
+ * side: 0=host/home, 1=guest/away
+ */
+
+import { logMessage } from "./logger";
+
+export interface Varzesh3MatchResult {
+  matchMeta: {
+    id: number;
+    title: string;
+    referee: string;
+    stadium: string;
+    date: string;
+    time: string;
+    status: number;
+    goals: { host: number; guest: number };
+    host: { id: number; name: string; logo: string };
+    guest: { id: number; name: string; logo: string };
+    league: { title?: string; season?: string };
+  };
+  events: any[];
+  lineup: {
+    host: { formation: string; players: any[]; benchedPlayers: any[]; coach?: any };
+    guest: { formation: string; players: any[]; benchedPlayers: any[]; coach?: any };
+  };
+  stats: any[];
+}
+
+export interface ParsedMatchData {
+  scoreHome: number;
+  scoreAway: number;
+  referee: string;
+  venue: string;
+  events: any[];
+  scorersList: any[];
+  lineups: { home: any[]; away: any[] };
+  stats?: any;
+}
+
+export interface ParseResult {
+  success: boolean;
+  data?: ParsedMatchData;
+  raw?: Varzesh3MatchResult;
+  error?: string;
+}
+
+const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+/**
+ * Fetch varzesh3 match page and extract embedded RSC data.
+ * URL must be the full match page URL including slug, e.g.:
+ *   https://www.varzesh3.com/football/match/482809/بازی-آرارات-ریگا
+ */
+export async function fetchVarzesh3Page(url: string): Promise<string> {
+  const resp = await fetch(url, {
+    headers: {
+      'User-Agent': USER_AGENT,
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'Accept-Language': 'fa-IR,fa;q=0.9,en;q=0.5',
+    },
+  });
+  if (!resp.ok) {
+    throw new Error(`varzesh3 fetch failed: HTTP ${resp.status} for ${url}`);
+  }
+  return resp.text();
+}
+
+/**
+ * Extract and decode all self.__next_f.push([1,"..."]) RSC blocks from HTML.
+ */
+function extractRSCBlocks(html: string): string[] {
+  const blocks: string[] = [];
+  const marker = 'self.__next_f.push(';
+  let searchIdx = 0;
+  while (true) {
+    const idx = html.indexOf(marker, searchIdx);
+    if (idx === -1) break;
+    const endIdx = html.indexOf('])', idx);
+    if (endIdx === -1) break;
+    const raw = html.substring(idx, endIdx + 2);
+    searchIdx = endIdx + 2;
+
+    const startQuote = raw.indexOf('"');
+    const endQuote = raw.lastIndexOf('"');
+    if (startQuote === -1 || endQuote === -1 || startQuote === endQuote) continue;
+
+    const encoded = raw.substring(startQuote + 1, endQuote);
+    const decoded = encoded
+      .replace(/\\n/g, '\n')
+      .replace(/\\t/g, '\t')
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, '\\');
+    blocks.push(decoded);
+  }
+  return blocks;
+}
+
+/**
+ * Find the block containing match event data (has eventType).
+ */
+function findMatchBlock(blocks: string[]): string | null {
+  for (const block of blocks) {
+    if (block.includes('eventType') && block.includes('lineup')) {
+      return block;
+    }
+  }
+  return null;
+}
+
+/**
+ * Extract a balanced JSON substring starting at a key within the decoded block.
+ * e.g. extract JSON object after '"events":[' or '"lineup":{'
+ */
+function extractBalancedJSON(text: string, searchKey: string, openChar: string, closeChar: string): string | null {
+  const idx = text.indexOf(searchKey);
+  if (idx === -1) return null;
+  const start = idx + searchKey.length;
+  let depth = 0;
+  for (let i = start; i < text.length; i++) {
+    if (text[i] === openChar) depth++;
+    else if (text[i] === closeChar) {
+      depth--;
+      if (depth === 0) return text.substring(start, i + 1);
+    }
+  }
+  return null;
+}
+
+/**
+ * Find a JSON object after a key.
+ */
+function extractJSONObject(text: string, key: string): string | null {
+  return extractBalancedJSON(text, `"${key}":{`, '{', '}');
+}
+
+/**
+ * Find a JSON array after a key.
+ */
+function extractJSONArray(text: string, key: string): string | null {
+  return extractBalancedJSON(text, `"${key}":[`, '[', ']');
+}
+
+/**
+ * Parse the varzesh3 match page HTML and extract structured match data.
+ */
+export function parseVarzesh3HTML(html: string): ParseResult {
+  try {
+    const blocks = extractRSCBlocks(html);
+    const matchBlock = findMatchBlock(blocks);
+    if (!matchBlock) {
+      return { success: false, error: 'Could not find match data in page HTML (no eventType block found).' };
+    }
+
+    // Extract match metadata
+    const matchMetaJSON = extractJSONObject(matchBlock, 'match');
+    if (!matchMetaJSON) {
+      return { success: false, error: 'Could not extract match metadata.' };
+    }
+    let matchMeta: Varzesh3MatchResult['matchMeta'];
+    try {
+      matchMeta = JSON.parse(matchMetaJSON);
+    } catch {
+      return { success: false, error: 'Failed to parse match metadata JSON.' };
+    }
+
+    // Extract events array
+    const eventsJSON = extractJSONArray(matchBlock, 'events');
+    if (!eventsJSON) {
+      return { success: false, error: 'Could not extract events array.' };
+    }
+    let rawEvents: any[];
+    try {
+      rawEvents = JSON.parse(eventsJSON);
+    } catch {
+      return { success: false, error: 'Failed to parse events JSON.' };
+    }
+
+    // Extract lineup object
+    const lineupJSON = extractJSONObject(matchBlock, 'lineup');
+    if (!lineupJSON) {
+      return { success: false, error: 'Could not extract lineup data.' };
+    }
+    let lineup: Varzesh3MatchResult['lineup'];
+    try {
+      lineup = JSON.parse(lineupJSON);
+    } catch {
+      return { success: false, error: 'Failed to parse lineup JSON.' };
+    }
+
+    // Extract stats (optional)
+    let stats: any[] = [];
+    const statsJSON = extractJSONArray(matchBlock, 'stats');
+    if (statsJSON) {
+      try {
+        stats = JSON.parse(statsJSON);
+      } catch { /* stats are optional */ }
+    }
+
+    // Validate goal count
+    const eventGoals = rawEvents.filter((e: any) => e.eventType === 1).length;
+    const metaGoals = (matchMeta.goals?.host || 0) + (matchMeta.goals?.guest || 0);
+    if (eventGoals !== metaGoals) {
+      logMessage('warn', 'parser', `Goal count mismatch: ${eventGoals} events vs ${metaGoals} in metadata. Using metadata scores.`);
+    }
+
+    // Convert to our format
+    const parsed = convertToOurFormat(matchMeta, rawEvents, lineup, stats);
+    const raw: Varzesh3MatchResult = { matchMeta, events: rawEvents, lineup, stats };
+
+    return { success: true, data: parsed, raw };
+  } catch (err: any) {
+    return { success: false, error: `Parse error: ${err.message}` };
+  }
+}
+
+/**
+ * Convert varzesh3 structure to our internal format.
+ */
+function convertToOurFormat(
+  meta: Varzesh3MatchResult['matchMeta'],
+  rawEvents: any[],
+  lineup: Varzesh3MatchResult['lineup'],
+  stats: any[]
+): ParsedMatchData {
+  const events = rawEvents.map((ev: any) => convertEvent(ev, meta));
+  const scorersList = buildScorersList(rawEvents, meta);
+  const homeLineup = extractLineupPlayers(lineup.host);
+  const awayLineup = extractLineupPlayers(lineup.guest);
+
+  return {
+    scoreHome: meta.goals?.host || 0,
+    scoreAway: meta.goals?.guest || 0,
+    referee: meta.referee || '',
+    venue: meta.stadium || '',
+    events,
+    scorersList,
+    lineups: { home: homeLineup, away: awayLineup },
+    stats: convertStats(stats),
+  };
+}
+
+/**
+ * Convert a single varzesh3 event to our event format.
+ */
+function convertEvent(ev: any, meta: Varzesh3MatchResult['matchMeta']): any {
+  const side = ev.side === 0 ? 'home' : 'away';
+  const base: any = {
+    id: String(ev.id),
+    minute: ev.rawTime || ev.time,
+    team: side,
+  };
+
+  switch (ev.eventType) {
+    case 1: // Goal
+      base.type = ev.goalType === 2 ? 'own-goal' : (ev.goalType === 1 ? 'penalty' : 'goal');
+      base.playerName = ev.strickerName || '';
+      base.playerId = ev.strikerId ? String(ev.strikerId) : undefined;
+      if (ev.assisterId || ev.assisterName) {
+        base.player2Name = ev.assisterName || '';
+        base.player2Id = ev.assisterId ? String(ev.assisterId) : undefined;
+        base.details = `assist: ${ev.assisterName || ''}`;
+      }
+      break;
+    case 2: // Card
+      base.type = ev.cardType === 3 ? 'red-card' : 'yellow-card';
+      base.playerName = ev.offendingPlayerName || '';
+      base.playerId = ev.offendingPlayerId ? String(ev.offendingPlayerId) : undefined;
+      break;
+    case 4: // Substitution
+      base.type = 'substitution';
+      base.playerName = ev.incomingPlayerName || '';
+      base.playerId = ev.incomingPlayerId ? String(ev.incomingPlayerId) : undefined;
+      base.player2Name = ev.outgoingPlayerName || '';
+      base.player2Id = ev.outgoingPlayerId ? String(ev.outgoingPlayerId) : undefined;
+      break;
+    case 5: // VAR
+      base.type = 'var';
+      base.details = ev.description || '';
+      break;
+    default:
+      base.type = 'other';
+      base.details = ev.description || '';
+      break;
+  }
+
+  return base;
+}
+
+/**
+ * Build scorersList from goal events, matching our internal format.
+ */
+function buildScorersList(rawEvents: any[], meta: Varzesh3MatchResult['matchMeta']): any[] {
+  const goals = rawEvents.filter((ev: any) => ev.eventType === 1);
+  return goals.map((g: any) => ({
+    scorerName: g.strickerName || '',
+    scorerId: g.strikerId ? String(g.strikerId) : undefined,
+    name: g.strickerName || '',
+    goals: 1,
+    assistName: g.assisterName || undefined,
+    assistId: g.assisterId ? String(g.assisterId) : undefined,
+    assist: g.assisterName || undefined,
+    minute: g.rawTime || g.time,
+    side: g.side === 0 ? 'home' : 'away',
+    type: g.goalType === 2 ? 'own-goal' : (g.goalType === 1 ? 'penalty' : 'normal'),
+    matchResult: g.matchResult,
+  }));
+}
+
+/**
+ * Extract all starting players from varzesh3 lineup for one side.
+ */
+function extractLineupPlayers(sideData: any): any[] {
+  if (!sideData?.formationLines) return [];
+  const players: any[] = [];
+  for (const line of sideData.formationLines) {
+    for (const p of (line.players || [])) {
+      const ec = p.eventCollection || {};
+      players.push({
+        id: String(p.id),
+        name: p.name,
+        goals: ec.goals?.events?.length || 0,
+        assists: ec.assists?.events?.length || 0,
+        yellowCard: (ec.cards?.events || []).filter((c: any) => c.cardType === 1).length,
+        redCard: (ec.cards?.events || []).filter((c: any) => c.cardType === 3).length,
+      });
+    }
+  }
+  return players;
+}
+
+/**
+ * Convert varzesh3 stats to our format.
+ */
+function convertStats(rawStats: any[]): any {
+  if (!rawStats || rawStats.length === 0) return null;
+
+  const result: any = {};
+  for (const half of rawStats) {
+    const label = half.title || '';
+    const halfStats = half.stats || {};
+    if (halfStats.possession) {
+      result[label || 'total'] = {
+        possession: { home: halfStats.possession.hostValue, away: halfStats.possession.guestValue },
+      };
+    }
+    for (const item of (halfStats.items || [])) {
+      const key = (item.title || '').toLowerCase();
+      if (!result[label || 'total']) result[label || 'total'] = {};
+      result[label || 'total'][key] = { home: item.hostValue, away: item.guestValue };
+    }
+  }
+  return result;
+}
+
+/**
+ * Full pipeline: fetch URL → parse → convert.
+ * This is the main entry point for the deterministic parser.
+ */
+export async function parseMatchFromUrl(url: string): Promise<ParseResult> {
+  try {
+    logMessage('info', 'parser', `Fetching match data from: ${url}`);
+    const html = await fetchVarzesh3Page(url);
+    logMessage('info', 'parser', `Fetched ${html.length} bytes from varzesh3.`);
+    const result = parseVarzesh3HTML(html);
+    if (result.success) {
+      logMessage('info', 'parser', `Successfully parsed match: ${result.data!.scoreHome}-${result.data!.scoreAway}, ${result.data!.events.length} events.`);
+    } else {
+      logMessage('warn', 'parser', `Parse failed: ${result.error}`);
+    }
+    return result;
+  } catch (err: any) {
+    const msg = `varzesh3 fetch/parse error: ${err.message}`;
+    logMessage('error', 'parser', msg);
+    return { success: false, error: msg };
+  }
+}
