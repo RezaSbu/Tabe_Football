@@ -14,7 +14,7 @@ import { resolvePlayerNames, type PlayerLike } from "../utils/nameResolver";
 async function resolveAllPlayerRefs(data: any, matchMeta: any): Promise<{
   events: any[];
   scorersList: any[];
-  lineups: { home: any[]; away: any[] };
+  lineups: any;
   resolvedCount: number;
   unresolvedCount: number;
 }> {

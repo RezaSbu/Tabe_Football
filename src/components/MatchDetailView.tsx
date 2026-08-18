@@ -7,6 +7,7 @@ import { StandingRow } from "../types";
 import { convertGregorianToShamsi, toPersianDigits, normalizePersianString } from "../utils";
 import { minuteSortKey } from "../shared/matchMinute";
 import TeamLogo from "./TeamLogo";
+import FormationPitch from "./FormationPitch";
 
 interface MatchDetailViewProps {
   match: any;
@@ -213,6 +214,8 @@ export default function MatchDetailView({
   const awayLineup = defaultLineups.away || [];
   const homeSubs = defaultLineups.homeSubs || [];
   const awaySubs = defaultLineups.awaySubs || [];
+  const homeFormation = defaultLineups.homeFormation || "";
+  const awayFormation = defaultLineups.awayFormation || "";
 
   // --- 4. HEAD TO HEAD ---
   const h2hMatches = allMatches.filter(m => 
@@ -716,11 +719,27 @@ export default function MatchDetailView({
                 <p className="text-xs text-slate-400">اطلاعات یازده‌نفر اصلی و ذخیره‌های این مسابقه پس از تأیید توسط کادر فنی در این بخش نمایش داده می‌شود.</p>
               </div>
             ) : (
+              <FormationPitch
+                homeLineup={homeLineup}
+                awayLineup={awayLineup}
+                homeSubs={homeSubs}
+                awaySubs={awaySubs}
+                homeFormation={homeFormation}
+                awayFormation={awayFormation}
+                homeName={match.teamHome}
+                awayName={match.teamAway}
+                onSelectPlayer={onSelectPlayer}
+                players={players}
+              />
+            )}
+
+            {/* List view below pitch as secondary */}
+            {homeLineup.length > 0 || awayLineup.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {renderLineupColumn(homeLineup, homeSubs, match.teamHome, "emerald")}
                 {renderLineupColumn(awayLineup, awaySubs, match.teamAway, "cyan")}
               </div>
-            )}
+            ) : null}
           </div>
         )}
 

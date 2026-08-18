@@ -44,7 +44,7 @@ export interface ParsedMatchData {
   venue: string;
   events: any[];
   scorersList: any[];
-  lineups: { home: any[]; away: any[] };
+  lineups: { home: any[]; away: any[]; homeFormation?: string; awayFormation?: string; homeSubs?: any[]; awaySubs?: any[] };
   stats?: any;
 }
 
@@ -273,8 +273,8 @@ function convertToOurFormat(
 ): ParsedMatchData {
   const events = rawEvents.map((ev: any) => convertEvent(ev, meta));
   const scorersList = buildScorersList(rawEvents, meta);
-  const homeLineup = extractLineupPlayers(lineup.host);
-  const awayLineup = extractLineupPlayers(lineup.guest);
+  const homeData = extractLineupPlayers(lineup.host);
+  const awayData = extractLineupPlayers(lineup.guest);
 
   return {
     scoreHome: meta.goals?.host || 0,
@@ -283,7 +283,14 @@ function convertToOurFormat(
     venue: meta.stadium || '',
     events,
     scorersList,
-    lineups: { home: homeLineup, away: awayLineup },
+    lineups: {
+      home: homeData.players,
+      away: awayData.players,
+      homeFormation: homeData.formation,
+      awayFormation: awayData.formation,
+      homeSubs: homeData.benched,
+      awaySubs: awayData.benched,
+    },
     stats: convertStats(stats),
   };
 }
@@ -357,24 +364,40 @@ function buildScorersList(rawEvents: any[], _meta: Varzesh3MatchResult['matchMet
 
 /**
  * Extract all starting players from varzesh3 lineup for one side.
+ * Now preserves: formation, line index, shirt number, captain, benched players.
  */
-function extractLineupPlayers(sideData: any): any[] {
-  if (!sideData?.formationLines) return [];
+function extractLineupPlayers(sideData: any): { players: any[]; benched: any[]; formation: string } {
+  if (!sideData) return { players: [], benched: [], formation: '' };
+  const formation = sideData.formation || '';
   const players: any[] = [];
-  for (const line of sideData.formationLines) {
+  for (const line of (sideData.formationLines || [])) {
+    const lineIdx = typeof line.line === 'number' ? line.line : -1;
     for (const p of (line.players || [])) {
       const ec = p.eventCollection || {};
       players.push({
         id: String(p.id),
         name: p.name,
+        number: p.shirtNumber || null,
+        formationLine: lineIdx,
+        isCaptain: !!p.isCaptain,
+        portrait: p.portrait || null,
         goals: ec.goals?.events?.length || 0,
         assists: ec.assists?.events?.length || 0,
         yellowCard: (ec.cards?.events || []).filter((c: any) => c.cardType === 1).length,
         redCard: (ec.cards?.events || []).filter((c: any) => c.cardType === 3).length,
+        substituted: !!(ec.substitutions?.events || []).length,
       });
     }
   }
-  return players;
+  const benched: any[] = [];
+  for (const p of (sideData.benchedPlayers || [])) {
+    benched.push({
+      id: String(p.id),
+      name: p.name,
+      number: p.shirtNumber || null,
+    });
+  }
+  return { players, benched, formation };
 }
 
 /**
