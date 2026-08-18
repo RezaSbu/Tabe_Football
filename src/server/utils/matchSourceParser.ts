@@ -386,6 +386,7 @@ function extractLineupPlayers(sideData: any): { players: any[]; benched: any[]; 
         yellowCard: (ec.cards?.events || []).filter((c: any) => c.cardType === 1).length,
         redCard: (ec.cards?.events || []).filter((c: any) => c.cardType === 3).length,
         substituted: !!(ec.substitutions?.events || []).length,
+        subMinute: ec.substitutions?.events?.[0]?.rawTime || ec.substitutions?.events?.[0]?.time || null,
       });
     }
   }

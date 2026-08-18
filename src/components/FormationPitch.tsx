@@ -1,14 +1,13 @@
 import React, { useState } from "react";
-import { normalizePersianString, getSafeImageUrl } from "../utils";
+import { normalizePersianString, getSafeImageUrl, toPersianDigits } from "../utils";
 
 /**
- * FormationPitch — Football pitch with horizontal formation layout.
+ * FormationPitch — Horizontal football pitch.
  *
  *   TEAM 2 (LEFT)                        TEAM 1 (RIGHT)
  *   GK → DEF → MID → ATT    |    ATT ← MID ← DEF ← GK
  *
- *  X = depth (distance from own goal toward center)
- *  Y = width (spread of players within each line)
+ *  X = depth (goal→center), Y = width (spread within line)
  */
 
 interface PitchPlayer {
@@ -21,6 +20,7 @@ interface PitchPlayer {
   yellowCard?: number;
   redCard?: number;
   substituted?: boolean;
+  subMinute?: number | string | null;
   position?: string;
 }
 
@@ -102,20 +102,15 @@ function assignLines(lineup: PitchPlayer[], formation: string): Map<number, Pitc
   return result;
 }
 
-/**
- * X positions — horizontal depth from own goal toward center.
- * Home (right): GK rightmost, ATT near center
- * Away (left):  GK leftmost,  ATT near center
- * Tighter spacing so lines don't cross center.
- */
 function computePositions(
   lineup: PitchPlayer[],
   formation: string,
   isHome: boolean,
 ): Array<{ player: PitchPlayer; x: number; y: number }> {
   const groups = assignLines(lineup, formation);
-  const xHome: Record<number, number> = { 0: 88, 1: 72, 2: 58, 3: 52 };
-  const xAway: Record<number, number> = { 0: 12, 1: 28, 2: 42, 3: 48 };
+  // Shifted further apart: more gap between ATT lines
+  const xHome: Record<number, number> = { 0: 92, 1: 76, 2: 63, 3: 55 };
+  const xAway: Record<number, number> = { 0: 8, 1: 24, 2: 37, 3: 45 };
   const xMap = isHome ? xHome : xAway;
 
   const result: Array<{ player: PitchPlayer; x: number; y: number }> = [];
@@ -134,6 +129,15 @@ function computePositions(
     }
   }
   return result;
+}
+
+/* ─── Football boot SVG icon (Fotmob-style) ─── */
+function BootIcon({ className = "w-3 h-3" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path d="M21 15.5c-.3 0-.5-.1-.7-.3l-1.2-1.1c-.2-.2-.5-.3-.8-.3H15v-1h2.8c.5 0 1-.3 1.2-.7l1.5-3c.1-.2.2-.4.2-.6 0-.5-.4-1-1-1H14.5l-1.5 2H9.7L8 9.5C7.8 9.2 7.4 9 7 9H4c-.6 0-1 .4-1 1v4c0 .3.2.5.5.5.1 0 .2 0 .3-.1l1.8-1.8c.2-.2.5-.3.8-.3H8v1H5.5c-.8 0-1.5.7-1.5 1.5S4.7 17 5.5 17h3.3c.5 0 1-.3 1.2-.7l1.8-2.8c.2-.3.5-.5.8-.5h4.4c.8 0 1.5-.7 1.5-1.5 0-.3-.1-.5-.3-.7l-1.8-1.3c-.3-.2-.4-.5-.4-.8V8.5c0-.6.4-1 1-1h2.5c.3 0 .6.2.8.4l1 2c.2.4.3.8.3 1.3v3.3c0 .5-.2 1-.6 1.3-.1.1-.3.2-.5.2z" />
+    </svg>
+  );
 }
 
 /* ─── Player photo badge ─── */
@@ -167,9 +171,7 @@ function PlayerDot({
 }) {
   const isClickable = !!dbId && !!onSelectPlayer;
   const border = accent === "emerald" ? "border-emerald-300" : "border-cyan-300";
-  const bg = accent === "emerald"
-    ? "bg-emerald-600"
-    : "bg-cyan-600";
+  const bg = accent === "emerald" ? "bg-emerald-600" : "bg-cyan-600";
 
   return (
     <div
@@ -196,26 +198,28 @@ function PlayerDot({
         </span>
       </div>
 
-      {/* Goals — ⚽ emoji */}
+      {/* Goals — ⚽ */}
       {p.goals ? (
-        <span className="absolute -top-2.5 -right-2 flex items-center z-20">
+        <span className="absolute -top-3 -right-3 flex items-center z-20">
           {Array.from({ length: Math.min(p.goals, 5) }).map((_, i) => (
-            <span key={i} className="text-[10px] leading-none" style={{ marginLeft: i > 0 ? -4 : 0 }}>⚽</span>
+            <span key={i} className="text-xs leading-none" style={{ marginLeft: i > 0 ? -3 : 0 }}>⚽</span>
           ))}
           {p.goals > 5 && (
-            <span className="text-[8px] font-black text-amber-400 mr-0.5">+{p.goals - 5}</span>
+            <span className="text-[8px] font-black text-amber-400 ml-0.5">+{p.goals - 5}</span>
           )}
         </span>
       ) : null}
 
-      {/* Assists — 👟 emoji */}
+      {/* Assists — football boot SVG */}
       {p.assists ? (
-        <span className="absolute -top-2.5 -left-2 flex items-center z-20">
+        <span className="absolute -top-3 -left-3 flex items-center gap-px z-20">
           {Array.from({ length: Math.min(p.assists, 5) }).map((_, i) => (
-            <span key={i} className="text-[10px] leading-none" style={{ marginRight: i > 0 ? -4 : 0 }}>👟</span>
+            <span key={i} className="text-sky-400" style={{ marginRight: i > 0 ? -2 : 0 }}>
+              <BootIcon className="w-3.5 h-3.5" />
+            </span>
           ))}
           {p.assists > 5 && (
-            <span className="text-[8px] font-black text-sky-400 ml-0.5">+{p.assists - 5}</span>
+            <span className="text-[8px] font-black text-sky-400">+{p.assists - 5}</span>
           )}
         </span>
       ) : null}
@@ -230,9 +234,14 @@ function PlayerDot({
         <span className="absolute -left-3 top-1/2 -translate-y-1/2 w-2 h-3 rounded-[1px] bg-red-500 border border-red-700 shadow z-20" />
       ) : null}
 
-      {/* Substituted — 🔄 */}
+      {/* Substituted — 🔄 + minute */}
       {p.substituted && (
-        <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 text-[9px] leading-none z-20">🔄</span>
+        <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-px z-20 whitespace-nowrap">
+          <span className="text-[10px] leading-none">🔄</span>
+          {p.subMinute != null && (
+            <span className="text-[8px] font-mono font-black text-amber-400">{toPersianDigits(String(p.subMinute))}'</span>
+          )}
+        </span>
       )}
     </div>
   );
@@ -382,15 +391,15 @@ export default function FormationPitch({
 
       {/* Legend */}
       <div className="flex items-center justify-center gap-4 px-4 py-2 border-t border-white/5 text-[8px] sm:text-[9px] text-slate-500 font-bold">
-        <span className="flex items-center gap-1"><span className="text-[10px]">⚽</span> گل</span>
-        <span className="flex items-center gap-1"><span className="text-[10px]">👟</span> پاس گل</span>
+        <span className="flex items-center gap-1"><span className="text-xs">⚽</span> گل</span>
+        <span className="flex items-center gap-1"><span className="text-sky-400"><BootIcon className="w-3.5 h-3.5" /></span> پاس گل</span>
         <span className="flex items-center gap-1">
           <span className="w-2 h-3 rounded-sm bg-yellow-400 border border-yellow-600 inline-block" /> کارت زرد
         </span>
         <span className="flex items-center gap-1">
           <span className="w-2 h-3 rounded-sm bg-red-500 border border-red-700 inline-block" /> کارت قرمز
         </span>
-        <span className="flex items-center gap-1"><span className="text-[10px]">🔄</span> تعویض</span>
+        <span className="flex items-center gap-1"><span className="text-xs">🔄</span> تعویض</span>
       </div>
     </div>
   );
