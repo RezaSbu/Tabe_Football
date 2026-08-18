@@ -402,6 +402,14 @@ export default function AdminLiveMatchConsole({
   const LINE_LABELS = ["دروازه‌بان", "مدافع", "هافبک", "مهاجم"];
   const LINE_COLORS = ["text-yellow-400", "text-blue-400", "text-sky-400", "text-emerald-400"];
 
+  const posToLineAdmin = (p: any): number => {
+    const pos = (p.position || "").toLowerCase();
+    if (pos.includes("دروازه") || pos.includes("gk") || pos.includes("گلر")) return 0;
+    if (pos.includes("مدافع") || pos.includes("def")) return 1;
+    if (pos.includes("هافبک") || pos.includes("وینگر") || pos.includes("mid")) return 2;
+    return 3;
+  };
+
   // Helper: update a player's formationLine in localLineups
   const setPlayerLine = (side: "home" | "away", playerId: string, newLine: number) => {
     setLocalLineups(prev => ({
@@ -414,9 +422,6 @@ export default function AdminLiveMatchConsole({
 
   // Render a selected player with formation line selector
   const renderSelectedPlayer = (p: any, side: "home" | "away", accent: string) => {
-    const line = p.formationLine ?? (p.position || "").includes("دروازه") ? 0
-      : (p.position || "").includes("مدافع") ? 1
-      : (p.position || "").includes("هافبک") ? 2 : 3;
     return (
       <div key={p.id || p.name} className={`flex items-center gap-1.5 p-1.5 rounded border text-[10px] ${
         accent === "emerald"
@@ -437,14 +442,6 @@ export default function AdminLiveMatchConsole({
         </select>
       </div>
     );
-  };
-
-  const posToLineAdmin = (p: any): number => {
-    const pos = (p.position || "").toLowerCase();
-    if (pos.includes("دروازه") || pos.includes("gk") || pos.includes("گلر")) return 0;
-    if (pos.includes("مدافع") || pos.includes("def")) return 1;
-    if (pos.includes("هافبک") || pos.includes("وینگر") || pos.includes("mid")) return 2;
-    return 3;
   };
 
   const awayRoster = (players || []).filter(p => 
