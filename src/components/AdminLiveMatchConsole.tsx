@@ -399,6 +399,54 @@ export default function AdminLiveMatchConsole({
     sameTeamName(p.teamName, match.teamHome)
   );
 
+  const LINE_LABELS = ["دروازه‌بان", "مدافع", "هافبک", "مهاجم"];
+  const LINE_COLORS = ["text-yellow-400", "text-blue-400", "text-sky-400", "text-emerald-400"];
+
+  // Helper: update a player's formationLine in localLineups
+  const setPlayerLine = (side: "home" | "away", playerId: string, newLine: number) => {
+    setLocalLineups(prev => ({
+      ...prev,
+      [side]: prev[side].map((p: any) =>
+        (p.id === playerId || p.name === playerId) ? { ...p, formationLine: newLine } : p
+      ),
+    }));
+  };
+
+  // Render a selected player with formation line selector
+  const renderSelectedPlayer = (p: any, side: "home" | "away", accent: string) => {
+    const line = p.formationLine ?? (p.position || "").includes("دروازه") ? 0
+      : (p.position || "").includes("مدافع") ? 1
+      : (p.position || "").includes("هافبک") ? 2 : 3;
+    return (
+      <div key={p.id || p.name} className={`flex items-center gap-1.5 p-1.5 rounded border text-[10px] ${
+        accent === "emerald"
+          ? "bg-emerald-950/40 text-emerald-400 border-emerald-500/40"
+          : "bg-sky-950/40 text-sky-400 border-sky-500/40"
+      }`}>
+        <span className="font-mono bg-zinc-800 px-1 rounded text-[9px] shrink-0">#{p.number || "?"}</span>
+        <span className="truncate font-bold min-w-0 flex-1">{p.name}</span>
+        <select
+          value={p.formationLine ?? posToLineAdmin(p)}
+          onChange={(e) => setPlayerLine(side, p.id || p.name, parseInt(e.target.value))}
+          className="bg-black/40 border border-white/10 rounded text-[8px] px-1 py-0.5 cursor-pointer shrink-0 w-16"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {LINE_LABELS.map((label, idx) => (
+            <option key={idx} value={idx}>{label}</option>
+          ))}
+        </select>
+      </div>
+    );
+  };
+
+  const posToLineAdmin = (p: any): number => {
+    const pos = (p.position || "").toLowerCase();
+    if (pos.includes("دروازه") || pos.includes("gk") || pos.includes("گلر")) return 0;
+    if (pos.includes("مدافع") || pos.includes("def")) return 1;
+    if (pos.includes("هافبک") || pos.includes("وینگر") || pos.includes("mid")) return 2;
+    return 3;
+  };
+
   const awayRoster = (players || []).filter(p => 
     sameTeamId(p.teamId, match.teamAwayId) ||
     sameTeamName(p.teamName, match.teamAway)
@@ -491,12 +539,13 @@ export default function AdminLiveMatchConsole({
                 type="button"
                 onClick={() => {
                   const limit = isFutsal ? 5 : 11;
-                  const selected = homeRoster.slice(0, limit).map(p => ({
+                  const selected = homeRoster.slice(0, limit).map((p, idx) => ({
                     id: p.id,
                     name: p.name,
                     number: p.number || 10,
                     position: p.position || "مدافع",
-                    rating: parseFloat((p as any).rating) || 7.0
+                    rating: parseFloat((p as any).rating) || 7.0,
+                    formationLine: idx === 0 ? 0 : idx <= 4 ? 1 : idx <= 8 ? 2 : 3,
                   }));
                   setLocalLineups(prev => ({ ...prev, home: selected }));
                 }}
@@ -506,6 +555,14 @@ export default function AdminLiveMatchConsole({
               </button>
             </div>
             <div className="grid grid-cols-2 gap-1.5 max-h-60 overflow-y-auto pr-1">
+              {/* Selected players first with formation line selectors */}
+              {localLineups.home.length > 0 && (
+                <div className="col-span-2 space-y-1 mb-2">
+                  <span className="text-[8px] font-bold text-slate-500 block">ترکیب اصلی ({toPersianDigits(localLineups.home.length)} نفر) — خط ترکیبی را تنظیم کنید:</span>
+                  {localLineups.home.map((p: any) => renderSelectedPlayer(p, "home", "emerald"))}
+                </div>
+              )}
+              {/* Full roster for toggling */}
               {homeRoster.map((p) => {
                 const isChecked = localLineups.home.some(x => x.id === p.id || x.name === p.name);
                 return (
@@ -524,7 +581,8 @@ export default function AdminLiveMatchConsole({
                           name: p.name,
                           number: p.number || 10,
                           position: p.position || "مدافع",
-                          rating: parseFloat((p as any).rating) || 7.0
+                          rating: parseFloat((p as any).rating) || 7.0,
+                          formationLine: posToLineAdmin(p),
                         };
                         setLocalLineups(prev => ({
                           ...prev,
@@ -557,12 +615,13 @@ export default function AdminLiveMatchConsole({
                 type="button"
                 onClick={() => {
                   const limit = isFutsal ? 5 : 11;
-                  const selected = awayRoster.slice(0, limit).map(p => ({
+                  const selected = awayRoster.slice(0, limit).map((p, idx) => ({
                     id: p.id,
                     name: p.name,
                     number: p.number || 10,
                     position: p.position || "مدافع",
-                    rating: parseFloat((p as any).rating) || 7.0
+                    rating: parseFloat((p as any).rating) || 7.0,
+                    formationLine: idx === 0 ? 0 : idx <= 4 ? 1 : idx <= 8 ? 2 : 3,
                   }));
                   setLocalLineups(prev => ({ ...prev, away: selected }));
                 }}
@@ -572,6 +631,14 @@ export default function AdminLiveMatchConsole({
               </button>
             </div>
             <div className="grid grid-cols-2 gap-1.5 max-h-60 overflow-y-auto pr-1">
+              {/* Selected players first with formation line selectors */}
+              {localLineups.away.length > 0 && (
+                <div className="col-span-2 space-y-1 mb-2">
+                  <span className="text-[8px] font-bold text-slate-500 block">ترکیب اصلی ({toPersianDigits(localLineups.away.length)} نفر) — خط ترکیبی را تنظیم کنید:</span>
+                  {localLineups.away.map((p: any) => renderSelectedPlayer(p, "away", "cyan"))}
+                </div>
+              )}
+              {/* Full roster for toggling */}
               {awayRoster.map((p) => {
                 const isChecked = localLineups.away.some(x => x.id === p.id || x.name === p.name);
                 return (
@@ -590,7 +657,8 @@ export default function AdminLiveMatchConsole({
                           name: p.name,
                           number: p.number || 10,
                           position: p.position || "مدافع",
-                          rating: parseFloat((p as any).rating) || 7.0
+                          rating: parseFloat((p as any).rating) || 7.0,
+                          formationLine: posToLineAdmin(p),
                         };
                         setLocalLineups(prev => ({
                           ...prev,
@@ -650,11 +718,11 @@ export default function AdminLiveMatchConsole({
             <FormationPitch
               homeLineup={localLineups.home.map((p: any) => ({
                 ...p,
-                formationLine: assignFormationLine(p, homeFormation, true),
+                formationLine: p.formationLine ?? assignFormationLine(p, homeFormation, true),
               }))}
               awayLineup={localLineups.away.map((p: any) => ({
                 ...p,
-                formationLine: assignFormationLine(p, awayFormation, false),
+                formationLine: p.formationLine ?? assignFormationLine(p, awayFormation, false),
               }))}
               homeFormation={homeFormation}
               awayFormation={awayFormation}

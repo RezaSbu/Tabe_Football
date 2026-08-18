@@ -2,13 +2,13 @@ import React from "react";
 import { normalizePersianString } from "../utils";
 
 /**
- * FormationPitch — Graphical football pitch with players positioned by formation.
+ * FormationPitch — Football pitch with players positioned by formation.
  *
- * Each side (home/away) occupies half the pitch.
- * Players are positioned using absolute % coords derived from the formation string.
- *
- * resolveDbId: ONLY returns IDs from the DB players list — never varzesh3 IDs.
- * Players NOT in the DB are rendered as plain (non-clickable) labels.
+ * Key behaviors:
+ *  - Formation string (e.g. "3-5-2") drives how many players per line
+ *  - Players are sorted by number within each line for consistent layout
+ *  - Only DB-matching players are clickable; non-DB players are plain text
+ *  - Home team attacks upward, away team attacks downward
  */
 
 interface PitchPlayer {
@@ -39,11 +39,8 @@ interface FormationPitchProps {
   onEdit?: () => void;
 }
 
-/**
- * Resolve a player's DB ID by name matching against the players prop.
- * Returns undefined if the player is NOT in the DB.
- * NEVER returns varzesh3 IDs — only real DB IDs (e.g. "player-1787040341986").
- */
+/* ─── Helpers ─── */
+
 function resolveDbId(player: PitchPlayer, dbPlayers?: any[]): string | undefined {
   if (!dbPlayers || !player.name) return undefined;
   const n = normalizePersianString(player.name);
@@ -51,20 +48,14 @@ function resolveDbId(player: PitchPlayer, dbPlayers?: any[]): string | undefined
   return found ? String(found.id) : undefined;
 }
 
-/**
- * Parse formation string "4-4-2" into an array [4, 4, 2] representing
- * number of players in each non-GK line: DEF, MID, FWD.
- */
-function parseFormation(formation?: string): number[] {
-  if (!formation) return [4, 4, 2];
-  const parts = formation.split("-").map(Number).filter(n => !isNaN(n) && n > 0);
-  if (parts.length === 0) return [4, 4, 2];
-  return parts;
+/** Parse "3-5-2" → [3, 5, 2] */
+function parseFormation(f?: string): number[] {
+  if (!f) return [4, 4, 2];
+  const parts = f.split("-").map(Number).filter(n => !isNaN(n) && n > 0);
+  return parts.length >= 1 ? parts : [4, 4, 2];
 }
 
-/**
- * Assign formationLine based on player position string.
- */
+/** Infer formation line from position string */
 function posToLine(p: PitchPlayer): number {
   const pos = (p.position || "").toLowerCase();
   if (pos.includes("دروازه") || pos.includes("gk") || pos.includes("گلر")) return 0;
@@ -74,73 +65,122 @@ function posToLine(p: PitchPlayer): number {
 }
 
 /**
- * Compute {x, y} positions for all players on one half of the pitch.
+ * Assign players to formation lines based on formation string and position.
  *
- * Layout (home side, attacking upward):
- *   GK:  bottom center
- *   DEF: spread across width above GK
- *   MID: spread across width above DEF
- *   FWD: spread across width near top
+ * Algorithm:
+ * 1. Parse formation (e.g. "3-5-2" → def=3, mid=5, fwd=2)
+ * 2. Players with `formationLine` are kept in their line
+ * 3. Players without `formationLine` are assigned by position string
+ * 4. If a line has more players than the formation allows, overflow goes to the next line
+ */
+function assignLines(
+  lineup: PitchPlayer[],
+  formation: string,
+): Map<number, PitchPlayer[]> {
+  const parts = parseFormation(formation);
+  const limits: Record<number, number> = {
+    0: 1, // GK always 1
+    1: parts[0] || 4, // DEF
+    2: parts.length > 2 ? parts[1] : (parts.length === 2 ? parts[1] : 0), // MID
+    3: parts.length > 2 ? parts[2] : 0, // FWD
+  };
+
+  // If formation is 2-part like "4-4", assume DEF=4, MID=4, FWD=rest (11 - DEF - MID - 1)
+  if (parts.length === 2) {
+    limits[1] = parts[0];
+    limits[2] = parts[1];
+    limits[3] = 11 - 1 - parts[0] - parts[1]; // remainder goes to FWD
+    if (limits[3] < 0) limits[3] = 0;
+  }
+  if (parts.length === 1) {
+    limits[1] = parts[0];
+    limits[2] = 11 - 1 - parts[0]; // rest go to MID
+    limits[3] = 0;
+    if (limits[2] < 0) limits[2] = 0;
+  }
+
+  // Sort players: GK first, then by number
+  const sorted = [...lineup].sort((a, b) => {
+    const la = a.formationLine ?? posToLine(a);
+    const lb = b.formationLine ?? posToLine(b);
+    if (la !== lb) return la - lb;
+    return (Number(a.number) || 99) - (Number(b.number) || 99);
+  });
+
+  const result = new Map<number, PitchPlayer[]>();
+  const counts: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0 };
+
+  for (const p of sorted) {
+    let line = p.formationLine;
+    if (line == null || line < 0 || line > 3) line = posToLine(p);
+
+    // If line is full, try overflow
+    if (counts[line] >= limits[line]) {
+      // GK overflow: skip (shouldn't happen)
+      if (line === 0) continue;
+      // DEF overflow → MID, MID overflow → FWD
+      if (line === 1 && counts[2] < limits[2]) line = 2;
+      else if (line <= 2 && counts[3] < limits[3]) line = 3;
+      else if (line === 2 && counts[1] < limits[1]) line = 1;
+      else if (line === 3 && counts[2] < limits[2]) line = 2;
+    }
+
+    if (!result.has(line)) result.set(line, []);
+    result.get(line)!.push(p);
+    counts[line]++;
+  }
+
+  return result;
+}
+
+/**
+ * Compute {x, y} positions for players on one half of the pitch.
  *
- * Each line's players are evenly spaced across the horizontal center.
- * Uses the formation string to know how many players belong in each line.
+ * The pitch is divided vertically:
+ *  - Home team: GK at bottom (90%), DEF at 72%, MID at 48%, FWD at 28%
+ *  - Away team: mirrored (GK at top 10%, etc.)
+ *
+ * Within each line, players are evenly spread across 15%-85% horizontal.
+ * This creates the classic football formation shape.
  */
 function computePositions(
   lineup: PitchPlayer[],
   formation: string,
   isHome: boolean,
 ): Array<{ player: PitchPlayer; x: number; y: number }> {
-  const parts = parseFormation(formation);
+  const groups = assignLines(lineup, formation);
 
-  // Build expected lines from formation string
-  // parts = [def, mid, fwd] or [def, mid] or [def, fwd] etc.
-  // Standard: [DEF, MID, FWD] or [DEF, MID] or [DEF] etc.
-  const defCount = parts[0] || 4;
-  const midCount = parts.length > 2 ? parts[1] : (parts.length === 2 ? parts[1] : 0);
-  const fwdCount = parts.length > 2 ? parts[2] : (parts.length === 3 ? parts[2] : 0);
-
-  // Group players by their formationLine (or infer from position)
-  const groups: Record<number, PitchPlayer[]> = { 0: [], 1: [], 2: [], 3: [] };
-  for (const p of lineup) {
-    let line = p.formationLine;
-    if (line == null || line < 0 || line > 3) line = posToLine(p);
-    groups[line].push(p);
-  }
-
-  // Y positions (home: GK bottom, FWD top; away: mirrored)
-  const yMap: Record<number, number> = isHome
-    ? { 0: 88, 1: 68, 2: 44, 3: 24 }
-    : { 0: 12, 1: 32, 2: 56, 3: 76 };
+  // Y positions for each line (home: GK bottom, away: GK top)
+  const yHome: Record<number, number> = { 0: 90, 1: 72, 2: 48, 3: 28 };
+  const yAway: Record<number, number> = { 0: 10, 1: 28, 2: 52, 3: 72 };
+  const yMap = isHome ? yHome : yAway;
 
   const result: Array<{ player: PitchPlayer; x: number; y: number }> = [];
 
-  // Position each line: evenly space across 20%-80% horizontal
-  const positionLine = (line: number) => {
-    const players = groups[line];
+  // Process lines: GK(0), DEF(1), MID(2), FWD(3)
+  for (const line of [0, 1, 2, 3]) {
+    const players = groups.get(line) || [];
+    if (players.length === 0) continue;
+
     const y = yMap[line];
-    if (players.length === 0) return;
-    const margin = 20;
-    const width = 100 - 2 * margin;
+    const xMin = 15;
+    const xMax = 85;
+    const xRange = xMax - xMin;
+
     if (players.length === 1) {
       result.push({ player: players[0], x: 50, y });
     } else {
       for (let i = 0; i < players.length; i++) {
-        const x = margin + (width * i) / (players.length - 1);
+        const x = xMin + (xRange * i) / (players.length - 1);
         result.push({ player: players[i], x, y });
       }
     }
-  };
-
-  // Position GK first, then outfield lines
-  positionLine(0);
-  positionLine(1);
-  positionLine(2);
-  positionLine(3);
+  }
 
   return result;
 }
 
-/* ─── Individual player node ─── */
+/* ─── Player dot ─── */
 function PlayerDot({
   p,
   accent,
@@ -153,79 +193,74 @@ function PlayerDot({
   dbId?: string;
 }) {
   const isClickable = !!dbId && !!onSelectPlayer;
-  const Wrapper = isClickable ? "button" : "div";
-  const wrapperProps: any = isClickable
-    ? {
-        onClick: () => onSelectPlayer(dbId),
-        className: "group relative cursor-pointer focus:outline-none -translate-x-1/2 -translate-y-1/2",
-      }
-    : {
-        className: "group relative -translate-x-1/2 -translate-y-1/2",
-      };
 
-  const bgColor =
+  const bg =
     accent === "emerald"
-      ? "bg-emerald-500/90 border-emerald-300 text-white shadow-emerald-500/30"
-      : "bg-cyan-500/90 border-cyan-300 text-white shadow-cyan-500/30";
+      ? "bg-emerald-500 border-emerald-300 text-white shadow-emerald-500/40"
+      : "bg-cyan-500 border-cyan-300 text-white shadow-cyan-500/40";
 
   return (
-    <Wrapper {...wrapperProps}>
+    <div
+      className={`relative -translate-x-1/2 -translate-y-1/2 ${
+        isClickable ? "cursor-pointer group" : ""
+      }`}
+      onClick={isClickable ? () => onSelectPlayer!(dbId) : undefined}
+    >
+      {/* Circle */}
       <div
-        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full border-2 flex items-center justify-center
-          font-mono text-[9px] sm:text-[10px] font-black shadow-lg transition-all
-          ${bgColor}
-          ${isClickable ? "group-hover:scale-125 group-hover:shadow-xl group-hover:brightness-110" : "opacity-80"}
+        className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center
+          font-mono text-[10px] sm:text-[11px] font-black shadow-lg
+          transition-all duration-150
+          ${bg}
+          ${isClickable ? "group-hover:scale-125 group-hover:brightness-110 group-hover:shadow-xl" : "opacity-85"}
           ${p.isCaptain ? "ring-2 ring-amber-400 ring-offset-1 ring-offset-green-800" : ""}
         `}
       >
         {p.number || "?"}
       </div>
 
-      {/* Name */}
-      <div
-        className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap pointer-events-none"
-        style={{ top: "100%", marginTop: 2 }}
-      >
+      {/* Name label below */}
+      <div className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap pointer-events-none mt-0.5">
         <span
-          className={`text-[7px] sm:text-[8px] font-bold drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)] ${
-            isClickable ? "text-white" : "text-slate-300"
+          className={`text-[7px] sm:text-[8px] font-bold drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] leading-none ${
+            isClickable ? "text-white" : "text-slate-300/80"
           }`}
         >
           {p.name}
         </span>
       </div>
 
-      {/* Goal badge */}
+      {/* Goal badge (top-right) */}
       {p.goals ? (
-        <span className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-amber-400 border border-amber-600 flex items-center justify-center text-[7px] font-black text-amber-900 shadow">
+        <span className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-amber-400 border border-amber-600 flex items-center justify-center text-[7px] font-black text-amber-900 shadow z-20">
           {p.goals}
         </span>
       ) : null}
 
-      {/* Assist badge */}
+      {/* Assist badge (top-left) */}
       {p.assists ? (
-        <span className="absolute -top-2 -left-2 w-4 h-4 rounded-full bg-sky-400 border border-sky-600 flex items-center justify-center text-[7px] font-black text-sky-900 shadow">
+        <span className="absolute -top-2 -left-2 w-4 h-4 rounded-full bg-sky-400 border border-sky-600 flex items-center justify-center text-[7px] font-black text-sky-900 shadow z-20">
           A
         </span>
       ) : null}
 
       {/* Yellow card */}
       {p.yellowCard ? (
-        <span className="absolute top-1/2 -right-3 w-2 h-3 rounded-sm bg-yellow-400 border border-yellow-600" />
+        <span className="absolute top-1/2 -right-3 w-2 h-3 rounded-[1px] bg-yellow-400 border border-yellow-600 shadow z-20" />
       ) : null}
 
       {/* Red card */}
       {p.redCard ? (
-        <span className="absolute top-1/2 -left-3 w-2 h-3 rounded-sm bg-red-500 border border-red-700" />
+        <span className="absolute top-1/2 -left-3 w-2 h-3 rounded-[1px] bg-red-500 border border-red-700 shadow z-20" />
       ) : null}
 
-      {/* Captain */}
+      {/* Captain badge */}
       {p.isCaptain && (
-        <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[8px] text-amber-400 font-black">
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[9px] text-amber-400 font-black z-20">
           ©
         </span>
       )}
-    </Wrapper>
+    </div>
   );
 }
 
@@ -250,39 +285,36 @@ export default function FormationPitch({
     positions: Array<{ player: PitchPlayer; x: number; y: number }>,
     subs: PitchPlayer[],
     teamName: string,
+    formation: string | undefined,
     accent: "emerald" | "cyan",
-    sideLabel: string,
   ) => {
     const isHome = accent === "emerald";
-    const borderClass = isHome ? "border-l border-white/10" : "border-r border-white/10";
-    const gradFrom = isHome ? "from-emerald-500/5" : "from-cyan-500/5";
 
     return (
-      <div className={`relative flex-1 min-h-[380px] sm:min-h-[440px] ${borderClass} ${gradFrom} to-transparent`}>
+      <div className={`relative flex-1 min-h-[400px] sm:min-h-[460px]`}>
         {/* Team label */}
         <div
           className={`absolute left-1/2 -translate-x-1/2 z-20 px-3 py-1 rounded-md text-[9px] sm:text-[10px] font-black
-            ${isHome ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"}
+            ${isHome
+              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+              : "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+            }
           `}
-          style={{ top: isHome ? "2%" : "auto", bottom: isHome ? "auto" : "2%" }}
+          style={{ [isHome ? "bottom" : "top"]: 4 }}
         >
-          {teamName}{" "}
-          {(isHome ? homeFormation : awayFormation) && (
-            <span className="font-mono opacity-70 ml-1">{isHome ? homeFormation : awayFormation}</span>
-          )}
+          {teamName}
+          {formation && <span className="font-mono opacity-70 ml-1">{formation}</span>}
         </div>
 
         {/* Players */}
         {positions.map(({ player, x, y }, i) => {
           const dbId = resolveDbId(player, players);
           return (
-            <div key={`${player.name}-${i}`} style={{ position: "absolute", left: `${x}%`, top: `${y}%`, zIndex: 10 }}>
-              <PlayerDot
-                p={player}
-                accent={accent}
-                onSelectPlayer={onSelectPlayer}
-                dbId={dbId}
-              />
+            <div
+              key={`${player.name}-${player.number || i}`}
+              style={{ position: "absolute", left: `${x}%`, top: `${y}%`, zIndex: 10 }}
+            >
+              <PlayerDot p={player} accent={accent} onSelectPlayer={onSelectPlayer} dbId={dbId} />
             </div>
           );
         })}
@@ -291,21 +323,22 @@ export default function FormationPitch({
         {subs.length > 0 && (
           <div
             className={`absolute bottom-0 left-0 right-0 px-2 py-1.5 border-t z-20
-              ${isHome ? "border-emerald-500/20 bg-emerald-950/50" : "border-cyan-500/20 bg-cyan-950/50"}
+              ${isHome ? "border-emerald-500/20 bg-emerald-950/60" : "border-cyan-500/20 bg-cyan-950/60"}
             `}
           >
             <span className="text-[7px] font-bold text-slate-500 block mb-1">ذخیره‌ها</span>
             <div className="flex flex-wrap gap-x-2 gap-y-0.5">
               {subs.map((p, i) => {
                 const dbId = resolveDbId(p, players);
-                const isClickable = !!dbId && !!onSelectPlayer;
+                const clickable = !!dbId && !!onSelectPlayer;
                 return (
                   <span
                     key={i}
-                    onClick={isClickable ? () => onSelectPlayer!(dbId) : undefined}
-                    className={`text-[8px] font-bold inline-flex items-center gap-0.5 ${
-                      isHome ? "text-emerald-400/60" : "text-cyan-400/60"
-                    } ${isClickable ? "hover:text-white cursor-pointer transition" : ""}`}
+                    onClick={clickable ? () => onSelectPlayer!(dbId) : undefined}
+                    className={`text-[8px] font-bold inline-flex items-center gap-0.5
+                      ${isHome ? "text-emerald-400/60" : "text-cyan-400/60"}
+                      ${clickable ? "hover:text-white cursor-pointer transition" : ""}
+                    `}
                   >
                     <span className="font-mono opacity-40">{p.number || ""}</span>
                     <span>{p.name}</span>
@@ -341,40 +374,37 @@ export default function FormationPitch({
         )}
       </div>
 
-      {/* Pitch — single SVG field behind both halves */}
-      <div className="relative flex" style={{ minHeight: 440 }}>
-        {/* Pitch background */}
+      {/* Pitch */}
+      <div className="relative flex" style={{ minHeight: 460 }}>
+        {/* Grass background */}
         <div className="absolute inset-0 pointer-events-none">
-          {/* Grass */}
           <div className="absolute inset-0 bg-gradient-to-b from-green-900/30 via-green-800/20 to-green-900/30" />
-
-          {/* Mowing stripes */}
-          {Array.from({ length: 8 }).map((_, i) => (
+          {Array.from({ length: 10 }).map((_, i) => (
             <div
               key={i}
               className="absolute left-0 right-0"
               style={{
-                top: `${i * 12.5}%`,
-                height: "12.5%",
+                top: `${i * 10}%`,
+                height: "10%",
                 background: i % 2 === 0 ? "rgba(34,197,94,0.03)" : "transparent",
               }}
             />
           ))}
 
-          {/* Pitch lines SVG */}
+          {/* Pitch lines SVG — full field */}
           <svg className="absolute inset-0 w-full h-full opacity-[0.12]" viewBox="0 0 100 100" preserveAspectRatio="none">
             {/* Outer boundary */}
             <rect x="1" y="1" width="98" height="98" fill="none" stroke="white" strokeWidth="0.3" />
-            {/* Center line (vertical = dividing the two halves) */}
+            {/* Center line (horizontal divider between halves) */}
             <line x1="50" y1="1" x2="50" y2="99" stroke="white" strokeWidth="0.25" />
             {/* Center circle */}
             <circle cx="50" cy="50" r="8" fill="none" stroke="white" strokeWidth="0.2" />
             <circle cx="50" cy="50" r="0.5" fill="white" />
-            {/* Home penalty area (left) */}
+            {/* Home penalty area (left side) */}
             <rect x="1" y="30" width="12" height="40" fill="none" stroke="white" strokeWidth="0.15" />
             <rect x="1" y="37" width="5" height="26" fill="none" stroke="white" strokeWidth="0.15" />
             <circle cx="9" cy="50" r="0.4" fill="white" />
-            {/* Away penalty area (right) */}
+            {/* Away penalty area (right side) */}
             <rect x="87" y="30" width="12" height="40" fill="none" stroke="white" strokeWidth="0.15" />
             <rect x="94" y="37" width="5" height="26" fill="none" stroke="white" strokeWidth="0.15" />
             <circle cx="91" cy="50" r="0.4" fill="white" />
@@ -387,10 +417,10 @@ export default function FormationPitch({
         </div>
 
         {/* Home half */}
-        {renderHalf(homePositions, homeSubs, homeName, "emerald", "home")}
+        {renderHalf(homePositions, homeSubs, homeName, homeFormation, "emerald")}
 
         {/* Away half */}
-        {renderHalf(awayPositions, awaySubs, awayName, "cyan", "away")}
+        {renderHalf(awayPositions, awaySubs, awayName, awayFormation, "cyan")}
       </div>
 
       {/* Legend */}
