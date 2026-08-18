@@ -1,25 +1,14 @@
-import React, { useState } from "react";
+import React from "react";
 import { normalizePersianString } from "../utils";
 
 /**
- * FormationPitch — Graphical football pitch visualization.
+ * FormationPitch — Graphical football pitch with players positioned by formation.
  *
- * Shows a top-down green pitch with both teams' lineups positioned by
- * formation line index (0=GK, 1=DEF, 2=MID, 3=FWD).
+ * Each side (home/away) occupies half the pitch.
+ * Players are positioned using absolute % coords derived from the formation string.
  *
- * Player data shape expected:
- *  { id, name, number?, formationLine?, goals?, assists?, yellowCard?, redCard?, isCaptain?, substituted? }
- *
- * Props:
- *  - homeLineup / awayLineup: player arrays
- *  - homeSubs / awaySubs: substitute arrays
- *  - homeFormation / awayFormation: e.g. "4-4-2"
- *  - homeName / awayName: team display names
- *  - accent: theme accent
- *  - onSelectPlayer?: (id: string) => void
- *  - players?: any[] (DB player list for name resolution)
- *  - events?: any[] (match events for showing icons on pitch)
- *  - onEdit?: () => void (admin edit button)
+ * resolveDbId: ONLY returns IDs from the DB players list — never varzesh3 IDs.
+ * Players NOT in the DB are rendered as plain (non-clickable) labels.
  */
 
 interface PitchPlayer {
@@ -50,110 +39,197 @@ interface FormationPitchProps {
   onEdit?: () => void;
 }
 
-const LINE_Y: Record<number, number> = {
-  0: 92,   // GK — bottom
-  1: 72,   // DEF
-  2: 48,   // MID
-  3: 28,   // FWD — top
-};
-
-const POSITION_LABEL: Record<number, string> = {
-  0: "دروازه‌بان",
-  1: "مدافع",
-  2: "هافبک",
-  3: "مهاجم",
-};
-
-function resolveId(player: PitchPlayer, players?: any[]): string | undefined {
-  if (player.id) return player.id;
-  if (!players || !player.name) return undefined;
+/**
+ * Resolve a player's DB ID by name matching against the players prop.
+ * Returns undefined if the player is NOT in the DB.
+ * NEVER returns varzesh3 IDs — only real DB IDs (e.g. "player-1787040341986").
+ */
+function resolveDbId(player: PitchPlayer, dbPlayers?: any[]): string | undefined {
+  if (!dbPlayers || !player.name) return undefined;
   const n = normalizePersianString(player.name);
-  const found = players.find((p: any) => normalizePersianString(p.name || "") === n);
+  const found = dbPlayers.find((p: any) => normalizePersianString(p.name || "") === n);
   return found ? String(found.id) : undefined;
 }
 
-function PlayerNode({
+/**
+ * Parse formation string "4-4-2" into an array [4, 4, 2] representing
+ * number of players in each non-GK line: DEF, MID, FWD.
+ */
+function parseFormation(formation?: string): number[] {
+  if (!formation) return [4, 4, 2];
+  const parts = formation.split("-").map(Number).filter(n => !isNaN(n) && n > 0);
+  if (parts.length === 0) return [4, 4, 2];
+  return parts;
+}
+
+/**
+ * Assign formationLine based on player position string.
+ */
+function posToLine(p: PitchPlayer): number {
+  const pos = (p.position || "").toLowerCase();
+  if (pos.includes("دروازه") || pos.includes("gk") || pos.includes("گلر")) return 0;
+  if (pos.includes("مدافع") || pos.includes("def")) return 1;
+  if (pos.includes("هافبک") || pos.includes("وینگر") || pos.includes("mid") || pos.includes("wing")) return 2;
+  return 3;
+}
+
+/**
+ * Compute {x, y} positions for all players on one half of the pitch.
+ *
+ * Layout (home side, attacking upward):
+ *   GK:  bottom center
+ *   DEF: spread across width above GK
+ *   MID: spread across width above DEF
+ *   FWD: spread across width near top
+ *
+ * Each line's players are evenly spaced across the horizontal center.
+ * Uses the formation string to know how many players belong in each line.
+ */
+function computePositions(
+  lineup: PitchPlayer[],
+  formation: string,
+  isHome: boolean,
+): Array<{ player: PitchPlayer; x: number; y: number }> {
+  const parts = parseFormation(formation);
+
+  // Build expected lines from formation string
+  // parts = [def, mid, fwd] or [def, mid] or [def, fwd] etc.
+  // Standard: [DEF, MID, FWD] or [DEF, MID] or [DEF] etc.
+  const defCount = parts[0] || 4;
+  const midCount = parts.length > 2 ? parts[1] : (parts.length === 2 ? parts[1] : 0);
+  const fwdCount = parts.length > 2 ? parts[2] : (parts.length === 3 ? parts[2] : 0);
+
+  // Group players by their formationLine (or infer from position)
+  const groups: Record<number, PitchPlayer[]> = { 0: [], 1: [], 2: [], 3: [] };
+  for (const p of lineup) {
+    let line = p.formationLine;
+    if (line == null || line < 0 || line > 3) line = posToLine(p);
+    groups[line].push(p);
+  }
+
+  // Y positions (home: GK bottom, FWD top; away: mirrored)
+  const yMap: Record<number, number> = isHome
+    ? { 0: 88, 1: 68, 2: 44, 3: 24 }
+    : { 0: 12, 1: 32, 2: 56, 3: 76 };
+
+  const result: Array<{ player: PitchPlayer; x: number; y: number }> = [];
+
+  // Position each line: evenly space across 20%-80% horizontal
+  const positionLine = (line: number) => {
+    const players = groups[line];
+    const y = yMap[line];
+    if (players.length === 0) return;
+    const margin = 20;
+    const width = 100 - 2 * margin;
+    if (players.length === 1) {
+      result.push({ player: players[0], x: 50, y });
+    } else {
+      for (let i = 0; i < players.length; i++) {
+        const x = margin + (width * i) / (players.length - 1);
+        result.push({ player: players[i], x, y });
+      }
+    }
+  };
+
+  // Position GK first, then outfield lines
+  positionLine(0);
+  positionLine(1);
+  positionLine(2);
+  positionLine(3);
+
+  return result;
+}
+
+/* ─── Individual player node ─── */
+function PlayerDot({
   p,
   accent,
   onSelectPlayer,
-  players,
+  dbId,
 }: {
   p: PitchPlayer;
   accent: "emerald" | "cyan";
   onSelectPlayer?: (id: string) => void;
-  players?: any[];
+  dbId?: string;
 }) {
-  const rid = resolveId(p, players);
-  const isClickable = rid && onSelectPlayer;
-  const color = accent === "emerald"
-    ? "bg-emerald-500/90 border-emerald-300 text-white shadow-emerald-500/30"
-    : "bg-cyan-500/90 border-cyan-300 text-white shadow-cyan-500/30";
-
+  const isClickable = !!dbId && !!onSelectPlayer;
   const Wrapper = isClickable ? "button" : "div";
   const wrapperProps: any = isClickable
-    ? { onClick: () => onSelectPlayer(rid!), className: "group relative cursor-pointer focus:outline-none" }
-    : { className: "group relative" };
+    ? {
+        onClick: () => onSelectPlayer(dbId),
+        className: "group relative cursor-pointer focus:outline-none -translate-x-1/2 -translate-y-1/2",
+      }
+    : {
+        className: "group relative -translate-x-1/2 -translate-y-1/2",
+      };
+
+  const bgColor =
+    accent === "emerald"
+      ? "bg-emerald-500/90 border-emerald-300 text-white shadow-emerald-500/30"
+      : "bg-cyan-500/90 border-cyan-300 text-white shadow-cyan-500/30";
 
   return (
     <Wrapper {...wrapperProps}>
-      {/* Player dot */}
       <div
-        className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center
-          font-mono text-[10px] sm:text-xs font-black shadow-lg transition-transform
-          group-hover:scale-110 group-hover:shadow-xl
-          ${color}
+        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full border-2 flex items-center justify-center
+          font-mono text-[9px] sm:text-[10px] font-black shadow-lg transition-all
+          ${bgColor}
+          ${isClickable ? "group-hover:scale-125 group-hover:shadow-xl group-hover:brightness-110" : "opacity-80"}
           ${p.isCaptain ? "ring-2 ring-amber-400 ring-offset-1 ring-offset-green-800" : ""}
         `}
       >
         {p.number || "?"}
       </div>
 
-      {/* Name label */}
-      <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap pointer-events-none">
-        <span className="text-[8px] sm:text-[9px] font-bold text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+      {/* Name */}
+      <div
+        className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap pointer-events-none"
+        style={{ top: "100%", marginTop: 2 }}
+      >
+        <span
+          className={`text-[7px] sm:text-[8px] font-bold drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)] ${
+            isClickable ? "text-white" : "text-slate-300"
+          }`}
+        >
           {p.name}
         </span>
       </div>
 
-      {/* Event badges */}
-      <div className="absolute -top-1.5 -right-1.5 flex flex-col gap-0.5">
-        {p.goals ? (
-          <span className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-amber-400 border border-amber-600 flex items-center justify-center text-[8px] font-black text-amber-900 shadow">
-            {p.goals}
-          </span>
-        ) : null}
-        {p.assists ? (
-          <span className="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-sky-400 border border-sky-600 flex items-center justify-center text-[8px] font-black text-sky-900 shadow">
-            A
-          </span>
-        ) : null}
-      </div>
+      {/* Goal badge */}
+      {p.goals ? (
+        <span className="absolute -top-2 -right-2 w-4 h-4 rounded-full bg-amber-400 border border-amber-600 flex items-center justify-center text-[7px] font-black text-amber-900 shadow">
+          {p.goals}
+        </span>
+      ) : null}
 
-      {/* Card badges */}
-      <div className="absolute -top-1.5 -left-1.5 flex flex-col gap-0.5">
-        {p.yellowCard ? (
-          <span className="w-3 h-4 rounded-sm bg-yellow-400 border border-yellow-600 shadow" />
-        ) : null}
-        {p.redCard ? (
-          <span className="w-3 h-4 rounded-sm bg-red-500 border border-red-700 shadow" />
-        ) : null}
-      </div>
+      {/* Assist badge */}
+      {p.assists ? (
+        <span className="absolute -top-2 -left-2 w-4 h-4 rounded-full bg-sky-400 border border-sky-600 flex items-center justify-center text-[7px] font-black text-sky-900 shadow">
+          A
+        </span>
+      ) : null}
 
-      {/* Captain badge */}
+      {/* Yellow card */}
+      {p.yellowCard ? (
+        <span className="absolute top-1/2 -right-3 w-2 h-3 rounded-sm bg-yellow-400 border border-yellow-600" />
+      ) : null}
+
+      {/* Red card */}
+      {p.redCard ? (
+        <span className="absolute top-1/2 -left-3 w-2 h-3 rounded-sm bg-red-500 border border-red-700" />
+      ) : null}
+
+      {/* Captain */}
       {p.isCaptain && (
-        <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px]">©</span>
-      )}
-
-      {/* Substituted out indicator */}
-      {p.substituted && (
-        <span className="absolute -bottom-3 left-1/2 -translate-x-1/2 text-[7px] text-slate-400">
-          ↓
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[8px] text-amber-400 font-black">
+          ©
         </span>
       )}
     </Wrapper>
   );
 }
 
+/* ─── Main component ─── */
 export default function FormationPitch({
   homeLineup,
   awayLineup,
@@ -167,93 +243,73 @@ export default function FormationPitch({
   players,
   onEdit,
 }: FormationPitchProps) {
-  const [hovered, setHovered] = useState<"home" | "away" | null>(null);
+  const homePositions = computePositions(homeLineup, homeFormation || "4-4-2", true);
+  const awayPositions = computePositions(awayLineup, awayFormation || "4-4-2", false);
 
-  const positionPlayers = (lineup: PitchPlayer[]): Map<number, PitchPlayer[]> => {
-    const byLine = new Map<number, PitchPlayer[]>();
-    for (const p of lineup) {
-      let line = p.formationLine;
-      if (line == null) {
-        const pos = (p.position || "").toLowerCase();
-        if (pos.includes("دروازه") || pos.includes("gk")) line = 0;
-        else if (pos.includes("مدافع") || pos.includes("def")) line = 1;
-        else if (pos.includes("هافبک") || pos.includes("mid")) line = 2;
-        else line = 3;
-      }
-      if (!byLine.has(line)) byLine.set(line, []);
-      byLine.get(line)!.push(p);
-    }
-    return byLine;
-  };
-
-  const renderTeamSide = (
-    lineup: PitchPlayer[],
+  const renderHalf = (
+    positions: Array<{ player: PitchPlayer; x: number; y: number }>,
     subs: PitchPlayer[],
-    formation: string | undefined,
     teamName: string,
     accent: "emerald" | "cyan",
-    isHome: boolean,
+    sideLabel: string,
   ) => {
-    const byLine = positionPlayers(lineup);
-
-    // For home: GK at bottom (y=92), FWD at top (y=28)
-    // For away: mirror — GK at top (y=8), FWD at bottom (y=72)
-    const getY = (line: number): number => {
-      if (isHome) return LINE_Y[line] || 50;
-      // Mirror: 0->8, 1->28, 2->48, 3->68
-      const mirrored: Record<number, number> = { 0: 8, 1: 28, 2: 48, 3: 68 };
-      return mirrored[line] || 50;
-    };
-
-    // Lines sorted: GK first
-    const sortedLines = [...byLine.entries()].sort(([a], [b]) => a - b);
+    const isHome = accent === "emerald";
+    const borderClass = isHome ? "border-l border-white/10" : "border-r border-white/10";
+    const gradFrom = isHome ? "from-emerald-500/5" : "from-cyan-500/5";
 
     return (
-      <div
-        className="relative flex-1 min-h-[340px] sm:min-h-[400px]"
-        onMouseEnter={() => setHovered(accent === "emerald" ? "home" : "away")}
-        onMouseLeave={() => setHovered(null)}
-      >
-        {/* Team header */}
-        <div className={`absolute top-1 left-1/2 -translate-x-1/2 z-10 px-2 py-0.5 rounded text-[9px] sm:text-[10px] font-black
-          ${accent === "emerald" ? "bg-emerald-500/20 text-emerald-300" : "bg-cyan-500/20 text-cyan-300"}
-          border ${accent === "emerald" ? "border-emerald-500/30" : "border-cyan-500/30"}
-        `}>
-          {teamName} {formation ? <span className="font-mono opacity-70">{formation}</span> : null}
+      <div className={`relative flex-1 min-h-[380px] sm:min-h-[440px] ${borderClass} ${gradFrom} to-transparent`}>
+        {/* Team label */}
+        <div
+          className={`absolute left-1/2 -translate-x-1/2 z-20 px-3 py-1 rounded-md text-[9px] sm:text-[10px] font-black
+            ${isHome ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"}
+          `}
+          style={{ top: isHome ? "2%" : "auto", bottom: isHome ? "auto" : "2%" }}
+        >
+          {teamName}{" "}
+          {(isHome ? homeFormation : awayFormation) && (
+            <span className="font-mono opacity-70 ml-1">{isHome ? homeFormation : awayFormation}</span>
+          )}
         </div>
 
-        {sortedLines.map(([line, players]) => (
-          <div key={line} className="absolute left-1/2 -translate-x-1/2 flex justify-center gap-2 sm:gap-3"
-            style={{ top: `${getY(line)}%`, transform: "translateX(-50%)", position: "absolute" }}>
-            {players.map((p, i) => (
-              <PlayerNode key={`${line}-${i}`} p={p} accent={accent} onSelectPlayer={onSelectPlayer} players={players} />
-            ))}
-          </div>
-        ))}
+        {/* Players */}
+        {positions.map(({ player, x, y }, i) => {
+          const dbId = resolveDbId(player, players);
+          return (
+            <div key={`${player.name}-${i}`} style={{ position: "absolute", left: `${x}%`, top: `${y}%`, zIndex: 10 }}>
+              <PlayerDot
+                p={player}
+                accent={accent}
+                onSelectPlayer={onSelectPlayer}
+                dbId={dbId}
+              />
+            </div>
+          );
+        })}
 
         {/* Subs bench */}
         {subs.length > 0 && (
-          <div className={`absolute bottom-0 left-0 right-0 px-2 py-1.5 border-t
-            ${accent === "emerald" ? "border-emerald-500/20 bg-emerald-950/30" : "border-cyan-500/20 bg-cyan-950/30"}
-          `}>
-            <span className="text-[8px] font-bold text-slate-500 block mb-1">ذخیره‌ها</span>
-            <div className="flex flex-wrap gap-1">
+          <div
+            className={`absolute bottom-0 left-0 right-0 px-2 py-1.5 border-t z-20
+              ${isHome ? "border-emerald-500/20 bg-emerald-950/50" : "border-cyan-500/20 bg-cyan-950/50"}
+            `}
+          >
+            <span className="text-[7px] font-bold text-slate-500 block mb-1">ذخیره‌ها</span>
+            <div className="flex flex-wrap gap-x-2 gap-y-0.5">
               {subs.map((p, i) => {
-                const rid = resolveId(p, players);
-                const Sub = rid && onSelectPlayer ? "button" : "div";
-                const subProps: any = rid && onSelectPlayer
-                  ? { onClick: () => onSelectPlayer(rid), className: "cursor-pointer hover:text-white transition" }
-                  : {};
+                const dbId = resolveDbId(p, players);
+                const isClickable = !!dbId && !!onSelectPlayer;
                 return (
-                  <Sub key={i} {...subProps}
-                    className={`inline-flex items-center gap-0.5 text-[8px] sm:text-[9px] font-bold
-                      ${accent === "emerald" ? "text-emerald-400/70" : "text-cyan-400/70"}
-                      ${rid && onSelectPlayer ? "hover:text-white cursor-pointer" : ""}
-                    `}
+                  <span
+                    key={i}
+                    onClick={isClickable ? () => onSelectPlayer!(dbId) : undefined}
+                    className={`text-[8px] font-bold inline-flex items-center gap-0.5 ${
+                      isHome ? "text-emerald-400/60" : "text-cyan-400/60"
+                    } ${isClickable ? "hover:text-white cursor-pointer transition" : ""}`}
                   >
-                    <span className="font-mono opacity-50">{p.number || ""}</span>
+                    <span className="font-mono opacity-40">{p.number || ""}</span>
                     <span>{p.name}</span>
-                  </Sub>
+                  </span>
                 );
               })}
             </div>
@@ -265,7 +321,7 @@ export default function FormationPitch({
 
   return (
     <div className="rounded-2xl bg-[#141418] border border-white/5 overflow-hidden">
-      {/* Top bar */}
+      {/* Header */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/5 bg-gradient-to-l from-emerald-500/5 via-transparent to-cyan-500/5">
         <div className="flex items-center gap-2">
           <span className="text-xs font-black text-white">ترکیب دو تیم</span>
@@ -285,59 +341,56 @@ export default function FormationPitch({
         )}
       </div>
 
-      {/* Pitch */}
-      <div className="relative flex">
-        {/* Pitch background (full width behind both sides) */}
-        <div className="absolute inset-0">
-          {/* Main grass */}
-          <div className="absolute inset-0 bg-gradient-to-b from-green-900/40 via-green-800/30 to-green-900/40" />
+      {/* Pitch — single SVG field behind both halves */}
+      <div className="relative flex" style={{ minHeight: 440 }}>
+        {/* Pitch background */}
+        <div className="absolute inset-0 pointer-events-none">
+          {/* Grass */}
+          <div className="absolute inset-0 bg-gradient-to-b from-green-900/30 via-green-800/20 to-green-900/30" />
 
-          {/* Stripes */}
-          {[0, 1, 2, 3, 4, 5].map((i) => (
+          {/* Mowing stripes */}
+          {Array.from({ length: 8 }).map((_, i) => (
             <div
               key={i}
-              className="absolute top-0 bottom-0"
+              className="absolute left-0 right-0"
               style={{
-                left: `${i * 16.66}%`,
-                width: "16.66%",
-                background: i % 2 === 0 ? "rgba(34,197,94,0.04)" : "transparent",
+                top: `${i * 12.5}%`,
+                height: "12.5%",
+                background: i % 2 === 0 ? "rgba(34,197,94,0.03)" : "transparent",
               }}
             />
           ))}
 
-          {/* Pitch markings */}
-          <svg className="absolute inset-0 w-full h-full opacity-[0.15]" viewBox="0 0 100 100" preserveAspectRatio="none">
-            {/* Outer border */}
-            <rect x="2" y="2" width="96" height="96" fill="none" stroke="white" strokeWidth="0.3" />
-            {/* Center line */}
-            <line x1="2" y1="50" x2="98" y2="50" stroke="white" strokeWidth="0.2" />
+          {/* Pitch lines SVG */}
+          <svg className="absolute inset-0 w-full h-full opacity-[0.12]" viewBox="0 0 100 100" preserveAspectRatio="none">
+            {/* Outer boundary */}
+            <rect x="1" y="1" width="98" height="98" fill="none" stroke="white" strokeWidth="0.3" />
+            {/* Center line (vertical = dividing the two halves) */}
+            <line x1="50" y1="1" x2="50" y2="99" stroke="white" strokeWidth="0.25" />
             {/* Center circle */}
-            <circle cx="50" cy="50" r="10" fill="none" stroke="white" strokeWidth="0.2" />
+            <circle cx="50" cy="50" r="8" fill="none" stroke="white" strokeWidth="0.2" />
             <circle cx="50" cy="50" r="0.5" fill="white" />
-            {/* Left penalty area */}
-            <rect x="2" y="30" width="15" height="40" fill="none" stroke="white" strokeWidth="0.2" />
-            <rect x="2" y="38" width="6" height="24" fill="none" stroke="white" strokeWidth="0.2" />
-            <circle cx="12" cy="50" r="0.4" fill="white" />
-            {/* Right penalty area */}
-            <rect x="83" y="30" width="15" height="40" fill="none" stroke="white" strokeWidth="0.2" />
-            <rect x="92" y="38" width="6" height="24" fill="none" stroke="white" strokeWidth="0.2" />
-            <circle cx="88" cy="50" r="0.4" fill="white" />
+            {/* Home penalty area (left) */}
+            <rect x="1" y="30" width="12" height="40" fill="none" stroke="white" strokeWidth="0.15" />
+            <rect x="1" y="37" width="5" height="26" fill="none" stroke="white" strokeWidth="0.15" />
+            <circle cx="9" cy="50" r="0.4" fill="white" />
+            {/* Away penalty area (right) */}
+            <rect x="87" y="30" width="12" height="40" fill="none" stroke="white" strokeWidth="0.15" />
+            <rect x="94" y="37" width="5" height="26" fill="none" stroke="white" strokeWidth="0.15" />
+            <circle cx="91" cy="50" r="0.4" fill="white" />
             {/* Corner arcs */}
-            <path d="M 2 4 A 2 2 0 0 1 4 2" fill="none" stroke="white" strokeWidth="0.2" />
-            <path d="M 96 2 A 2 2 0 0 1 98 4" fill="none" stroke="white" strokeWidth="0.2" />
-            <path d="M 2 96 A 2 2 0 0 0 4 98" fill="none" stroke="white" strokeWidth="0.2" />
-            <path d="M 96 98 A 2 2 0 0 0 98 96" fill="none" stroke="white" strokeWidth="0.2" />
+            <path d="M 1 3 A 2 2 0 0 1 3 1" fill="none" stroke="white" strokeWidth="0.15" />
+            <path d="M 97 1 A 2 2 0 0 1 99 3" fill="none" stroke="white" strokeWidth="0.15" />
+            <path d="M 1 97 A 2 2 0 0 0 3 99" fill="none" stroke="white" strokeWidth="0.15" />
+            <path d="M 97 99 A 2 2 0 0 0 99 97" fill="none" stroke="white" strokeWidth="0.15" />
           </svg>
-
-          {/* Center divider line */}
-          <div className="absolute top-0 bottom-0 left-1/2 w-px bg-white/5" />
         </div>
 
-        {/* Home side */}
-        {renderTeamSide(homeLineup, homeSubs, homeFormation, homeName, "emerald", true)}
+        {/* Home half */}
+        {renderHalf(homePositions, homeSubs, homeName, "emerald", "home")}
 
-        {/* Away side */}
-        {renderTeamSide(awayLineup, awaySubs, awayFormation, awayName, "cyan", false)}
+        {/* Away half */}
+        {renderHalf(awayPositions, awaySubs, awayName, "cyan", "away")}
       </div>
 
       {/* Legend */}
