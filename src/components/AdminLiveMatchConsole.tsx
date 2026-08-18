@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { MatchItem, TeamItem, PlayerItem } from "../types";
+import FormationPitch from "./FormationPitch";
 import { 
   Play, 
   Pause, 
@@ -146,6 +147,8 @@ export default function AdminLiveMatchConsole({
     away: (match as any).lineups?.away || []
   });
   const [showLineupMgmt, setShowLineupMgmt] = useState<boolean>(false);
+  const [homeFormation, setHomeFormation] = useState<string>((match as any).lineups?.homeFormation || "4-4-2");
+  const [awayFormation, setAwayFormation] = useState<string>((match as any).lineups?.awayFormation || "4-4-2");
 
   // Helper helper digits converter
   const toPersianDigits = (num: number | string): string => {
@@ -250,7 +253,11 @@ export default function AdminLiveMatchConsole({
       scoreHome,
       scoreAway,
       events,
-      lineups: localLineups,
+      lineups: {
+        ...localLineups,
+        homeFormation,
+        awayFormation,
+      },
       stats: {
         possessionHome: unknownPossession ? -1 : possessionHome,
         possessionAway: unknownPossession ? -1 : possessionAway,
@@ -397,6 +404,34 @@ export default function AdminLiveMatchConsole({
     sameTeamName(p.teamName, match.teamAway)
   );
 
+  // Assign a formation line (0=GK, 1=DEF, 2=MID, 3=FWD) based on player position and formation
+  const assignFormationLine = (player: any, formation: string, isHome: boolean): number => {
+    const pos = (player.position || "").toLowerCase();
+    // GK always line 0
+    if (pos.includes("دروازه") || pos.includes("gk") || pos.includes("گلر")) return 0;
+    // Parse formation like "4-4-2" → [4,4,2]
+    const parts = formation.split("-").map(Number);
+    const defCount = parts[0] || 4;
+    const midCount = parts[1] || 4;
+    const fwdCount = parts[2] || 2;
+    // Position-based assignment
+    if (pos.includes("مدافع") || pos.includes("def")) return 1;
+    if (pos.includes("هافبک") || pos.includes("وینگر") || pos.includes("mid") || pos.includes("wing")) return 2;
+    if (pos.includes("مهاجم") || pos.includes(" fwd") || pos.includes("forward")) return 3;
+    // Default: distribute based on count - assign to least filled line
+    const lineup = isHome ? localLineups.home : localLineups.away;
+    const counts = [0, 0, 0, 0];
+    lineup.forEach((p: any) => {
+      const l = p.formationLine ?? 3;
+      if (l >= 0 && l <= 3) counts[l]++;
+    });
+    // Try FWD, then MID, then DEF
+    if (counts[3] < fwdCount) return 3;
+    if (counts[2] < midCount) return 2;
+    if (counts[1] < defCount) return 1;
+    return 2;
+  };
+
   return (
     <div className="bg-[#0e0e12]/95 border border-white/5 rounded-2xl p-5 text-white max-w-5xl mx-auto" dir="rtl" id="live-console-container">
       {/* Header Info Banner */}
@@ -446,7 +481,8 @@ export default function AdminLiveMatchConsole({
       </div>
 
       {showLineupMgmt && (
-        <div className="grid gap-4 md:grid-cols-2 mb-6" id="starting-lineup-settings-panel">
+        <div id="starting-lineup-settings-panel">
+          <div className="grid gap-4 md:grid-cols-2 mb-6">
           {/* Home Team Lineup Config */}
           <div className="bg-[#0b0b0f] border border-white/5 p-4 rounded-xl space-y-3">
             <div className="flex justify-between items-center border-b border-white/5 pb-2">
@@ -578,6 +614,56 @@ export default function AdminLiveMatchConsole({
               })}
             </div>
           </div>
+          </div>
+
+        {/* Formation Pitch Preview */}
+        {(localLineups.home.length > 0 || localLineups.away.length > 0) && (
+          <div className="space-y-4">
+            {/* Formation Pickers */}
+            <div className="flex flex-col sm:flex-row gap-3 items-center justify-center">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-emerald-400">چیدمان {match.teamHome}:</span>
+                <select
+                  value={homeFormation}
+                  onChange={(e) => setHomeFormation(e.target.value)}
+                  className="bg-[#1a1a20] border border-emerald-500/30 text-emerald-400 text-[11px] font-bold rounded px-2 py-1 cursor-pointer"
+                >
+                  {["4-4-2","4-3-3","3-5-2","3-4-3","4-2-3-1","5-3-2","5-4-1","4-1-4-1","4-5-1","3-4-1-2","2-4-4"].map(f => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-sky-400">چیدمان {match.teamAway}:</span>
+                <select
+                  value={awayFormation}
+                  onChange={(e) => setAwayFormation(e.target.value)}
+                  className="bg-[#1a1a20] border border-sky-500/30 text-sky-400 text-[11px] font-bold rounded px-2 py-1 cursor-pointer"
+                >
+                  {["4-4-2","4-3-3","3-5-2","3-4-3","4-2-3-1","5-3-2","5-4-1","4-1-4-1","4-5-1","3-4-1-2","2-4-4"].map(f => (
+                    <option key={f} value={f}>{f}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <FormationPitch
+              homeLineup={localLineups.home.map((p: any) => ({
+                ...p,
+                formationLine: assignFormationLine(p, homeFormation, true),
+              }))}
+              awayLineup={localLineups.away.map((p: any) => ({
+                ...p,
+                formationLine: assignFormationLine(p, awayFormation, false),
+              }))}
+              homeFormation={homeFormation}
+              awayFormation={awayFormation}
+              homeName={match.teamHome}
+              awayName={match.teamAway}
+            />
+          </div>
+        )}
+
         </div>
       )}
 
