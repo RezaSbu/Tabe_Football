@@ -1,5 +1,18 @@
 import React, { useState } from "react";
 import { normalizePersianString, getSafeImageUrl, toPersianDigits } from "../utils";
+import {
+  Goal,
+  MoveRight,
+  Replace,
+  Star,
+  Shield,
+  ShieldAlert,
+  HeartCrack,
+  Video,
+  CircleX,
+  CircleAlert,
+  CircleDot,
+} from "lucide-react";
 
 /**
  * FormationPitch — Vertical football pitch with formation-aware positioning.
@@ -61,76 +74,31 @@ interface FormationPitchProps {
 const IC = "w-3 h-3 sm:w-3.5 sm:h-3.5";
 
 function GoalIcon() {
-  return (
-    <svg className={IC} viewBox="0 0 16 16" fill="none">
-      <circle cx="8" cy="8" r="6.5" fill="white" stroke="#333" strokeWidth="0.6" />
-      <path d="M8 1.5L6.6 4.8H9.4L8 1.5Z" fill="#333" />
-      <path d="M1.5 8L4.8 6.6V9.4L1.5 8Z" fill="#333" />
-      <path d="M14.5 8L11.2 9.4V6.6L14.5 8Z" fill="#333" />
-      <path d="M8 14.5L9.4 11.2H6.6L8 14.5Z" fill="#333" />
-      <path d="M4 4.5L5.5 6.5L3.5 8L4 4.5Z" fill="#333" />
-      <path d="M12 4.5L10.5 6.5L12.5 8L12 4.5Z" fill="#333" />
-      <path d="M4 11.5L5.5 9.5L3.5 8L4 11.5Z" fill="#333" />
-      <path d="M12 11.5L10.5 9.5L12.5 8L12 11.5Z" fill="#333" />
-    </svg>
-  );
+  return <Goal className={IC} strokeWidth={2.5} />;
 }
 
 function AssistIcon() {
-  return (
-    <svg className={IC} viewBox="0 0 16 16" fill="none">
-      <path d="M2 11C2 11 3 9 5 8.5C7 8 8 9 9 8C10 7 11 5 13 4" stroke="#94a3b8" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M11.5 3L13.5 3.5L13 5.5" stroke="#94a3b8" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="2" cy="11.5" r="1.5" fill="#94a3b8" />
-    </svg>
-  );
+  return <MoveRight className={IC} strokeWidth={2.5} />;
 }
 
 function YellowCardIcon() {
-  return (
-    <svg className={IC} viewBox="0 0 16 16" fill="none">
-      <rect x="4.5" y="2" width="7" height="10" rx="1.2" fill="#facc15" stroke="#ca8a04" strokeWidth="0.7" />
-    </svg>
-  );
+  return <Shield className={IC} strokeWidth={2} fill="#facc15" stroke="#ca8a04" />;
 }
 
 function RedCardIcon() {
-  return (
-    <svg className={IC} viewBox="0 0 16 16" fill="none">
-      <rect x="4.5" y="2" width="7" height="10" rx="1.2" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.7" />
-    </svg>
-  );
+  return <ShieldAlert className={IC} strokeWidth={2} fill="#ef4444" stroke="#b91c1c" />;
 }
 
 function SubIcon() {
-  return (
-    <svg className={IC} viewBox="0 0 16 16" fill="none">
-      <path d="M4 5L8 2L12 5" stroke="#a78bfa" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-      <line x1="8" y1="2" x2="8" y2="10" stroke="#a78bfa" strokeWidth="1.1" strokeLinecap="round" />
-      <path d="M4 11L8 14L12 11" stroke="#a78bfa" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
-      <line x1="8" y1="6" x2="8" y2="14" stroke="#a78bfa" strokeWidth="1.1" strokeLinecap="round" opacity="0.5" />
-    </svg>
-  );
+  return <Replace className={IC} strokeWidth={2} />;
 }
 
 function OwnGoalIcon() {
-  return (
-    <svg className={IC} viewBox="0 0 16 16" fill="none">
-      <circle cx="8" cy="8" r="6" stroke="#f87171" strokeWidth="1.3" />
-      <path d="M5.5 5.5L10.5 10.5" stroke="#f87171" strokeWidth="1.4" strokeLinecap="round" />
-      <path d="M10.5 5.5L5.5 10.5" stroke="#f87171" strokeWidth="1.4" strokeLinecap="round" />
-    </svg>
-  );
+  return <CircleX className={IC} strokeWidth={2} stroke="#f87171" />;
 }
 
 function PenaltyIcon() {
-  return (
-    <svg className={IC} viewBox="0 0 16 16" fill="none">
-      <circle cx="8" cy="8" r="5.5" stroke="#facc15" strokeWidth="1.2" />
-      <line x1="8" y1="2.5" x2="8" y2="5" stroke="#facc15" strokeWidth="1.2" strokeLinecap="round" />
-      <circle cx="8" cy="8" r="1" fill="#facc15" />
-    </svg>
-  );
+  return <CircleDot className={IC} strokeWidth={2} stroke="#facc15" />;
 }
 
 function MissedPenaltyIcon() {
@@ -153,22 +121,11 @@ function VarIcon() {
 }
 
 function CaptainIcon() {
-  return (
-    <svg className={IC} viewBox="0 0 16 16" fill="none">
-      <circle cx="8" cy="8" r="6" stroke="#f59e0b" strokeWidth="1.2" />
-      <text x="8" y="11.2" textAnchor="middle" fill="#f59e0b" fontSize="9" fontWeight="900" fontFamily="monospace">C</text>
-    </svg>
-  );
+  return <Star className={IC} strokeWidth={2} fill="#f59e0b" stroke="#d97706" />;
 }
 
 function InjuryIcon() {
-  return (
-    <svg className={IC} viewBox="0 0 16 16" fill="none">
-      <circle cx="8" cy="8" r="6" stroke="#ef4444" strokeWidth="1.2" />
-      <rect x="7" y="4" width="2" height="8" rx="0.5" fill="#ef4444" />
-      <rect x="4" y="7" width="8" height="2" rx="0.5" fill="#ef4444" />
-    </svg>
-  );
+  return <HeartCrack className={IC} strokeWidth={2} stroke="#ef4444" />;
 }
 
 /* ═══════════════════════════════════════════════════════════════
