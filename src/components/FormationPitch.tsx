@@ -2,12 +2,13 @@ import React, { useState } from "react";
 import { normalizePersianString, getSafeImageUrl, toPersianDigits } from "../utils";
 
 /**
- * FormationPitch — Horizontal football pitch.
+ * FormationPitch — Professional football formation display.
  *
  *   TEAM 2 (LEFT)                        TEAM 1 (RIGHT)
  *   GK → DEF → MID → ATT    |    ATT ← MID ← DEF ← GK
  *
- *  X = depth (goal→center), Y = width (spread within line)
+ * Formation-aware positioning with compact strikers, wide wingers,
+ * and role-based Y spread. All event icons are SVG, no emoji.
  */
 
 interface PitchPlayer {
@@ -21,6 +22,7 @@ interface PitchPlayer {
   redCard?: number;
   substituted?: boolean;
   subMinute?: number | string | null;
+  isCaptain?: boolean;
   position?: string;
 }
 
@@ -38,7 +40,121 @@ interface FormationPitchProps {
   onEdit?: () => void;
 }
 
-/* ─── Helpers ─── */
+/* ═══════════════════════════════════════════════════════════════
+   SVG Event Icons — unified design language, no emoji
+   ═══════════════════════════════════════════════════════════════ */
+
+const ICON = "w-3 h-3 sm:w-3.5 sm:h-3.5";
+
+function GoalIcon() {
+  return (
+    <svg className={ICON} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="8" cy="8" r="6.5" stroke="#facc15" strokeWidth="1.5" />
+      <path d="M8 1.5L6.2 5.5H9.8L8 1.5Z" fill="#facc15" opacity="0.7" />
+      <path d="M1.5 8L5.5 6.2V9.8L1.5 8Z" fill="#facc15" opacity="0.7" />
+      <path d="M14.5 8L10.5 9.8V6.2L14.5 8Z" fill="#facc15" opacity="0.7" />
+      <path d="M8 14.5L9.8 10.5H6.2L8 14.5Z" fill="#facc15" opacity="0.7" />
+    </svg>
+  );
+}
+
+function AssistIcon() {
+  return (
+    <svg className={ICON} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="5" cy="8" r="3" stroke="#38bdf8" strokeWidth="1.3" />
+      <path d="M8 8L13 4" stroke="#38bdf8" strokeWidth="1.3" strokeLinecap="round" />
+      <path d="M11 3L13 4L12 6" stroke="#38bdf8" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function YellowCardIcon() {
+  return (
+    <svg className={ICON} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="2" width="8" height="11" rx="1.5" fill="#facc15" stroke="#ca8a04" strokeWidth="0.8" />
+    </svg>
+  );
+}
+
+function RedCardIcon() {
+  return (
+    <svg className={ICON} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="4" y="2" width="8" height="11" rx="1.5" fill="#ef4444" stroke="#b91c1c" strokeWidth="0.8" />
+    </svg>
+  );
+}
+
+function SubIcon() {
+  return (
+    <svg className={ICON} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M8 2V14" stroke="#a78bfa" strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M5 5L8 2L11 5" stroke="#a78bfa" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M5 11L8 14L11 11" stroke="#a78bfa" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function OwnGoalIcon() {
+  return (
+    <svg className={ICON} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="8" cy="8" r="6.5" stroke="#f87171" strokeWidth="1.5" />
+      <path d="M8 1.5L6.2 5.5H9.8L8 1.5Z" fill="#f87171" opacity="0.6" />
+      <path d="M5 11L11 5" stroke="#f87171" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PenaltyIcon() {
+  return (
+    <svg className={ICON} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="8" cy="9" r="5.5" stroke="#facc15" strokeWidth="1.3" />
+      <path d="M8 3.5L7 6.5H9L8 3.5Z" fill="#facc15" opacity="0.6" />
+      <line x1="8" y1="1" x2="8" y2="3" stroke="#facc15" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function MissedPenaltyIcon() {
+  return (
+    <svg className={ICON} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="8" cy="8" r="6" stroke="#71717a" strokeWidth="1.2" strokeDasharray="2 1.5" />
+      <path d="M5.5 5.5L10.5 10.5" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M10.5 5.5L5.5 10.5" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function VarIcon() {
+  return (
+    <svg className={ICON} viewBox="0 0 20 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="1" y="2" width="18" height="12" rx="2" fill="#6366f1" opacity="0.9" />
+      <text x="10" y="11" textAnchor="middle" fill="white" fontSize="7" fontWeight="900" fontFamily="monospace">VAR</text>
+    </svg>
+  );
+}
+
+function CaptainIcon() {
+  return (
+    <svg className={ICON} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="8" cy="8" r="6" stroke="#f59e0b" strokeWidth="1.3" />
+      <text x="8" y="11.5" textAnchor="middle" fill="#f59e0b" fontSize="9" fontWeight="900" fontFamily="monospace">C</text>
+    </svg>
+  );
+}
+
+function InjuryIcon() {
+  return (
+    <svg className={ICON} viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="8" cy="8" r="6" stroke="#ef4444" strokeWidth="1.3" />
+      <rect x="7" y="4" width="2" height="8" rx="0.5" fill="#ef4444" />
+      <rect x="4" y="7" width="8" height="2" rx="0.5" fill="#ef4444" />
+    </svg>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Helpers
+   ═══════════════════════════════════════════════════════════════ */
 
 function findDbPlayer(player: PitchPlayer, dbPlayers?: any[]): any | undefined {
   if (!dbPlayers || !player.name) return undefined;
@@ -60,21 +176,61 @@ function posToLine(p: PitchPlayer): number {
   return 3;
 }
 
-function assignLines(lineup: PitchPlayer[], formation: string): Map<number, PitchPlayer[]> {
+/** Resolve formation into {defCount, midCount, fwdCount} from 3 or 4 part string. */
+function resolveFormationCounts(formation: string): { def: number; mid: number; fwd: number } {
   const parts = parseFormation(formation);
-  const limits: Record<number, number> = { 0: 1, 1: 0, 2: 0, 3: 0 };
+  if (parts.length === 3) return { def: parts[0], mid: parts[1], fwd: parts[2] };
+  if (parts.length === 4) return { def: parts[0], mid: parts[1] + parts[2], fwd: parts[3] };
+  if (parts.length === 2) return { def: parts[0], mid: parts[1], fwd: 10 - parts[0] - parts[1] };
+  return { def: 4, mid: 4, fwd: 2 };
+}
 
-  if (parts.length === 3) {
-    limits[1] = parts[0]; limits[2] = parts[1]; limits[3] = parts[2];
-  } else if (parts.length === 2) {
-    limits[1] = parts[0]; limits[2] = parts[1];
-    limits[3] = Math.max(0, 10 - parts[0] - parts[1]);
-  } else if (parts.length === 1) {
-    limits[1] = parts[0]; limits[2] = Math.max(0, 10 - parts[0]);
-  } else {
-    limits[1] = 4; limits[2] = 4; limits[3] = 2;
+/** Y spread range for a line based on count and context. */
+function getYRange(line: 0 | 1 | 2 | 3, count: number): { yMin: number; yMax: number } {
+  if (line === 0) return { yMin: 50, yMax: 50 }; // GK always center
+  if (line === 1) {
+    // DEF: more spread for 4-5, moderate for 3
+    if (count >= 4) return { yMin: 12, yMax: 88 };
+    if (count === 3) return { yMin: 25, yMax: 75 };
+    return { yMin: 35, yMax: 65 };
   }
+  if (line === 2) {
+    // MID
+    if (count >= 5) return { yMin: 10, yMax: 90 };  // wingbacks full width
+    if (count === 4) return { yMin: 15, yMax: 85 };
+    if (count === 3) return { yMin: 28, yMax: 72 };
+    if (count === 2) return { yMin: 38, yMax: 62 };  // double pivot compact
+    return { yMin: 45, yMax: 55 };
+  }
+  // FWD
+  if (count === 1) return { yMin: 50, yMax: 50 };
+  if (count === 2) return { yMin: 38, yMax: 62 };   // compact pair
+  if (count === 3) return { yMin: 12, yMax: 88 };   // wide trident: LW, ST, RW
+  return { yMin: 15, yMax: 85 };
+}
 
+/**
+ * Compute positions for one team. Formation-aware, compact strikers, wide wingers.
+ *
+ * X: depth from own goal toward center
+ * Y: width within each line, using formation-aware spread
+ */
+function computePositions(
+  lineup: PitchPlayer[],
+  formation: string,
+  isHome: boolean,
+): Array<{ player: PitchPlayer; x: number; y: number }> {
+  const { def, mid, fwd } = resolveFormationCounts(formation);
+
+  // X depth positions — shifted further apart
+  const xHome: Record<number, number> = { 0: 92, 1: 76, 2: 63, 3: 55 };
+  const xAway: Record<number, number> = { 0: 8, 1: 24, 2: 37, 3: 45 };
+  const xMap = isHome ? xHome : xAway;
+
+  // Count per line
+  const lineCounts: Record<number, number> = { 1: def, 2: mid, 3: fwd };
+
+  // Assign players to lines
   const sorted = [...lineup].sort((a, b) => {
     const la = a.formationLine ?? posToLine(a);
     const lb = b.formationLine ?? posToLine(b);
@@ -82,7 +238,8 @@ function assignLines(lineup: PitchPlayer[], formation: string): Map<number, Pitc
     return (Number(a.number) || 99) - (Number(b.number) || 99);
   });
 
-  const result = new Map<number, PitchPlayer[]>();
+  const groups = new Map<number, PitchPlayer[]>();
+  const limits: Record<number, number> = { 0: 1, 1: def, 2: mid, 3: fwd };
   const counts: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0 };
 
   for (const p of sorted) {
@@ -95,71 +252,58 @@ function assignLines(lineup: PitchPlayer[], formation: string): Map<number, Pitc
       else if (line === 2 && counts[1] < limits[1]) line = 1;
       else if (line === 3 && counts[2] < limits[2]) line = 2;
     }
-    if (!result.has(line)) result.set(line, []);
-    result.get(line)!.push(p);
+    if (!groups.has(line)) groups.set(line, []);
+    groups.get(line)!.push(p);
     counts[line]++;
   }
-  return result;
-}
-
-function computePositions(
-  lineup: PitchPlayer[],
-  formation: string,
-  isHome: boolean,
-): Array<{ player: PitchPlayer; x: number; y: number }> {
-  const groups = assignLines(lineup, formation);
-  // Shifted further apart: more gap between ATT lines
-  const xHome: Record<number, number> = { 0: 92, 1: 76, 2: 63, 3: 55 };
-  const xAway: Record<number, number> = { 0: 8, 1: 24, 2: 37, 3: 45 };
-  const xMap = isHome ? xHome : xAway;
 
   const result: Array<{ player: PitchPlayer; x: number; y: number }> = [];
-  for (const line of [0, 1, 2, 3]) {
+
+  for (const line of [0, 1, 2, 3] as const) {
     const players = groups.get(line) || [];
     if (players.length === 0) continue;
+
     const x = xMap[line];
-    const yMin = 12, yMax = 88;
-    if (players.length === 1) {
-      result.push({ player: players[0], x, y: 50 });
+    const { yMin, yMax } = getYRange(line, players.length);
+    const yRange = yMax - yMin;
+
+    if (players.length === 1 || yRange === 0) {
+      for (const p of players) {
+        result.push({ player: p, x, y: 50 });
+      }
     } else {
       for (let i = 0; i < players.length; i++) {
-        const y = yMin + ((yMax - yMin) * i) / (players.length - 1);
+        const y = yMin + (yRange * i) / (players.length - 1);
         result.push({ player: players[i], x, y });
       }
     }
   }
+
   return result;
 }
 
-/* ─── Football boot SVG icon (Fotmob-style) ─── */
-function BootIcon({ className = "w-3 h-3" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-      <path d="M21 15.5c-.3 0-.5-.1-.7-.3l-1.2-1.1c-.2-.2-.5-.3-.8-.3H15v-1h2.8c.5 0 1-.3 1.2-.7l1.5-3c.1-.2.2-.4.2-.6 0-.5-.4-1-1-1H14.5l-1.5 2H9.7L8 9.5C7.8 9.2 7.4 9 7 9H4c-.6 0-1 .4-1 1v4c0 .3.2.5.5.5.1 0 .2 0 .3-.1l1.8-1.8c.2-.2.5-.3.8-.3H8v1H5.5c-.8 0-1.5.7-1.5 1.5S4.7 17 5.5 17h3.3c.5 0 1-.3 1.2-.7l1.8-2.8c.2-.3.5-.5.8-.5h4.4c.8 0 1.5-.7 1.5-1.5 0-.3-.1-.5-.3-.7l-1.8-1.3c-.3-.2-.4-.5-.4-.8V8.5c0-.6.4-1 1-1h2.5c.3 0 .6.2.8.4l1 2c.2.4.3.8.3 1.3v3.3c0 .5-.2 1-.6 1.3-.1.1-.3.2-.5.2z" />
-    </svg>
-  );
-}
+/* ═══════════════════════════════════════════════════════════════
+   Player Node — circle + name + event container
+   ═══════════════════════════════════════════════════════════════ */
 
-/* ─── Player photo badge ─── */
-function PlayerAvatar({
-  image, accent,
-}: { image?: string; accent: "emerald" | "cyan" }) {
+function PlayerAvatar({ image, accent }: { image?: string; accent: "emerald" | "cyan" }) {
   const [imgErr, setImgErr] = useState(false);
   if (!image || imgErr) return null;
   const border = accent === "emerald" ? "border-emerald-300" : "border-cyan-300";
   return (
-    <img
-      loading="lazy" decoding="async"
-      src={getSafeImageUrl(image)}
-      alt=""
+    <img loading="lazy" decoding="async" src={getSafeImageUrl(image)} alt=""
       className={`absolute inset-0 w-full h-full rounded-full object-cover border-2 ${border}`}
-      referrerPolicy="no-referrer"
-      onError={() => setImgErr(true)}
-    />
+      referrerPolicy="no-referrer" onError={() => setImgErr(true)} />
   );
 }
 
-/* ─── Player dot ─── */
+function formatMinute(raw: number | string | null | undefined): string | null {
+  if (raw == null) return null;
+  const s = String(raw);
+  if (!s || s === "null") return null;
+  return toPersianDigits(s) + "'";
+}
+
 function PlayerDot({
   p, accent, onSelectPlayer, dbId, dbImage,
 }: {
@@ -173,12 +317,15 @@ function PlayerDot({
   const border = accent === "emerald" ? "border-emerald-300" : "border-cyan-300";
   const bg = accent === "emerald" ? "bg-emerald-600" : "bg-cyan-600";
 
+  const hasEvents = !!(p.goals || p.assists || p.yellowCard || p.redCard || p.substituted || p.isCaptain);
+  const subMin = formatMinute(p.subMinute);
+
   return (
     <div
-      className={`relative -translate-x-1/2 -translate-y-1/2 ${isClickable ? "cursor-pointer group" : ""}`}
+      className={`relative -translate-x-1/2 flex flex-col items-center ${isClickable ? "cursor-pointer group" : ""}`}
       onClick={isClickable ? () => onSelectPlayer!(dbId) : undefined}
     >
-      {/* Circle — photo or number */}
+      {/* Player circle */}
       <div className={`relative w-9 h-9 sm:w-10 sm:h-10 rounded-full border-2 flex items-center justify-center
         font-mono text-[9px] sm:text-[10px] font-black shadow-lg transition-all duration-150
         ${bg} ${border} text-white shadow-black/40
@@ -191,63 +338,64 @@ function PlayerDot({
         )}
       </div>
 
-      {/* Name below */}
-      <div className="absolute left-1/2 -translate-x-1/2 whitespace-nowrap pointer-events-none mt-0.5">
+      {/* Name */}
+      <div className="whitespace-nowrap pointer-events-none mt-0.5">
         <span className={`text-[7px] sm:text-[8px] font-bold drop-shadow-[0_1px_4px_rgba(0,0,0,0.95)] leading-none ${isClickable ? "text-white" : "text-slate-300/80"}`}>
           {p.name}
         </span>
       </div>
 
-      {/* Goals — ⚽ */}
-      {p.goals ? (
-        <span className="absolute -top-3 -right-3 flex items-center z-20">
-          {Array.from({ length: Math.min(p.goals, 5) }).map((_, i) => (
-            <span key={i} className="text-xs leading-none" style={{ marginLeft: i > 0 ? -3 : 0 }}>⚽</span>
-          ))}
-          {p.goals > 5 && (
-            <span className="text-[8px] font-black text-amber-400 ml-0.5">+{p.goals - 5}</span>
-          )}
-        </span>
-      ) : null}
+      {/* Event container — below name, independent layer */}
+      {hasEvents && (
+        <div className="flex flex-col items-center gap-px mt-0.5 pointer-events-none">
+          {/* Goals */}
+          {p.goals ? (
+            <div className="flex items-center gap-px">
+              {Array.from({ length: Math.min(p.goals, 5) }).map((_, i) => (
+                <GoalIcon key={`g${i}`} />
+              ))}
+              {p.goals > 5 && <span className="text-[7px] font-black text-amber-400">+{p.goals - 5}</span>}
+            </div>
+          ) : null}
 
-      {/* Assists — football boot SVG */}
-      {p.assists ? (
-        <span className="absolute -top-3 -left-3 flex items-center gap-px z-20">
-          {Array.from({ length: Math.min(p.assists, 5) }).map((_, i) => (
-            <span key={i} className="text-sky-400" style={{ marginRight: i > 0 ? -2 : 0 }}>
-              <BootIcon className="w-3.5 h-3.5" />
-            </span>
-          ))}
-          {p.assists > 5 && (
-            <span className="text-[8px] font-black text-sky-400">+{p.assists - 5}</span>
-          )}
-        </span>
-      ) : null}
+          {/* Assists */}
+          {p.assists ? (
+            <div className="flex items-center gap-px">
+              {Array.from({ length: Math.min(p.assists, 5) }).map((_, i) => (
+                <AssistIcon key={`a${i}`} />
+              ))}
+              {p.assists > 5 && <span className="text-[7px] font-black text-sky-400">+{p.assists - 5}</span>}
+            </div>
+          ) : null}
 
-      {/* Yellow card */}
-      {p.yellowCard ? (
-        <span className="absolute -right-3 top-1/2 -translate-y-1/2 w-2 h-3 rounded-[1px] bg-yellow-400 border border-yellow-600 shadow z-20" />
-      ) : null}
+          {/* Yellow card */}
+          {p.yellowCard ? <YellowCardIcon /> : null}
 
-      {/* Red card */}
-      {p.redCard ? (
-        <span className="absolute -left-3 top-1/2 -translate-y-1/2 w-2 h-3 rounded-[1px] bg-red-500 border border-red-700 shadow z-20" />
-      ) : null}
+          {/* Red card */}
+          {p.redCard ? <RedCardIcon /> : null}
 
-      {/* Substituted — 🔄 + minute */}
-      {p.substituted && (
-        <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-px z-20 whitespace-nowrap">
-          <span className="text-[10px] leading-none">🔄</span>
-          {p.subMinute != null && (
-            <span className="text-[8px] font-mono font-black text-amber-400">{toPersianDigits(String(p.subMinute))}'</span>
-          )}
-        </span>
+          {/* Captain */}
+          {p.isCaptain ? <CaptainIcon /> : null}
+
+          {/* Substitution + minute */}
+          {p.substituted ? (
+            <div className="flex items-center gap-0.5">
+              <SubIcon />
+              {subMin && (
+                <span className="text-[7px] sm:text-[8px] font-mono font-black text-violet-400 leading-none">{subMin}</span>
+              )}
+            </div>
+          ) : null}
+        </div>
       )}
     </div>
   );
 }
 
-/* ─── Main component ─── */
+/* ═══════════════════════════════════════════════════════════════
+   Main Component
+   ═══════════════════════════════════════════════════════════════ */
+
 export default function FormationPitch({
   homeLineup, awayLineup,
   homeSubs = [], awaySubs = [],
@@ -278,7 +426,7 @@ export default function FormationPitch({
       </div>
 
       {/* Pitch */}
-      <div className="relative" style={{ minHeight: 480 }}>
+      <div className="relative" style={{ minHeight: 520 }}>
         {/* Background */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute inset-0 bg-gradient-to-r from-green-900/30 via-green-800/20 to-green-900/30" />
@@ -350,14 +498,18 @@ export default function FormationPitch({
             <div className="flex flex-wrap gap-x-2 gap-y-0.5">
               {awaySubs.map((p, i) => {
                 const db = findDbPlayer(p, players);
-                const dbId = db ? String(db.id) : undefined;
-                const clickable = !!dbId && !!onSelectPlayer;
+                const clickable = !!db && !!onSelectPlayer;
+                const subMin = formatMinute(p.subMinute);
                 return (
-                  <span key={i} onClick={clickable ? () => onSelectPlayer!(dbId) : undefined}
+                  <span key={i} onClick={clickable ? () => onSelectPlayer!(String(db!.id)) : undefined}
                     className={`text-[8px] font-bold inline-flex items-center gap-0.5 text-cyan-400/60 ${clickable ? "hover:text-white cursor-pointer transition" : ""}`}>
                     <span className="font-mono opacity-40">{p.number || ""}</span>
                     <span>{p.name}</span>
-                    {p.substituted && <span className="text-[8px] mr-0.5">🔄</span>}
+                    {p.substituted && (
+                      <span className="inline-flex items-center gap-px ml-0.5">
+                        <SubIcon />{subMin && <span className="text-[7px] font-mono text-violet-400">{subMin}</span>}
+                      </span>
+                    )}
                   </span>
                 );
               })}
@@ -373,14 +525,18 @@ export default function FormationPitch({
             <div className="flex flex-wrap gap-x-2 gap-y-0.5">
               {homeSubs.map((p, i) => {
                 const db = findDbPlayer(p, players);
-                const dbId = db ? String(db.id) : undefined;
-                const clickable = !!dbId && !!onSelectPlayer;
+                const clickable = !!db && !!onSelectPlayer;
+                const subMin = formatMinute(p.subMinute);
                 return (
-                  <span key={i} onClick={clickable ? () => onSelectPlayer!(dbId) : undefined}
+                  <span key={i} onClick={clickable ? () => onSelectPlayer!(String(db!.id)) : undefined}
                     className={`text-[8px] font-bold inline-flex items-center gap-0.5 text-emerald-400/60 ${clickable ? "hover:text-white cursor-pointer transition" : ""}`}>
                     <span className="font-mono opacity-40">{p.number || ""}</span>
                     <span>{p.name}</span>
-                    {p.substituted && <span className="text-[8px] mr-0.5">🔄</span>}
+                    {p.substituted && (
+                      <span className="inline-flex items-center gap-px ml-0.5">
+                        <SubIcon />{subMin && <span className="text-[7px] font-mono text-violet-400">{subMin}</span>}
+                      </span>
+                    )}
                   </span>
                 );
               })}
@@ -390,16 +546,13 @@ export default function FormationPitch({
       </div>
 
       {/* Legend */}
-      <div className="flex items-center justify-center gap-4 px-4 py-2 border-t border-white/5 text-[8px] sm:text-[9px] text-slate-500 font-bold">
-        <span className="flex items-center gap-1"><span className="text-xs">⚽</span> گل</span>
-        <span className="flex items-center gap-1"><span className="text-sky-400"><BootIcon className="w-3.5 h-3.5" /></span> پاس گل</span>
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-3 rounded-sm bg-yellow-400 border border-yellow-600 inline-block" /> کارت زرد
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="w-2 h-3 rounded-sm bg-red-500 border border-red-700 inline-block" /> کارت قرمز
-        </span>
-        <span className="flex items-center gap-1"><span className="text-xs">🔄</span> تعویض</span>
+      <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 px-4 py-2 border-t border-white/5 text-[8px] sm:text-[9px] text-slate-500 font-bold">
+        <span className="flex items-center gap-1"><GoalIcon /> <span>گل</span></span>
+        <span className="flex items-center gap-1"><AssistIcon /> <span>پاس گل</span></span>
+        <span className="flex items-center gap-1"><YellowCardIcon /> <span>کارت زرد</span></span>
+        <span className="flex items-center gap-1"><RedCardIcon /> <span>کارت قرمز</span></span>
+        <span className="flex items-center gap-1"><SubIcon /> <span>تعویض</span></span>
+        <span className="flex items-center gap-1"><CaptainIcon /> <span>کاپیتان</span></span>
       </div>
     </div>
   );
