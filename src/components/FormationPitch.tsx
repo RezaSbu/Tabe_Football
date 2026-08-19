@@ -63,11 +63,12 @@ const IC = "w-3 h-3 sm:w-3.5 sm:h-3.5";
 function GoalIcon() {
   return (
     <svg className={IC} viewBox="0 0 16 16" fill="none">
-      <circle cx="8" cy="8" r="6" stroke="#facc15" strokeWidth="1.4" />
-      <path d="M8 2L6.5 5.5H9.5L8 2Z" fill="#facc15" opacity="0.8" />
-      <path d="M2 8L5.5 6.5V9.5L2 8Z" fill="#facc15" opacity="0.8" />
-      <path d="M14 8L10.5 9.5V6.5L14 8Z" fill="#facc15" opacity="0.8" />
-      <path d="M8 14L9.5 10.5H6.5L8 14Z" fill="#facc15" opacity="0.8" />
+      <circle cx="8" cy="8" r="6" fill="white" stroke="#404040" strokeWidth="0.8" />
+      <path d="M8 2.2L6.8 5.2H9.2L8 2.2Z" fill="#404040" />
+      <path d="M2.2 8L5.2 6.8V9.2L2.2 8Z" fill="#404040" />
+      <path d="M13.8 8L10.8 9.2V6.8L13.8 8Z" fill="#404040" />
+      <path d="M8 13.8L9.2 10.8H6.8L8 13.8Z" fill="#404040" />
+      <circle cx="8" cy="8" r="6" fill="none" stroke="#404040" strokeWidth="0.8" />
     </svg>
   );
 }
@@ -75,9 +76,9 @@ function GoalIcon() {
 function AssistIcon() {
   return (
     <svg className={IC} viewBox="0 0 16 16" fill="none">
-      <circle cx="4.5" cy="10" r="2.8" stroke="#38bdf8" strokeWidth="1.2" />
-      <path d="M7.3 9L12 4.5" stroke="#38bdf8" strokeWidth="1.2" strokeLinecap="round" />
-      <path d="M10 3L12.5 4.2L11.3 6.5" stroke="#38bdf8" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M2 12L4 8L7 9L10 5L12 6L14 3" stroke="#e2e8f0" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M13 2L14 3L13 4" stroke="#e2e8f0" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="14" cy="3" r="1.2" fill="#e2e8f0" />
     </svg>
   );
 }
@@ -333,12 +334,13 @@ function PlayerDot({
 
   return (
     <div
-      className={`relative -translate-x-1/2 -translate-y-1/2 flex flex-col items-center ${clickable ? "cursor-pointer group" : ""}`}
+      className={`relative -translate-x-1/2 flex flex-col items-center ${clickable ? "cursor-pointer group" : ""}`}
+      style={{ marginTop: -20 }}
       onClick={clickable ? () => onSelectPlayer!(dbId) : undefined}
     >
-      {/* Circle */}
+      {/* Circle — anchored at center */}
       <div className={`relative w-8 h-8 sm:w-9 sm:h-9 rounded-full border-2 flex items-center justify-center
-        font-mono text-[8px] sm:text-[9px] font-black shadow-lg transition-all duration-150
+        font-mono text-[8px] sm:text-[9px] font-black shadow-lg transition-all duration-150 shrink-0
         ${bg} ${bdr} text-white shadow-black/40
         ${clickable ? "group-hover:scale-110 group-hover:brightness-110 group-hover:shadow-xl" : "opacity-90"}
       `}>
@@ -424,16 +426,16 @@ export default function FormationPitch({
       <div className="relative w-full" style={{ paddingBottom: "160%" }}>
         {/* Background */}
         <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute inset-0 bg-gradient-to-b from-green-900/30 via-green-800/20 to-green-900/30" />
+          <div className="absolute inset-0 bg-gradient-to-b from-green-700/40 via-green-600/30 to-green-700/40" />
           {/* Mowing stripes — horizontal bands */}
           {Array.from({ length: 12 }).map((_, i) => (
             <div key={i} className="absolute left-0 right-0" style={{
               top: `${(i / 12) * 100}%`, height: `${100 / 12}%`,
-              background: i % 2 === 0 ? "rgba(34,197,94,0.03)" : "transparent",
+              background: i % 2 === 0 ? "rgba(34,197,94,0.06)" : "transparent",
             }} />
           ))}
           {/* Pitch markings — VERTICAL orientation */}
-          <svg className="absolute inset-0 w-full h-full opacity-[0.12]" viewBox="0 0 100 160" preserveAspectRatio="none">
+          <svg className="absolute inset-0 w-full h-full opacity-[0.18]" viewBox="0 0 100 160" preserveAspectRatio="none">
             {/* Outer boundary */}
             <rect x="2" y="2" width="96" height="156" fill="none" stroke="white" strokeWidth="0.3" />
             {/* Center line — HORIZONTAL */}
@@ -457,16 +459,16 @@ export default function FormationPitch({
           </svg>
         </div>
 
-        {/* Team labels */}
-        <div className="absolute left-1/2 -translate-x-1/2 z-20 px-3 py-1 rounded-md text-[9px] sm:text-[10px] font-black bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
-          style={{ top: 8 }}>
+        {/* Team labels — left side, aligned with GK */}
+        <div className="absolute z-20 px-3 py-1 rounded-md text-[9px] sm:text-[10px] font-black bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
+          style={{ left: "2%", top: "3%" }}>
           {awayName}
-          {awayFormation && <span className="font-mono opacity-70 ml-1">{awayFormation}</span>}
+          {awayFormation && <span className="font-mono opacity-70 mr-1">{awayFormation}</span>}
         </div>
-        <div className="absolute left-1/2 -translate-x-1/2 z-20 px-3 py-1 rounded-md text-[9px] sm:text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-          style={{ bottom: 8 }}>
+        <div className="absolute z-20 px-3 py-1 rounded-md text-[9px] sm:text-[10px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+          style={{ left: "2%", bottom: "3%" }}>
           {homeName}
-          {homeFormation && <span className="font-mono opacity-70 ml-1">{homeFormation}</span>}
+          {homeFormation && <span className="font-mono opacity-70 mr-1">{homeFormation}</span>}
         </div>
 
         {/* Players — away (top team, cyan) */}
