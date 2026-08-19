@@ -1,18 +1,5 @@
 import React, { useState } from "react";
 import { normalizePersianString, getSafeImageUrl, toPersianDigits } from "../utils";
-import {
-  Goal,
-  MoveRight,
-  Replace,
-  Star,
-  Shield,
-  ShieldAlert,
-  HeartCrack,
-  Video,
-  CircleX,
-  CircleAlert,
-  CircleDot,
-} from "lucide-react";
 
 /**
  * FormationPitch — Vertical football pitch with formation-aware positioning.
@@ -73,59 +60,129 @@ interface FormationPitchProps {
 
 const IC = "w-3 h-3 sm:w-3.5 sm:h-3.5";
 
+/* Football/Soccer ball — clean hexagon pattern */
 function GoalIcon() {
-  return <Goal className={IC} strokeWidth={2.5} />;
+  return (
+    <svg className={IC} viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M12 2a9.96 9.96 0 0 0-6.93 2.87l4.24 2.45A4.47 4.47 0 0 1 12 7.53a4.47 4.47 0 0 1 2.69-.15l4.24-2.45A9.96 9.96 0 0 0 12 2Z" fill="currentColor" opacity="0.15" />
+      <path d="M12 2a9.96 9.96 0 0 0-6.93 2.87l4.24 2.45A4.47 4.47 0 0 1 12 7.53" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M12 2a9.96 9.96 0 0 1 6.93 2.87l-4.24 2.45A4.47 4.47 0 0 0 12 7.53" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="12" cy="12" r="3.5" fill="currentColor" />
+      <path d="M7.76 7.32L3.81 4.45A10.05 10.05 0 0 0 2 12c0 3.5 1.84 6.57 4.6 8.3L12 22l5.4-1.7A10.05 10.05 0 0 0 22 12c0-2.86-1.12-5.46-2.95-7.38l-3.29 2.7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="8" cy="15" r="2" fill="currentColor" opacity="0.25" />
+      <circle cx="16" cy="15" r="2" fill="currentColor" opacity="0.25" />
+    </svg>
+  );
 }
 
+/* Football boot — side view silhouette */
 function AssistIcon() {
-  return <MoveRight className={IC} strokeWidth={2.5} />;
+  return (
+    <svg className={IC} viewBox="0 0 24 24" fill="none">
+      <path d="M3 18h18v1.5a1.5 1.5 0 0 1-1.5 1.5H4.5A1.5 1.5 0 0 1 3 19.5V18Z" fill="currentColor" opacity="0.2" />
+      <path d="M4.5 15c0 0 .5-2 1.5-3s2.5-2 4-3 3-1.5 4-2 2-.5 3 0 2 1 3 2l2.5 3.5c.3.5.5 1.1.5 1.7V18H3v-1c0-.7.2-1.4.6-2L4.5 15Z" fill="currentColor" opacity="0.15" />
+      <path d="M4.5 15c0 0 .5-2 1.5-3s2.5-2 4-3 3-1.5 4-2 2-.5 3 0 2 1 3 2l2.5 3.5c.3.5.5 1.1.5 1.7V18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <line x1="3" y1="18" x2="21" y2="18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="6" y1="19.5" x2="6" y2="21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="10" y1="19.5" x2="10" y2="21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="14" y1="19.5" x2="14" y2="21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="18" y1="19.5" x2="18" y2="21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="14" cy="11" r="1.5" fill="currentColor" />
+    </svg>
+  );
 }
 
+/* Yellow card — classic rectangle */
 function YellowCardIcon() {
-  return <Shield className={IC} strokeWidth={2} fill="#facc15" stroke="#ca8a04" />;
+  return (
+    <svg className={IC} viewBox="0 0 24 24" fill="none">
+      <rect x="4" y="2" width="16" height="20" rx="2" fill="#facc15" stroke="#ca8a04" strokeWidth="1.2" />
+    </svg>
+  );
 }
 
+/* Red card — classic rectangle */
 function RedCardIcon() {
-  return <ShieldAlert className={IC} strokeWidth={2} fill="#ef4444" stroke="#b91c1c" />;
+  return (
+    <svg className={IC} viewBox="0 0 24 24" fill="none">
+      <rect x="4" y="2" width="16" height="20" rx="2" fill="#ef4444" stroke="#b91c1c" strokeWidth="1.2" />
+    </svg>
+  );
 }
 
+/* Substitution — two circular arrows */
 function SubIcon() {
-  return <Replace className={IC} strokeWidth={2} />;
+  return (
+    <svg className={IC} viewBox="0 0 24 24" fill="none">
+      <path d="M16.5 3.5a3 3 0 0 0-2.83 2H16.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M16.5 3.5A3 3 0 0 1 19.5 6.5v5a3 3 0 0 1-3 3H7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M13.5 17.5a3 3 0 0 0 2.83-2H13.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M13.5 17.5a3 3 0 0 1-3-3v-5a3 3 0 0 1 3-3h9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      <polyline points="17,2 19.5,3.5 17,5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      <polyline points="7,19 4.5,20.5 7,22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  );
 }
 
+/* Own goal — ball with X */
 function OwnGoalIcon() {
-  return <CircleX className={IC} strokeWidth={2} stroke="#f87171" />;
+  return (
+    <svg className={IC} viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="9" stroke="#f87171" strokeWidth="1.5" />
+      <path d="M8 8l8 8M16 8l-8 8" stroke="#f87171" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
 }
 
+/* Penalty — ball with target */
 function PenaltyIcon() {
-  return <CircleDot className={IC} strokeWidth={2} stroke="#facc15" />;
+  return (
+    <svg className={IC} viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="9" stroke="#facc15" strokeWidth="1.5" />
+      <circle cx="12" cy="12" r="3" fill="#facc15" />
+    </svg>
+  );
 }
 
+/* Missed penalty — dashed ball with X */
 function MissedPenaltyIcon() {
   return (
-    <svg className={IC} viewBox="0 0 16 16" fill="none">
-      <circle cx="8" cy="8" r="6" stroke="#71717a" strokeWidth="1" strokeDasharray="2 1.5" />
-      <path d="M5.5 5.5L10.5 10.5" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M10.5 5.5L5.5 10.5" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" />
+    <svg className={IC} viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="9" stroke="#71717a" strokeWidth="1.5" strokeDasharray="3 2" />
+      <path d="M8 8l8 8M16 8l-8 8" stroke="#ef4444" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
 }
 
+/* VAR — screen monitor */
 function VarIcon() {
   return (
-    <svg className="w-5 h-3 sm:w-6 sm:h-3.5" viewBox="0 0 22 14" fill="none">
-      <rect x="1" y="1" width="20" height="12" rx="2.5" fill="#6366f1" />
-      <text x="11" y="10.5" textAnchor="middle" fill="white" fontSize="7.5" fontWeight="900" fontFamily="monospace">VAR</text>
+    <svg className="w-5 h-3 sm:w-6 sm:h-3.5" viewBox="0 0 26 18" fill="none">
+      <rect x="1" y="1" width="24" height="16" rx="3" fill="#6366f1" stroke="#4f46e5" strokeWidth="1" />
+      <text x="13" y="12.5" textAnchor="middle" fill="white" fontSize="9" fontWeight="800" fontFamily="system-ui, sans-serif">VAR</text>
     </svg>
   );
 }
 
+/* Captain — "C" badge */
 function CaptainIcon() {
-  return <Star className={IC} strokeWidth={2} fill="#f59e0b" stroke="#d97706" />;
+  return (
+    <svg className={IC} viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="9" fill="#f59e0b" stroke="#d97706" strokeWidth="1.2" />
+      <text x="12" y="16.5" textAnchor="middle" fill="#451a03" fontSize="12" fontWeight="800" fontFamily="system-ui, sans-serif">C</text>
+    </svg>
+  );
 }
 
+/* Injury — medical cross */
 function InjuryIcon() {
-  return <HeartCrack className={IC} strokeWidth={2} stroke="#ef4444" />;
+  return (
+    <svg className={IC} viewBox="0 0 24 24" fill="none">
+      <rect x="2" y="2" width="20" height="20" rx="4" stroke="#ef4444" strokeWidth="1.5" />
+      <path d="M12 7v10M7 12h10" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════
