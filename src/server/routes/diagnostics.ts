@@ -251,9 +251,11 @@ export function registerDiagnosticsRoutes(app: Express) {
   });
 
   // ---------- دانلود بکاپ ----------
-  app.get("/api/diagnostics/backup/:file", requirePermission("diagnostics"), (req: Request, res: Response) => {
-    const fileName = String(req.params.file || "").replace(/[^a-zA-Z0-9._-]/g, "");
-    if (!/^backup_.*\.sql(\.gz)?$/.test(fileName)) {
+  // URL intentionally ends with backup name (no .sql.gz) to avoid nginx $block_path regex
+  app.get("/api/diagnostics/backup/download/:name", requirePermission("diagnostics"), (req: Request, res: Response) => {
+    const name = String(req.params.name || "").replace(/[^a-zA-Z0-9._-]/g, "");
+    const fileName = name.endsWith(".sql.gz") ? name : `${name}.sql.gz`;
+    if (!/^backup_.*\.sql\.gz$/.test(fileName)) {
       return res.status(400).json({ success: false, message: "نام فایل نامعتبر است." });
     }
     const fullPath = path.join(BACKUPS_DIR, fileName);

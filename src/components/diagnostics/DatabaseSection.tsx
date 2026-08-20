@@ -66,7 +66,7 @@ export default function DatabaseSection({ diag, onBackup, onVacuum, busy }: {
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <span className="text-[9px] text-slate-500">{formatDateTime(b.createdAt)}</span>
                     <a
-                      href={`/api/diagnostics/backup/${encodeURIComponent(b.file)}`}
+                      href={`/api/diagnostics/backup/download/${encodeURIComponent(b.file.replace(/\.sql\.gz$/, ""))}`}
                       className="flex items-center gap-1 px-2 py-1 bg-cyan-950/30 text-cyan-400 border border-cyan-900/40 rounded-lg hover:bg-cyan-950/60 text-[10px] font-bold transition"
                     >
                       <Download className="h-3 w-3" />
