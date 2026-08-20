@@ -260,8 +260,11 @@ export function registerDiagnosticsRoutes(app: Express) {
     if (!fs.existsSync(fullPath) || !fullPath.startsWith(BACKUPS_DIR)) {
       return res.status(404).json({ success: false, message: "فایل یافت نشد." });
     }
+    const stat = fs.statSync(fullPath);
     res.setHeader("Content-Type", "application/gzip");
     res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+    res.setHeader("Content-Length", stat.size);
+    res.setHeader("X-Accel-Buffering", "no");
     fs.createReadStream(fullPath).pipe(res);
   });
 
