@@ -111,13 +111,13 @@ function mergeNewEvents(currentEvents: any[], newEvents: any[]): any[] {
   if (!currentEvents || currentEvents.length === 0) return newEvents || [];
   if (!newEvents || newEvents.length === 0) return currentEvents;
 
-  const existingKeys = new Set(
-    currentEvents.map((e: any) => `${e.eventType}-${e.time}-${e.playerName || ""}-${e.player2Name || ""}`)
+  const existingIds = new Set(
+    currentEvents.filter((e: any) => e.id).map((e: any) => String(e.id))
   );
 
   const fresh = newEvents.filter((e: any) => {
-    const key = `${e.eventType}-${e.time}-${e.playerName || ""}-${e.player2Name || ""}`;
-    return !existingKeys.has(key);
+    if (e.id && existingIds.has(String(e.id))) return false;
+    return true;
   });
 
   if (fresh.length > 0) {

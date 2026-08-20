@@ -177,7 +177,7 @@ function extractMetadata(text: string, eventsOffset: number): Varzesh3MatchResul
   const hostMatch = header.match(/"host":\{"id":(\d+),"name":"((?:[^"\\]|\\.)*)","logo":"((?:[^"\\]|\\.)*)"/);
   const guestMatch = header.match(/"guest":\{"id":(\d+),"name":"((?:[^"\\]|\\.)*)","logo":"((?:[^"\\]|\\.)*)"/);
   const leagueMatch = header.match(/"league":\{"title":"((?:[^"\\]|\\.)*)","logo":"[^"]*","link":"[^"]*","season":"((?:[^"\\]|\\.)*)"/);
-  const minuteMatch = header.match(/"minute":"((?:[^"\\]|\\.)*)"/);
+  const liveTimeMatch = header.match(/"liveTime":"((?:[^"\\]|\\.)*)"/);
 
   if (!idMatch) return null;
 
@@ -189,7 +189,7 @@ function extractMetadata(text: string, eventsOffset: number): Varzesh3MatchResul
     date: dateMatch ? dateMatch[1] : '',
     time: timeMatch ? timeMatch[1] : '',
     status: statusMatch ? parseInt(statusMatch[1], 10) : 0,
-    minute: minuteMatch ? minuteMatch[1] : undefined,
+    minute: liveTimeMatch ? liveTimeMatch[1] : undefined,
     goals: goalsMatch ? { host: parseInt(goalsMatch[1], 10), guest: parseInt(goalsMatch[2], 10) } : { host: 0, guest: 0 },
     host: hostMatch ? { id: parseInt(hostMatch[1], 10), name: hostMatch[2], logo: hostMatch[3] } : { id: 0, name: '', logo: '' },
     guest: guestMatch ? { id: parseInt(guestMatch[1], 10), name: guestMatch[2], logo: guestMatch[3] } : { id: 0, name: '', logo: '' },
@@ -244,6 +244,12 @@ export function parseVarzesh3HTML(html: string): ParseResult {
     const matchMeta = extractMetadata(matchBlock, eventsIdx);
     if (!matchMeta) {
       return { success: false, error: 'Could not extract match metadata from RSC block.' };
+    }
+
+    // liveTime is AFTER events[] in varzesh3's JSON, so extract from full block
+    const liveTimeMatch = matchBlock.match(/"liveTime":"((?:[^"\\]|\\.)*)"/);
+    if (liveTimeMatch) {
+      matchMeta.minute = liveTimeMatch[1];
     }
 
     if (!Array.isArray(lineup.host?.formationLines) || !Array.isArray(lineup.guest?.formationLines)) {
