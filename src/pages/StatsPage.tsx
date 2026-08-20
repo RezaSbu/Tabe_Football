@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Flame, Zap, Award, X, List } from "lucide-react";
 import { StatsData } from "../types";
 
@@ -28,15 +28,17 @@ function StatRow({
 }) {
   return (
     <div className="flex justify-between items-center text-xs text-gray-300 border-b border-white/5 pb-2 last:border-0 last:pb-0">
-      <span className="font-bold flex items-center gap-1.5">
-        <span className="text-gray-550 font-mono text-[10px]">
+      <span className="font-bold flex items-center gap-1.5 min-w-0">
+        <span className="text-gray-550 font-mono text-[10px] shrink-0">
           {p.rank || idx + 1}.
         </span>
-        {p.name}
-        <span className="text-[10px] text-gray-500">({p.team})</span>
+        <span className="truncate">{p.name}</span>
+        <span className="text-[10px] text-gray-500 shrink-0">
+          ({p.team})
+        </span>
       </span>
       <span
-        className={`font-mono font-black ${valueColor} bg-gray-950 border border-white/5 px-2.5 py-0.5 rounded text-[11px] shrink-0`}
+        className={`font-mono font-black ${valueColor} bg-gray-950 border border-white/5 px-2.5 py-0.5 rounded text-[11px] shrink-0 mr-2`}
       >
         {valueRenderer(p)}
       </span>
@@ -57,82 +59,67 @@ function StatColumn({
   items: any[];
   valueRenderer: (p: any) => string;
 }) {
-  const [modalOpen, setModalOpen] = useState(false);
-  const shown = items.slice(0, VISIBLE_DEFAULT);
+  const [expanded, setExpanded] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (expanded && scrollRef.current) {
+      scrollRef.current.scrollTop = 0;
+    }
+  }, [expanded]);
+
+  const shown = expanded ? items : items.slice(0, VISIBLE_DEFAULT);
 
   return (
-    <>
-      <div className="rounded-2xl bg-gray-900 p-4 border border-white/5 shadow space-y-3">
-        <div className="flex items-center gap-1.5 border-b border-white/5 pb-2.5">
-          {icon}
-          <h3 className="font-black text-sm text-white">{title}</h3>
-        </div>
-        <div className="space-y-2.5 font-bold">
-          {items.length === 0 ? (
-            <p className="text-center text-gray-500 py-4 text-xs">
-              اطلاعاتی ثبت نشده
-            </p>
-          ) : (
-            shown.map((p: any, idx: number) => (
-              <StatRow
-                key={`${p.name}-${idx}`}
-                p={p}
-                idx={idx}
-                valueColor={valueColor}
-                valueRenderer={valueRenderer}
-              />
-            ))
-          )}
-        </div>
-
-        {items.length > VISIBLE_DEFAULT && (
-          <button
-            onClick={() => setModalOpen(true)}
-            className="w-full mt-1 py-2 rounded-xl bg-[#0a0a0c] hover:bg-gray-950 border border-white/5 text-[11px] font-bold text-emerald-400 hover:text-white transition active:scale-98 cursor-pointer flex items-center justify-center gap-1.5"
-          >
-            <List className="h-3.5 w-3.5" />
-            <span>نمایش همه ({items.length} نفر)</span>
-          </button>
+    <div ref={containerRef} className="rounded-2xl bg-gray-900 p-4 border border-white/5 shadow space-y-3">
+      <div className="flex items-center gap-1.5 border-b border-white/5 pb-2.5">
+        {icon}
+        <h3 className="font-black text-sm text-white">{title}</h3>
+      </div>
+      <div
+        ref={scrollRef}
+        className="space-y-2.5 font-bold overflow-y-auto overscroll-contain"
+        style={{
+          maxHeight: expanded ? "min(60vh, 400px)" : undefined,
+        }}
+      >
+        {items.length === 0 ? (
+          <p className="text-center text-gray-500 py-4 text-xs">
+            اطلاعاتی ثبت نشده
+          </p>
+        ) : (
+          shown.map((p: any, idx: number) => (
+            <StatRow
+              key={`${p.name}-${idx}`}
+              p={p}
+              idx={idx}
+              valueColor={valueColor}
+              valueRenderer={valueRenderer}
+            />
+          ))
         )}
       </div>
 
-      {modalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-          onClick={() => setModalOpen(false)}
+      {items.length > VISIBLE_DEFAULT && (
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="w-full mt-1 py-2 rounded-xl bg-[#0a0a0c] hover:bg-gray-950 border border-white/5 text-[11px] font-bold text-emerald-400 hover:text-white transition active:scale-98 cursor-pointer flex items-center justify-center gap-1.5"
         >
-          <div
-            className="relative bg-gray-900 border border-white/10 rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
-              <div className="flex items-center gap-2">
-                {icon}
-                <h3 className="font-black text-sm text-white">{title}</h3>
-              </div>
-              <button
-                onClick={() => setModalOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-white/10 transition cursor-pointer"
-              >
-                <X className="h-4 w-4 text-gray-400" />
-              </button>
-            </div>
-
-            <div className="overflow-y-auto px-4 py-3 space-y-2.5 font-bold flex-1 overscroll-contain">
-              {items.map((p: any, idx: number) => (
-                <StatRow
-                  key={`${p.name}-${idx}`}
-                  p={p}
-                  idx={idx}
-                  valueColor={valueColor}
-                  valueRenderer={valueRenderer}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
+          {expanded ? (
+            <>
+              <X className="h-3.5 w-3.5" />
+              <span>بستن لیست</span>
+            </>
+          ) : (
+            <>
+              <List className="h-3.5 w-3.5" />
+              <span>نمایش همه ({items.length} نفر)</span>
+            </>
+          )}
+        </button>
       )}
-    </>
+    </div>
   );
 }
 
