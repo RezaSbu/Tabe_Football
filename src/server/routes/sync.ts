@@ -236,6 +236,12 @@ export function registerSyncRoutes(app: Express) {
     }
 
     // Apply parsed data to the match
+    const v3Status = (data as any).v3Status;
+    let matchStatus = currentMatch.status;
+    if (v3Status === 2) matchStatus = "live";
+    else if (v3Status === 3) matchStatus = "finished";
+    else if (v3Status === 0 || v3Status === 1) matchStatus = "not-started";
+
     const updates: any = {
       scoreHome: data.scoreHome,
       scoreAway: data.scoreAway,
@@ -245,8 +251,11 @@ export function registerSyncRoutes(app: Express) {
       scorersList: resolvedScorers,
       lineups: resolvedLineups,
       minutes: data.currentMinute || currentMatch.minutes,
+      status: matchStatus,
+      dataSource: "varzesh3",
       lastDataFetchAt: new Date().toISOString(),
-      syncStatus: "idle",
+      lastSyncAt: new Date().toISOString(),
+      syncStatus: v3Status === 2 ? "active" : "idle",
       dataUrl: url,
       updatedAt: new Date().toISOString(),
     };

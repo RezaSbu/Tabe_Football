@@ -141,11 +141,6 @@ async function pollOnce(state: LivePollState): Promise<void> {
     return;
   }
 
-  if (match.status !== "live") {
-    logMessage("info", "sync", `Match ${state.matchId} status=${match.status}, waiting...`);
-    return;
-  }
-
   state.status = "active";
   state.pollCount++;
 
@@ -201,6 +196,7 @@ async function pollOnce(state: LivePollState): Promise<void> {
       events: mergedEvents,
       scorersList: mergedScorers,
       minutes: data.currentMinute || match.minutes || "",
+      status: "live",
       lastSyncAt: new Date().toISOString(),
       lastDataFetchAt: new Date().toISOString(),
       syncStatus: (state.status as string) === "half-time" ? "half-time" : "active",
