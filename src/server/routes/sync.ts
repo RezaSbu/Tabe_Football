@@ -244,6 +244,7 @@ export function registerSyncRoutes(app: Express) {
       events: resolvedEvents,
       scorersList: resolvedScorers,
       lineups: resolvedLineups,
+      minutes: data.currentMinute || currentMatch.minutes,
       lastDataFetchAt: new Date().toISOString(),
       syncStatus: "idle",
       dataUrl: url,

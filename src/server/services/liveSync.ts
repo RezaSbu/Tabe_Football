@@ -84,22 +84,22 @@ function getMsUntilMatchStart(match: any): number {
 
 function detectHalfTime(match: any, parsedData: ParsedMatchData): boolean {
   if (match.status !== "live") return false;
-  const events = parsedData.events || [];
-  const hasRedCard = events.some((e: any) => e.eventType === 2 && e.cardType === 3);
-  const minute = match.minutes || "";
+  const v3 = (parsedData as any);
+  if (v3.v3Status === 1) return true;
+  const minute = parsedData.currentMinute || match.minutes || "";
   if (typeof minute === "string") {
     if (minute.includes("+")) return false;
     const num = parseInt(minute, 10);
-    if (num >= 45 && num <= 47 && !hasRedCard) return true;
-    if (num >= 45 && num <= 50 && events.some((e: any) => e.eventType === 4)) return false;
+    if (num >= 45 && num <= 47) return true;
   }
   return false;
 }
 
 function detectFullTime(match: any, parsedData: ParsedMatchData): boolean {
-  const v3Status = parsedData as any;
-  if (v3Status.stats && Array.isArray(v3Status.stats)) return true;
-  const minute = match.minutes || "";
+  const v3 = (parsedData as any);
+  if (v3.v3Status === 3) return true;
+  if (parsedData.stats && Array.isArray(parsedData.stats) && parsedData.stats.length > 0) return true;
+  const minute = parsedData.currentMinute || match.minutes || "";
   if (typeof minute === "string") {
     const num = parseInt(minute, 10);
     if (num >= 90) return true;
@@ -200,7 +200,7 @@ async function pollOnce(state: LivePollState): Promise<void> {
       scoreAway: data.scoreAway,
       events: mergedEvents,
       scorersList: mergedScorers,
-      minutes: match.minutes,
+      minutes: data.currentMinute || match.minutes || "",
       lastSyncAt: new Date().toISOString(),
       lastDataFetchAt: new Date().toISOString(),
       syncStatus: (state.status as string) === "half-time" ? "half-time" : "active",

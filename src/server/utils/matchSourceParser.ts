@@ -24,6 +24,7 @@ export interface Varzesh3MatchResult {
     date: string;
     time: string;
     status: number;
+    minute?: string;
     goals: { host: number; guest: number };
     host: { id: number; name: string; logo: string };
     guest: { id: number; name: string; logo: string };
@@ -46,6 +47,8 @@ export interface ParsedMatchData {
   scorersList: any[];
   lineups: { home: any[]; away: any[]; homeFormation?: string; awayFormation?: string; homeSubs?: any[]; awaySubs?: any[] };
   stats?: any;
+  currentMinute?: string;
+  v3Status?: number;
 }
 
 export interface ParseResult {
@@ -174,6 +177,7 @@ function extractMetadata(text: string, eventsOffset: number): Varzesh3MatchResul
   const hostMatch = header.match(/"host":\{"id":(\d+),"name":"((?:[^"\\]|\\.)*)","logo":"((?:[^"\\]|\\.)*)"/);
   const guestMatch = header.match(/"guest":\{"id":(\d+),"name":"((?:[^"\\]|\\.)*)","logo":"((?:[^"\\]|\\.)*)"/);
   const leagueMatch = header.match(/"league":\{"title":"((?:[^"\\]|\\.)*)","logo":"[^"]*","link":"[^"]*","season":"((?:[^"\\]|\\.)*)"/);
+  const minuteMatch = header.match(/"minute":"((?:[^"\\]|\\.)*)"/);
 
   if (!idMatch) return null;
 
@@ -185,6 +189,7 @@ function extractMetadata(text: string, eventsOffset: number): Varzesh3MatchResul
     date: dateMatch ? dateMatch[1] : '',
     time: timeMatch ? timeMatch[1] : '',
     status: statusMatch ? parseInt(statusMatch[1], 10) : 0,
+    minute: minuteMatch ? minuteMatch[1] : undefined,
     goals: goalsMatch ? { host: parseInt(goalsMatch[1], 10), guest: parseInt(goalsMatch[2], 10) } : { host: 0, guest: 0 },
     host: hostMatch ? { id: parseInt(hostMatch[1], 10), name: hostMatch[2], logo: hostMatch[3] } : { id: 0, name: '', logo: '' },
     guest: guestMatch ? { id: parseInt(guestMatch[1], 10), name: guestMatch[2], logo: guestMatch[3] } : { id: 0, name: '', logo: '' },
@@ -276,6 +281,12 @@ function convertToOurFormat(
   const homeData = extractLineupPlayers(lineup.host);
   const awayData = extractLineupPlayers(lineup.guest);
 
+  let currentMinute = meta.minute || '';
+  if (!currentMinute && events.length > 0) {
+    const lastEvent = events[events.length - 1];
+    if (lastEvent.minute) currentMinute = String(lastEvent.minute);
+  }
+
   return {
     scoreHome: meta.goals?.host || 0,
     scoreAway: meta.goals?.guest || 0,
@@ -292,6 +303,8 @@ function convertToOurFormat(
       awaySubs: awayData.benched,
     },
     stats: convertStats(stats),
+    currentMinute,
+    v3Status: meta.status,
   };
 }
 
