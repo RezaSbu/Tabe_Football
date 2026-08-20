@@ -77,14 +77,8 @@ async function startServer() {
   }, 24 * 60 * 60 * 1000);
   await dbLock.acquire(() => fetchAndPopulateMemoryDB());
 
-  const db = loadDB();
-  const standingsLeagues = ["pro-league", "league-1", "league-2-group-a", "league-2-group-b", "futsal"];
-  const isAnyStandingEmpty = standingsLeagues.some(key => !db.standings[key] || db.standings[key].length === 0);
-  if (isAnyStandingEmpty) {
-    console.log("[STARTUP] Standings arrays are empty in PostgreSQL. Computing and syncing...");
-    recalculateAndSyncDatabase();
-    await saveDB();
-  }
+  recalculateAndSyncDatabase();
+  await saveDB();
 
   app.use("/uploads", express.static(getUploadsDir()));
 
