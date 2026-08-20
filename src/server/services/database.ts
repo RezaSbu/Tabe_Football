@@ -150,6 +150,22 @@ export async function migrateSyncColumns(): Promise<void> {
   }
 }
 
+export async function migrateLiveSyncColumns(): Promise<void> {
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS sync_mode varchar(20) DEFAULT 'off'`);
+    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS data_source varchar(20) DEFAULT 'admin'`);
+    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS admin_overrides jsonb DEFAULT '{}'::jsonb`);
+    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS admin_overrides_enabled boolean DEFAULT false`);
+    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS last_admin_edit_at timestamptz`);
+    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS last_sync_at timestamptz`);
+    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS sync_interval_sec integer DEFAULT 60`);
+    logMessage("info", "database", "مهاجرت ستون‌های live sync جدول matches اعمال شد.");
+  } catch (err: any) {
+    logMessage("warn", "database", "خطا در مهاجرت live sync matches:", err.message || err);
+  }
+}
+
 export async function migrateMonitoringTables(): Promise<void> {
   try {
     const { pool } = await import("../db");
@@ -435,7 +451,14 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
           referee: m.referee,
           dataUrl: m.data_url || null,
           lastDataFetchAt: m.last_data_fetch_at || null,
-          syncStatus: m.sync_status || 'idle'
+          syncStatus: m.sync_status || 'idle',
+          syncMode: m.sync_mode || 'off',
+          dataSource: m.data_source || 'admin',
+          adminOverrides: m.admin_overrides || {},
+          adminOverridesEnabled: m.admin_overrides_enabled || false,
+          lastAdminEditAt: m.last_admin_edit_at || null,
+          lastSyncAt: m.last_sync_at || null,
+          syncIntervalSec: m.sync_interval_sec || 60,
         };
 
         parsed.matches.push(mappedMatch);
@@ -913,7 +936,14 @@ export async function saveDB(): Promise<void> {
           week: m.week || null,
           data_url: m.dataUrl || null,
           last_data_fetch_at: m.lastDataFetchAt || null,
-          sync_status: m.syncStatus || 'idle'
+          sync_status: m.syncStatus || 'idle',
+          sync_mode: m.syncMode || 'off',
+          data_source: m.dataSource || 'admin',
+          admin_overrides: m.adminOverrides || {},
+          admin_overrides_enabled: m.adminOverridesEnabled || false,
+          last_admin_edit_at: m.lastAdminEditAt || null,
+          last_sync_at: m.lastSyncAt || null,
+          sync_interval_sec: m.syncIntervalSec || 60,
         };
       });
       promises.push(pgDb.from('matches').upsert(formattedMatches));
@@ -1355,6 +1385,21 @@ export function updateMatchInDb(matchId: string, updates: any): boolean {
   if (!baseMatchObj) {
     return false;
   }
+
+  if (updates._syncSource === "varzesh3" && baseMatchObj.adminOverridesEnabled) {
+    const overrides = baseMatchObj.adminOverrides || {};
+    const protectedFields = Object.keys(overrides);
+    const filteredUpdates: any = { _syncSource: "varzesh3" };
+    for (const key of Object.keys(updates)) {
+      if (key === "_syncSource") continue;
+      if (protectedFields.includes(key)) {
+        logMessage("info", "database", `Sync skipped protected field "${key}" for match ${matchId} (admin override active)`);
+        continue;
+      }
+      filteredUpdates[key] = updates[key];
+    }
+    updates = filteredUpdates;
+  }
   
   const mergedMatch = { ...baseMatchObj, ...updates };
   
@@ -1372,6 +1417,11 @@ export function updateMatchInDb(matchId: string, updates: any): boolean {
     );
     if (homeCoach) mergedMatch.coachHomeId = homeCoach.id;
     if (awayCoach) mergedMatch.coachAwayId = awayCoach.id;
+
+    if (mergedMatch.syncMode === "auto") {
+      mergedMatch.syncMode = "off";
+      mergedMatch.syncStatus = "finished";
+    }
   }
   
   let targetStage = "Feature_Games";

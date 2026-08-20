@@ -13,7 +13,7 @@ import { recordHttpRequest, cleanupOldVisits, cleanupOldAuditLogs } from "./serv
 import { loadDB, setDb } from "./state";
 import { dbLock } from "./utils/concurrency";
 import { logMessage } from "./utils/logger";
-import { fetchAndPopulateMemoryDB, saveDB, migrateConstraints, migrateSummaryColumn, migrateHeroSlidesColumns, migrateAdsSchema, migrateNewsGalleryColumns, migrateReadMoreContent2, migrateMonitoringTables, migrateSyncColumns } from "./services/database";
+import { fetchAndPopulateMemoryDB, saveDB, migrateConstraints, migrateSummaryColumn, migrateHeroSlidesColumns, migrateAdsSchema, migrateNewsGalleryColumns, migrateReadMoreContent2, migrateMonitoringTables, migrateSyncColumns, migrateLiveSyncColumns } from "./services/database";
 import { recalculateAndSyncDatabase } from "./services/stats";
 import { getUploadsDir } from "./db";
 
@@ -72,6 +72,7 @@ async function startServer() {
   await migrateReadMoreContent2();
   await migrateMonitoringTables();
   await migrateSyncColumns();
+  await migrateLiveSyncColumns();
   await cleanupOldVisits(30);
   await cleanupOldAuditLogs(30);
   setInterval(() => {
@@ -79,6 +80,14 @@ async function startServer() {
     cleanupOldAuditLogs(30);
   }, 24 * 60 * 60 * 1000);
   await dbLock.acquire(() => fetchAndPopulateMemoryDB());
+
+  try {
+    const { restoreAllAutoSyncs } = await import("./services/liveSync");
+    restoreAllAutoSyncs();
+    logMessage("info", "general", "Auto-sync polling restored.");
+  } catch (err: any) {
+    logMessage("warn", "general", `Failed to restore auto-sync: ${err.message}`);
+  }
 
   const db = loadDB();
   const standingsLeagues = ["pro-league", "league-1", "league-2-group-a", "league-2-group-b", "futsal"];

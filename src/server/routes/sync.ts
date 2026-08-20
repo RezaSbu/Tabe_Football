@@ -6,6 +6,14 @@ import { parseMatchFromUrl } from "../utils/matchSourceParser";
 import { parseMatchWithGemini } from "../utils/geminiClient";
 import { logMessage } from "../utils/logger";
 import { resolvePlayerNames, type PlayerLike } from "../utils/nameResolver";
+import {
+  startAutoSync,
+  startManualSync,
+  stopPoll,
+  getSyncStatus,
+  setAdminOverride,
+  removeAdminOverride,
+} from "../services/liveSync";
 
 /**
  * Extract all unique player references from parsed match data
@@ -171,11 +179,6 @@ export function registerSyncRoutes(app: Express) {
       return res.status(404).json({ success: false, message: "مسابقه یافت نشد." });
     }
 
-    // Only sync finished matches for now
-    if (currentMatch.status !== "finished") {
-      return res.status(400).json({ success: false, message: "همگام‌سازی فعلاً فقط برای بازی‌های تمام‌شده پشتیبانی می‌شود." });
-    }
-
     // Mark as syncing
     updateMatchInDb(id, { syncStatus: "syncing", dataUrl: url, updatedAt: new Date().toISOString() });
 
@@ -290,6 +293,109 @@ export function registerSyncRoutes(app: Express) {
       dataUrl: match.dataUrl || null,
       lastDataFetchAt: match.lastDataFetchAt || null,
       syncStatus: match.syncStatus || "idle",
+    });
+  });
+
+  /**
+   * POST /api/match-sync/:id/live/start
+   * Start auto or manual live sync polling.
+   * Body: { url: string, mode?: "auto" | "manual", intervalSec?: number }
+   * 
+   * auto = waits for match time, then starts polling
+   * manual = starts polling immediately
+   */
+  app.post("/api/match-sync/:id/live/start", requirePermission("matches"), (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { url, mode, intervalSec } = req.body;
+
+    if (!url || typeof url !== "string" || !url.includes("varzesh3.com")) {
+      return res.status(400).json({ success: false, message: "لینک ورزش۳ الزامی است." });
+    }
+
+    const syncMode = mode === "manual" ? "manual" : "auto";
+    let result: { success?: boolean; scheduled?: boolean; message: string };
+    if (syncMode === "manual") {
+      result = startManualSync(id, url, intervalSec);
+    } else {
+      result = startAutoSync(id, url, intervalSec);
+    }
+
+    const ok = result.success || result.scheduled;
+    if (!ok) {
+      return res.status(400).json({ success: false, message: result.message });
+    }
+    res.json({ success: true, message: result.message, scheduled: result.scheduled });
+  });
+
+  /**
+   * POST /api/match-sync/:id/live/stop
+   * Stop live sync polling for a match.
+   */
+  app.post("/api/match-sync/:id/live/stop", requirePermission("matches"), (req: Request, res: Response) => {
+    const { id } = req.params;
+    stopPoll(id);
+    res.json({ success: true, message: "سینک متوقف شد." });
+  });
+
+  /**
+   * GET /api/match-sync/:id/live/status
+   * Get detailed live sync status including polling state.
+   */
+  app.get("/api/match-sync/:id/live/status", requirePermission("matches"), (req: Request, res: Response) => {
+    const { id } = req.params;
+    const status = getSyncStatus(id);
+    res.json({ success: true, data: status });
+  });
+
+  /**
+   * PUT /api/match-sync/:id/admin-override
+   * Set an admin override for a specific field.
+   * Body: { field: string, value: any }
+   * 
+   * When set, varzesh3 sync will NOT overwrite this field.
+   */
+  app.put("/api/match-sync/:id/admin-override", requirePermission("matches"), (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { field, value } = req.body;
+
+    if (!field || typeof field !== "string") {
+      return res.status(400).json({ success: false, message: "نام فیلد الزامی است." });
+    }
+
+    const allowedFields = ["scoreHome", "scoreAway", "referee", "venue", "minutes", "events", "scorersList", "lineups", "teamStats"];
+    if (!allowedFields.includes(field)) {
+      return res.status(400).json({ success: false, message: `فیلد مجاز نیست. فیلدهای مجاز: ${allowedFields.join(", ")}` });
+    }
+
+    const ok = setAdminOverride(id, field, value);
+    if (!ok) return res.status(404).json({ success: false, message: "مسابقه یافت نشد." });
+    res.json({ success: true, message: `Override برای ${field} فعال شد.` });
+  });
+
+  /**
+   * DELETE /api/match-sync/:id/admin-override/:field
+   * Remove admin override for a specific field.
+   * After removal, sync will overwrite this field again.
+   */
+  app.delete("/api/match-sync/:id/admin-override/:field", requirePermission("matches"), (req: Request, res: Response) => {
+    const { id, field } = req.params;
+    const ok = removeAdminOverride(id, field);
+    if (!ok) return res.status(404).json({ success: false, message: "مسابقه یافت نشد." });
+    res.json({ success: true, message: `Override برای ${field} حذف شد.` });
+  });
+
+  /**
+   * GET /api/match-sync/:id/admin-overrides
+   * Get all admin overrides for a match.
+   */
+  app.get("/api/match-sync/:id/admin-overrides", requirePermission("matches"), (req: Request, res: Response) => {
+    const { id } = req.params;
+    const match = findCurrentMatch(id);
+    if (!match) return res.status(404).json({ success: false, message: "مسابقه یافت نشد." });
+    res.json({
+      success: true,
+      overrides: match.adminOverrides || {},
+      enabled: match.adminOverridesEnabled || false,
     });
   });
 }
