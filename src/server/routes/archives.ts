@@ -240,7 +240,6 @@ export function registerArchiveRoutes(app: Express) {
             })
             .filter((item: any) => item.goals > 0)
             .sort((a: any, b: any) => b.goals - a.goals)
-            .slice(0, 10)
             .map((item: any, idx: number) => ({
               rank: idx + 1,
               name: item.p.name,
@@ -256,7 +255,6 @@ export function registerArchiveRoutes(app: Express) {
             })
             .filter((item: any) => item.assists > 0)
             .sort((a: any, b: any) => b.assists - a.assists)
-            .slice(0, 10)
             .map((item: any, idx: number) => ({
               rank: idx + 1,
               name: item.p.name,
@@ -271,7 +269,6 @@ export function registerArchiveRoutes(app: Express) {
             })
             .filter((item: any) => item.p.position?.includes("دروازه") && item.cleanSheets > 0)
             .sort((a: any, b: any) => b.cleanSheets - a.cleanSheets)
-            .slice(0, 10)
             .map((item: any, idx: number) => ({
               rank: idx + 1,
               name: item.p.name,
@@ -286,7 +283,6 @@ export function registerArchiveRoutes(app: Express) {
             })
             .filter((item: any) => item.rating > 0)
             .sort((a: any, b: any) => b.rating - a.rating)
-            .slice(0, 10)
             .map((item: any, idx: number) => ({
               rank: idx + 1,
               name: item.p.name,
