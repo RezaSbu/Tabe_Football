@@ -53,7 +53,15 @@ export interface MatchItem {
   // Varzesh3 sync fields
   dataUrl?: string;
   lastDataFetchAt?: string;
-  syncStatus?: 'idle' | 'syncing' | 'error';
+  syncStatus?: 'idle' | 'syncing' | 'error' | 'pending' | 'active' | 'half-time' | 'finished';
+  syncMode?: 'off' | 'auto' | 'manual';
+  syncIntervalSec?: number;
+  dataSource?: 'admin' | 'varzesh3';
+  adminOverrides?: Record<string, any>;
+  adminOverridesEnabled?: boolean;
+  lastAdminEditAt?: string;
+  lastSyncAt?: string;
+  lineups?: any;
 }
 
 export interface StandingRow {

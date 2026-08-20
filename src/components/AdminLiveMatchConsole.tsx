@@ -96,6 +96,14 @@ export default function AdminLiveMatchConsole({
   const [syncStatus, setSyncStatus] = useState<string>(match.syncStatus || "idle");
   const [syncMessage, setSyncMessage] = useState<string>("");
 
+  // Live Sync states
+  const [liveSyncMode, setLiveSyncMode] = useState<string>(match.syncMode || "off");
+  const [liveSyncInterval, setLiveSyncInterval] = useState<number>(match.syncIntervalSec || 300);
+  const [adminOverrides, setAdminOverrides] = useState<Record<string, any>>(match.adminOverrides || {});
+  const [adminOverridesEnabled, setAdminOverridesEnabled] = useState<boolean>(match.adminOverridesEnabled || false);
+  const [overrideField, setOverrideField] = useState<string>("");
+  const [overrideValue, setOverrideValue] = useState<string>("");
+
   const resolvePlayerId = (nameOrId: string): string => {
     if (!nameOrId) return "";
     const found = (players || []).find(p => p.id === nameOrId || p.name === nameOrId);
@@ -378,6 +386,81 @@ export default function AdminLiveMatchConsole({
       setSyncStatus("error");
       setSyncMessage(`خطای شبکه: ${err.message}`);
       alert(`خطای شبکه: ${err.message}`);
+    }
+  };
+
+  const handleStartLiveSync = async (mode: "auto" | "manual") => {
+    if (!dataUrl.trim() || !dataUrl.includes("varzesh3.com")) {
+      alert("لطفاً لینک معتبر ورزش۳ را وارد کنید.");
+      return;
+    }
+    try {
+      const res = await fetch(`/api/match-sync/${match.id}/live/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: dataUrl.trim(), mode, intervalSec: liveSyncInterval }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setLiveSyncMode(mode);
+        setSyncStatus(mode === "auto" ? "pending" : "active");
+        setSyncMessage(data.message);
+      } else {
+        alert(data.message);
+      }
+    } catch (err: any) {
+      alert(`خطا: ${err.message}`);
+    }
+  };
+
+  const handleStopLiveSync = async () => {
+    try {
+      const res = await fetch(`/api/match-sync/${match.id}/live/stop`, { method: "POST" });
+      const data = await res.json();
+      setLiveSyncMode("off");
+      setSyncStatus("idle");
+      setSyncMessage(data.message);
+    } catch (err: any) {
+      alert(`خطا: ${err.message}`);
+    }
+  };
+
+  const handleSetAdminOverride = async () => {
+    if (!overrideField) { alert("فیلد را انتخاب کنید."); return; }
+    let parsedValue: any = overrideValue;
+    try { parsedValue = JSON.parse(overrideValue); } catch {}
+    try {
+      const res = await fetch(`/api/match-sync/${match.id}/admin-override`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ field: overrideField, value: parsedValue }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAdminOverrides({ ...adminOverrides, [overrideField]: parsedValue });
+        setAdminOverridesEnabled(true);
+        setOverrideValue("");
+        alert(data.message);
+      } else {
+        alert(data.message);
+      }
+    } catch (err: any) {
+      alert(`خطا: ${err.message}`);
+    }
+  };
+
+  const handleRemoveAdminOverride = async (field: string) => {
+    try {
+      const res = await fetch(`/api/match-sync/${match.id}/admin-override/${field}`, { method: "DELETE" });
+      const data = await res.json();
+      if (data.success) {
+        const next = { ...adminOverrides };
+        delete next[field];
+        setAdminOverrides(next);
+        setAdminOverridesEnabled(Object.keys(next).length > 0);
+      }
+    } catch (err: any) {
+      alert(`خطا: ${err.message}`);
     }
   };
 
@@ -1484,24 +1567,34 @@ export default function AdminLiveMatchConsole({
         </div>
       </div>
 
-      {/* VARZESH3 DATA SYNC BOX — only for finished matches */}
-      {isFinishedMode && (
-        <div className="bg-[#08080a] p-4 rounded-xl border border-white/5 mt-5">
-          <h3 className="font-extrabold text-xs text-blue-400 border-b border-white/5 pb-2 mb-3 flex items-center gap-2">
-            <RefreshCw className="h-3.5 w-3.5" /> هگام‌سازی داده از ورزش۳
-          </h3>
-          <p className="text-[10px] text-slate-500 mb-3">
-            لینک صفحه بازی در ورزش۳ را وارد کنید تا رویدادها، ترکیب و گل‌ها به‌صورت خودکار استخراج و جایگزین شوند.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
-            <input
-              type="text"
-              value={dataUrl}
-              onChange={(e) => { setDataUrl(e.target.value); setSyncMessage(""); }}
-              placeholder="https://www.varzesh3.com/football/match/XXXXX/بازی-..."
-              className="flex-1 text-xs rounded bg-[#07070a] border border-white/5 p-2 text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500 font-mono ltr"
-              dir="ltr"
-            />
+      {/* VARZESH3 SYNC BOX — works for both live and finished matches */}
+      <div className="bg-[#08080a] p-4 rounded-xl border border-white/5 mt-5">
+        <h3 className="font-extrabold text-xs text-blue-400 border-b border-white/5 pb-2 mb-3 flex items-center gap-2">
+          <RefreshCw className="h-3.5 w-3.5" /> هگام‌سازی داده از ورزش۳
+          {liveSyncMode !== "off" && (
+            <span className={`text-[9px] px-2 py-0.5 rounded-full ${
+              liveSyncMode === "auto" ? "bg-emerald-900/50 text-emerald-400" : "bg-amber-900/50 text-amber-400"
+            }`}>
+              {liveSyncMode === "auto" ? "اتوماتیک" : "دستی"} فعال
+            </span>
+          )}
+        </h3>
+
+        {/* URL Input — always visible */}
+        <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center mb-3">
+          <input
+            type="text"
+            value={dataUrl}
+            onChange={(e) => { setDataUrl(e.target.value); setSyncMessage(""); }}
+            placeholder="https://www.varzesh3.com/football/match/XXXXX/بازی-..."
+            className="flex-1 text-xs rounded bg-[#07070a] border border-white/5 p-2 text-white placeholder:text-slate-600 focus:outline-none focus:border-blue-500 font-mono ltr"
+            dir="ltr"
+          />
+        </div>
+
+        {/* Control Buttons */}
+        <div className="flex flex-wrap gap-2 mb-3">
+          {isFinishedMode ? (
             <button
               onClick={handleSyncFromVarzesh3}
               disabled={syncStatus === "syncing"}
@@ -1517,22 +1610,120 @@ export default function AdminLiveMatchConsole({
                 <><ExternalLink className="h-3.5 w-3.5" /> تست و هگام‌سازی</>
               )}
             </button>
-          </div>
-          {syncMessage && (
-            <div className={`mt-2 text-[10px] font-bold flex items-center gap-1.5 ${
-              syncStatus === "error" ? "text-red-400" : syncStatus === "syncing" ? "text-blue-400" : "text-emerald-400"
-            }`}>
-              {syncStatus === "error" ? <AlertCircle className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
-              {syncMessage}
-            </div>
+          ) : (
+            <>
+              {liveSyncMode === "off" ? (
+                <>
+                  <button
+                    onClick={() => handleStartLiveSync("auto")}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-[11px] px-4 py-2 rounded-lg flex items-center gap-1.5 shadow"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" /> شروع اتوماتیک
+                  </button>
+                  <button
+                    onClick={() => handleStartLiveSync("manual")}
+                    className="bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-[11px] px-4 py-2 rounded-lg flex items-center gap-1.5 shadow"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" /> شروع دستی
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={handleStopLiveSync}
+                  className="bg-red-600 hover:bg-red-500 text-white font-extrabold text-[11px] px-4 py-2 rounded-lg flex items-center gap-1.5 shadow"
+                >
+                  توقف سینک
+                </button>
+              )}
+            </>
           )}
-          {match.lastDataFetchAt && (
-            <div className="mt-2 text-[9px] text-slate-600">
-              آخرین دریافت داده: {new Date(match.lastDataFetchAt).toLocaleString("fa-IR")}
+
+          {/* Interval selector — only for live sync */}
+          {!isFinishedMode && liveSyncMode === "off" && (
+            <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
+              <span>هر</span>
+              <select
+                value={liveSyncInterval}
+                onChange={(e) => setLiveSyncInterval(Number(e.target.value))}
+                className="bg-[#07070a] border border-white/10 rounded px-2 py-1 text-white text-[10px]"
+              >
+                <option value={60}>۱ دقیقه</option>
+                <option value={120}>۲ دقیقه</option>
+                <option value={180}>۳ دقیقه</option>
+                <option value={300}>۵ دقیقه</option>
+              </select>
+              <span>یکبار</span>
             </div>
           )}
         </div>
-      )}
+
+        {/* Admin Override Section — only for live */}
+        {!isFinishedMode && (
+          <div className="border-t border-white/5 pt-3 mt-2">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[10px] text-amber-400 font-bold">Override ادمین</span>
+              {adminOverridesEnabled && (
+                <span className="text-[8px] bg-amber-900/50 text-amber-400 px-1.5 py-0.5 rounded-full">
+                  فعال — {Object.keys(adminOverrides).length} فیلد محافظت‌شده
+                </span>
+              )}
+            </div>
+            {Object.keys(adminOverrides).length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {Object.entries(adminOverrides).map(([field, val]) => (
+                  <span key={field} className="text-[9px] bg-amber-900/30 text-amber-300 px-2 py-1 rounded flex items-center gap-1">
+                    {field}: {typeof val === "object" ? JSON.stringify(val).slice(0, 30) : String(val).slice(0, 30)}
+                    <button onClick={() => handleRemoveAdminOverride(field)} className="text-red-400 hover:text-red-300 ml-1 font-bold">✕</button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2 items-center">
+              <select
+                value={overrideField}
+                onChange={(e) => setOverrideField(e.target.value)}
+                className="bg-[#07070a] border border-white/10 rounded px-2 py-1 text-white text-[10px]"
+              >
+                <option value="">فیلد...</option>
+                <option value="scoreHome">گل خانه</option>
+                <option value="scoreAway">گل مهمان</option>
+                <option value="referee">داور</option>
+                <option value="venue">ورزشگاه</option>
+                <option value="minutes">دقیقه</option>
+              </select>
+              <input
+                type="text"
+                value={overrideValue}
+                onChange={(e) => setOverrideValue(e.target.value)}
+                placeholder="مقدار..."
+                className="flex-1 text-[10px] rounded bg-[#07070a] border border-white/5 p-1.5 text-white placeholder:text-slate-600 focus:outline-none focus:border-amber-500"
+              />
+              <button
+                onClick={handleSetAdminOverride}
+                disabled={!overrideField || !overrideValue}
+                className="bg-amber-600 hover:bg-amber-500 disabled:bg-slate-700 disabled:text-slate-400 text-white font-bold text-[10px] px-3 py-1.5 rounded"
+              >
+                ثبت
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Status messages */}
+        {syncMessage && (
+          <div className={`mt-2 text-[10px] font-bold flex items-center gap-1.5 ${
+            syncStatus === "error" ? "text-red-400" : syncStatus === "syncing" ? "text-blue-400" : "text-emerald-400"
+          }`}>
+            {syncStatus === "error" ? <AlertCircle className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
+            {syncMessage}
+          </div>
+        )}
+        {match.lastDataFetchAt && (
+          <div className="mt-2 text-[9px] text-slate-600">
+            آخرین دریافت داده: {new Date(match.lastDataFetchAt).toLocaleString("fa-IR")}
+          </div>
+        )}
+      </div>
 
       {/* FOOTER CONTROLS: TERMINATION / UPDATE TRIGGER */}
       {isFinishedMode ? (
