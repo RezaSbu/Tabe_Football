@@ -12,7 +12,7 @@
 
 import { loadDB } from "../state";
 import { logMessage } from "../utils/logger";
-import { parseMatchFromUrl, fetchVarzesh3Page, type ParsedMatchData } from "../utils/matchSourceParser";
+import { parseVarzesh3HTML, fetchVarzesh3Page, type ParsedMatchData } from "../utils/matchSourceParser";
 import { updateMatchInDb, saveDB } from "./database";
 
 interface LivePollState {
@@ -44,42 +44,48 @@ function findMatch(matchId: string): any | null {
   return null;
 }
 
-function isMatchTimeToStart(match: any): boolean {
-  if (!match.date || !match.time) return false;
+function jalaliToGregorianDate(jalaliDate: string, time: string): Date | null {
   try {
-    const [year, month, day] = match.date.split("/").map(Number);
-    const [hour, minute] = match.time.split(":").map(Number);
-    const matchJalali = new Date(year, month - 1, day, hour, minute);
-    const now = new Date();
-    const diffMs = matchJalali.getTime() - now.getTime();
-    return diffMs <= 0 && diffMs > -120 * 60 * 1000;
+    const clean = jalaliDate.replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
+    const [jy, jm, jd] = clean.split("/").map(Number);
+    const [hour, minute] = (time || "0:0").split(":").map(Number);
+    if (!jy || !jm || !jd) return null;
+
+    const jy_epoch = jy - 979;
+    let j_days = 365 * jy_epoch + Math.floor(jy_epoch / 33) * 8 + Math.floor(((jy_epoch % 33) + 3) / 4);
+    for (let i = 0; i < jm - 1; ++i) j_days += i < 6 ? 31 : 30;
+    j_days += jd - 1;
+    const g_days = j_days + 79;
+
+    let gy = 1600 + 400 * Math.floor(g_days / 146097);
+    let rem = g_days % 146097;
+    let leap = 1;
+    if (rem >= 36525) { rem -= 1; gy += 100 * Math.floor(rem / 36524); rem = rem % 36524; if (rem >= 365) rem += 1; else leap = 0; }
+    gy += 4 * Math.floor(rem / 1461); rem = rem % 1461;
+    if (rem >= 366) { leap = 0; rem -= 1; gy += Math.floor(rem / 365); rem = rem % 365; }
+    else leap = 1;
+
+    const g_m_d = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let gm = 1;
+    let gd = rem + 1;
+    for (let i = 0; i < 12; ++i) { if (gd <= g_m_d[i]) break; gd -= g_m_d[i]; gm++; }
+
+    return new Date(gy, gm - 1, gd, hour || 0, minute || 0, 0, 0);
   } catch {
-    return false;
+    return null;
   }
 }
 
 function isMatchScheduledFuture(match: any): boolean {
   if (!match.date || !match.time) return false;
-  try {
-    const [year, month, day] = match.date.split("/").map(Number);
-    const [hour, minute] = match.time.split(":").map(Number);
-    const matchJalali = new Date(year, month - 1, day, hour, minute);
-    return matchJalali.getTime() > Date.now();
-  } catch {
-    return false;
-  }
+  const matchDate = jalaliToGregorianDate(match.date, match.time);
+  return matchDate ? matchDate.getTime() > Date.now() : false;
 }
 
 function getMsUntilMatchStart(match: any): number {
   if (!match.date || !match.time) return 0;
-  try {
-    const [year, month, day] = match.date.split("/").map(Number);
-    const [hour, minute] = match.time.split(":").map(Number);
-    const matchJalali = new Date(year, month - 1, day, hour, minute);
-    return Math.max(0, matchJalali.getTime() - Date.now());
-  } catch {
-    return 0;
-  }
+  const matchDate = jalaliToGregorianDate(match.date, match.time);
+  return matchDate ? Math.max(0, matchDate.getTime() - Date.now()) : 0;
 }
 
 function detectHalfTime(match: any, parsedData: ParsedMatchData): boolean {
@@ -98,7 +104,7 @@ function detectHalfTime(match: any, parsedData: ParsedMatchData): boolean {
 function detectFullTime(match: any, parsedData: ParsedMatchData): boolean {
   const v3 = (parsedData as any);
   if (v3.v3Status === 3) return true;
-  if (parsedData.stats && Array.isArray(parsedData.stats) && parsedData.stats.length > 0) return true;
+  if (parsedData.stats && typeof parsedData.stats === "object" && Object.keys(parsedData.stats).length > 0) return true;
   const minute = parsedData.currentMinute || match.minutes || "";
   if (typeof minute === "string") {
     const num = parseInt(minute, 10);
@@ -146,7 +152,7 @@ async function pollOnce(state: LivePollState): Promise<void> {
 
   try {
     const html = await fetchVarzesh3Page(state.varzesh3Url);
-    const parseResult = await parseMatchFromUrl(state.varzesh3Url);
+    const parseResult = parseVarzesh3HTML(html);
 
     if (!parseResult.success || !parseResult.data) {
       state.lastError = parseResult.error || "Parse failed";

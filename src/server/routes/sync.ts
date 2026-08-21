@@ -2,7 +2,7 @@ import express, { Express, Request, Response } from "express";
 import { loadDB } from "../state";
 import { updateMatchInDb, saveDB } from "../services/database";
 import { requirePermission } from "../middleware/auth";
-import { parseMatchFromUrl } from "../utils/matchSourceParser";
+import { fetchVarzesh3Page, parseVarzesh3HTML } from "../utils/matchSourceParser";
 import { parseMatchWithGemini } from "../utils/geminiClient";
 import { logMessage } from "../utils/logger";
 import { resolvePlayerNames, type PlayerLike } from "../utils/nameResolver";
@@ -184,17 +184,15 @@ export function registerSyncRoutes(app: Express) {
 
     logMessage("info", "sync", `Starting sync for match ${id} from ${url}`);
 
-    // Step 1: Try deterministic parser
-    let parseResult = await parseMatchFromUrl(url);
+    // Step 1: Fetch once, parse deterministically
+    const html = await fetchVarzesh3Page(url);
+    let parseResult = parseVarzesh3HTML(html);
 
-    // Step 2: If parser failed, try Gemini fallback
+    // Step 2: If parser failed, try Gemini fallback with the same HTML
     let usedGemini = false;
     if (!parseResult.success && parseResult.error) {
       logMessage("info", "sync", `Deterministic parser failed: ${parseResult.error}. Trying Gemini fallback...`);
       try {
-        // We need the HTML for Gemini too — re-fetch
-        const { fetchVarzesh3Page } = await import("../utils/matchSourceParser");
-        const html = await fetchVarzesh3Page(url);
         const geminiResult = await parseMatchWithGemini(html, parseResult.error);
         parseResult = { success: true, data: geminiResult };
         usedGemini = true;
@@ -243,6 +241,7 @@ export function registerSyncRoutes(app: Express) {
     else if (v3Status === 0 || v3Status === 1) matchStatus = "not-started";
 
     const updates: any = {
+      _syncSource: "varzesh3",
       scoreHome: data.scoreHome,
       scoreAway: data.scoreAway,
       referee: data.referee || currentMatch.referee,

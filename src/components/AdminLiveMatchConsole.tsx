@@ -188,6 +188,41 @@ export default function AdminLiveMatchConsole({
     setEventMin(String(minutes));
   }, [minutes]);
 
+  // Live sync status polling — refreshes sync state from server every 10s when active
+  const [livePollCount, setLivePollCount] = useState<number>(0);
+  const [liveLastPollAt, setLiveLastPollAt] = useState<string | null>(null);
+  const [liveLastSyncStatus, setLiveLastSyncStatus] = useState<string>(match.syncStatus || "idle");
+
+  useEffect(() => {
+    if (liveSyncMode === "off" || isFinishedMode) return;
+
+    const pollStatus = async () => {
+      try {
+        const res = await fetch(`/api/match-sync/${match.id}/live/status`);
+        const data = await res.json();
+        if (data.success && data.data) {
+          const s = data.data;
+          setLiveSyncMode(s.syncMode || "off");
+          setLiveLastSyncStatus(s.syncStatus || s.status || "idle");
+          setLivePollCount(s.pollCount || 0);
+          setLiveLastPollAt(s.lastPollAt || null);
+          if (s.syncMode === "off") {
+            setSyncStatus(s.syncStatus || "idle");
+          } else {
+            setSyncStatus(s.status || s.syncStatus || "active");
+          }
+          if (s.lastError) {
+            setSyncMessage(`خطا: ${s.lastError}`);
+          }
+        }
+      } catch {}
+    };
+
+    pollStatus();
+    const interval = setInterval(pollStatus, 10000);
+    return () => clearInterval(interval);
+  }, [liveSyncMode, isFinishedMode, match.id]);
+
   // Handle Event Addition
   const handleAddEvent = () => {
     if (!eventPlayer && eventType !== "var" && eventType !== "other") {
@@ -1716,6 +1751,19 @@ export default function AdminLiveMatchConsole({
           }`}>
             {syncStatus === "error" ? <AlertCircle className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3" />}
             {syncMessage}
+          </div>
+        )}
+        {liveSyncMode !== "off" && (
+          <div className="mt-2 flex flex-wrap gap-3 text-[9px] text-slate-500">
+            {livePollCount > 0 && <span>پلینگ: {livePollCount} بار</span>}
+            {liveLastPollAt && <span>آخرین: {new Date(liveLastPollAt).toLocaleTimeString("fa-IR")}</span>}
+            {liveLastSyncStatus && liveLastSyncStatus !== "idle" && (
+              <span className={`font-bold ${
+                liveLastSyncStatus === "error" ? "text-red-400" :
+                liveLastSyncStatus === "half-time" ? "text-amber-400" :
+                liveLastSyncStatus === "active" ? "text-emerald-400" : "text-slate-500"
+              }`}>وضعیت: {liveLastSyncStatus === "active" ? "فعال" : liveLastSyncStatus === "half-time" ? "نیمه‌وقت" : liveLastSyncStatus === "error" ? "خطا" : liveLastSyncStatus}</span>
+            )}
           </div>
         )}
         {match.lastDataFetchAt && (
