@@ -513,61 +513,61 @@ export default function FormationPitch({
             </div>
           );
         })}
-
-        {/* Subs — away (top-left) */}
-        {awaySubs.length > 0 && (
-          <div className="absolute top-10 left-0 px-2 py-1.5 border-b border-r border-cyan-500/20 bg-cyan-950/60 z-20"
-            style={{ maxWidth: "55%" }}>
-            <span className="text-[7px] font-bold text-slate-500 block mb-1">ذخیره‌ها {awayName}</span>
-            <div className="flex flex-wrap gap-x-2 gap-y-0.5">
-              {awaySubs.map((p, i) => {
-                const db = findDbPlayer(p, players);
-                const clickable = !!db && !!onSelectPlayer;
-                const subMin = formatMinute(p.subMinute);
-                return (
-                  <span key={i} onClick={clickable ? () => onSelectPlayer!(String(db!.id)) : undefined}
-                    className={`text-[8px] font-bold inline-flex items-center gap-0.5 text-cyan-400/60 ${clickable ? "hover:text-white cursor-pointer transition" : ""}`}>
-                    <span className="font-mono opacity-40">{p.number || ""}</span>
-                    <span>{p.name}</span>
-                    {p.substituted && (
-                      <span className="inline-flex items-center gap-px ml-0.5">
-                        <SubIcon />{subMin && <span className="text-[7px] font-mono text-violet-400">{subMin}</span>}
-                      </span>
-                    )}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Subs — home (bottom-right) */}
-        {homeSubs.length > 0 && (
-          <div className="absolute bottom-10 right-0 px-2 py-1.5 border-t border-l border-emerald-500/20 bg-emerald-950/60 z-20"
-            style={{ maxWidth: "55%" }}>
-            <span className="text-[7px] font-bold text-slate-500 block mb-1">ذخیره‌ها {homeName}</span>
-            <div className="flex flex-wrap gap-x-2 gap-y-0.5">
-              {homeSubs.map((p, i) => {
-                const db = findDbPlayer(p, players);
-                const clickable = !!db && !!onSelectPlayer;
-                const subMin = formatMinute(p.subMinute);
-                return (
-                  <span key={i} onClick={clickable ? () => onSelectPlayer!(String(db!.id)) : undefined}
-                    className={`text-[8px] font-bold inline-flex items-center gap-0.5 text-emerald-400/60 ${clickable ? "hover:text-white cursor-pointer transition" : ""}`}>
-                    <span className="font-mono opacity-40">{p.number || ""}</span>
-                    <span>{p.name}</span>
-                    {p.substituted && (
-                      <span className="inline-flex items-center gap-px ml-0.5">
-                        <SubIcon />{subMin && <span className="text-[7px] font-mono text-violet-400">{subMin}</span>}
-                      </span>
-                    )}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Subs — outside pitch, as list */}
+      {(awaySubs.length > 0 || homeSubs.length > 0) && (
+        <div className="px-4 py-3 border-t border-white/5 space-y-2">
+          {awaySubs.length > 0 && (
+            <div>
+              <span className="text-[9px] font-bold text-cyan-400/70 block mb-1">ذخیره‌ها {awayName}</span>
+              <div className="flex flex-wrap gap-x-3 gap-y-1">
+                {awaySubs.map((p, i) => {
+                  const db = findDbPlayer(p, players);
+                  const clickable = !!db && !!onSelectPlayer;
+                  const subMin = formatMinute(p.subMinute);
+                  return (
+                    <span key={i} onClick={clickable ? () => onSelectPlayer!(String(db!.id)) : undefined}
+                      className={`text-[9px] font-bold inline-flex items-center gap-0.5 text-cyan-400/60 ${clickable ? "hover:text-white cursor-pointer transition" : ""}`}>
+                      <span className="font-mono opacity-40">{p.number || ""}</span>
+                      <span>{p.name}</span>
+                      {p.substituted && (
+                        <span className="inline-flex items-center gap-px ml-0.5">
+                          <SubIcon />{subMin && <span className="text-[7px] font-mono text-violet-400">{subMin}</span>}
+                        </span>
+                      )}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {homeSubs.length > 0 && (
+            <div>
+              <span className="text-[9px] font-bold text-emerald-400/70 block mb-1">ذخیره‌ها {homeName}</span>
+              <div className="flex flex-wrap gap-x-3 gap-y-1">
+                {homeSubs.map((p, i) => {
+                  const db = findDbPlayer(p, players);
+                  const clickable = !!db && !!onSelectPlayer;
+                  const subMin = formatMinute(p.subMinute);
+                  return (
+                    <span key={i} onClick={clickable ? () => onSelectPlayer!(String(db!.id)) : undefined}
+                      className={`text-[9px] font-bold inline-flex items-center gap-0.5 text-emerald-400/60 ${clickable ? "hover:text-white cursor-pointer transition" : ""}`}>
+                      <span className="font-mono opacity-40">{p.number || ""}</span>
+                      <span>{p.name}</span>
+                      {p.substituted && (
+                        <span className="inline-flex items-center gap-px ml-0.5">
+                          <SubIcon />{subMin && <span className="text-[7px] font-mono text-violet-400">{subMin}</span>}
+                        </span>
+                      )}
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Legend */}
       <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 px-4 py-2 border-t border-white/5 text-[8px] sm:text-[9px] text-slate-500 font-bold">
