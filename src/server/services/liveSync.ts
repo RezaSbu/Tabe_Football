@@ -76,15 +76,29 @@ function jalaliToGregorianDate(jalaliDate: string, time: string): Date | null {
   }
 }
 
+function parseMatchDate(match: any): Date | null {
+  if (!match.date) return null;
+
+  const dateStr = match.date;
+
+  if (dateStr.includes("T") || /^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+    try {
+      const d = new Date(dateStr);
+      if (!isNaN(d.getTime())) return d;
+    } catch {}
+  }
+
+  const time = match.time || "0:0";
+  return jalaliToGregorianDate(dateStr, time);
+}
+
 function isMatchScheduledFuture(match: any): boolean {
-  if (!match.date || !match.time) return false;
-  const matchDate = jalaliToGregorianDate(match.date, match.time);
+  const matchDate = parseMatchDate(match);
   return matchDate ? matchDate.getTime() > Date.now() : false;
 }
 
 function getMsUntilMatchStart(match: any): number {
-  if (!match.date || !match.time) return 0;
-  const matchDate = jalaliToGregorianDate(match.date, match.time);
+  const matchDate = parseMatchDate(match);
   return matchDate ? Math.max(0, matchDate.getTime() - Date.now()) : 0;
 }
 
