@@ -80,16 +80,24 @@ function parseMatchDate(match: any): Date | null {
   if (!match.date) return null;
 
   const dateStr = match.date;
+  const timeStr = (match.time || "").replace(/[۰-۹]/g, (d: string) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
 
-  if (dateStr.includes("T") || /^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+    const [h, m] = (timeStr && /^\d{1,2}:\d{2}$/.test(timeStr)) ? timeStr.split(":").map(Number) : [18, 0];
+    try {
+      const d = new Date(dateStr + "T" + String(h).padStart(2, "0") + ":" + String(m).padStart(2, "0") + ":00.000Z");
+      if (!isNaN(d.getTime())) return d;
+    } catch {}
+  }
+
+  if (dateStr.includes("T")) {
     try {
       const d = new Date(dateStr);
       if (!isNaN(d.getTime())) return d;
     } catch {}
   }
 
-  const time = match.time || "0:0";
-  return jalaliToGregorianDate(dateStr, time);
+  return jalaliToGregorianDate(dateStr, match.time || "0:0");
 }
 
 function isMatchScheduledFuture(match: any): boolean {
@@ -268,6 +276,8 @@ export function startAutoSync(matchId: string, varzesh3Url: string, intervalSec?
 
   const interval = (intervalSec || DEFAULT_INTERVAL_SEC) * 1000;
 
+  logMessage("info", "sync", `startAutoSync match ${matchId}: date="${match.date}" time="${match.time}" status="${match.status}"`);
+
   updateMatchInDb(matchId, {
     syncMode: "auto",
     dataUrl: varzesh3Url,
@@ -293,6 +303,9 @@ export function startAutoSync(matchId: string, varzesh3Url: string, intervalSec?
     logMessage("info", "sync", `Auto-sync started immediately for match ${matchId} (live)`);
     return { scheduled: true, message: `سینک خودکار شروع شد (هر ${intervalSec || DEFAULT_INTERVAL_SEC} ثانیه).` };
   }
+
+  const parsedDate = parseMatchDate(match);
+  logMessage("info", "sync", `startAutoSync match ${matchId}: parsedDate=${parsedDate?.toISOString() || "null"}, isFuture=${parsedDate ? parsedDate.getTime() > Date.now() : false}`);
 
   if (isMatchScheduledFuture(match)) {
     const msUntil = getMsUntilMatchStart(match);
