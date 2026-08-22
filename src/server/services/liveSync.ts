@@ -29,8 +29,7 @@ interface LivePollState {
 
 const activePolls = new Map<string, LivePollState>();
 
-const DEFAULT_INTERVAL_SEC = 300;
-const HALFTIME_CHECK_INTERVAL_SEC = 60;
+const DEFAULT_INTERVAL_SEC = 120;
 
 function findMatch(matchId: string): any | null {
   const db = loadDB();
@@ -111,48 +110,44 @@ function getMsUntilMatchStart(match: any): number {
 }
 
 function detectHalfTime(match: any, parsedData: ParsedMatchData): boolean {
-  if (match.status !== "live") return false;
   const v3 = (parsedData as any);
   if (v3.v3Status === 1) return true;
-  const minute = parsedData.currentMinute || match.minutes || "";
-  if (typeof minute === "string") {
-    if (minute.includes("+")) return false;
-    const num = parseInt(minute, 10);
-    if (num >= 45 && num <= 47) return true;
-  }
   return false;
 }
 
 function detectFullTime(match: any, parsedData: ParsedMatchData): boolean {
   const v3 = (parsedData as any);
-  if (v3.v3Status === 3) return true;
-  if (parsedData.stats && typeof parsedData.stats === "object" && Object.keys(parsedData.stats).length > 0) return true;
-  const minute = parsedData.currentMinute || match.minutes || "";
-  if (typeof minute === "string") {
-    const num = parseInt(minute, 10);
-    if (num >= 90) return true;
-  }
-  return false;
+  return v3.v3Status === 3;
 }
 
 function mergeNewEvents(currentEvents: any[], newEvents: any[]): any[] {
   if (!currentEvents || currentEvents.length === 0) return newEvents || [];
   if (!newEvents || newEvents.length === 0) return currentEvents;
 
-  const existingIds = new Set(
-    currentEvents.filter((e: any) => e.id).map((e: any) => String(e.id))
+  const existingKeys = new Set(
+    currentEvents.map((e: any) => {
+      if (e.id) return `id:${String(e.id)}`;
+      return `kv:${e.type}-${e.minute}-${e.playerName}-${e.team}`;
+    })
   );
 
   const fresh = newEvents.filter((e: any) => {
-    if (e.id && existingIds.has(String(e.id))) return false;
-    return true;
+    if (e.id) return !existingKeys.has(`id:${String(e.id)}`);
+    return !existingKeys.has(`kv:${e.type}-${e.minute}-${e.playerName}-${e.team}`);
   });
 
   if (fresh.length > 0) {
-    logMessage("info", "sync", `Event diff: ${fresh.length} new events found`);
+    logMessage("info", "sync", `Event diff: ${fresh.length} new events (${fresh.map((e: any) => `${e.type}@${e.minute}`).join(", ")})`);
   }
 
   return [...currentEvents, ...fresh];
+}
+
+function hasRealLineup(lineups: any): boolean {
+  if (!lineups) return false;
+  const home = lineups.home || [];
+  const away = lineups.away || [];
+  return home.length > 0 || away.length > 0;
 }
 
 async function pollOnce(state: LivePollState): Promise<void> {
@@ -173,39 +168,20 @@ async function pollOnce(state: LivePollState): Promise<void> {
   state.pollCount++;
 
   try {
+    logMessage("info", "sync", `Poll #${state.pollCount} for match ${state.matchId}`);
     const html = await fetchVarzesh3Page(state.varzesh3Url);
     const parseResult = parseVarzesh3HTML(html);
 
     if (!parseResult.success || !parseResult.data) {
       state.lastError = parseResult.error || "Parse failed";
-      logMessage("warn", "sync", `Poll #${state.pollCount} for match ${state.matchId}: ${state.lastError}`);
+      logMessage("warn", "sync", `Poll #${state.pollCount} match ${state.matchId} parse error: ${state.lastError}`);
       updateMatchInDb(state.matchId, {
-        syncStatus: "error",
         lastSyncAt: new Date().toISOString(),
       });
       return;
     }
 
     const data = parseResult.data;
-
-    if (detectHalfTime(match, data)) {
-      state.status = "half-time";
-      logMessage("info", "sync", `Match ${state.matchId}: HALF-TIME detected, pausing poll`);
-      updateMatchInDb(state.matchId, {
-        syncStatus: "half-time",
-        lastSyncAt: new Date().toISOString(),
-      });
-      await saveDB();
-      return;
-    }
-
-    if ((state.status as string) === "half-time") {
-      const currentMinute = parseInt(match.minutes || "0", 10);
-      if (currentMinute > 45) {
-        state.status = "active";
-        logMessage("info", "sync", `Match ${state.matchId}: Second half started, resuming poll`);
-      }
-    }
 
     const currentEvents = match.events || [];
     const mergedEvents = mergeNewEvents(currentEvents, data.events || []);
@@ -217,21 +193,35 @@ async function pollOnce(state: LivePollState): Promise<void> {
       return incoming;
     })();
 
+    const scrapedMinute = data.currentMinute || "";
+
+    const isHalfTime = detectHalfTime(match, data);
+    const isFullTime = detectFullTime(match, data);
+
+    if (isHalfTime) {
+      state.status = "half-time";
+    } else if ((state.status as string) === "half-time") {
+      state.status = "active";
+      logMessage("info", "sync", `Match ${state.matchId}: resumed from half-time`);
+    }
+
     const updates: any = {
       _syncSource: "varzesh3",
       scoreHome: data.scoreHome,
       scoreAway: data.scoreAway,
       events: mergedEvents,
       scorersList: mergedScorers,
-      minutes: data.currentMinute || match.minutes || "",
+      minutes: scrapedMinute,
       status: "live",
       lastSyncAt: new Date().toISOString(),
       lastDataFetchAt: new Date().toISOString(),
-      syncStatus: (state.status as string) === "half-time" ? "half-time" : "active",
+      syncStatus: isHalfTime ? "half-time" : "active",
       dataSource: "varzesh3",
     };
 
-    if (data.lineups) updates.lineups = data.lineups;
+    if (hasRealLineup(data.lineups)) {
+      updates.lineups = data.lineups;
+    }
     if (data.stats) updates.teamStats = data.stats;
     if (data.referee) updates.referee = data.referee;
     if (data.venue) updates.venue = data.venue;
@@ -240,9 +230,9 @@ async function pollOnce(state: LivePollState): Promise<void> {
     state.lastPollAt = new Date().toISOString();
     state.lastError = null;
 
-    logMessage("info", "sync", `Poll #${state.pollCount} for match ${state.matchId}: ${data.scoreHome}-${data.scoreAway}, ${mergedEvents.length} events`);
+    logMessage("info", "sync", `Poll #${state.pollCount} match ${state.matchId}: ${data.scoreHome}-${data.scoreAway}, min=${scrapedMinute}, events=${mergedEvents.length}, ht=${isHalfTime}, ft=${isFullTime}`);
 
-    if (detectFullTime(match, data)) {
+    if (isFullTime) {
       logMessage("info", "sync", `Match ${state.matchId}: FULL-TIME detected, final sync & stop`);
       updateMatchInDb(state.matchId, {
         status: "finished",
@@ -258,7 +248,7 @@ async function pollOnce(state: LivePollState): Promise<void> {
   } catch (err: any) {
     state.lastError = err.message;
     state.status = "error";
-    logMessage("error", "sync", `Poll #${state.pollCount} for match ${state.matchId} error: ${err.message}`);
+    logMessage("error", "sync", `Poll #${state.pollCount} match ${state.matchId} error: ${err.message}`);
     updateMatchInDb(state.matchId, {
       syncStatus: "error",
       lastSyncAt: new Date().toISOString(),
@@ -300,7 +290,8 @@ export function startAutoSync(matchId: string, varzesh3Url: string, intervalSec?
     };
     state.timer = setInterval(() => pollOnce(state), interval);
     activePolls.set(matchId, state);
-    logMessage("info", "sync", `Auto-sync started immediately for match ${matchId} (live)`);
+    pollOnce(state);
+    logMessage("info", "sync", `Auto-sync started immediately for match ${matchId} (live), interval=${intervalSec || DEFAULT_INTERVAL_SEC}s`);
     return { scheduled: true, message: `سینک خودکار شروع شد (هر ${intervalSec || DEFAULT_INTERVAL_SEC} ثانیه).` };
   }
 
@@ -401,6 +392,10 @@ export function getSyncStatus(matchId: string) {
     pollCount: state?.pollCount || 0,
     intervalSec: match?.syncIntervalSec || DEFAULT_INTERVAL_SEC,
     dataUrl: match?.dataUrl || null,
+    minutes: match?.minutes || "",
+    scoreHome: match?.scoreHome ?? 0,
+    scoreAway: match?.scoreAway ?? 0,
+    events: match?.events || [],
   };
 }
 

@@ -165,10 +165,11 @@ export default function AdminLiveMatchConsole({
     return numStr.replace(/[0-9]/g, (w) => persianDigits[parseInt(w, 10)]);
   };
 
-  // Clock tick simulation (+1 minute every 8 seconds when active)
+  // Clock tick simulation — only when sync is OFF (manual admin mode)
+  // When sync is active, minutes come from server (scraped from varzesh3)
   useEffect(() => {
     let interval: any = null;
-    if (isPlaying) {
+    if (isPlaying && liveSyncMode === "off") {
       interval = setInterval(() => {
         setMinutes((prev) => {
           const next = prev + 1;
@@ -181,14 +182,14 @@ export default function AdminLiveMatchConsole({
       }, 8000);
     }
     return () => clearInterval(interval);
-  }, [isPlaying, isFutsal]);
+  }, [isPlaying, isFutsal, liveSyncMode]);
 
   // Set standard default minute on input opening
   useEffect(() => {
     setEventMin(String(minutes));
   }, [minutes]);
 
-  // Live sync status polling — refreshes sync state from server every 10s when active
+  // Live sync polling — refreshes sync state + match data from server every 15s when active
   const [livePollCount, setLivePollCount] = useState<number>(0);
   const [liveLastPollAt, setLiveLastPollAt] = useState<string | null>(null);
   const [liveLastSyncStatus, setLiveLastSyncStatus] = useState<string>(match.syncStatus || "idle");
@@ -200,6 +201,7 @@ export default function AdminLiveMatchConsole({
       try {
         const res = await fetch(`/api/match-sync/${match.id}/live/status`);
         const data = await res.json();
+
         if (data.success && data.data) {
           const s = data.data;
           setLiveSyncMode(s.syncMode || "off");
@@ -213,13 +215,23 @@ export default function AdminLiveMatchConsole({
           }
           if (s.lastError) {
             setSyncMessage(`خطا: ${s.lastError}`);
+          } else {
+            setSyncMessage("");
           }
+
+          if (s.minutes !== undefined && s.minutes !== null && s.minutes !== "") {
+            const parsed = parseInt(String(s.minutes), 10);
+            if (!isNaN(parsed)) setMinutes(parsed);
+          }
+          if (s.scoreHome !== undefined) setScoreHome(s.scoreHome);
+          if (s.scoreAway !== undefined) setScoreAway(s.scoreAway);
+          if (s.events) setEvents(s.events);
         }
       } catch {}
     };
 
     pollStatus();
-    const interval = setInterval(pollStatus, 10000);
+    const interval = setInterval(pollStatus, 15000);
     return () => clearInterval(interval);
   }, [liveSyncMode, isFinishedMode, match.id]);
 
