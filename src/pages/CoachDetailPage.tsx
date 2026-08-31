@@ -10,6 +10,7 @@ export default function CoachDetailPage() {
   const navigate = useNavigate();
   const [coach, setCoach] = useState<any>(null);
   const [allMatches, setAllMatches] = useState<any[]>([]);
+  const [news, setNews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -33,7 +34,12 @@ export default function CoachDetailPage() {
       .finally(() => setLoading(false));
 
     fetchCachedAppData()
-      .then(d => { if (d && d.status === "ok") setAllMatches(d.matches || []); })
+      .then(d => {
+        if (d && d.status === "ok") {
+          setAllMatches(d.matches || []);
+          setNews(d.news || []);
+        }
+      })
       .catch(() => {});
   }, [id]);
 
@@ -84,8 +90,11 @@ export default function CoachDetailPage() {
       <CoachDetail
         coach={coach}
         allMatches={allMatches}
+        news={news}
         onBack={() => navigate(-1)}
         onSelectTeam={(teamName: string) => navigate("/")}
+        onSelectNews={(newsId: string) => navigate(`/news/${newsId}`)}
+        onSelectMatch={(matchId: string) => navigate(`/match/${matchId}`)}
       />
     </>
   );
