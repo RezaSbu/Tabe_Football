@@ -27,8 +27,9 @@ export async function migrateConstraints(): Promise<void> {
         'GK', 'DF', 'MF', 'FW',
         'goalkeeper', 'defender', 'midfielder', 'forward',
         'دروازه‌بان', 'مدافع', 'هافبک', 'مهاجم',
-        'هافبک دفاعی', 'هافبک تهاجمی', 'مدافع مرکزی', 'مدافع چپ', 'مدافع راست',
-        'وینگر چپ', 'وینگر راست', 'مهاجم نوک', 'هافبک مرکزی'
+        'هافبک دفاعی', 'هافبک هجومی', 'هافبک تهاجمی', 'مدافع مرکزی', 'مدافع چپ', 'مدافع راست',
+        'وینگر چپ', 'وینگر راست', 'مهاجم نوک', 'هافبک مرکزی',
+        'مدافع کناری', 'وینگر'
       ));
     `);
     await pool.query(`ALTER TABLE legionnaires DROP CONSTRAINT IF EXISTS chk_legionnaires_league;`);

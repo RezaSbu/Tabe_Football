@@ -3,7 +3,7 @@ import {
   ArrowLeft, Award, Calendar, Zap, Heart, ShieldCheck, 
   Star, Activity, Trophy, Clock, UserRound, Sparkles, Newspaper
 } from "lucide-react";
-import { getSafeImageUrl, isTeamInDb, convertGregorianToShamsi, toPersianDigits, normalizePersianString } from "../utils";
+import { getSafeImageUrl, isTeamInDb, convertGregorianToShamsi, toPersianDigits, normalizePersianString, matchesPersonNews } from "../utils";
 import { resolveTeam } from "../shared/teamMatch";
 import { realMinute } from "../shared/matchMinute";
 
@@ -52,15 +52,11 @@ export default function PlayerDetail({
                          player.teamId?.includes("futsal") || 
                          (player.teamName || "").includes("فوتسال");
 
-  // Latest 3 news mentioning this player (matched on normalized name)
+  // Latest 10 news mentioning this player (tag-based search by name keywords)
   const playerNews = [...(news || [])]
-    .filter((n: any) => {
-      if (!n) return false;
-      const haystack = normalizePersianString(`${n.title || ""} ${n.summary || ""} ${n.content || ""}`);
-      return haystack.includes(normalizePersianString(player.name || ""));
-    })
+    .filter((n: any) => !!n && matchesPersonNews(n, player.name))
     .sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-    .slice(0, 3);
+    .slice(0, 10);
 
   const getPlayerMinutesAndPlayed = (m: any, p: any) => {
     const isFutsal = m.sport === "futsal" || m.league === "futsal";
@@ -576,7 +572,7 @@ export default function PlayerDetail({
                     <Newspaper className="h-4 w-4 text-emerald-500" />
                     <span>آخرین اخبار {player.name}</span>
                   </h3>
-                  <div className="space-y-2">
+                  <div className="space-y-2 max-h-[420px] overflow-y-auto overscroll-contain pr-1">
                     {playerNews.map((nw: any) => (
                       <button
                         key={nw.id}

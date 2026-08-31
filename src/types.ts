@@ -25,6 +25,7 @@ export interface MatchItem {
   scoreAway: number;
   status: 'not-started' | 'live' | 'finished' | 'archived';
   minutes?: string;
+  period?: 'First Half' | 'HT' | 'Second Half' | string;
   league: 'pro-league' | 'league-1' | 'league-2' | 'hazfi-cup' | 'futsal' | string;
   date: string;
   time: string;
@@ -133,9 +134,9 @@ export interface ImageItem {
 }
 
 export interface StatsData {
-  scorers: { rank: number; name: string; team: string; goals: number; penalties: number }[];
-  assists: { rank: number; name: string; team: string; assists: number }[];
-  cleansheets: { rank: number; name: string; team: string; cleanSheets: number }[];
+  scorers: { rank: number; id?: string; name: string; team: string; goals: number; penalties: number }[];
+  assists: { rank: number; id?: string; name: string; team: string; assists: number }[];
+  cleansheets: { rank: number; id?: string; name: string; team: string; cleanSheets: number }[];
   ratings?: { rank: number; name: string; team: string; rating: number }[];
 }
 

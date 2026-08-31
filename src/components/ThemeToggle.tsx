@@ -1,13 +1,17 @@
 import { useEffect, useState } from "react";
 import { Sun, Moon } from "lucide-react";
 
+function getInitialTheme(): boolean {
+  if (typeof window !== "undefined") {
+    const saved = window.localStorage.getItem("tabefootball-theme");
+    if (saved === "light") return true;
+    if (saved === "dark") return false;
+  }
+  return false; // default = dark
+}
+
 export default function ThemeToggle() {
-  const [isLight, setIsLight] = useState(() => {
-    if (typeof document !== "undefined") {
-      return document.documentElement.classList.contains("light");
-    }
-    return false;
-  });
+  const [isLight, setIsLight] = useState(getInitialTheme);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -16,6 +20,7 @@ export default function ThemeToggle() {
     } else {
       root.classList.remove("light");
     }
+    window.localStorage.setItem("tabefootball-theme", isLight ? "light" : "dark");
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
       meta.setAttribute("content", isLight ? "#dce3ee" : "#030712");

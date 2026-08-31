@@ -70,9 +70,15 @@ export default function MatchCard({ match, predictions, onVote, onSelectTeam }: 
         <div className="col-span-3 flex flex-col items-center justify-center">
           {match.status === "live" ? (
             <div className="space-y-1">
-              <span className="inline-flex items-center gap-1 rounded-full bg-red-950 text-red-500 border border-red-950 px-2.5 py-0.5 text-[9px] font-black animate-pulse">
-                • زنده {match.minutes}'
-              </span>
+              {match.period === "HT" ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-950 text-amber-400 border border-amber-900/60 px-2.5 py-0.5 text-[9px] font-black">
+                  بین دو نیمه
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-red-950 text-red-500 border border-red-950 px-2.5 py-0.5 text-[9px] font-black animate-pulse">
+                  • زنده {match.minutes}'
+                </span>
+              )}
               <div className="text-xl font-mono font-black text-white">
                 {match.scoreHome} - {match.scoreAway}
               </div>

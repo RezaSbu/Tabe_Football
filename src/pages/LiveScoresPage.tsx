@@ -166,7 +166,7 @@ export default function LiveScoresPage({
                                 {m.scoreHome} - {m.scoreAway}
                               </span>
                               <span className="block text-[9px] text-emerald-400 font-extrabold">
-                                دقیقه زنده {m.minutes || "۹۰"}'
+                                {m.period === "HT" ? "بین دو نیمه" : `دقیقه زنده ${m.minutes || "۹۰"}’`}
                               </span>
                             </div>
                           ) : m.status === "finished" ? (

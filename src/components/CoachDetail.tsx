@@ -1,21 +1,27 @@
 import React, { useState } from "react";
-import { ArrowLeft, Trophy, Award, Calendar, UserRound, TrendingUp, Target, BookOpen, BadgeCheck, Clock, Flag, Sparkles, Activity } from "lucide-react";
-import { getSafeImageUrl, convertGregorianToShamsi, toPersianDigits, normalizePersianString } from "../utils";
+import { ArrowLeft, Trophy, Award, UserRound, TrendingUp, Target, BookOpen, BadgeCheck, Clock, Flag, Sparkles, Activity, Newspaper } from "lucide-react";
+import { getSafeImageUrl, toPersianDigits, normalizePersianString, normalizeNewsTag, matchesPersonNews } from "../utils";
 
 interface CoachDetailProps {
   coach: any;
   allMatches?: any[];
+  news?: any[];
   onBack: () => void;
   onSelectTeam?: (name: string) => void;
+  onSelectNews?: (id: string) => void;
+  onSelectMatch?: (id: string) => void;
 }
 
 export default function CoachDetail({
   coach,
   allMatches = [],
+  news = [],
   onBack,
-  onSelectTeam
+  onSelectTeam,
+  onSelectNews,
+  onSelectMatch
 }: CoachDetailProps) {
-  const [activeTab, setActiveTab] = useState<"overview" | "matches" | "career">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "matches" | "news" | "career">("overview");
   const [imageError, setImageError] = useState(false);
   const [lastCoachId, setLastCoachId] = useState<string | undefined>(undefined);
 
@@ -43,6 +49,51 @@ export default function CoachDetail({
     D: { label: "مساوی", color: "bg-amber-500" },
     L: { label: "شکست", color: "bg-red-500" }
   };
+
+  const teamNorm = normalizePersianString(coach.teamName || "");
+
+  // Coach match records: every finished match this team took part in
+  const coachMatches: any[] = [];
+  allMatches.forEach(match => {
+    if (match.status !== "finished") return;
+    const isHome = teamNorm && normalizePersianString(match.teamHome || "") === teamNorm;
+    const isAway = teamNorm && normalizePersianString(match.teamAway || "") === teamNorm;
+    if (!isHome && !isAway) return;
+
+    const homeGoals = Number(match.scoreHome) || 0;
+    const awayGoals = Number(match.scoreAway) || 0;
+    const result: "W" | "D" | "L" =
+      homeGoals === awayGoals ? "D" : (isHome ? (homeGoals > awayGoals ? "W" : "L") : (awayGoals > homeGoals ? "W" : "L"));
+
+    coachMatches.push({
+      matchId: match.id,
+      date: match.date,
+      time: match.time,
+      teamName: isHome ? match.teamHome : match.teamAway,
+      teamLogo: isHome ? match.teamHomeLogo : match.teamAwayLogo,
+      opponent: isHome ? match.teamAway : match.teamHome,
+      opponentLogo: isHome ? match.teamAwayLogo : match.teamHomeLogo,
+      scoreHome: match.scoreHome,
+      scoreAway: match.scoreAway,
+      result
+    });
+  });
+  coachMatches.sort((a: any, b: any) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+
+  // Coach news: matched by tag search using the coach's name (and team name)
+  const coachNews = [...(news || [])]
+    .filter((n: any) => {
+      if (!n) return false;
+      if (matchesPersonNews(n, coach.name)) return true;
+      if (teamNorm) {
+        const tags: string[] = (n.tags || []).map(normalizeNewsTag);
+        return tags.some((t: string) => t.includes(teamNorm)) ||
+          normalizePersianString(`${n.title || ""} ${n.summary || ""} ${n.content || ""}`).includes(teamNorm);
+      }
+      return false;
+    })
+    .sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
+    .slice(0, 10);
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -144,13 +195,19 @@ export default function CoachDetail({
           onClick={() => setActiveTab("matches")}
           className={`flex-1 py-3 rounded-xl font-black text-center transition cursor-pointer ${activeTab === "matches" ? "bg-emerald-500 text-black shadow font-black" : "text-slate-400 hover:text-white"}`}
         >
-          کارنامه مسابقات ({toPersianDigits(matches)})
+          ریز کارنامه مسابقات ({toPersianDigits(coachMatches.length)})
         </button>
         <button
           onClick={() => setActiveTab("career")}
           className={`flex-1 py-3 rounded-xl font-black text-center transition cursor-pointer ${activeTab === "career" ? "bg-emerald-500 text-black shadow font-black" : "text-slate-400 hover:text-white"}`}
         >
           افتخارات و سوابق
+        </button>
+        <button
+          onClick={() => setActiveTab("news")}
+          className={`flex-1 py-3 rounded-xl font-black text-center transition cursor-pointer ${activeTab === "news" ? "bg-emerald-500 text-black shadow font-black" : "text-slate-400 hover:text-white"}`}
+        >
+          اخبار ({toPersianDigits(coachNews.length)})
         </button>
       </div>
 
@@ -253,15 +310,92 @@ export default function CoachDetail({
 
       {activeTab === "matches" && (
         <div className="p-4 rounded-2xl bg-[#131317] border border-white/5">
-          <h3 className="text-xs font-black text-slate-400 mb-3 flex items-center gap-1.5">
-            <Calendar className="h-4 w-4 text-emerald-500" />
-            <span>کارنامه مسابقات فصل جاری</span>
+          <h3 className="font-black text-base text-white border-r-4 border-emerald-500 pr-2 mb-4">
+            ریز کارنامه مسابقات حضور یافته مربی در فصل جاری
           </h3>
-          <div className="text-center py-10 text-slate-500 text-xs">
-            <Award className="h-10 w-10 mx-auto mb-3 text-slate-600" />
-            <p>جزئیات عملکرد مسابقات مربی پس از پایان هر بازی به صورت خودکار محاسبه و نمایش داده می‌شود.</p>
-            <p className="mt-1 text-slate-600">تعداد کل مسابقات: {toPersianDigits(matches)}</p>
-          </div>
+
+          {coachMatches.length > 0 ? (
+            <div className="grid gap-3">
+              {coachMatches.map((m, idx) => (
+                <div
+                  key={idx}
+                  onClick={() => onSelectMatch && onSelectMatch(m.matchId)}
+                  className="p-3 sm:p-4 rounded-xl bg-[#161619] border border-white/5 hover:border-emerald-500/30 hover:bg-white/[0.01] cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs transition"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-black shrink-0 ${
+                      m.result === "W" ? "bg-emerald-950/80 text-[#6ee7b7] border border-emerald-900/50" : m.result === "D" ? "bg-[#1e293b] text-[#cbd5e1]" : "bg-red-950/80 text-[#fca5a5] border border-red-900/50"
+                    }`}>
+                      {m.result === "W" ? "برد" : m.result === "D" ? "تساوی" : "باخت"}
+                    </span>
+                    <div className="flex items-center gap-1 text-[13px] text-white font-bold">
+                      <span>{m.teamName}</span>
+                      <span className="text-slate-500 text-xs">مقابل</span>
+                      <span>{m.opponent}</span>
+                    </div>
+                  </div>
+
+                  <div className="text-center sm:text-right">
+                    <span className="text-[10px] text-slate-500 block mb-0.5">نتیجه کلی مسابقه</span>
+                    <strong className="font-mono text-slate-200 font-bold bg-black/40 px-2 py-1 rounded">
+                      {toPersianDigits(m.scoreHome)} - {toPersianDigits(m.scoreAway)}
+                    </strong>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-10 text-slate-500 text-xs">
+              <Award className="h-10 w-10 mx-auto mb-3 text-slate-600" />
+              <p>جزئیات عملکرد مسابقات مربی پس از پایان هر بازی به صورت خودکار محاسبه و نمایش داده می‌شود.</p>
+              <p className="mt-1 text-slate-600">تعداد کل مسابقات: {toPersianDigits(matches)}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {activeTab === "news" && (
+        <div className="p-4 rounded-2xl bg-[#131317] border border-white/5">
+          <h3 className="text-xs font-black text-slate-400 mb-3 flex items-center gap-1.5">
+            <Newspaper className="h-4 w-4 text-emerald-500" />
+            <span>آخرین اخبار {coach.name || "مربی"}</span>
+          </h3>
+          {coachNews.length > 0 ? (
+            <div className="max-h-[420px] overflow-y-auto pr-1 space-y-2">
+              {coachNews.map((nw: any) => (
+                <button
+                  key={nw.id}
+                  onClick={() => onSelectNews && onSelectNews(nw.id)}
+                  className="w-full flex items-start gap-2.5 text-right p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.05] border border-white/5 hover:border-emerald-500/30 transition cursor-pointer group"
+                >
+                  {nw.image ? (
+                    <img
+                      src={getSafeImageUrl(nw.image)}
+                      alt={nw.title}
+                      loading="lazy"
+                      className="w-14 h-14 rounded-lg object-cover shrink-0 bg-slate-800"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded-lg shrink-0 bg-slate-800 flex items-center justify-center text-base">📰</div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-xs font-bold text-white leading-snug line-clamp-2 group-hover:text-emerald-400 transition">
+                      {nw.title}
+                    </h4>
+                    {nw.summary && (
+                      <p className="text-[10px] text-slate-500 line-clamp-2 mt-1 leading-relaxed">{nw.summary}</p>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-10 text-slate-500 text-xs">
+              <Newspaper className="h-10 w-10 mx-auto mb-3 text-slate-600" />
+              <p>خبری مرتبط با این مربی یا تیم او یافت نشد.</p>
+            </div>
+          )}
         </div>
       )}
 
