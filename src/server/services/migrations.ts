@@ -124,6 +124,12 @@ export function runDatabaseMigrationsAndTransitions(parsed: any): { parsed: any;
           } else if (elapsedMs >= 0) {
             if (m.status !== "live") {
               m.status = "live";
+              changed = true;
+            }
+            // Never overwrite a minute the admin has already stored. Only derive
+            // one from the match start time when no minute exists yet (i.e. a
+            // brand-new live match that hasn't been driven manually).
+            if (!m.minutes && m.minutes !== 0 && m.minutes !== "0") {
               m.minutes = Math.max(1, Math.floor(elapsedMs / (60 * 1000))).toString();
               changed = true;
             }

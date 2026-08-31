@@ -7,6 +7,7 @@ import {
   convertGregorianToShamsi,
   convertShamsiToGregorian,
   getTodayShamsi,
+  computeDynamicAppletStats,
 } from './utils';
 
 describe('toEnglishDigits', () => {
@@ -134,5 +135,44 @@ describe('getTodayShamsi', () => {
     const result = getTodayShamsi();
     expect(result).toBeTruthy();
     expect(typeof result).toBe('string');
+  });
+});
+
+describe('computeDynamicAppletStats — live minute persistence', () => {
+  // Build a match whose start time is `pastMinutes` minutes ago (so elapsed
+  // would normally drive the minute) and today's date/time.
+  function liveMatch(pastMinutes: number, storedMinute?: string | null) {
+    const past = new Date(Date.now() - pastMinutes * 60 * 1000);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const date = `${past.getFullYear()}-${pad(past.getMonth() + 1)}-${pad(past.getDate())}`;
+    const time = `${pad(past.getHours())}:${pad(past.getMinutes())}:00`;
+    return {
+      id: 'm1',
+      teamHome: 'تیم الف',
+      teamAway: 'تیم ب',
+      status: 'live',
+      date,
+      time,
+      minutes: typeof storedMinute === 'undefined' ? '46' : storedMinute,
+      scoreHome: 0,
+      scoreAway: 0,
+    };
+  }
+
+  it('keeps a manually stored minute instead of recomputing from elapsed', () => {
+    // Match started only 2 min ago, but admin stored minute 46. The client-side
+    // calculator must NOT overwrite it back to ~2.
+    const { processedMatches } = computeDynamicAppletStats([liveMatch(2, '46')], [], [], {}, {});
+    expect(processedMatches[0].minutes).toBe('46');
+  });
+
+  it('derives the minute from elapsed only when no stored minute exists', () => {
+    const { processedMatches } = computeDynamicAppletStats([liveMatch(10, null)], [], [], {}, {});
+    expect(parseInt(processedMatches[0].minutes, 10)).toBeGreaterThanOrEqual(1);
+  });
+
+  it('marks a live match with a stored minute as live', () => {
+    const { processedMatches } = computeDynamicAppletStats([liveMatch(2, '46')], [], [], {}, {});
+    expect(processedMatches[0].status).toBe('live');
   });
 });
