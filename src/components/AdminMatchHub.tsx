@@ -314,7 +314,7 @@ export default function AdminMatchHub({
                       </span>
                     )}
                     {m.status === "live" && (
-                      <span className="text-[9px] text-red-400 mt-1 animate-pulse font-bold">{m.minutes || "۰"}'</span>
+                      <span className="text-[9px] text-red-400 mt-1 animate-pulse font-bold">{m.period === "HT" ? "بین دو نیمه" : `${m.minutes || "۰"}'`}</span>
                     )}
                   </div>
 

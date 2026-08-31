@@ -166,7 +166,9 @@ export default function MatchTicker({ matches, selectedLeagueFilter, onSelectMat
                         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
                         <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
                       </span>
-                      <span>زنده (دقیقه {match.minutes})</span>
+                      <span>
+                        {match.period === "HT" ? "بین دو نیمه" : `زنده (دقیقه ${match.minutes})`}
+                      </span>
                     </span>
                   )}
 

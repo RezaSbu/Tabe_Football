@@ -25,6 +25,7 @@ export interface MatchItem {
   scoreAway: number;
   status: 'not-started' | 'live' | 'finished' | 'archived';
   minutes?: string;
+  period?: 'First Half' | 'HT' | 'Second Half' | string;
   league: 'pro-league' | 'league-1' | 'league-2' | 'hazfi-cup' | 'futsal' | string;
   date: string;
   time: string;

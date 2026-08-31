@@ -62,7 +62,12 @@ export default function AdminLiveMatchConsole({
     return isFinishedMode ? (isFutsal ? 40 : 90) : 1;
   });
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
-  const [period, setPeriod] = useState<string>(match.minutes && parseInt(match.minutes, 10) > 45 ? "Second Half" : "First Half");
+  const [period, setPeriod] = useState<string>(() => {
+    if (match.period === "HT" || match.period === "Second Half" || match.period === "First Half") {
+      return match.period;
+    }
+    return match.minutes && parseInt(match.minutes, 10) > 45 ? "Second Half" : "First Half";
+  });
 
   // Scores
   const [scoreHome, setScoreHome] = useState<number>(match.scoreHome ?? 0);
@@ -600,9 +605,17 @@ export default function AdminLiveMatchConsole({
               onChange={(e) => {
                 const per = e.target.value;
                 setPeriod(per);
-                if (per === "First Half") setMinutes(1);
-                if (per === "Second Half") setMinutes(isFutsal ? 20 : 45);
-                if (per === "HT") setIsPlaying(false);
+                if (per === "First Half") {
+                  setMinutes(1);
+                  setIsPlaying(false);
+                }
+                if (per === "Second Half") {
+                  setMinutes(isFutsal ? 20 : 45);
+                  setIsPlaying(false);
+                }
+                if (per === "HT") {
+                  setIsPlaying(false);
+                }
               }}
               className="w-full text-xs rounded bg-[#07070a] border border-white/5 p-2.5 text-white font-bold focus:outline-none"
             >
@@ -610,6 +623,38 @@ export default function AdminLiveMatchConsole({
               <option value="HT">بین دو نیمه (HT)</option>
               <option value="Second Half">نیمه دوم</option>
             </select>
+          </div>
+
+          {/* Quick action buttons: HT & Start 2nd half */}
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => {
+                setPeriod("HT");
+                setIsPlaying(false);
+              }}
+              className={`p-2.5 rounded-lg text-[11px] font-black transition cursor-pointer ${
+                period === "HT"
+                  ? "bg-amber-500 text-black"
+                  : "bg-white/5 hover:bg-amber-500/20 text-amber-300"
+              }`}
+            >
+              پایان نیمه اول (بین دو نیمه)
+            </button>
+            <button
+              onClick={() => {
+                setPeriod("Second Half");
+                setMinutes(isFutsal ? 21 : 46);
+                setIsPlaying(false);
+              }}
+              disabled={period !== "HT"}
+              className={`p-2.5 rounded-lg text-[11px] font-black transition cursor-pointer ${
+                period === "HT"
+                  ? "bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30"
+                  : "bg-white/5 text-slate-600 cursor-not-allowed"
+              }`}
+            >
+              شروع نیمه دوم (دقیقه {toPersianDigits(isFutsal ? 21 : 46)})
+            </button>
           </div>
             </>
           )}

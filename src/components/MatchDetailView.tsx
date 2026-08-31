@@ -397,10 +397,17 @@ export default function MatchDetailView({
             {/* center score */}
             <div className="flex flex-col items-center gap-1.5 text-center">
               {isLive ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/90 text-white px-3 py-1 text-[10px] font-black animate-pulse shadow-lg">
-                  <span className="h-1.5 w-1.5 rounded-full bg-white" />
-                  زنده · دقیقه {toPersianDigits(match.minutes || "۶۵")}'
-                </span>
+                match.period === "HT" ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/20 border border-amber-400/30 text-amber-300 px-3 py-1 text-[10px] font-black">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                    بین دو نیمه
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/90 text-white px-3 py-1 text-[10px] font-black animate-pulse shadow-lg">
+                    <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                    زنده · دقیقه {toPersianDigits(match.minutes || "۶۵")}'
+                  </span>
+                )
               ) : match.status === "finished" ? (
                 <span className="rounded-full bg-white/15 border border-white/15 text-slate-100 px-3 py-1 text-[10px] font-black backdrop-blur">
                   پایان یافته

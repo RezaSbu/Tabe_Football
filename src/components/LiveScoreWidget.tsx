@@ -68,7 +68,7 @@ export default function LiveScoreWidget({
                 <div className="flex items-center justify-between text-[9px] text-slate-500 font-bold mt-3.5 pt-2 border-t border-white/[0.02]">
                   <span className="text-red-450 animate-pulse text-red-550 text-red-500 flex items-center gap-1">
                     <span className="h-1.5 w-1.5 rounded-full bg-red-500 animate-ping" />
-                    دقیقه {m.minutes || "۷۵"}'
+                    {m.period === "HT" ? "بین دو نیمه" : `دقیقه ${m.minutes || "۷۵"}’`}
                   </span>
 
                   {/* Push alert toggles */}
