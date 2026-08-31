@@ -228,8 +228,19 @@ export function computeDynamicAppletStats(
               scoreAway: 0
             };
           } else if (elapsedMs < 110 * 60 * 1000) {
-            // Live game - always update minutes based on clock
+            // Live game - drive status by the clock, but respect a minute the
+            // admin has already set/stored (e.g. manually entering 46, or the
+            // live console's running clock). Only derive the minute from the
+            // match start time when no stored minute exists yet.
             const elapsedMins = Math.floor(elapsedMs / (60 * 1000)) || 1;
+            const hasStoredMinute =
+              match.minutes !== undefined &&
+              match.minutes !== null &&
+              match.minutes !== "";
+            const effectiveMinute = hasStoredMinute
+              ? match.minutes
+              : String(elapsedMins);
+
             let scHome = match.scoreHome ?? 0;
             const scAway = match.scoreAway ?? 0;
             // Only inject fake scores if not already set by admin
@@ -240,7 +251,7 @@ export function computeDynamicAppletStats(
             return {
               ...match,
               status: "live",
-              minutes: String(elapsedMins),
+              minutes: effectiveMinute,
               scoreHome: scHome,
               scoreAway: scAway
             };
