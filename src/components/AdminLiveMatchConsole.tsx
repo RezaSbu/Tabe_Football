@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { MatchItem, TeamItem, PlayerItem } from "../types";
 import { 
   Play, 
@@ -68,6 +68,28 @@ export default function AdminLiveMatchConsole({
     }
     return match.minutes && parseInt(match.minutes, 10) > 45 ? "Second Half" : "First Half";
   });
+
+  // Real-time clock anchors. When the admin presses Play, the current `minutes`
+  // is frozen as the base minute and a wall-clock timestamp is recorded; the live
+  // minute is then derived from how many real 60s intervals have elapsed. This
+  // means the clock advances by exactly 1 per real minute, and if the admin
+  // manually sets a minute (e.g. 30, or 46 after HT) the clock resumes from that
+  // exact value instead of drifting back toward a value derived from match start.
+  const baseMinuteRef = useRef<number>(minutes);
+  const startTsRef = useRef<number | null>(null);
+
+  // Reset the live-clock anchors so the next Play resumes from `newMin`. If the
+  // clock is currently running, re-anchor to now so it keeps ticking from the
+  // newly set minute without restarting the interval.
+  const reseedClock = (newMin: number) => {
+    setMinutes(newMin);
+    baseMinuteRef.current = newMin;
+    if (isPlaying) {
+      startTsRef.current = Date.now();
+    } else {
+      startTsRef.current = null;
+    }
+  };
 
   // Scores
   const [scoreHome, setScoreHome] = useState<number>(match.scoreHome ?? 0);
@@ -150,28 +172,57 @@ export default function AdminLiveMatchConsole({
     return numStr.replace(/[0-9]/g, (w) => persianDigits[parseInt(w, 10)]);
   };
 
-  // Clock tick simulation (+1 minute every 8 seconds when active)
+  // Real clock: the minute is derived from how many real 60s intervals have
+  // elapsed since the play/resume moment, anchored to the minute the admin had
+  // set at that moment (so a manually entered minute like 30, or 46 after HT,
+  // is respected and only advances by 1 per real minute).
+  const maxMin = isFutsal ? 40 : 90;
   useEffect(() => {
     let interval: any = null;
     if (isPlaying) {
+      if (startTsRef.current === null) {
+        startTsRef.current = Date.now();
+        baseMinuteRef.current = minutes;
+      }
       interval = setInterval(() => {
-        setMinutes((prev) => {
-          const next = prev + 1;
-          const maxMin = isFutsal ? 40 : 90;
-          if (next >= maxMin) {
-            setIsPlaying(false);
-          }
-          return next;
-        });
-      }, 8000);
+        const elapsedMin = Math.floor((Date.now() - (startTsRef.current as number)) / 60000);
+        const next = (baseMinuteRef.current as number) + elapsedMin;
+        if (next >= maxMin) {
+          setIsPlaying(false);
+          setMinutes(maxMin);
+        } else {
+          setMinutes(next);
+        }
+      }, 1000);
     }
     return () => clearInterval(interval);
-  }, [isPlaying, isFutsal]);
+  }, [isPlaying, isFutsal, maxMin]);
 
   // Set standard default minute on input opening
   useEffect(() => {
     setEventMin(String(minutes));
   }, [minutes]);
+
+  // Auto-persist the running live minute to the server so the clock "resumes
+  // from where the admin left it" even after a refresh/reopen. Flush whenever
+  // the minute changes while playing, throttled to once per ~10s so it doesn't
+  // hammer the API on the 1s wall-clock tick.
+  const lastAutoSaveRef = useRef<number>(0);
+  useEffect(() => {
+    if (!isPlaying || isFinishedMode) return;
+    const now = Date.now();
+    if (now - lastAutoSaveRef.current < 10000) return;
+    lastAutoSaveRef.current = now;
+    onUpdateMatch(match.id, {
+      minutes: String(minutes),
+      period,
+      status: "live",
+      scoreHome,
+      scoreAway,
+      events
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPlaying, minutes, isFinishedMode]);
 
   // Handle Event Addition
   const handleAddEvent = () => {
@@ -571,13 +622,13 @@ export default function AdminLiveMatchConsole({
               </button>
 
               <button 
-                onClick={() => setMinutes(prev => Math.max(1, prev - 1))}
+                onClick={() => reseedClock(Math.max(1, minutes - 1))}
                 className="p-1 px-2.5 text-xs font-bold rounded bg-white/5 hover:bg-white/10 text-slate-300 transition"
               >
                 -۱
               </button>
               <button 
-                onClick={() => setMinutes(prev => prev + 1)}
+                onClick={() => reseedClock(Math.min(maxMin, minutes + 1))}
                 className="p-1 px-2.5 text-xs font-bold rounded bg-white/5 hover:bg-white/10 text-slate-300 transition"
               >
                 +۱
@@ -585,7 +636,7 @@ export default function AdminLiveMatchConsole({
               
               <button 
                 onClick={() => {
-                  setMinutes(1);
+                  reseedClock(1);
                   setIsPlaying(false);
                   setPeriod("First Half");
                 }}
@@ -593,6 +644,43 @@ export default function AdminLiveMatchConsole({
                 title="ریست ساعت"
               >
                 <RotateCcw className="h-3.5 w-3.5" />
+              </button>
+            </div>
+
+            {/* Manual minute entry — lets the admin set an exact minute (e.g. 30,
+                or 46 after HT) and the live clock resumes from that value. */}
+            <label className="block text-[10px] text-slate-400 font-bold mt-3 mb-1.5">تنظیم دستی دقیقه</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={1}
+                max={maxMin}
+                value={minutes}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === "" || raw === "-") { setMinutes(1); return; }
+                  const val = Math.max(1, Math.min(maxMin, parseInt(raw, 10) || 1));
+                  reseedClock(val);
+                }}
+                className="w-full text-center text-sm font-mono font-black text-emerald-400 bg-[#07070a] border border-white/5 rounded-lg p-2 focus:outline-none"
+              />
+              <button
+                onClick={() => {
+                  if (period === "HT") {
+                    reseedClock(isFutsal ? 21 : 46);
+                    setPeriod("Second Half");
+                  } else if (period === "First Half") {
+                    reseedClock(isFutsal ? 20 : 45);
+                    setPeriod("HT");
+                  } else {
+                    reseedClock(isFutsal ? 21 : 46);
+                    setPeriod("Second Half");
+                  }
+                }}
+                className="p-2 px-3 text-[11px] font-black rounded-lg bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition cursor-pointer shrink-0"
+                title="شروع نیمه دوم"
+              >
+                نیمه دوم
               </button>
             </div>
           </div>
@@ -605,13 +693,14 @@ export default function AdminLiveMatchConsole({
               onChange={(e) => {
                 const per = e.target.value;
                 setPeriod(per);
+                startTsRef.current = null;
                 if (per === "First Half") {
-                  setMinutes(1);
                   setIsPlaying(false);
+                  reseedClock(1);
                 }
                 if (per === "Second Half") {
-                  setMinutes(isFutsal ? 20 : 45);
                   setIsPlaying(false);
+                  reseedClock(isFutsal ? 20 : 45);
                 }
                 if (per === "HT") {
                   setIsPlaying(false);
@@ -631,6 +720,7 @@ export default function AdminLiveMatchConsole({
               onClick={() => {
                 setPeriod("HT");
                 setIsPlaying(false);
+                startTsRef.current = null;
               }}
               className={`p-2.5 rounded-lg text-[11px] font-black transition cursor-pointer ${
                 period === "HT"
@@ -643,8 +733,8 @@ export default function AdminLiveMatchConsole({
             <button
               onClick={() => {
                 setPeriod("Second Half");
-                setMinutes(isFutsal ? 21 : 46);
                 setIsPlaying(false);
+                reseedClock(isFutsal ? 21 : 46);
               }}
               disabled={period !== "HT"}
               className={`p-2.5 rounded-lg text-[11px] font-black transition cursor-pointer ${
