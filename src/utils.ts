@@ -135,6 +135,49 @@ export function normalizePersianString(str: string): string {
 }
 
 /**
+ * Builds the set of keywords used to match news for a person (player or coach).
+ * Given a full name like "مهدی رضایی" it returns:
+ *   ["مهدی رضایی", "مهدی_رضایی", "رضایی"]
+ * (full name with space, full name with underscore, and the last name.)
+ */
+export function buildPersonNewsKeywords(name: string): string[] {
+  const parts = normalizePersianString(name).split(" ").filter(Boolean);
+  if (parts.length === 0) return [];
+  const full = parts.join(" ");
+  const keys: string[] = [];
+  keys.push(full);
+  keys.push(full.replace(/ /g, "_"));
+  if (parts.length > 1) {
+    keys.push(parts[parts.length - 1]);
+  }
+  return Array.from(new Set(keys));
+}
+
+/**
+ * Normalizes a single news tag so that " #مهدی رضایی " / "#مهدی_رضایی" all
+ * become comparable: strips a leading # and turns underscores into spaces.
+ */
+export function normalizeNewsTag(tag: string): string {
+  return normalizePersianString(tag).replace(/^#/, "").replace(/_/g, " ");
+}
+
+/**
+ * Returns true when a news item relates to the given person (player/coach),
+ * matching against its tags (by the person-specific keyword variants) and,
+ * as a fallback, against the article title/summary/content.
+ */
+export function matchesPersonNews(newsItem: any, name: string): boolean {
+  if (!newsItem || !name) return false;
+  const keys = buildPersonNewsKeywords(name);
+  if (keys.length === 0) return false;
+  const tags = (newsItem.tags || []).map(normalizeNewsTag);
+  const matchedByTag = tags.some((t: string) => keys.some((k: string) => t && (t === k || t.includes(k))));
+  if (matchedByTag) return true;
+  const text = normalizePersianString(`${newsItem.title || ""} ${newsItem.summary || ""} ${newsItem.content || ""}`);
+  return keys.some((k: string) => text.includes(k));
+}
+
+/**
  * Recalculates team standings, individual player stats, and historical ratings dynamically
  * from finished and live games in the matches array.
  */
@@ -374,6 +417,7 @@ export function computeDynamicAppletStats(
       .sort((a, b) => b.goals - a.goals)
       .map((item: any, idx) => ({
         rank: idx + 1,
+        id: item.p.id,
         name: item.p.name,
         team: item.p.teamName,
         goals: item.goals,
@@ -389,6 +433,7 @@ export function computeDynamicAppletStats(
       .sort((a, b) => b.assists - a.assists)
       .map((item: any, idx) => ({
         rank: idx + 1,
+        id: item.p.id,
         name: item.p.name,
         team: item.p.teamName,
         assists: item.assists
@@ -403,6 +448,7 @@ export function computeDynamicAppletStats(
       .sort((a, b) => b.cleanSheets - a.cleanSheets)
       .map((item: any, idx) => ({
         rank: idx + 1,
+        id: item.p.id,
         name: item.p.name,
         team: item.p.teamName,
         cleanSheets: item.cleanSheets

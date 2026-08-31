@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Flame, Zap, Award, X, List } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { StatsData } from "../types";
 
 interface StatsPageProps {
@@ -20,19 +21,28 @@ function StatRow({
   idx,
   valueColor,
   valueRenderer,
+  onSelectPlayer,
 }: {
   p: any;
   idx: number;
   valueColor: string;
   valueRenderer: (p: any) => string;
+  onSelectPlayer?: (id: string) => void;
 }) {
+  const name = p.name || "";
   return (
-    <div className="flex justify-between items-center text-xs text-gray-300 border-b border-white/5 pb-2 last:border-0 last:pb-0">
+    <div
+      onClick={() => {
+        if (p.id && onSelectPlayer) onSelectPlayer(p.id);
+      }}
+      className={`flex justify-between items-center text-xs text-gray-300 border-b border-white/5 pb-2 last:border-0 last:pb-0 ${p.id && onSelectPlayer ? "cursor-pointer hover:bg-white/5 hover:rounded-lg hover:px-2 transition" : ""}`}
+      title={onSelectPlayer && p.id ? `مشاهده پروفایل ${name}` : undefined}
+    >
       <span className="font-bold flex items-center gap-1.5 min-w-0">
         <span className="text-gray-550 font-mono text-[10px] shrink-0">
           {p.rank || idx + 1}.
         </span>
-        <span className="truncate">{p.name}</span>
+        <span className="truncate">{name}</span>
         <span className="text-[10px] text-gray-500 shrink-0">
           ({p.team})
         </span>
@@ -52,12 +62,14 @@ function StatColumn({
   valueColor,
   items,
   valueRenderer,
+  onSelectPlayer,
 }: {
   title: string;
   icon: React.ReactNode;
   valueColor: string;
   items: any[];
   valueRenderer: (p: any) => string;
+  onSelectPlayer?: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -96,6 +108,7 @@ function StatColumn({
               idx={idx}
               valueColor={valueColor}
               valueRenderer={valueRenderer}
+              onSelectPlayer={onSelectPlayer}
             />
           ))
         )}
@@ -114,7 +127,7 @@ function StatColumn({
           ) : (
             <>
               <List className="h-3.5 w-3.5" />
-              <span>نمایش همه ({items.length} نفر)</span>
+              <span>نمایش همه</span>
             </>
           )}
         </button>
@@ -133,6 +146,7 @@ export default function StatsPage({
   currentSeason,
   toPersianDigits,
 }: StatsPageProps) {
+  const navigate = useNavigate();
   const availableSeasons = (archives || [])
     .filter((a: any) => a.type === "stats")
     .map((a: any) => a.season_tag);
@@ -234,6 +248,7 @@ export default function StatsPage({
             valueRenderer={(p: any) =>
               `${p.goals} گل${p.penalties > 0 ? ` (${p.penalties} پنالتی)` : ""}`
             }
+            onSelectPlayer={(id) => navigate(`/player/${id}`)}
           />
 
           <StatColumn
@@ -242,6 +257,7 @@ export default function StatsPage({
             valueColor="text-sky-400"
             items={activeStatsData.assists || []}
             valueRenderer={(p: any) => `${p.assists} پاس`}
+            onSelectPlayer={(id) => navigate(`/player/${id}`)}
           />
 
           <StatColumn
@@ -250,6 +266,7 @@ export default function StatsPage({
             valueColor="text-amber-550"
             items={activeStatsData.cleansheets || []}
             valueRenderer={(p: any) => `${p.cleanSheets} کلین‌شیت`}
+            onSelectPlayer={(id) => navigate(`/player/${id}`)}
           />
         </div>
       )}

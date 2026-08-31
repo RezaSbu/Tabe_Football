@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { MatchItem, StandingRow, NewsItem, TeamItem, PlayerItem } from "../types";
-import { Trophy, Calendar, Users, Newspaper, Award, Star, Zap, Flame, BarChart3, Shuffle, ChevronLeft, Search, X } from "lucide-react";
+import { Trophy, Calendar, Users, Newspaper, Award, Star, Zap, Flame, BarChart3, Shuffle, ChevronLeft, Search, X, List } from "lucide-react";
 import MatchCard from "./MatchCard";
 import TeamLogo from "./TeamLogo";
 import { convertGregorianToShamsi } from "../utils";
@@ -20,6 +20,90 @@ interface FutsalPageProps {
   historicalData?: any;
   archives?: any[];
   currentSeason?: string;
+}
+
+const STAT_VISIBLE_DEFAULT = 10;
+
+function FutsalStatCard({
+  title,
+  icon,
+  valueColor,
+  items,
+  valueRenderer,
+  onSelectPlayer,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  valueColor: string;
+  items: any[];
+  valueRenderer: (p: any) => string;
+  onSelectPlayer: (id: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (expanded && scrollRef.current) {
+      scrollRef.current.scrollTop = 0;
+    }
+  }, [expanded]);
+
+  const shown = expanded ? items : items.slice(0, STAT_VISIBLE_DEFAULT);
+
+  return (
+    <div className="rounded-2xl bg-gray-900 p-4 border border-white/5 shadow space-y-3">
+      <div className="flex items-center gap-1.5 border-b border-white/5 pb-2.5">
+        {icon}
+        <h3 className="font-black text-sm text-white">{title}</h3>
+      </div>
+      <div
+        ref={scrollRef}
+        className="space-y-2.5 font-bold overflow-y-auto overscroll-contain"
+        style={{ maxHeight: expanded ? "min(60vh, 400px)" : undefined }}
+      >
+        {items.length === 0 ? (
+          <p className="text-center text-xs text-gray-500 py-4 font-normal">آماری ثبت نشده است.</p>
+        ) : (
+          shown.map((p: any, idx: number) => (
+            <div
+              key={p.id || idx}
+              onClick={() => p.id && !String(p.id).startsWith("futsal-") && onSelectPlayer(p.id)}
+              className={`flex justify-between items-center text-xs text-gray-300 border-b border-white/5 pb-2 last:border-0 last:pb-0 ${p.id && !String(p.id).startsWith("futsal-") ? "cursor-pointer hover:bg-white/5" : "cursor-default"} rounded transition`}
+              title={p.id && !String(p.id).startsWith("futsal-") ? `مشاهده پروفایل ${p.name}` : undefined}
+            >
+              <span className="font-bold flex items-center gap-1.5 min-w-0">
+                <span className="text-gray-550 font-mono text-[10px] shrink-0">{idx + 1}.</span>
+                <span className="truncate text-white">{p.name}</span>
+                <span className="text-[10px] text-gray-500 font-normal shrink-0">({p.teamName})</span>
+              </span>
+              <span className={`font-mono font-black ${valueColor} bg-gray-950 border border-white/5 px-2.5 py-0.5 rounded text-[11px] shrink-0`}>
+                {valueRenderer(p)}
+              </span>
+            </div>
+          ))
+        )}
+      </div>
+
+      {items.length > STAT_VISIBLE_DEFAULT && (
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="w-full mt-1 py-2 rounded-xl bg-[#0a0a0c] hover:bg-gray-950 border border-white/5 text-[11px] font-bold text-emerald-400 hover:text-white transition active:scale-98 cursor-pointer flex items-center justify-center gap-1.5"
+        >
+          {expanded ? (
+            <>
+              <X className="h-3.5 w-3.5" />
+              <span>بستن لیست</span>
+            </>
+          ) : (
+            <>
+              <List className="h-3.5 w-3.5" />
+              <span>نمایش همه</span>
+            </>
+          )}
+        </button>
+      )}
+    </div>
+  );
 }
 
 export default function FutsalPage({
@@ -163,10 +247,10 @@ export default function FutsalPage({
 
   // Sorting stats for Futsal leaderboards
   const futsalTopScorers = futsalStatsTable && futsalStatsTable.scorers && futsalStatsTable.scorers.length > 0
-    ? futsalStatsTable.scorers.slice(0, 5).map((p: any) => {
+    ? futsalStatsTable.scorers.map((p: any) => {
         const matchingPlayer = players.find(x => x.name === p.name || x.name?.includes(p.name));
         return {
-          id: matchingPlayer?.id || `futsal-scorer-${p.name}`,
+          id: p.id || matchingPlayer?.id || `futsal-scorer-${p.name}`,
           name: p.name,
           teamName: p.team,
           goals: p.goals
@@ -175,7 +259,7 @@ export default function FutsalPage({
     : isCurrentSeason
       ? [...futsalPlayers]
           .sort((a, b) => (b.seasonStats.goals || 0) - (a.seasonStats.goals || 0))
-          .slice(0, 5).map(p => ({
+          .map(p => ({
             id: p.id,
             name: p.name,
             teamName: p.teamName,
@@ -184,10 +268,10 @@ export default function FutsalPage({
       : [];
 
   const futsalTopAssists = futsalStatsTable && futsalStatsTable.assists && futsalStatsTable.assists.length > 0
-    ? futsalStatsTable.assists.slice(0, 5).map((p: any) => {
+    ? futsalStatsTable.assists.map((p: any) => {
         const matchingPlayer = players.find(x => x.name === p.name || x.name?.includes(p.name));
         return {
-          id: matchingPlayer?.id || `futsal-assist-${p.name}`,
+          id: p.id || matchingPlayer?.id || `futsal-assist-${p.name}`,
           name: p.name,
           teamName: p.team,
           assists: p.assists
@@ -196,7 +280,7 @@ export default function FutsalPage({
     : isCurrentSeason
       ? [...futsalPlayers]
           .sort((a, b) => (b.seasonStats.assists || 0) - (a.seasonStats.assists || 0))
-          .slice(0, 5).map(p => ({
+          .map(p => ({
             id: p.id,
             name: p.name,
             teamName: p.teamName,
@@ -205,10 +289,10 @@ export default function FutsalPage({
       : [];
 
   const futsalTopGoalkeepers = futsalStatsTable && futsalStatsTable.cleansheets && futsalStatsTable.cleansheets.length > 0
-    ? futsalStatsTable.cleansheets.slice(0, 5).map((p: any) => {
+    ? futsalStatsTable.cleansheets.map((p: any) => {
         const matchingPlayer = players.find(x => x.name === p.name || x.name?.includes(p.name));
         return {
-          id: matchingPlayer?.id || `futsal-gk-${p.name}`,
+          id: p.id || matchingPlayer?.id || `futsal-gk-${p.name}`,
           name: p.name,
           teamName: p.team,
           cleanSheets: p.cleanSheets || p.cleansheets || 0
@@ -218,7 +302,7 @@ export default function FutsalPage({
       ? [...futsalPlayers]
           .filter(p => p.position.includes("دروازه"))
           .sort((a, b) => (b.seasonStats.cleanSheets || 0) - (a.seasonStats.cleanSheets || 0))
-          .slice(0, 5).map(p => ({
+          .map(p => ({
             id: p.id,
             name: p.name,
             teamName: p.teamName,
@@ -490,10 +574,17 @@ export default function FutsalPage({
                       <div className="flex justify-between items-center pt-3 border-t border-white/5 text-[10px] text-gray-400">
                         <span>مکان: {match.venue}</span>
                         {match.status === "live" ? (
-                          <span className="text-emerald-400 font-bold flex items-center gap-1.5 bg-emerald-500/15 border border-emerald-500/20 px-2 py-0.5 rounded-full animate-pulse">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                            زنده - دقیقه {match.minutes}
-                          </span>
+                          match.period === "HT" ? (
+                            <span className="text-amber-400 font-bold flex items-center gap-1.5 bg-amber-500/15 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                              بین دو نیمه
+                            </span>
+                          ) : (
+                            <span className="text-emerald-400 font-bold flex items-center gap-1.5 bg-emerald-500/15 border border-emerald-500/20 px-2 py-0.5 rounded-full animate-pulse">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                              زنده - دقیقه {match.minutes}
+                            </span>
+                          )
                         ) : match.status === "finished" ? (
                           <span className="text-gray-500 font-bold bg-gray-950/50 px-2 py-0.5 rounded">پایان یافته</span>
                         ) : (
@@ -513,86 +604,34 @@ export default function FutsalPage({
       {subTab === "stats" && (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {/* Top Scorer Card */}
-          <div className="rounded-2xl bg-gray-900 p-4 border border-white/5 shadow space-y-3">
-            <div className="flex items-center gap-1.5 border-b border-white/5 pb-2.5">
-              <Flame className="h-5 w-5 text-red-500 animate-pulse" />
-              <h3 className="font-black text-sm text-white">گلزنان برتر (آقای گل)</h3>
-            </div>
-            <div className="space-y-2.5 font-bold">
-              {futsalTopScorers.map((p: any, idx: number) => (
-                <div
-                  key={p.id}
-                  onClick={() => p.id && onSelectPlayer(p.id)}
-                  className="flex justify-between items-center text-xs text-gray-300 border-b border-white/5 pb-2 last:border-0 last:pb-0 cursor-pointer hover:bg-white/[0.01] rounded"
-                >
-                  <span className="font-bold flex items-center gap-1.5">
-                    <span className="text-gray-550 font-mono text-[10px]">{idx + 1}.</span>
-                    <span>{p.name}</span>
-                    <span className="text-[10px] text-gray-500 font-normal">({p.teamName})</span>
-                  </span>
-                  <span className="font-mono font-black text-red-500 bg-gray-950 border border-white/5 px-2.5 py-0.5 rounded text-[11px] shrink-0">
-                    {p.goals !== undefined ? p.goals : 0} گل
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <FutsalStatCard
+            title="گلزنان برتر (آقای گل)"
+            icon={<Flame className="h-5 w-5 text-red-500 animate-pulse" />}
+            valueColor="text-red-500"
+            items={futsalTopScorers}
+            valueRenderer={(p: any) => `${p.goals !== undefined ? p.goals : 0} گل`}
+            onSelectPlayer={onSelectPlayer}
+          />
 
           {/* Top Assists Card */}
-          <div className="rounded-2xl bg-gray-900 p-4 border border-white/5 shadow space-y-3">
-            <div className="flex items-center gap-1.5 border-b border-white/5 pb-2.5">
-              <Zap className="h-5 w-5 text-sky-400" />
-              <h3 className="font-black text-sm text-white">مهندسان پاسِ گل</h3>
-            </div>
-            <div className="space-y-2.5 font-bold">
-              {futsalTopAssists.map((p: any, idx: number) => (
-                <div
-                  key={p.id}
-                  onClick={() => p.id && onSelectPlayer(p.id)}
-                  className="flex justify-between items-center text-xs text-gray-300 border-b border-white/5 pb-2 last:border-0 last:pb-0 cursor-pointer hover:bg-white/[0.01] rounded"
-                >
-                  <span className="font-bold flex items-center gap-1.5">
-                    <span className="text-gray-550 font-mono text-[10px]">{idx + 1}.</span>
-                    <span>{p.name}</span>
-                    <span className="text-[10px] text-gray-500 font-normal">({p.teamName})</span>
-                  </span>
-                  <span className="font-mono font-black text-sky-400 bg-gray-950 border border-white/5 px-2.5 py-0.5 rounded text-[11px] shrink-0">
-                    {p.assists !== undefined ? p.assists : 0} پاس
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <FutsalStatCard
+            title="مهندسان پاسِ گل"
+            icon={<Zap className="h-5 w-5 text-sky-400" />}
+            valueColor="text-sky-400"
+            items={futsalTopAssists}
+            valueRenderer={(p: any) => `${p.assists !== undefined ? p.assists : 0} پاس`}
+            onSelectPlayer={onSelectPlayer}
+          />
 
           {/* Top Goalkeepers (Clean sheets) Card */}
-          <div className="rounded-2xl bg-gray-900 p-4 border border-white/5 shadow space-y-3">
-            <div className="flex items-center gap-1.5 border-b border-white/5 pb-2.5">
-              <Award className="h-5 w-5 text-amber-500" />
-              <h3 className="font-black text-sm text-white">دستکش طلایی (کلین‌شیت دروازه‌بان)</h3>
-            </div>
-            <div className="space-y-2.5 font-bold">
-              {futsalTopGoalkeepers.length === 0 ? (
-                <p className="text-center text-xs text-gray-500 py-4 font-normal">آماری ثبت نشده است.</p>
-              ) : (
-                futsalTopGoalkeepers.map((p: any, idx: number) => (
-                  <div
-                    key={p.id}
-                    onClick={() => p.id && onSelectPlayer(p.id)}
-                    className="flex justify-between items-center text-xs text-gray-300 border-b border-white/5 pb-2 last:border-0 last:pb-0 cursor-pointer hover:bg-white/[0.01] rounded"
-                  >
-                    <span className="font-bold flex items-center gap-1.5">
-                      <span className="text-gray-550 font-mono text-[10px]">{idx + 1}.</span>
-                      <span>{p.name}</span>
-                      <span className="text-[10px] text-gray-500 font-normal">({p.teamName})</span>
-                    </span>
-                    <span className="font-mono font-black text-amber-550 bg-gray-950 border border-white/5 px-2.5 py-0.5 rounded text-[11px] shrink-0">
-                      {p.cleanSheets !== undefined ? p.cleanSheets : 0} کلین‌شیت
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
+          <FutsalStatCard
+            title="دستکش طلایی (کلین‌شیت دروازه‌بان)"
+            icon={<Award className="h-5 w-5 text-amber-500" />}
+            valueColor="text-amber-550"
+            items={futsalTopGoalkeepers}
+            valueRenderer={(p: any) => `${p.cleanSheets !== undefined ? p.cleanSheets : 0} کلین‌شیت`}
+            onSelectPlayer={onSelectPlayer}
+          />
         </div>
       )}
 
