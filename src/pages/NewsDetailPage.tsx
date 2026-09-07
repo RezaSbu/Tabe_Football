@@ -39,7 +39,8 @@ export default function NewsDetailPage() {
   const getPersianCategory = (cat: string) => {
     const map: Record<string, string> = {
       "pro-league": "لیگ برتر", "league-1": "لیگ آزادگان", "league-2": "لیگ دسته دو",
-      "hazfi-cup": "جام حذفی", "futsal": "فوتسال", "legionnaires": "لژیونرها",
+      "hazfi-cup": "جام حذفی", // "futsal": "فوتسال",   // [آرشیو] بخش فوتسال از UI عمومی مخفی شده
+      "legionnaires": "لژیونرها",
       "transfers": "نقل و انتقالات",
     };
     return map[cat] || "ورزشی";

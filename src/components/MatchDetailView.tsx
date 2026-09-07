@@ -180,28 +180,21 @@ export default function MatchDetailView({
   const defaultStats = normalizeStats();
 
   // --- 3. LINEUPS ---
-  const defaultLineups = match.lineups || {
-    home: [
-      { id: "player-1", name: "پیمان حیدری", number: 1, position: "دروازه‌بان", rating: 7.9 },
-      { id: "player-2", name: "حسین حیدری", number: 30, position: "مدافع", rating: 8.5, goals: 1 },
-      { id: "player-3", name: "میلاد ابراهیمی", number: 39, position: "مدافع", rating: 7.4 },
-      { id: "player-6", name: "محمد حیدری", number: 65, position: "هافبک", rating: 7.8 },
-      { id: "player-7", name: "سامان صادقی", number: 87, position: "هافبک", rating: 8.2, assists: 1 },
-      { id: "player-8", name: "علی احمدی", number: 93, position: "مهاجم", rating: 8.9, goals: 1 }
-    ],
-    away: [
-      { id: "player-12", name: "احمد حیدری", number: 1, position: "دروازه‌بان", rating: 8.2 },
-      { id: "player-16", name: "جواد حیدری", number: 92, position: "مدافع", rating: 6.9 },
-      { id: "player-18", name: "سامان رحیمی", number: 89, position: "هافبک", rating: 7.5 },
-      { id: "player-20", name: "علی عباسی", number: 44, position: "هافبک", rating: 9.0, goals: 1 },
-      { id: "player-21", name: "امیر حسینی", number: 11, position: "مهاجم", rating: 7.3 }
-    ]
-  };
+  const defaultLineups = match.lineups || { home: [], away: [], homeSubs: [], awaySubs: [] };
 
   const homeLineup = defaultLineups.home || [];
   const awayLineup = defaultLineups.away || [];
   const homeSubs = defaultLineups.homeSubs || [];
   const awaySubs = defaultLineups.awaySubs || [];
+
+  // --- 3b. Extract events per player from match.events (single source of truth) ---
+  const getPlayerEvents = (playerId: string, playerName: string) => {
+    const events = match.events || [];
+    return events.filter((ev: any) => 
+      ev && (ev.playerId === playerId || ev.playerName === playerName ||
+             ev.player2Id === playerId || ev.player2Name === playerName)
+    );
+  };
 
   // --- 4. HEAD TO HEAD ---
   const h2hMatches = allMatches.filter(m => 
@@ -250,9 +243,16 @@ export default function MatchDetailView({
   const homeRank = getTeamRank(match.teamHome, match.teamHomeId);
   const awayRank = getTeamRank(match.teamAway, match.teamAwayId);
 
-  // Scorer side resolution for the goals strip
+  // Scorer side resolution for the goals strip (using match.events as single source)
   const scorerSide = (sc: any): "home" | "away" | null => {
     const name = sc.scorerName || sc.name || "";
+    // First check if scorer has a team in the event
+    const goalEvent = (match.events || []).find((ev: any) => 
+      (ev.type === "goal" || ev.type === "penalty") && 
+      (ev.playerName === name || ev.playerId === sc.scorerId)
+    );
+    if (goalEvent?.team) return goalEvent.team;
+    // Fallback: check lineup
     if (homeLineup.some((p: any) => p.name === name || String(p.id) === String(sc.scorerId))) return "home";
     if (awayLineup.some((p: any) => p.name === name || String(p.id) === String(sc.scorerId))) return "away";
     return null;
@@ -273,7 +273,16 @@ export default function MatchDetailView({
     const sortedSubs = [...subs].sort((a, b) => (Number(a.number) || 99) - (Number(b.number) || 99));
 
     const renderRow = (p: any) => {
-      const rating = typeof p.rating === "number" ? p.rating : parseFloat(p.rating) || 0;
+      const rating = typeof p.rating === "number" ? p.rating : (p.rating ? parseFloat(p.rating) : undefined);
+      
+      // Extract events from match.events (single source of truth)
+      const playerEvents = getPlayerEvents(p.id, p.name);
+      const goals = playerEvents.filter((e: any) => e.type === "goal" || e.type === "penalty").length;
+      const assists = playerEvents.filter((e: any) => e.type === "assist").length;
+      const yellowCards = playerEvents.filter((e: any) => e.type === "yellow-card").length;
+      const redCards = playerEvents.filter((e: any) => e.type === "red-card").length;
+      const substitution = playerEvents.find((e: any) => e.type === "substitution");
+      
       return (
         <button
           key={String(p.id || p.name)}
@@ -290,9 +299,16 @@ export default function MatchDetailView({
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            {Number(p.goals) > 0 && <span className="text-[10px] font-black text-emerald-400">⚽{toPersianDigits(p.goals)}</span>}
-            {Number(p.assists) > 0 && <span className="text-[10px] font-black text-cyan-400">🎯{toPersianDigits(p.assists)}</span>}
-            {rating > 0 && (
+            {goals > 0 && <span className="text-[10px] font-black text-emerald-400">⚽{toPersianDigits(goals)}</span>}
+            {assists > 0 && <span className="text-[10px] font-black text-cyan-400">👟{toPersianDigits(assists)}</span>}
+            {yellowCards > 0 && <span className="text-[10px]">🟨</span>}
+            {redCards > 0 && <span className="text-[10px]">🟥</span>}
+            {substitution && (
+              <span className="text-[10px] font-black text-amber-400" title={`خروج ${substitution.playerName} / ورود ${substitution.player2Name || ""}`}>
+                🔄{substitution.minute && <span className="font-mono">{toPersianDigits(substitution.minute)}'</span>}
+              </span>
+            )}
+            {rating != null && rating > 0 && (
               <span className={`font-mono text-[10px] font-black px-1.5 py-0.5 rounded ${
                 rating >= 7.5 ? "bg-emerald-500/10 text-emerald-400" : rating >= 6.5 ? "bg-amber-500/10 text-amber-400" : "bg-white/5 text-slate-400"
               }`}>
@@ -527,6 +543,7 @@ export default function MatchDetailView({
 
                 {/* Center-split timeline */}
                 <div className="relative">
+                  {/* Vertical center line */}
                   <div className="absolute top-2 bottom-2 left-1/2 -translate-x-1/2 w-px bg-white/10" />
                   <div className="space-y-2.5">
                     {sortedTimeline.map((item, idx) => {
@@ -543,25 +560,9 @@ export default function MatchDetailView({
                       }
                       if (item.details) subtitle += ` — ${item.details}`;
 
-                      const card = (
-                        <div className={`max-w-[210px] sm:max-w-xs rounded-xl border p-2.5 ${
-                          item.type === "goal" || item.type === "penalty"
-                            ? (isHome ? "bg-emerald-500/15 border-emerald-500/30 shadow-[0_0_20px_-6px_rgba(16,185,129,0.45)]" : "bg-cyan-500/15 border-cyan-500/30 shadow-[0_0_20px_-6px_rgba(6,182,212,0.45)]")
-                            : (isHome ? "bg-emerald-500/[0.06] border-emerald-500/15" : "bg-cyan-500/[0.06] border-cyan-500/15")
-                        }`}>
-                          <div className="flex items-center gap-2">
-                            <span className="text-base shrink-0">{meta.icon}</span>
-                            <div className="min-w-0">
-                              <span className="block text-xs font-black text-white truncate">{title}</span>
-                              <span className="block text-[10px] text-slate-400 font-semibold truncate">{subtitle}</span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-
                       const minuteBadge = (
                         <div className="flex justify-center">
-                          <span className={`h-9 w-9 rounded-full border flex items-center justify-center font-mono font-black text-[10px] shadow-md ${
+                          <span className={`h-8 w-8 sm:h-9 sm:w-9 rounded-full border flex items-center justify-center font-mono font-black text-[10px] shadow-md ${
                             item.type === "goal" || item.type === "penalty"
                               ? "bg-emerald-500/90 border-emerald-400/40 text-black"
                               : item.type === "yellow-card"
@@ -575,8 +576,24 @@ export default function MatchDetailView({
                         </div>
                       );
 
+                      const card = (
+                        <div className={`rounded-xl border p-2 sm:p-2.5 break-words ${
+                          item.type === "goal" || item.type === "penalty"
+                            ? (isHome ? "bg-emerald-500/15 border-emerald-500/30 shadow-[0_0_20px_-6px_rgba(16,185,129,0.45)]" : "bg-cyan-500/15 border-cyan-500/30 shadow-[0_0_20px_-6px_rgba(6,182,212,0.45)]")
+                            : (isHome ? "bg-emerald-500/[0.06] border-emerald-500/15" : "bg-cyan-500/[0.06] border-cyan-500/15")
+                        }`}>
+                          <div className="flex items-center gap-1.5 sm:gap-2">
+                            <span className="text-sm sm:text-base shrink-0">{meta.icon}</span>
+                            <div className="min-w-0">
+                              <span className="block text-[11px] sm:text-xs font-black text-white">{title}</span>
+                              <span className="block text-[9px] sm:text-[10px] text-slate-400 font-semibold">{subtitle}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+
                       return (
-                        <div key={idx} className="grid grid-cols-[1fr_40px_1fr] items-center gap-2">
+                        <div key={idx} className="grid grid-cols-[1fr_36px_1fr] sm:grid-cols-[1fr_40px_1fr] items-center gap-1.5 sm:gap-2">
                           {isHome ? (
                             <>
                               <div className="flex justify-end">{card}</div>

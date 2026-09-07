@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Flame, Zap, Award, X, List } from "lucide-react";
+import { Flame, Zap, Award, X, List, Star } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { StatsData } from "../types";
 
@@ -218,7 +218,7 @@ export default function StatsPage({
           { id: "league-1", label: "لیگ آزادگان (دسته یک)" },
           { id: "league-2", label: "لیگ دسته دوم" },
           { id: "hazfi-cup", label: "جام حذفی" },
-          { id: "futsal", label: "لیگ برتر فوتسال" },
+          // { id: "futsal", label: "لیگ برتر فوتسال" },   // [آرشیو] بخش فوتسال از UI عمومی مخفی شده
         ].map((subTab) => (
           <button
             key={subTab.id}
@@ -239,9 +239,9 @@ export default function StatsPage({
           آماری برای این فصل یا لیگ ثبت نگردیده است.
         </p>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <StatColumn
-            title="گلزنان برتر (آقای گل)"
+            title="گلزنان"
             icon={<Flame className="h-5 w-5 text-red-500 animate-pulse" />}
             valueColor="text-red-500"
             items={activeStatsData.scorers || []}
@@ -252,7 +252,7 @@ export default function StatsPage({
           />
 
           <StatColumn
-            title="مهندسان پاسِ گل"
+            title="پاس گل"
             icon={<Zap className="h-5 w-5 text-sky-400" />}
             valueColor="text-sky-400"
             items={activeStatsData.assists || []}
@@ -261,11 +261,20 @@ export default function StatsPage({
           />
 
           <StatColumn
-            title="دستکش طلایی (کلین‌شیت دروازه‌بان)"
+            title="کلین‌شیت"
             icon={<Award className="h-5 w-5 text-amber-500" />}
             valueColor="text-amber-550"
             items={activeStatsData.cleansheets || []}
             valueRenderer={(p: any) => `${p.cleanSheets} کلین‌شیت`}
+            onSelectPlayer={(id) => navigate(`/player/${id}`)}
+          />
+
+          <StatColumn
+            title="میانگین نمره بازیکن"
+            icon={<Star className="h-5 w-5 text-emerald-400" />}
+            valueColor="text-emerald-400"
+            items={(activeStatsData.ratings || []).filter((p: any) => p.rating > 0)}
+            valueRenderer={(p: any) => `${toPersianDigits(Number(p.rating).toFixed(1))}`}
             onSelectPlayer={(id) => navigate(`/player/${id}`)}
           />
         </div>

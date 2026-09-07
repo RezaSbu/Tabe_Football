@@ -2,6 +2,7 @@ import express, { Express, Request, Response } from "express";
 import { loadDB } from "../state";
 import { markViewDirty, VIEW_BOT_RE } from "../services/viewTracker";
 import { normalizePersianString } from "../utils/persian";
+import { VIEW_MULTIPLIER } from "../config";
 
 export function registerDetailRoutes(app: Express) {
   app.post("/api/detail/:type/:id/view", async (req: Request, res: Response) => {
@@ -41,7 +42,7 @@ export function registerDetailRoutes(app: Express) {
     }
 
     if (item) {
-      item.viewCount = (item.viewCount || 0) + 13;
+      item.viewCount = (item.viewCount || 0) + VIEW_MULTIPLIER;
       markViewDirty();
       return res.json({ success: true, viewCount: item.viewCount });
     }
@@ -235,5 +236,68 @@ export function registerDetailRoutes(app: Express) {
     } else {
       res.status(404).json({ success: false, message: "تصویر یافت نشد." });
     }
+  });
+
+  // Unified Related News API for Player, Coach, and Team
+  app.get("/api/related-news/:type/:id", (req: Request, res: Response) => {
+    const db = loadDB();
+    const { type, id } = req.params;
+    const limit = Math.min(parseInt(req.query.limit as string) || 10, 50);
+
+    let entityName = "";
+    let entityTeamName = "";
+
+    if (type === "player") {
+      const player = (db.players || []).find((p: any) => String(p.id) === String(id));
+      if (!player) return res.status(404).json({ success: false, message: "بازیکن یافت نشد." });
+      entityName = player.name || "";
+      entityTeamName = player.teamName || "";
+    } else if (type === "coach") {
+      const coach = (db.coaches || []).find((c: any) => String(c.id) === String(id));
+      if (!coach) return res.status(404).json({ success: false, message: "مربی یافت نشد." });
+      entityName = coach.name || "";
+      entityTeamName = coach.teamName || "";
+    } else if (type === "team") {
+      const team = (db.teams || []).find((t: any) => String(t.id) === String(id));
+      if (!team) return res.status(404).json({ success: false, message: "تیم یافت نشد." });
+      entityName = team.name || "";
+    } else {
+      return res.status(400).json({ success: false, message: "نوع نامعتبر." });
+    }
+
+    if (!entityName) {
+      return res.json({ success: true, data: [] });
+    }
+
+    const normName = normalizePersianString(entityName);
+    const normTeamName = entityTeamName ? normalizePersianString(entityTeamName) : "";
+
+    const matchedNews = (db.news || [])
+      .filter((n: any) => {
+        if (!n) return false;
+        
+        // Check name in title + summary + content
+        const haystack = normalizePersianString(`${n.title || ""} ${n.summary || ""} ${n.content || ""}`);
+        if (haystack.includes(normName)) return true;
+        if (normTeamName && haystack.includes(normTeamName)) return true;
+        
+        // Check name in tags
+        const tags = (n.tags || []).map((t: string) => normalizePersianString(t).replace(/^#/, "").replace(/_/g, " "));
+        if (tags.some((t: string) => t && (t === normName || t.includes(normName) || normName.includes(t)))) return true;
+        if (normTeamName && tags.some((t: string) => t && (t === normTeamName || t.includes(normTeamName) || normTeamName.includes(t)))) return true;
+        
+        return false;
+      })
+      .sort((a: any, b: any) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+
+    // Deduplicate by id
+    const seen = new Set<string>();
+    const unique = matchedNews.filter((n: any) => {
+      if (seen.has(n.id)) return false;
+      seen.add(n.id);
+      return true;
+    });
+
+    res.json({ success: true, data: unique.slice(0, limit) });
   });
 }
