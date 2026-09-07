@@ -29,7 +29,7 @@ export default function AdminSelectedCombinations({
   const [activePickerPosition, setActivePickerPosition] = useState<string | null>(null); // e.g. "gk", "cb1"
   
   // Rating state for active picked player
-  const [pickedPlayerRating, setPickedPlayerRating] = useState<number>(8.0);
+  const [pickedPlayerRating, setPickedPlayerRating] = useState<number | null>(null);
 
   const leagues = [
     { key: "pro-league", label: "لیگ برتر" },
@@ -170,7 +170,7 @@ export default function AdminSelectedCombinations({
       name: player.name,
       teamName: player.teamName,
       image: player.image,
-      rating: Number(pickedPlayerRating)
+      rating: pickedPlayerRating != null ? Number(pickedPlayerRating) : 0
     };
 
     setEditingItem({
@@ -421,7 +421,7 @@ export default function AdminSelectedCombinations({
                               onClick={() => {
                                 setActivePickerPosition(pos.key);
                                 setPlayerSearchQuery("");
-                                setPickedPlayerRating(player.rating || 8.0);
+                                setPickedPlayerRating(player.rating ?? null);
                               }}
                               className="w-13 h-13 sm:w-16 sm:h-16 rounded-full bg-slate-950 border-2 border-amber-500/80 shadow-md transform hover:scale-105 hover:border-amber-400 transition cursor-pointer overflow-hidden p-0.5"
                             >
@@ -537,7 +537,7 @@ export default function AdminSelectedCombinations({
                           onClick={() => {
                             setActivePickerPosition(pos.key);
                             setPlayerSearchQuery("");
-                            setPickedPlayerRating(player?.rating || 8.0);
+                            setPickedPlayerRating(player?.rating ?? null);
                           }}
                           className="bg-gray-900 hover:bg-gray-800 text-gray-300 font-bold text-[10px] px-3 py-1.5 rounded-lg border border-white/5 hover:border-amber-500/20 transition cursor-pointer flex items-center gap-1"
                         >

@@ -72,12 +72,12 @@ export default function TeamOfTheWeekWidget({ combinations = [], allPlayers = []
           name: livePlayer.name || player.name,
           image: livePlayer.image || player.image,
           teamName: livePlayer.teamName || player.teamName,
-          rating: Number(livePlayer.rating) || Number(player.rating) || 7.0,
+          rating: Number(livePlayer.rating) || Number(player.rating) || null,
         };
       } else {
         resolved[posKey] = {
           ...player,
-          rating: Number(player.rating) || 7.0,
+          rating: Number(player.rating) || null,
         };
       }
     });

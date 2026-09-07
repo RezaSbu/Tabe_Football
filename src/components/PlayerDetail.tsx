@@ -185,7 +185,7 @@ export default function PlayerDetail({
     let playerAssists = 0;
     let playerYellow = 0;
     let playerRed = 0;
-    const playerRating = lpHome?.rating || lpAway?.rating || player.averageRating || 0;
+    const playerRating = lpHome?.rating ?? lpAway?.rating ?? null;
 
     // Sum from events:
     const matchEvents = match.events || [];
@@ -304,9 +304,9 @@ export default function PlayerDetail({
           subbedIn: playerSubIn,
           subbedOut: playerSubOut,
           result: computeResult(true),
-          rating: inHome.rating || 0,
+          rating: inHome.rating ?? null,
           minutesPlayed: calculatedMins || inHome.minutesPlayed || 90,
-          isMvp: match.mvpId === player.id || match.mvpId === player.name || inHome.rating >= 8.5,
+          isMvp: match.mvpId === player.id || match.mvpId === player.name,
           scoreHome: match.scoreHome,
           scoreAway: match.scoreAway,
           isHome: true
@@ -329,9 +329,9 @@ export default function PlayerDetail({
           subbedIn: playerSubIn,
           subbedOut: playerSubOut,
           result: computeResult(false),
-          rating: inAway.rating || 0,
+          rating: inAway.rating ?? null,
           minutesPlayed: calculatedMins || inAway.minutesPlayed || 90,
-          isMvp: match.mvpId === player.id || match.mvpId === player.name || inAway.rating >= 8.5,
+          isMvp: match.mvpId === player.id || match.mvpId === player.name,
           scoreHome: match.scoreHome,
           scoreAway: match.scoreAway,
           isHome: false
@@ -382,7 +382,7 @@ export default function PlayerDetail({
   const leagueRed = player.leagueStats?.redCards || 0;
   const leagueMinutes = player.leagueStats?.minutes || (leagueMatches * 90);
   const leagueMvps = player.leagueStats?.mvps || player.ratingsHistory?.filter((h: any) => !h.isCup && h.isMvp).length || 0;
-  const leagueAvgRating = player.leagueStats?.averageRating || player.rating || 0;
+  const leagueAvgRating = player.leagueStats?.averageRating ?? null;
 
   const cupMatches = player.cupStats?.matches || 0;
   const cupGoals = player.cupStats?.goals || 0;
@@ -392,7 +392,7 @@ export default function PlayerDetail({
   const cupRed = player.cupStats?.redCards || 0;
   const cupMinutes = player.cupStats?.minutes || (cupMatches * 90);
   const cupMvps = player.cupStats?.mvps || player.ratingsHistory?.filter((h: any) => h.isCup && h.isMvp).length || 0;
-  const cupAvgRating = player.cupStats?.averageRating || 0;
+  const cupAvgRating = player.cupStats?.averageRating ?? null;
 
   const displayedMatches = player.seasonStats?.matches || 0;
   const displayedGoals = player.seasonStats?.goals || 0;
@@ -402,7 +402,7 @@ export default function PlayerDetail({
   const displayedRed = player.seasonStats?.redCards || 0;
   const displayedMinutes = player.seasonStats?.minutes || playerMatches.reduce((acc, m) => acc + m.minutesPlayed, 0) || (displayedMatches * 90);
   const displayedMvps = player.seasonStats?.mvps || player.ratingsHistory?.filter((h: any) => h.isMvp).length || playerMatches.filter(m => m.isMvp).length || 0;
-  const displayedAvgRating = player.seasonStats?.averageRating || player.averageRating || player.rating || 0;
+  const displayedAvgRating = player.seasonStats?.averageRating ?? player.averageRating ?? null;
 
   // Active calculation variables depending on selectedCompet toggle
   const activeAvgRating = selectedCompet === "all" ? displayedAvgRating : (selectedCompet === "league" ? leagueAvgRating : cupAvgRating);
