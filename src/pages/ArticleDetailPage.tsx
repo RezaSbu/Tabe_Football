@@ -22,7 +22,7 @@ const getPersianCategory = (cat: string) => {
     case "league-1": return "لیگ آزادگان";
     case "league-2": return "لیگ دسته دو";
     case "hazfi-cup": return "جام حذفی";
-    case "futsal": return "فوتسال";
+    // case "futsal": return "فوتسال";   // [آرشیو] بخش فوتسال از UI عمومی مخفی شده
     case "legionnaires": return "لژیونرها";
     case "transfers": return "نقل و انتقالات";
     default: return "ورزشی";

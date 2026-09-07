@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import { VIEW_MULTIPLIER } from "../config";
 
 const BASE = "http://localhost:3000";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
@@ -275,8 +276,8 @@ describe("API - CRUD: Images", () => {
   });
 });
 
-describe("API - View Count x13", () => {
-  it("POST /api/news/:id/view increments by 13", async () => {
+describe("API - View Count x" + VIEW_MULTIPLIER, () => {
+  it("POST /api/news/:id/view increments by " + VIEW_MULTIPLIER, async () => {
     const { data: before } = await apiGet("/api/data");
     const item = before.news.find((n: any) => n.id);
     if (!item) return;
@@ -285,10 +286,10 @@ describe("API - View Count x13", () => {
     await apiPost(`/api/news/${item.id}/view`, {});
     const { data: after } = await apiGet("/api/data");
     const afterItem = after.news.find((n: any) => n.id === item.id);
-    expect(afterItem.viewCount).toBe(beforeCount + 13);
+    expect(afterItem.viewCount).toBe(beforeCount + VIEW_MULTIPLIER);
   });
 
-  it("POST /api/images/:id/view increments by 13", async () => {
+  it("POST /api/images/:id/view increments by " + VIEW_MULTIPLIER, async () => {
     const { data: before } = await apiGet("/api/data");
     const item = before.images.find((i: any) => i.id);
     if (!item) return;
@@ -297,7 +298,7 @@ describe("API - View Count x13", () => {
     await apiPost(`/api/images/${item.id}/view`, {});
     const { data: after } = await apiGet("/api/data");
     const afterItem = after.images.find((i: any) => i.id === item.id);
-    expect(afterItem.viewCount).toBe(beforeCount + 13);
+    expect(afterItem.viewCount).toBe(beforeCount + VIEW_MULTIPLIER);
   });
 });
 

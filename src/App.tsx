@@ -54,7 +54,7 @@ const PATH_TO_TAB: Record<string, string> = {
   "/league-1": "league-1",
   "/league-2": "league-2",
   "/hazfi-cup": "hazfi-cup",
-  "/futsal": "futsal",
+  // "/futsal": "futsal",   // [آرشیو] صفحه فوتسال از UI عمومی مخفی شده؛ برای بازگردانی فعالش کنید
   "/transfers": "transfers",
   // "/legionnaires": "legionnaires",   // [غیرفعال] صفحه لژیونرها حذف شده؛ برای بازگردانی فعالش کنید
   "/stats": "stats",
@@ -187,6 +187,7 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
           </>
         )}
 
+        {/* [آرشیو] صفحه فوتسال از UI عمومی مخفی شده؛ برای بازگردانی بلوک زیر را از کامنت خارج کنید
         {d.activeTab === "futsal" && (
           <>
             <SEO title="فوتسال ایران" description="اخبار، نتایج و آمار فوتسال ایران و لیگ برتر فوتسال" url="/futsal" />
@@ -199,6 +200,7 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
               onSelectMatch={(match: any) => navigate(`/match/${match.id}`)} />
           </>
         )}
+        */}
 
         {d.activeTab === "news" && (
           <>

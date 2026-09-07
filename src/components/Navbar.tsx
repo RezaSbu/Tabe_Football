@@ -21,7 +21,7 @@ const TAB_TO_PATH: Record<string, string> = {
   "league-1": "/league-1",
   "league-2": "/league-2",
   "hazfi-cup": "/hazfi-cup",
-  "futsal": "/futsal",
+  // "futsal": "/futsal",   // [آرشیو] بخش فوتسال از UI عمومی مخفی شده؛ برای بازگردانی فعالش کنید
   "transfers": "/transfers",
   // "legionnaires": "/legionnaires",   // [غیرفعال] بخش لژیونرها از منو حذف شده؛ برای بازگردانی فعالش کنید
   "stats": "/stats",
@@ -48,7 +48,7 @@ export default function Navbar({
     { id: "league-1", label: "لیگ یک", icon: Compass },
     { id: "league-2", label: "لیگ دو", icon: Compass },
     { id: "hazfi-cup", label: "جام حذفی", icon: Trophy },
-    { id: "futsal", label: "فوتسال", icon: Trophy },
+    // { id: "futsal", label: "فوتسال", icon: Trophy },   // [آرشیو] بخش فوتسال از UI عمومی مخفی شده؛ برای بازگردانی فعالش کنید
     { id: "transfers", label: "نقل و انتقالات", icon: Shuffle },
     // { id: "legionnaires", label: "لژیونرها", icon: Users },   // [غیرفعال] بخش لژیونرها حذف شده؛ برای بازگردانی فعالش کنید
     { id: "stats", label: "آمار بازیکنان", icon: BarChart3 },

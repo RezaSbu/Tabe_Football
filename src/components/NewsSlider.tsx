@@ -82,7 +82,7 @@ export default function NewsSlider({ news, transfers = [], heroSlides = [], legi
     const sortedCombined = combined.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
     // const categoriesToPick = ["pro-league", "league-1", "league-2", "hazfi-cup", "legionnaires", "transfers"];
-    const categoriesToPick = ["pro-league", "league-1", "league-2", "hazfi-cup", "futsal"];
+    const categoriesToPick = ["pro-league", "league-1", "league-2", "hazfi-cup"];
     const pickedCategories = new Set<string>();
 
     for (const item of sortedCombined) {
@@ -140,7 +140,7 @@ export default function NewsSlider({ news, transfers = [], heroSlides = [], legi
       case "hazfi-cup": return "جام حذفی";
       case "legionnaires": return "لژیونرها";
       case "transfers": return "نقل و انتقالات";
-      case "futsal": return "فوتسال";
+      // case "futsal": return "فوتسال";   // [آرشیو] بخش فوتسال از UI عمومی مخفی شده
       default: return "ورزشی";
     }
   };

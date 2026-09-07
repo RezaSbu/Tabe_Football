@@ -55,7 +55,7 @@ export default function NewsPage({
             { id: "league-1", label: "لیگ یک" },
             { id: "league-2", label: "لیگ دو" },
             { id: "hazfi-cup", label: "جام حذفی" },
-            { id: "futsal", label: "فوتسال" },
+            // { id: "futsal", label: "فوتسال" },   // [آرشیو] بخش فوتسال از UI عمومی مخفی شده
             { id: "other", label: "سایر موضوعات" }
           ].map((cat) => (
             <button
@@ -85,7 +85,7 @@ export default function NewsPage({
       </div>
 
       {(() => {
-        const mainCategories = ["pro-league", "league-1", "league-2", "hazfi-cup", "futsal"];
+        const mainCategories = ["pro-league", "league-1", "league-2", "hazfi-cup"];
         const filtered = news.filter((item) => {
           const matchesCategory = newsCategoryFilter === "all" ||
             (newsCategoryFilter === "other" ? !mainCategories.includes(item.category) : item.category === newsCategoryFilter) ||
