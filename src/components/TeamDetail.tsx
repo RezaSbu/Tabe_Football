@@ -36,12 +36,31 @@ export default function TeamDetail({
 }: TeamDetailProps) {
   const [activeSubTab, setActiveSubTab] = useState<"overview" | "fixtures" | "squad">("overview");
   const [statsCompet, setStatsCompet] = useState<"league" | "cup">("league");
+  const [fetchedTeamNews, setFetchedTeamNews] = useState<any[]>([]);
+  const [loadingNews, setLoadingNews] = useState(false);
 
   useEffect(() => {
     if (team && (team.sport === "futsal" || team.league === "futsal" || team.id?.startsWith("futsal-") || team.id?.includes("futsal") || (team.name || "").includes("فوتسال"))) {
       setStatsCompet("league");
     }
+    
+    // Fetch related news from server
+    if (team?.id) {
+      setLoadingNews(true);
+      fetch(`/api/related-news/team/${team.id}?limit=10`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.data) {
+            setFetchedTeamNews(data.data);
+          }
+        })
+        .catch(() => {})
+        .finally(() => setLoadingNews(false));
+    }
   }, [team?.id, team?.sport, team?.league]);
+
+  // Use fetched news if available, otherwise fall back to prop
+  const effectiveTeamNews = fetchedTeamNews.length > 0 ? fetchedTeamNews : teamNews;
 
   if (!team) return null;
 
@@ -372,9 +391,9 @@ export default function TeamDetail({
                         <Activity className="h-4 w-4 text-emerald-500" />
                         <span>آخرین اخبار {team.name}</span>
                       </h3>
-                      {teamNews.length > 0 ? (
+                      {effectiveTeamNews.length > 0 ? (
                         <div className="space-y-2">
-                          {teamNews.map((nw: any) => (
+                          {effectiveTeamNews.map((nw: any) => (
                             <button
                               key={nw.id}
                               onClick={() => onSelectNews && onSelectNews(nw.id)}
@@ -438,12 +457,6 @@ export default function TeamDetail({
                   <p className="flex justify-between gap-2">
                     <span className="text-slate-500 shrink-0">استادیوم خانگی:</span>
                     <span className="font-medium text-slate-250 truncate block text-left" title={team.stadium}>{team.stadium || "نامشخص"}</span>
-                  </p>
-                  <p className="flex justify-between">
-                    <span className="text-slate-500">رنگ اصلی اول:</span>
-                    <span className="font-medium text-slate-205 flex items-center gap-1">
-                      {team.logo === "🔵" ? "آبی ملوان" : team.logo === "🔴" ? "سرخ پرسپولیسی" : "رنگ سازمانی"}
-                    </span>
                   </p>
                   </div>
               </div>

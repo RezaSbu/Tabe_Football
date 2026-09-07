@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { ArrowLeft, Trophy, Award, UserRound, TrendingUp, Target, BookOpen, BadgeCheck, Clock, Flag, Sparkles, Activity, Newspaper } from "lucide-react";
-import { getSafeImageUrl, toPersianDigits, normalizePersianString, normalizeNewsTag, matchesPersonNews } from "../utils";
+import { getSafeImageUrl, toPersianDigits, normalizePersianString } from "../utils";
 
 interface CoachDetailProps {
   coach: any;
@@ -24,6 +24,24 @@ export default function CoachDetail({
   const [activeTab, setActiveTab] = useState<"overview" | "matches" | "news" | "career">("overview");
   const [imageError, setImageError] = useState(false);
   const [lastCoachId, setLastCoachId] = useState<string | undefined>(undefined);
+  const [coachNews, setCoachNews] = useState<any[]>([]);
+  const [loadingNews, setLoadingNews] = useState(false);
+
+  useEffect(() => {
+    if (coach?.id) {
+      // Fetch related news from server
+      setLoadingNews(true);
+      fetch(`/api/related-news/coach/${coach.id}?limit=10`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.data) {
+            setCoachNews(data.data);
+          }
+        })
+        .catch(() => {})
+        .finally(() => setLoadingNews(false));
+    }
+  }, [coach?.id]);
 
   if (!coach) return null;
 
@@ -79,21 +97,6 @@ export default function CoachDetail({
     });
   });
   coachMatches.sort((a: any, b: any) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
-
-  // Coach news: matched by tag search using the coach's name (and team name)
-  const coachNews = [...(news || [])]
-    .filter((n: any) => {
-      if (!n) return false;
-      if (matchesPersonNews(n, coach.name)) return true;
-      if (teamNorm) {
-        const tags: string[] = (n.tags || []).map(normalizeNewsTag);
-        return tags.some((t: string) => t.includes(teamNorm)) ||
-          normalizePersianString(`${n.title || ""} ${n.summary || ""} ${n.content || ""}`).includes(teamNorm);
-      }
-      return false;
-    })
-    .sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-    .slice(0, 10);
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
