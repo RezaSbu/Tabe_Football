@@ -102,7 +102,7 @@ export function registerArchiveRoutes(app: Express) {
               cleanSheets: parseInt(sStats.cleanSheets) || 0,
               yellowCards: parseInt(sStats.yellowCards) || 0,
               redCards: parseInt(sStats.redCards) || 0,
-              averageRating: parseFloat(sStats.averageRating || p.averageRating) || 7.0
+              averageRating: parseFloat(sStats.averageRating || p.averageRating) || 0
             };
 
             if (existingIdx >= 0) {
@@ -505,7 +505,7 @@ export function registerArchiveRoutes(app: Express) {
               redCards: c.redCards || 0,
               minutes: c.minutes || 0,
               mvps: c.mvps || 0,
-              averageRating: c.averageRating || parseFloat(p.rating) || 7.2
+              averageRating: c.averageRating || parseFloat(p.rating) || 0
             };
           });
         }
@@ -596,7 +596,7 @@ export function registerArchiveRoutes(app: Express) {
               redCards: l.redCards || 0,
               minutes: l.minutes || 0,
               mvps: l.mvps || 0,
-              averageRating: l.averageRating || parseFloat(p.rating) || 7.2
+              averageRating: l.averageRating || parseFloat(p.rating) || 0
             };
           });
         }

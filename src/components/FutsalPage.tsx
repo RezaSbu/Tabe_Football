@@ -605,7 +605,7 @@ export default function FutsalPage({
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {/* Top Scorer Card */}
           <FutsalStatCard
-            title="گلزنان برتر (آقای گل)"
+            title="گلزنان"
             icon={<Flame className="h-5 w-5 text-red-500 animate-pulse" />}
             valueColor="text-red-500"
             items={futsalTopScorers}
@@ -615,7 +615,7 @@ export default function FutsalPage({
 
           {/* Top Assists Card */}
           <FutsalStatCard
-            title="مهندسان پاسِ گل"
+            title="پاس گل"
             icon={<Zap className="h-5 w-5 text-sky-400" />}
             valueColor="text-sky-400"
             items={futsalTopAssists}
@@ -625,7 +625,7 @@ export default function FutsalPage({
 
           {/* Top Goalkeepers (Clean sheets) Card */}
           <FutsalStatCard
-            title="دستکش طلایی (کلین‌شیت دروازه‌بان)"
+            title="کلین‌شیت"
             icon={<Award className="h-5 w-5 text-amber-500" />}
             valueColor="text-amber-550"
             items={futsalTopGoalkeepers}

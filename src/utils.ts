@@ -241,12 +241,8 @@ export function computeDynamicAppletStats(
               ? match.minutes
               : String(elapsedMins);
 
-            let scHome = match.scoreHome ?? 0;
+            const scHome = match.scoreHome ?? 0;
             const scAway = match.scoreAway ?? 0;
-            // Only inject fake scores if not already set by admin
-            if (match.status !== "live" && scHome === 0 && scAway === 0 && elapsedMins > 45) {
-              scHome = 1;
-            }
 
             return {
               ...match,
@@ -309,7 +305,7 @@ export function computeDynamicAppletStats(
         redCards: parseInt(sStats.redCards) || 0,
         minutes: parseInt(sStats.minutes) || 0,
         mvps: parseInt(sStats.mvps) || 0,
-        averageRating: parseFloat(sStats.averageRating || p.averageRating) || 7.0
+        averageRating: parseFloat(sStats.averageRating || p.averageRating) || 0
       },
       leagueStats: p.leagueStats || sStats.leagueStats || { 
         matches: p.baseMatches || 0, 
@@ -320,7 +316,7 @@ export function computeDynamicAppletStats(
         redCards: p.baseRedCards || 0,
         minutes: (p.baseMatches || 0) * 90,
         mvps: 0,
-        averageRating: parseFloat(p.rating) || 7.2
+        averageRating: parseFloat(p.rating) || 0
       },
       cupStats: p.cupStats || sStats.cupStats || { 
         matches: 0, 
@@ -334,7 +330,7 @@ export function computeDynamicAppletStats(
         averageRating: 0
       },
       ratingsHistory: p.ratingsHistory || [],
-      averageRating: parseFloat(p.averageRating) || 7.0
+      averageRating: parseFloat(p.averageRating) || 0
     };
   });
 
@@ -476,6 +472,7 @@ export function computeDynamicAppletStats(
       .sort((a, b) => b.rating - a.rating)
       .map((item: any, idx) => ({
         rank: idx + 1,
+        id: item.p.id,
         name: item.p.name,
         team: item.p.teamName,
         rating: item.rating

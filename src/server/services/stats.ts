@@ -305,9 +305,9 @@ export function recalculateAndSyncDatabase(): void {
       redCards: p.baseRedCards,
       minutes: baseMult * 90,
       mvps: 0,
-      ratingSum: baseMult * (parseFloat(p.rating) || 7.2),
+      ratingSum: baseMult * (parseFloat(p.rating) || 0),
       ratingCount: baseMult,
-      averageRating: parseFloat(p.rating) || 7.2
+      averageRating: parseFloat(p.rating) || 0
     };
 
     p.cupStats = {
@@ -333,7 +333,7 @@ export function recalculateAndSyncDatabase(): void {
       redCards: p.baseRedCards,
       minutes: baseMult * 90,
       mvps: 0,
-      averageRating: parseFloat(p.rating) || 7.2
+      averageRating: parseFloat(p.rating) || 0
     };
     p.ratingsHistory = [];
   });
@@ -760,7 +760,7 @@ export function recalculateAndSyncDatabase(): void {
          const conceded = isHome ? (parseInt(String(match.scoreAway), 10) || 0) : (parseInt(String(match.scoreHome), 10) || 0);
          const cleanSheetCount = (isGK && conceded === 0) ? 1 : 0;
          const isMvp = match.mvpId === pObj.id || match.mvpId === pObj.name || (match.mvpId && match.mvpId.includes(pObj.name)) || false;
-         const ratingVal = lp && lp.rating ? (parseFloat(lp.rating) || 7.0) : (parseFloat(pObj.rating) || 7.0);
+         const ratingVal = lp && lp.rating ? (parseFloat(lp.rating) || 0) : (parseFloat(pObj.rating) || 0);
 
          if (isCup) {
            if (!pObj.cupStats) {
@@ -845,9 +845,9 @@ export function recalculateAndSyncDatabase(): void {
          if (p.leagueStats) {
            p.leagueStats.averageRating = parseFloat((lSum / leagueRatings.length).toFixed(1));
          }
-       } else if (p.leagueStats) {
-         p.leagueStats.averageRating = parseFloat(p.rating) || 7.2;
-       }
+        } else if (p.leagueStats) {
+          p.leagueStats.averageRating = parseFloat(p.rating) || 0;
+        }
 
        const cupRatings = p.ratingsHistory.filter((x: any) => x.isCup);
        if (cupRatings.length > 0) {

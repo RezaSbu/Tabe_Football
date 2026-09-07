@@ -470,7 +470,7 @@ export default function AdminLiveMatchConsole({
                     name: p.name,
                     number: p.number || 10,
                     position: p.position || "مدافع",
-                    rating: parseFloat((p as any).rating) || 7.0
+                    rating: parseFloat((p as any).rating) || 0
                   }));
                   setLocalLineups(prev => ({ ...prev, home: selected }));
                 }}
@@ -498,7 +498,7 @@ export default function AdminLiveMatchConsole({
                           name: p.name,
                           number: p.number || 10,
                           position: p.position || "مدافع",
-                          rating: parseFloat((p as any).rating) || 7.0
+                          rating: parseFloat((p as any).rating) || 0
                         };
                         setLocalLineups(prev => ({
                           ...prev,
@@ -515,6 +515,26 @@ export default function AdminLiveMatchConsole({
                     <div className="truncate pl-1">
                       <div>{p.name}</div>
                       <span className="text-[8px] opacity-60 font-mono tracking-wider">{p.position || "مدافع"}</span>
+                      {isChecked && (
+                        <div className="flex items-center gap-1 mt-1" onClick={(e) => e.stopPropagation()}>
+                          <span className="text-[7px] text-slate-500">نمره:</span>
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="1"
+                            max="10"
+                            value={localLineups.home.find(x => x.id === p.id)?.rating ?? ""}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              setLocalLineups(prev => ({
+                                ...prev,
+                                home: prev.home.map(x => x.id === p.id ? { ...x, rating: isNaN(val) ? 0 : val } : x)
+                              }));
+                            }}
+                            className="w-12 text-[9px] bg-zinc-800 border border-white/10 rounded px-1 py-0.5 text-center text-emerald-400 font-mono focus:border-emerald-500/50 focus:outline-none"
+                          />
+                        </div>
+                      )}
                     </div>
                     <span className="font-mono bg-zinc-800 px-1 rounded text-[9px]">#{p.number || 10}</span>
                   </button>
@@ -536,7 +556,7 @@ export default function AdminLiveMatchConsole({
                     name: p.name,
                     number: p.number || 10,
                     position: p.position || "مدافع",
-                    rating: parseFloat((p as any).rating) || 7.0
+                    rating: parseFloat((p as any).rating) || 0
                   }));
                   setLocalLineups(prev => ({ ...prev, away: selected }));
                 }}
@@ -564,7 +584,7 @@ export default function AdminLiveMatchConsole({
                           name: p.name,
                           number: p.number || 10,
                           position: p.position || "مدافع",
-                          rating: parseFloat((p as any).rating) || 7.0
+                          rating: parseFloat((p as any).rating) || 0
                         };
                         setLocalLineups(prev => ({
                           ...prev,
@@ -581,6 +601,26 @@ export default function AdminLiveMatchConsole({
                     <div className="truncate pl-1">
                       <div>{p.name}</div>
                       <span className="text-[8px] opacity-60 font-mono tracking-wider">{p.position || "مدافع"}</span>
+                      {isChecked && (
+                        <div className="flex items-center gap-1 mt-1" onClick={(e) => e.stopPropagation()}>
+                          <span className="text-[7px] text-slate-500">نمره:</span>
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="1"
+                            max="10"
+                            value={localLineups.away.find(x => x.id === p.id)?.rating ?? ""}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              setLocalLineups(prev => ({
+                                ...prev,
+                                away: prev.away.map(x => x.id === p.id ? { ...x, rating: isNaN(val) ? 0 : val } : x)
+                              }));
+                            }}
+                            className="w-12 text-[9px] bg-zinc-800 border border-white/10 rounded px-1 py-0.5 text-center text-sky-400 font-mono focus:border-sky-500/50 focus:outline-none"
+                          />
+                        </div>
+                      )}
                     </div>
                     <span className="font-mono bg-zinc-800 px-1 rounded text-[9px]">#{p.number || 10}</span>
                   </button>

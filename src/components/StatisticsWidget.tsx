@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { StatsData } from "../types";
-import { BarChart3, Goal, Shuffle, ShieldCheck } from "lucide-react";
+import { BarChart3, Goal, Shuffle, ShieldCheck, Star } from "lucide-react";
 import { isPlayerInDb } from "../utils";
 
 interface StatisticsWidgetProps {
@@ -9,18 +9,19 @@ interface StatisticsWidgetProps {
 }
 
 export default function StatisticsWidget({ stats, onSelectPlayerName }: StatisticsWidgetProps) {
-  const [tab, setTab] = useState<"scorers" | "assists" | "cleansheets">("scorers");
+  const [tab, setTab] = useState<"scorers" | "assists" | "cleansheets" | "ratings">("scorers");
 
   const scorers = stats?.scorers || [];
   const assists = stats?.assists || [];
   const cleansheets = stats?.cleansheets || [];
+  const ratings = (stats?.ratings || []).filter((p: any) => p.rating > 0);
 
   return (
     <div className="w-full bg-[#18181c]/50 border border-white/5 rounded-2xl p-4 text-white" dir="rtl">
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-4 pb-2.5 border-b border-white/[0.04]">
         <div className="flex items-center gap-2">
           <BarChart3 className="h-4 w-4 text-emerald-500" />
-          <h3 className="font-extrabold text-sm text-slate-100">آمار بازیکنان و برترین‌ها</h3>
+          <h3 className="font-extrabold text-sm text-slate-100">آمار بازیکنان</h3>
         </div>
 
         {/* Tab layout selector */}
@@ -31,7 +32,7 @@ export default function StatisticsWidget({ stats, onSelectPlayerName }: Statisti
               tab === "scorers" ? "bg-emerald-500 text-black" : "text-slate-400 hover:text-white"
             }`}
           >
-            آقای گل
+            گلزنان
           </button>
           <button
             onClick={() => setTab("assists")}
@@ -48,6 +49,14 @@ export default function StatisticsWidget({ stats, onSelectPlayerName }: Statisti
             }`}
           >
             کلین‌شیت
+          </button>
+          <button
+            onClick={() => setTab("ratings")}
+            className={`px-3 py-1 cursor-pointer font-extrabold rounded-lg transition ${
+              tab === "ratings" ? "bg-emerald-500 text-black" : "text-slate-400 hover:text-white"
+            }`}
+          >
+            میانگین نمره بازیکن
           </button>
         </div>
       </div>
@@ -113,7 +122,7 @@ export default function StatisticsWidget({ stats, onSelectPlayerName }: Statisti
                 </div>
               </div>
               <div className="text-xs font-mono font-black text-cyan-400" dir="ltr">
-                {p.assists} پاس گل🎯
+                {p.assists} پاس گل
               </div>
             </div>
           );
@@ -145,7 +154,39 @@ export default function StatisticsWidget({ stats, onSelectPlayerName }: Statisti
                 </div>
               </div>
               <div className="text-xs font-mono font-black text-amber-500" dir="ltr">
-                {p.cleanSheets} کلین‌شیت🧤
+                {p.cleanSheets} کلین‌شیت
+              </div>
+            </div>
+          );
+        })}
+
+        {tab === "ratings" && ratings.map((p, idx) => {
+          const exists = isPlayerInDb(p.name);
+          return (
+            <div
+              key={idx}
+              onClick={() => {
+                if (exists) {
+                  onSelectPlayerName?.(p.name);
+                }
+              }}
+              className={`p-2.5 bg-black/35 rounded-xl border border-white/5 flex items-center justify-between transition ${
+                exists 
+                  ? "hover:border-emerald-500/25 cursor-pointer" 
+                  : "cursor-default opacity-85"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="text-xs font-mono font-bold text-slate-500 bg-[#121215] h-5 w-5 flex items-center justify-center rounded">
+                  {p.rank}
+                </span>
+                <div>
+                  <strong className={`text-xs text-slate-200 block ${exists ? "hover:text-emerald-400 hover:underline" : ""}`}>{p.name}</strong>
+                  <span className="text-[10px] text-slate-500 font-semibold">{p.team}</span>
+                </div>
+              </div>
+              <div className="text-xs font-mono font-black text-emerald-400" dir="ltr">
+                {Number(p.rating).toFixed(1)}
               </div>
             </div>
           );
@@ -153,7 +194,8 @@ export default function StatisticsWidget({ stats, onSelectPlayerName }: Statisti
 
         {((tab === "scorers" && scorers.length === 0) ||
           (tab === "assists" && assists.length === 0) ||
-          (tab === "cleansheets" && cleansheets.length === 0)) && (
+          (tab === "cleansheets" && cleansheets.length === 0) ||
+          (tab === "ratings" && ratings.length === 0)) && (
           <div className="p-8 text-center text-xs text-slate-500">آماری یافت نشد.</div>
         )}
       </div>

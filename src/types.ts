@@ -45,11 +45,49 @@ export interface MatchItem {
   mediaInfo?: string;
   probableLineups?: { home: string[]; away: string[] };
   updatedAt?: string;
-  events?: any[];
+  events?: MatchEventItem[];
   stats?: any;
   teamStats?: any;
-  scorersList?: any[];
+  scorersList?: MatchScorerItem[];
+  lineups?: MatchLineup;
   winner?: string;
+}
+
+export interface MatchEventItem {
+  id: string;
+  type: 'goal' | 'assist' | 'penalty' | 'own-goal' | 'yellow-card' | 'red-card' | 'substitution' | 'missed-penalty' | 'injury' | 'var' | 'other';
+  minute: string;
+  team: 'home' | 'away';
+  playerName: string;
+  playerId?: string;
+  player2Name?: string;
+  player2Id?: string;
+  details?: string;
+}
+
+export interface MatchScorerItem {
+  scorerId?: string;
+  scorerName: string;
+  name?: string;
+  goals: number;
+  assistName?: string;
+  assistId?: string;
+  minute?: string;
+}
+
+export interface MatchLineupPlayer {
+  id: string;
+  name: string;
+  number: number | string;
+  position: string;
+  rating?: number;
+}
+
+export interface MatchLineup {
+  home: MatchLineupPlayer[];
+  away: MatchLineupPlayer[];
+  homeSubs?: MatchLineupPlayer[];
+  awaySubs?: MatchLineupPlayer[];
 }
 
 export interface StandingRow {
@@ -137,7 +175,7 @@ export interface StatsData {
   scorers: { rank: number; id?: string; name: string; team: string; goals: number; penalties: number }[];
   assists: { rank: number; id?: string; name: string; team: string; assists: number }[];
   cleansheets: { rank: number; id?: string; name: string; team: string; cleanSheets: number }[];
-  ratings?: { rank: number; name: string; team: string; rating: number }[];
+  ratings?: { rank: number; id?: string; name: string; team: string; rating: number }[];
 }
 
 export interface HeroSlideItem {

@@ -45,7 +45,7 @@ const getPersianCategory = (cat: string) => {
     "league-1": "لیگ یک",
     "league-2": "لیگ دو",
     "hazfi-cup": "جام حذفی",
-    "futsal": "فوتسال",
+    // "futsal": "فوتسال",   // [آرشیو] بخش فوتسال از UI عمومی مخفی شده
     "transfer": "نقل و انتقالات",
     "general": "عمومی",
     "world-football": "فوتبال جهان",
@@ -112,7 +112,7 @@ export default function HomePage({
     { id: "league-2-group-b", label: "لیگ دو (ب)" },
   ];
 
-  const mainCategories = ["pro-league", "league-1", "league-2", "hazfi-cup", "futsal"];
+  const mainCategories = ["pro-league", "league-1", "league-2", "hazfi-cup"];
   const filteredNewsList = news.filter((art) => {
     const matchesSearch = art.title.toLowerCase().includes(newsSearch.toLowerCase()) ||
       art.summary.toLowerCase().includes(newsSearch.toLowerCase()) ||
@@ -152,7 +152,7 @@ export default function HomePage({
       <div className="grid gap-6 lg:grid-cols-12" id="home-dashboard-layout font-sans">
         <div className="lg:col-span-8 space-y-6">
           <NewsSlider news={news} transfers={transfers} heroSlides={heroSlides} legionnaires={legionnaires} onSelectNews={setActiveArticle} onSelectTransfer={onSelectTransfer} />
-          <TopStatsWidget stats={stats || {}} onShowAll={handleShowAllStats} />
+          <TopStatsWidget stats={stats || {}} onShowAll={handleShowAllStats} onSelectPlayer={(id) => setSelectedPlayerId(id)} />
           <MatchTicker matches={matches} onSelectMatch={setSelectedMatch} />
 
           <div className="space-y-4">
@@ -169,7 +169,7 @@ export default function HomePage({
                   { id: "league-1", label: "لیگ یک" },
                   { id: "league-2", label: "لیگ دو" },
                   { id: "hazfi-cup", label: "جام حذفی" },
-                  { id: "futsal", label: "فوتسال" },
+                  // { id: "futsal", label: "فوتسال" },   // [آرشیو] بخش فوتسال از UI عمومی مخفی شده
                   { id: "other", label: "سایر موضوعات" }
                 ].map((cat) => (
                   <button

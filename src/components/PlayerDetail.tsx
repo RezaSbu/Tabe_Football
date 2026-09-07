@@ -3,7 +3,7 @@ import {
   ArrowLeft, Award, Calendar, Zap, Heart, ShieldCheck, 
   Star, Activity, Trophy, Clock, UserRound, Sparkles, Newspaper
 } from "lucide-react";
-import { getSafeImageUrl, isTeamInDb, convertGregorianToShamsi, toPersianDigits, normalizePersianString, matchesPersonNews } from "../utils";
+import { getSafeImageUrl, isTeamInDb, convertGregorianToShamsi, toPersianDigits, normalizePersianString } from "../utils";
 import { resolveTeam } from "../shared/teamMatch";
 import { realMinute } from "../shared/matchMinute";
 
@@ -32,11 +32,25 @@ export default function PlayerDetail({
   const [imageError, setImageError] = useState(false);
   const [lastPlayerId, setLastPlayerId] = useState<string | undefined>(undefined);
   const [selectedCompet, setSelectedCompet] = useState<"all" | "league" | "cup">("all");
+  const [playerNews, setPlayerNews] = useState<any[]>([]);
+  const [loadingNews, setLoadingNews] = useState(false);
 
   useEffect(() => {
     if (player) {
       const isFutsal = player.id?.startsWith("futsal-") || player.teamId?.startsWith("futsal-") || player.teamId?.includes("futsal") || (player.teamName || "").includes("فوتسال");
       setSelectedCompet(isFutsal ? "league" : "all");
+      
+      // Fetch related news from server
+      setLoadingNews(true);
+      fetch(`/api/related-news/player/${player.id}?limit=10`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.data) {
+            setPlayerNews(data.data);
+          }
+        })
+        .catch(() => {})
+        .finally(() => setLoadingNews(false));
     }
   }, [player?.id]);
 
@@ -51,12 +65,6 @@ export default function PlayerDetail({
                          player.teamId?.startsWith("futsal-") || 
                          player.teamId?.includes("futsal") || 
                          (player.teamName || "").includes("فوتسال");
-
-  // Latest 10 news mentioning this player (tag-based search by name keywords)
-  const playerNews = [...(news || [])]
-    .filter((n: any) => !!n && matchesPersonNews(n, player.name))
-    .sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-    .slice(0, 10);
 
   const getPlayerMinutesAndPlayed = (m: any, p: any) => {
     const isFutsal = m.sport === "futsal" || m.league === "futsal";
@@ -177,7 +185,7 @@ export default function PlayerDetail({
     let playerAssists = 0;
     let playerYellow = 0;
     let playerRed = 0;
-    const playerRating = lpHome?.rating || lpAway?.rating || player.averageRating || 7.0;
+    const playerRating = lpHome?.rating || lpAway?.rating || player.averageRating || 0;
 
     // Sum from events:
     const matchEvents = match.events || [];
@@ -296,7 +304,7 @@ export default function PlayerDetail({
           subbedIn: playerSubIn,
           subbedOut: playerSubOut,
           result: computeResult(true),
-          rating: inHome.rating || 7.0,
+          rating: inHome.rating || 0,
           minutesPlayed: calculatedMins || inHome.minutesPlayed || 90,
           isMvp: match.mvpId === player.id || match.mvpId === player.name || inHome.rating >= 8.5,
           scoreHome: match.scoreHome,
@@ -321,7 +329,7 @@ export default function PlayerDetail({
           subbedIn: playerSubIn,
           subbedOut: playerSubOut,
           result: computeResult(false),
-          rating: inAway.rating || 7.0,
+          rating: inAway.rating || 0,
           minutesPlayed: calculatedMins || inAway.minutesPlayed || 90,
           isMvp: match.mvpId === player.id || match.mvpId === player.name || inAway.rating >= 8.5,
           scoreHome: match.scoreHome,
@@ -374,7 +382,7 @@ export default function PlayerDetail({
   const leagueRed = player.leagueStats?.redCards || 0;
   const leagueMinutes = player.leagueStats?.minutes || (leagueMatches * 90);
   const leagueMvps = player.leagueStats?.mvps || player.ratingsHistory?.filter((h: any) => !h.isCup && h.isMvp).length || 0;
-  const leagueAvgRating = player.leagueStats?.averageRating || player.rating || 7.0;
+  const leagueAvgRating = player.leagueStats?.averageRating || player.rating || 0;
 
   const cupMatches = player.cupStats?.matches || 0;
   const cupGoals = player.cupStats?.goals || 0;
@@ -394,7 +402,7 @@ export default function PlayerDetail({
   const displayedRed = player.seasonStats?.redCards || 0;
   const displayedMinutes = player.seasonStats?.minutes || playerMatches.reduce((acc, m) => acc + m.minutesPlayed, 0) || (displayedMatches * 90);
   const displayedMvps = player.seasonStats?.mvps || player.ratingsHistory?.filter((h: any) => h.isMvp).length || playerMatches.filter(m => m.isMvp).length || 0;
-  const displayedAvgRating = player.seasonStats?.averageRating || player.averageRating || player.rating || 7.0;
+  const displayedAvgRating = player.seasonStats?.averageRating || player.averageRating || player.rating || 0;
 
   // Active calculation variables depending on selectedCompet toggle
   const activeAvgRating = selectedCompet === "all" ? displayedAvgRating : (selectedCompet === "league" ? leagueAvgRating : cupAvgRating);
@@ -645,7 +653,7 @@ export default function PlayerDetail({
               </div>
 
               {/* Sofa/MVP/Minutes Ratings Grid summaries */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="p-4.5 rounded-2xl bg-[#131317] border border-white/5 flex items-center justify-between">
                   <div>
                     <span className="block text-[10px] text-gray-400 font-bold mb-1">
@@ -679,6 +687,27 @@ export default function PlayerDetail({
                     <span className="block text-[9px] text-slate-500 mt-1 font-medium">زمان مفید حضور در میدان</span>
                   </div>
                   <Clock className="h-9 w-9 text-[#808092] p-2 bg-white/5 rounded-full shrink-0" />
+                </div>
+
+                <div className="p-4.5 rounded-2xl bg-[#131317] border border-white/5 flex items-center justify-between">
+                  <div>
+                    <span className="block text-[10px] text-gray-400 font-bold mb-1">
+                      {selectedCompet === "all" ? "میانگین نمره در فصل" : selectedCompet === "league" ? (isFutsalPlayer ? "میانگین نمره در لیگ فوتسال" : "میانگین نمره در لیگ برتر") : "میانگین نمره در جام حذفی"}
+                    </span>
+                    {activeAvgRating > 0 ? (
+                      <span className={`text-2xl font-mono font-black ${
+                        activeAvgRating >= 7.5 ? "text-emerald-400" : activeAvgRating >= 6.5 ? "text-amber-400" : "text-slate-400"
+                      }`}>
+                        {toPersianDigits(Number(activeAvgRating).toFixed(1))}
+                      </span>
+                    ) : (
+                      <span className="text-lg font-bold text-slate-600">—</span>
+                    )}
+                    <span className="block text-[9px] text-slate-500 mt-1 font-medium">
+                      {activeAvgRating > 0 ? "امتیاز عملکرد بر اساس نمرات ثبت‌شده" : "هنوز نمره‌ای ثبت نشده"}
+                    </span>
+                  </div>
+                  <Star className={`h-9 w-9 p-2 rounded-full shrink-0 ${activeAvgRating > 0 ? "text-emerald-400 bg-emerald-500/10" : "text-slate-600 bg-white/5"}`} />
                 </div>
               </div>
 
@@ -891,6 +920,13 @@ export default function PlayerDetail({
                       <span className="text-slate-500 font-mono">
                         {toPersianDigits(m.minutesPlayed)}' بازی
                       </span>
+                      {m.rating > 0 && (
+                        <span className={`font-mono px-1.5 py-0.5 rounded text-[10px] font-black ${
+                          m.rating >= 7.5 ? "bg-emerald-500/10 text-emerald-400" : m.rating >= 6.5 ? "bg-amber-500/10 text-amber-400" : "bg-white/5 text-slate-400"
+                        }`}>
+                          {toPersianDigits(Number(m.rating).toFixed(1))}
+                        </span>
+                      )}
                     </div>
 
                     {/* Match MVP badge only */}

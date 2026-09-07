@@ -804,11 +804,11 @@ export default function LeagueTables({
 
       {/* 2.3 TAB - INDIVIDUAL STATISTICS */}
       {subTab === "stats" && (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
 
           {/* Scorers leadercard */}
           <StatCard
-            title="گلزنان برتر (آقای گل)"
+            title="گلزنان"
             icon={<Flame className="h-5 w-5 text-red-500 animate-pulse" />}
             valueColor="text-red-500"
             items={leagueStats.scorers || []}
@@ -820,7 +820,7 @@ export default function LeagueTables({
 
           {/* Assists leadercard */}
           <StatCard
-            title="مهندسان پاسِ گل"
+            title="پاس گل"
             icon={<Zap className="h-5 w-5 text-sky-400" />}
             valueColor="text-sky-400"
             items={leagueStats.assists || []}
@@ -832,12 +832,24 @@ export default function LeagueTables({
 
           {/* Cleansheets leadercard */}
           <StatCard
-            title="دستکش طلایی (کلین‌شیت دروازه‌بان)"
+            title="کلین‌شیت"
             icon={<Award className="h-5 w-5 text-amber-500" />}
             valueColor="text-amber-550"
             items={leagueStats.cleansheets || []}
             emptyText="جدول کلین‌شیت‌ها آماده به رندر نیست."
             valueRenderer={(p: any) => `${p.cleanSheets} کلین‌شیت`}
+            onSelectPlayer={onSelectPlayer}
+            players={players}
+          />
+
+          {/* Ratings leadercard */}
+          <StatCard
+            title="میانگین نمره بازیکن"
+            icon={<Star className="h-5 w-5 text-emerald-400" />}
+            valueColor="text-emerald-400"
+            items={(leagueStats.ratings || []).filter((p: any) => p.rating > 0)}
+            emptyText="جدول نمرات به‌زودی اضافه می‌شود."
+            valueRenderer={(p: any) => `${Number(p.rating).toFixed(1)}`}
             onSelectPlayer={onSelectPlayer}
             players={players}
           />

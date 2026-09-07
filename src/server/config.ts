@@ -1,3 +1,5 @@
+export const VIEW_MULTIPLIER = 21;
+
 export const INITIAL_DATABASE = {
   currentSeason: "1404",
   news: [],
