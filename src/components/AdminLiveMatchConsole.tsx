@@ -470,7 +470,7 @@ export default function AdminLiveMatchConsole({
                     name: p.name,
                     number: p.number || 10,
                     position: p.position || "مدافع",
-                    rating: parseFloat((p as any).rating) || 0
+                    rating: null
                   }));
                   setLocalLineups(prev => ({ ...prev, home: selected }));
                 }}
@@ -498,7 +498,7 @@ export default function AdminLiveMatchConsole({
                           name: p.name,
                           number: p.number || 10,
                           position: p.position || "مدافع",
-                          rating: parseFloat((p as any).rating) || 0
+                          rating: null
                         };
                         setLocalLineups(prev => ({
                           ...prev,
@@ -528,7 +528,7 @@ export default function AdminLiveMatchConsole({
                               const val = parseFloat(e.target.value);
                               setLocalLineups(prev => ({
                                 ...prev,
-                                home: prev.home.map(x => x.id === p.id ? { ...x, rating: isNaN(val) ? 0 : val } : x)
+                                home: prev.home.map(x => x.id === p.id ? { ...x, rating: isNaN(val) ? null : val } : x)
                               }));
                             }}
                             className="w-12 text-[9px] bg-zinc-800 border border-white/10 rounded px-1 py-0.5 text-center text-emerald-400 font-mono focus:border-emerald-500/50 focus:outline-none"
@@ -556,7 +556,7 @@ export default function AdminLiveMatchConsole({
                     name: p.name,
                     number: p.number || 10,
                     position: p.position || "مدافع",
-                    rating: parseFloat((p as any).rating) || 0
+                    rating: null
                   }));
                   setLocalLineups(prev => ({ ...prev, away: selected }));
                 }}
@@ -584,7 +584,7 @@ export default function AdminLiveMatchConsole({
                           name: p.name,
                           number: p.number || 10,
                           position: p.position || "مدافع",
-                          rating: parseFloat((p as any).rating) || 0
+                          rating: null
                         };
                         setLocalLineups(prev => ({
                           ...prev,
@@ -614,7 +614,7 @@ export default function AdminLiveMatchConsole({
                               const val = parseFloat(e.target.value);
                               setLocalLineups(prev => ({
                                 ...prev,
-                                away: prev.away.map(x => x.id === p.id ? { ...x, rating: isNaN(val) ? 0 : val } : x)
+                                away: prev.away.map(x => x.id === p.id ? { ...x, rating: isNaN(val) ? null : val } : x)
                               }));
                             }}
                             className="w-12 text-[9px] bg-zinc-800 border border-white/10 rounded px-1 py-0.5 text-center text-sky-400 font-mono focus:border-sky-500/50 focus:outline-none"

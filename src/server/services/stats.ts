@@ -305,9 +305,9 @@ export function recalculateAndSyncDatabase(): void {
       redCards: p.baseRedCards,
       minutes: baseMult * 90,
       mvps: 0,
-      ratingSum: baseMult * (parseFloat(p.rating) || 0),
-      ratingCount: baseMult,
-      averageRating: parseFloat(p.rating) || 0
+      ratingSum: 0,
+      ratingCount: 0,
+      averageRating: null
     };
 
     p.cupStats = {
@@ -321,7 +321,7 @@ export function recalculateAndSyncDatabase(): void {
       mvps: 0,
       ratingSum: 0,
       ratingCount: 0,
-      averageRating: 0
+      averageRating: null
     };
 
     p.seasonStats = {
@@ -333,7 +333,7 @@ export function recalculateAndSyncDatabase(): void {
       redCards: p.baseRedCards,
       minutes: baseMult * 90,
       mvps: 0,
-      averageRating: parseFloat(p.rating) || 0
+      averageRating: null
     };
     p.ratingsHistory = [];
   });
@@ -759,8 +759,10 @@ export function recalculateAndSyncDatabase(): void {
          }
          const conceded = isHome ? (parseInt(String(match.scoreAway), 10) || 0) : (parseInt(String(match.scoreHome), 10) || 0);
          const cleanSheetCount = (isGK && conceded === 0) ? 1 : 0;
-         const isMvp = match.mvpId === pObj.id || match.mvpId === pObj.name || (match.mvpId && match.mvpId.includes(pObj.name)) || false;
-         const ratingVal = lp && lp.rating ? (parseFloat(lp.rating) || 0) : (parseFloat(pObj.rating) || 0);
+          const isMvp = match.mvpId === pObj.id || match.mvpId === pObj.name || (match.mvpId && match.mvpId.includes(pObj.name)) || false;
+          const rawRating = lp && lp.rating != null ? parseFloat(String(lp.rating)) : null;
+          const hasValidRating = rawRating != null && !isNaN(rawRating) && rawRating > 0;
+          const ratingVal = hasValidRating ? rawRating : null;
 
          if (isCup) {
            if (!pObj.cupStats) {
@@ -772,11 +774,13 @@ export function recalculateAndSyncDatabase(): void {
            pObj.cupStats.yellowCards = (pObj.cupStats.yellowCards || 0) + stats.yellow;
            pObj.cupStats.redCards = (pObj.cupStats.redCards || 0) + stats.red;
            pObj.cupStats.cleanSheets = (pObj.cupStats.cleanSheets || 0) + cleanSheetCount;
-           pObj.cupStats.minutes = (pObj.cupStats.minutes || 0) + stats.minutes;
-           pObj.cupStats.mvps = (pObj.cupStats.mvps || 0) + (isMvp ? 1 : 0);
-           pObj.cupStats.ratingSum = (pObj.cupStats.ratingSum || 0) + ratingVal;
-           pObj.cupStats.ratingCount = (pObj.cupStats.ratingCount || 0) + 1;
-           pObj.cupStats.averageRating = parseFloat((pObj.cupStats.ratingSum / pObj.cupStats.ratingCount).toFixed(1));
+            pObj.cupStats.minutes = (pObj.cupStats.minutes || 0) + stats.minutes;
+            pObj.cupStats.mvps = (pObj.cupStats.mvps || 0) + (isMvp ? 1 : 0);
+            if (ratingVal != null) {
+              pObj.cupStats.ratingSum = (pObj.cupStats.ratingSum || 0) + ratingVal;
+              pObj.cupStats.ratingCount = (pObj.cupStats.ratingCount || 0) + 1;
+              pObj.cupStats.averageRating = parseFloat((pObj.cupStats.ratingSum / pObj.cupStats.ratingCount).toFixed(1));
+            }
          } else {
            if (!pObj.leagueStats) {
              pObj.leagueStats = { matches: 0, goals: 0, assists: 0, cleanSheets: 0, yellowCards: 0, redCards: 0, minutes: 0, mvps: 0, ratingSum: 0, ratingCount: 0, averageRating: 0 };
@@ -787,11 +791,13 @@ export function recalculateAndSyncDatabase(): void {
            pObj.leagueStats.yellowCards = (pObj.leagueStats.yellowCards || 0) + stats.yellow;
            pObj.leagueStats.redCards = (pObj.leagueStats.redCards || 0) + stats.red;
            pObj.leagueStats.cleanSheets = (pObj.leagueStats.cleanSheets || 0) + cleanSheetCount;
-           pObj.leagueStats.minutes = (pObj.leagueStats.minutes || 0) + stats.minutes;
-           pObj.leagueStats.mvps = (pObj.leagueStats.mvps || 0) + (isMvp ? 1 : 0);
-           pObj.leagueStats.ratingSum = (pObj.leagueStats.ratingSum || 0) + ratingVal;
-           pObj.leagueStats.ratingCount = (pObj.leagueStats.ratingCount || 0) + 1;
-           pObj.leagueStats.averageRating = parseFloat((pObj.leagueStats.ratingSum / pObj.leagueStats.ratingCount).toFixed(1));
+            pObj.leagueStats.minutes = (pObj.leagueStats.minutes || 0) + stats.minutes;
+            pObj.leagueStats.mvps = (pObj.leagueStats.mvps || 0) + (isMvp ? 1 : 0);
+            if (ratingVal != null) {
+              pObj.leagueStats.ratingSum = (pObj.leagueStats.ratingSum || 0) + ratingVal;
+              pObj.leagueStats.ratingCount = (pObj.leagueStats.ratingCount || 0) + 1;
+              pObj.leagueStats.averageRating = parseFloat((pObj.leagueStats.ratingSum / pObj.leagueStats.ratingCount).toFixed(1));
+            }
          }
 
          pObj.seasonStats.matches += 1;
@@ -805,24 +811,24 @@ export function recalculateAndSyncDatabase(): void {
 
          const oppTeam = isHome ? match.teamAway : match.teamHome;
 
-         const alreadyIn = pObj.ratingsHistory.some((item: any) => item.matchId === match.id);
-         if (!alreadyIn) {
-           pObj.ratingsHistory.push({
-             matchId: match.id,
-             matchOpponent: oppTeam,
-             isCup: isCup,
-             rating: ratingVal,
-             date: match.date,
-             time: match.time || "00:00",
-            goals: stats.goals,
-            assists: stats.assists,
-            minutes: stats.minutes,
-            isMvp: match.mvpId === pObj.id || match.mvpId === pObj.name || (match.mvpId && match.mvpId.includes(pObj.name))
-          });
+          const alreadyIn = pObj.ratingsHistory.some((item: any) => item.matchId === match.id);
+          if (!alreadyIn) {
+            pObj.ratingsHistory.push({
+              matchId: match.id,
+              matchOpponent: oppTeam,
+              isCup: isCup,
+              rating: ratingVal,
+              date: match.date,
+              time: match.time || "00:00",
+              goals: stats.goals,
+              assists: stats.assists,
+              minutes: stats.minutes,
+              isMvp: match.mvpId === pObj.id || match.mvpId === pObj.name || (match.mvpId && match.mvpId.includes(pObj.name))
+            });
+           }
         }
-      }
-    });
-  });
+     });
+   });
 
    db.players.forEach((p: any) => {
      if (p.ratingsHistory.length > 0) {
@@ -832,32 +838,42 @@ export function recalculateAndSyncDatabase(): void {
          if (tA !== tB) return tB - tA;
          return (b.matchId || "").localeCompare(a.matchId || "");
        });
-       
-       const sum = p.ratingsHistory.reduce((acc: number, item: any) => acc + item.rating, 0);
-       p.averageRating = parseFloat((sum / p.ratingsHistory.length).toFixed(1));
+
+       const validRatings = p.ratingsHistory.filter((x: any) => x.rating != null && x.rating > 0);
+       if (validRatings.length > 0) {
+         const sum = validRatings.reduce((acc: number, item: any) => acc + item.rating, 0);
+         p.averageRating = parseFloat((sum / validRatings.length).toFixed(1));
+       } else {
+         p.averageRating = null;
+       }
        if (p.seasonStats) {
          p.seasonStats.averageRating = p.averageRating;
        }
 
-       const leagueRatings = p.ratingsHistory.filter((x: any) => !x.isCup);
+       const leagueRatings = p.ratingsHistory.filter((x: any) => !x.isCup && x.rating != null && x.rating > 0);
        if (leagueRatings.length > 0) {
          const lSum = leagueRatings.reduce((acc: number, item: any) => acc + item.rating, 0);
          if (p.leagueStats) {
            p.leagueStats.averageRating = parseFloat((lSum / leagueRatings.length).toFixed(1));
          }
-        } else if (p.leagueStats) {
-          p.leagueStats.averageRating = parseFloat(p.rating) || 0;
-        }
+       } else if (p.leagueStats) {
+         p.leagueStats.averageRating = null;
+       }
 
-       const cupRatings = p.ratingsHistory.filter((x: any) => x.isCup);
+       const cupRatings = p.ratingsHistory.filter((x: any) => x.isCup && x.rating != null && x.rating > 0);
        if (cupRatings.length > 0) {
          const cSum = cupRatings.reduce((acc: number, item: any) => acc + item.rating, 0);
          if (p.cupStats) {
            p.cupStats.averageRating = parseFloat((cSum / cupRatings.length).toFixed(1));
          }
        } else if (p.cupStats) {
-         p.cupStats.averageRating = 0;
+         p.cupStats.averageRating = null;
        }
+     } else {
+       p.averageRating = null;
+       if (p.seasonStats) p.seasonStats.averageRating = null;
+       if (p.leagueStats) p.leagueStats.averageRating = null;
+       if (p.cupStats) p.cupStats.averageRating = null;
      }
    });
 
@@ -1002,10 +1018,10 @@ export function recalculateAndSyncDatabase(): void {
 
     const ratings = [...eligiblePlayers]
       .map((p: any) => {
-        const rating = leagueKey === "hazfi-cup" ? (p.cupStats?.averageRating || p.averageRating || 0) : (p.leagueStats?.averageRating || p.averageRating || 0);
+        const rating = leagueKey === "hazfi-cup" ? (p.cupStats?.averageRating ?? null) : (p.leagueStats?.averageRating ?? null);
         return { p, rating };
       })
-      .filter((item: any) => item.rating > 0)
+      .filter((item: any) => item.rating != null && item.rating > 0)
       .sort((a: any, b: any) => b.rating - a.rating)
       .map((item: any, idx: number) => ({
         rank: idx + 1,

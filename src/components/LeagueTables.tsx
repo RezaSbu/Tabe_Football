@@ -436,7 +436,7 @@ export default function LeagueTables({
         })
     : isCurrentSeason
       ? [...leaguePlayers]
-          .filter(p => p.averageRating !== undefined)
+          .filter(p => p.averageRating != null && p.averageRating > 0)
           .sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0))
           .slice(0, 5)
       : [];

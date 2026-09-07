@@ -278,10 +278,10 @@ export function registerArchiveRoutes(app: Express) {
 
           const ratings = [...eligiblePlayers]
             .map((p: any) => {
-              const rating = leagueKey === "hazfi-cup" ? (p.cupStats?.averageRating || p.averageRating || 0) : (p.leagueStats?.averageRating || p.averageRating || 0);
+              const rating = leagueKey === "hazfi-cup" ? (p.cupStats?.averageRating ?? null) : (p.leagueStats?.averageRating ?? null);
               return { p, rating };
             })
-            .filter((item: any) => item.rating > 0)
+            .filter((item: any) => item.rating != null && item.rating > 0)
             .sort((a: any, b: any) => b.rating - a.rating)
             .map((item: any, idx: number) => ({
               rank: idx + 1,
@@ -381,7 +381,7 @@ export function registerArchiveRoutes(app: Express) {
             redCards: 0,
             minutes: 0,
             mvps: 0,
-            averageRating: 0
+            averageRating: null
           };
           p.ratingsHistory = [];
           p.leagueStats = { matches: 0, goals: 0, assists: 0, cleanSheets: 0, yellowCards: 0, redCards: 0 };
@@ -493,7 +493,7 @@ export function registerArchiveRoutes(app: Express) {
               mvps: 0,
               ratingSum: 0,
               ratingCount: 0,
-              averageRating: 0
+              averageRating: null
             };
             const c = p.cupStats || {};
             p.seasonStats = {
@@ -505,7 +505,7 @@ export function registerArchiveRoutes(app: Express) {
               redCards: c.redCards || 0,
               minutes: c.minutes || 0,
               mvps: c.mvps || 0,
-              averageRating: c.averageRating || parseFloat(p.rating) || 0
+              averageRating: c.averageRating ?? null
             };
           });
         }
@@ -584,7 +584,7 @@ export function registerArchiveRoutes(app: Express) {
               mvps: 0,
               ratingSum: 0,
               ratingCount: 0,
-              averageRating: 0
+              averageRating: null
             };
             const l = p.leagueStats || {};
             p.seasonStats = {
@@ -596,7 +596,7 @@ export function registerArchiveRoutes(app: Express) {
               redCards: l.redCards || 0,
               minutes: l.minutes || 0,
               mvps: l.mvps || 0,
-              averageRating: l.averageRating || parseFloat(p.rating) || 0
+              averageRating: l.averageRating ?? null
             };
           });
         }
