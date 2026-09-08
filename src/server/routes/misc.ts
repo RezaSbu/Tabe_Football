@@ -601,4 +601,16 @@ export function registerMiscRoutes(app: Express) {
     await saveDB();
     res.json({ success: true });
   });
+
+  app.get("/api/news/latest", (req: Request, res: Response) => {
+    const currentDB = loadDB();
+    const currentId = String(req.query.current || "");
+    const limit = Math.min(parseInt(String(req.query.limit)) || 30, 50);
+    const news = (currentDB.news || [])
+      .filter((n: any) => n.id !== currentId)
+      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, limit)
+      .map((n: any) => ({ id: n.id, title: n.title, createdAt: n.createdAt }));
+    res.json({ success: true, data: news });
+  });
 }
