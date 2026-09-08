@@ -613,8 +613,16 @@ export default function LeagueTables({
                   <tbody className="divide-y divide-white/[0.02]">
                     {currentStandings.map((row, i) => {
                       const correlatedTeam = resolveTeam(teams, row.team);
-                      const isTopTeam = i < 3;
-                      const isBottomTeam = currentStandings.length >= 10 && i >= currentStandings.length - 2;
+                      let promotionCount = 3;
+                      let relegationCount = 2;
+                      let dangerZoneCount = 0;
+                      if (leagueKey === "league-1") { promotionCount = 2; relegationCount = 3; dangerZoneCount = 1; }
+                      else if (leagueKey === "league-2") { promotionCount = 2; relegationCount = 3; }
+                      else if (leagueKey === "pro-league") { promotionCount = 3; relegationCount = 4; }
+
+                      const isPromotion = i < promotionCount;
+                      const isRelegation = currentStandings.length >= 10 && i >= currentStandings.length - relegationCount;
+                      const isDangerZone = dangerZoneCount > 0 && !isRelegation && i >= currentStandings.length - relegationCount - dangerZoneCount;
 
                       return (
                         <tr
@@ -630,11 +638,13 @@ export default function LeagueTables({
                         >
                           <td className="py-3 text-center">
                             <span className={`inline-flex items-center justify-center font-mono font-bold h-6 w-6 rounded-md text-[11px] ${
-                              isTopTeam 
-                                ? "bg-amber-500/15 text-amber-500 border border-amber-500/20" 
-                                : isBottomTeam 
-                                  ? "bg-red-500/15 text-red-500 border border-red-500/10" 
-                                  : "bg-slate-800/40 text-slate-400"
+                              isPromotion 
+                                ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" 
+                                : isDangerZone
+                                  ? "bg-orange-500/15 text-orange-400 border border-orange-500/20"
+                                  : isRelegation 
+                                    ? "bg-red-500/15 text-red-500 border border-red-500/10" 
+                                    : "bg-slate-800/40 text-slate-400"
                             }`}>
                               {row.rank || i + 1}
                             </span>
@@ -664,12 +674,16 @@ export default function LeagueTables({
               {/* Legend guide */}
               <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[10px] text-gray-500 font-bold bg-[#121215]/50 border border-white/5 p-3 rounded-xl">
                 <span className="flex items-center gap-1.5">
-                  <span className="block h-2 w-2 rounded bg-amber-500"></span>
-                  طلایی: صعود مستقیم / رتبه‌های برتر صدرنشین
+                  <span className="block h-2 w-2 rounded bg-emerald-500"></span>
+                  سبز: صعود
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="block h-2 w-2 rounded bg-orange-500"></span>
+                  نارنجی: پلی‌آف
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="block h-2 w-2 rounded bg-red-500"></span>
-                  قرمز: خطر سقوط یا پلی‌آف سقوط
+                  قرمز: سقوط
                 </span>
               </div>
             </div>
