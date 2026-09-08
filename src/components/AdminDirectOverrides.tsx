@@ -118,8 +118,13 @@ export default function AdminDirectOverrides({
       .map((c, idx) => ({ ...c, rank: idx + 1 }));
 
     // Sort and re-rank ratings
-    const sortedRatings = ratings.map((r) => ({ ...r, rating: Number(r.rating) }))
-      .sort((a, b) => b.rating - a.rating)
+    const sortedRatings = ratings.map((r) => ({ ...r, rating: r.rating != null ? Number(r.rating) : null }))
+      .sort((a, b) => {
+        if (a.rating == null && b.rating == null) return 0;
+        if (a.rating == null) return 1;
+        if (b.rating == null) return -1;
+        return b.rating - a.rating;
+      })
       .map((r, idx) => ({ ...r, rank: idx + 1 }));
 
     const success = await onUpdateStats(statsLeague, {

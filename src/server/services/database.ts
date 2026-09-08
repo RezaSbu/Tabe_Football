@@ -177,6 +177,38 @@ export async function migrateMonitoringTables(): Promise<void> {
   }
 }
 
+export async function migrateRatingDefaults(): Promise<void> {
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, applied_at TIMESTAMPTZ DEFAULT NOW())`);
+    const { rows } = await pool.query(`SELECT 1 FROM schema_migrations WHERE name = 'strip_old_ratings_v1'`);
+    if (rows.length > 0) return;
+
+    await pool.query(`ALTER TABLE players ALTER COLUMN rating DROP DEFAULT`);
+    await pool.query(`ALTER TABLE players ALTER COLUMN average_rating DROP DEFAULT`);
+    await pool.query(`UPDATE players SET rating = NULL WHERE rating = 0`);
+    await pool.query(`UPDATE players SET average_rating = NULL WHERE average_rating = 0`);
+    await pool.query(`
+      UPDATE matches
+      SET lineups = jsonb_build_object(
+        'home', (
+          SELECT coalesce(jsonb_agg(jsonb_set(elem, '{rating}', 'null'::jsonb)), '[]'::jsonb)
+          FROM jsonb_array_elements(COALESCE(lineups->'home', '[]'::jsonb)) elem
+        ),
+        'away', (
+          SELECT coalesce(jsonb_agg(jsonb_set(elem, '{rating}', 'null'::jsonb)), '[]'::jsonb)
+          FROM jsonb_array_elements(COALESCE(lineups->'away', '[]'::jsonb)) elem
+        )
+      )
+      WHERE lineups IS NOT NULL
+    `);
+    await pool.query(`INSERT INTO schema_migrations (name) VALUES ('strip_old_ratings_v1')`);
+    logMessage("info", "database", "مهاجرت یکبار اجرا: حذف Default rating و پاکسازی ratingهای خودکار قدیمی اعمال شد.");
+  } catch (err: any) {
+    logMessage("warn", "database", "خطا در مهاجرت rating defaults:", err.message || err);
+  }
+}
+
 function mapAdRow(r: any) {
   let settings: Record<string, any> = {};
   if (r.settings) {
