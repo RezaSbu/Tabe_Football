@@ -256,33 +256,5 @@ export function runDatabaseMigrationsAndTransitions(parsed: any): { parsed: any;
     ...(parsed.futsal_Feature_Games || [])
   ];
 
-  // ============================================
-  // Migration: Strip all ratings from match lineups
-  // Old matches had auto-populated ratings (e.g. 7.0) that are NOT real admin-entered ratings.
-  // Only real admin-entered ratings (after this migration) should count.
-  // ============================================
-  if (parsed.matches && parsed.matches.length > 0) {
-    let ratingStripped = false;
-    parsed.matches.forEach((m: any) => {
-      if (m.lineups) {
-        const stripRating = (players: any[]) => {
-          if (!Array.isArray(players)) return;
-          players.forEach((p: any) => {
-            if (p && p.rating != null && p.rating !== 0) {
-              p.rating = null;
-              ratingStripped = true;
-            }
-          });
-        };
-        stripRating(m.lineups.home);
-        stripRating(m.lineups.away);
-      }
-    });
-    if (ratingStripped) {
-      logMessage("info", "database", "مهاجرت: تمام ratingهای خودکار قدیمی از ترکیب مسابقات پاک شدند. فقط ratingهای واقعی ادمین از این پس محاسبه می‌شوند.");
-      changed = true;
-    }
-  }
-
   return { parsed, changed };
 }
