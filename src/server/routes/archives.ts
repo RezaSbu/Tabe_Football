@@ -102,7 +102,7 @@ export function registerArchiveRoutes(app: Express) {
               cleanSheets: parseInt(sStats.cleanSheets) || 0,
               yellowCards: parseInt(sStats.yellowCards) || 0,
               redCards: parseInt(sStats.redCards) || 0,
-              averageRating: parseFloat(sStats.averageRating || p.averageRating) || 0
+              averageRating: parseFloat(sStats.averageRating ?? p.averageRating) || null
             };
 
             if (existingIdx >= 0) {

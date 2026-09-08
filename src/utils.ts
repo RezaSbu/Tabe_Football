@@ -305,7 +305,7 @@ export function computeDynamicAppletStats(
         redCards: parseInt(sStats.redCards) || 0,
         minutes: parseInt(sStats.minutes) || 0,
         mvps: parseInt(sStats.mvps) || 0,
-        averageRating: parseFloat(sStats.averageRating || p.averageRating) || 0
+        averageRating: parseFloat(sStats.averageRating ?? p.averageRating) || null
       },
       leagueStats: p.leagueStats || sStats.leagueStats || { 
         matches: p.baseMatches || 0, 
@@ -316,7 +316,7 @@ export function computeDynamicAppletStats(
         redCards: p.baseRedCards || 0,
         minutes: (p.baseMatches || 0) * 90,
         mvps: 0,
-        averageRating: parseFloat(p.rating) || 0
+        averageRating: p.rating != null ? parseFloat(p.rating) : null
       },
       cupStats: p.cupStats || sStats.cupStats || { 
         matches: 0, 
@@ -327,10 +327,10 @@ export function computeDynamicAppletStats(
         redCards: 0,
         minutes: 0,
         mvps: 0,
-        averageRating: 0
+        averageRating: null
       },
       ratingsHistory: p.ratingsHistory || [],
-      averageRating: parseFloat(p.averageRating) || 0
+      averageRating: p.averageRating != null ? parseFloat(p.averageRating) : null
     };
   });
 
@@ -464,8 +464,8 @@ export function computeDynamicAppletStats(
     const ratings = [...eligiblePlayers]
       .map((p: any) => {
         const rating = leagueKey === "hazfi-cup" 
-          ? (p.cupStats?.averageRating || p.averageRating || 0) 
-          : (p.leagueStats?.averageRating || p.averageRating || 0);
+          ? (p.cupStats?.averageRating ?? p.averageRating ?? null) 
+          : (p.leagueStats?.averageRating ?? p.averageRating ?? null);
         return { p, rating };
       })
       .filter((item: any) => item.rating > 0)
@@ -520,9 +520,12 @@ export function computeDynamicAppletStats(
       if (statsObj.ratings && Array.isArray(statsObj.ratings)) {
         statsObj.ratings = [...statsObj.ratings]
           .sort((a: any, b: any) => {
-            const valA = a.rating !== undefined ? a.rating : (a.averageRating || 0);
-            const valB = b.rating !== undefined ? b.rating : (b.averageRating || 0);
-            return (Number(valB) || 0) - (Number(valA) || 0);
+            const valA = a.rating ?? a.averageRating ?? null;
+            const valB = b.rating ?? b.averageRating ?? null;
+            if (valA == null && valB == null) return 0;
+            if (valA == null) return 1;
+            if (valB == null) return -1;
+            return Number(valB) - Number(valA);
           })
           .map((item: any, idx: number) => ({
             ...item,

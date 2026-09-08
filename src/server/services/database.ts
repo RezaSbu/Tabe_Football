@@ -177,6 +177,19 @@ export async function migrateMonitoringTables(): Promise<void> {
   }
 }
 
+export async function migrateRatingDefaults(): Promise<void> {
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`ALTER TABLE players ALTER COLUMN rating DROP DEFAULT`);
+    await pool.query(`ALTER TABLE players ALTER COLUMN average_rating DROP DEFAULT`);
+    await pool.query(`UPDATE players SET rating = NULL WHERE rating = 0`);
+    await pool.query(`UPDATE players SET average_rating = NULL WHERE average_rating = 0`);
+    logMessage("info", "database", "مهاجرت حذف Default مقدار rating و average_rating بازیکنان اعمال شد. تمام مقدارهای 0 به NULL تبدیل شدند.");
+  } catch (err: any) {
+    logMessage("warn", "database", "خطا در مهاجرت rating defaults:", err.message || err);
+  }
+}
+
 function mapAdRow(r: any) {
   let settings: Record<string, any> = {};
   if (r.settings) {

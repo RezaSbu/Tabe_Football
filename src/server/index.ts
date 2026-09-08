@@ -13,7 +13,7 @@ import { recordHttpRequest, cleanupOldVisits, cleanupOldAuditLogs } from "./serv
 import { loadDB, setDb } from "./state";
 import { dbLock } from "./utils/concurrency";
 import { logMessage } from "./utils/logger";
-import { fetchAndPopulateMemoryDB, saveDB, migrateConstraints, migrateSummaryColumn, migrateHeroSlidesColumns, migrateAdsSchema, migrateNewsGalleryColumns, migrateReadMoreContent2, migrateMonitoringTables } from "./services/database";
+import { fetchAndPopulateMemoryDB, saveDB, migrateConstraints, migrateSummaryColumn, migrateHeroSlidesColumns, migrateAdsSchema, migrateNewsGalleryColumns, migrateReadMoreContent2, migrateMonitoringTables, migrateRatingDefaults } from "./services/database";
 import { recalculateAndSyncDatabase } from "./services/stats";
 import { getUploadsDir } from "./db";
 
@@ -69,6 +69,7 @@ async function startServer() {
   await migrateNewsGalleryColumns();
   await migrateReadMoreContent2();
   await migrateMonitoringTables();
+  await migrateRatingDefaults();
   await cleanupOldVisits(30);
   await cleanupOldAuditLogs(30);
   setInterval(() => {

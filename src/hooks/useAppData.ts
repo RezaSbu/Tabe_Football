@@ -506,8 +506,8 @@ export function useAppData() {
               teamName: (player as any).teamName || "تیم منتخب",
               position: positionMap[posKey.toLowerCase()] || "بازیکن",
               image: (player as any).image || "https://images.unsplash.com/photo-1540747737956-378724044602?auto=format&fit=crop&q=80&w=800",
-              averageRating: Number((player as any).rating) || 0,
-              rating: Number((player as any).rating) || 0,
+              averageRating: (player as any).rating != null ? Number((player as any).rating) : null,
+              rating: (player as any).rating != null ? Number((player as any).rating) : null,
               age: "۲۴",
               nationality: "ایرانی",
               foot: "راست",
@@ -522,7 +522,7 @@ export function useAppData() {
                 redCards: 0
               },
               ratingsHistory: [
-                { matchId: "f-1", matchOpponent: "تیم حریف", rating: Number((player as any).rating) || 0, date: "۱۴۰۴/۰۷/۱۰", isMvp: true }
+                { matchId: "f-1", matchOpponent: "تیم حریف", rating: (player as any).rating != null ? Number((player as any).rating) : null, date: "۱۴۰۴/۰۷/۱۰", isMvp: false }
               ]
             };
           }

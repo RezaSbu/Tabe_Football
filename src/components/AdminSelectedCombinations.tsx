@@ -170,8 +170,8 @@ export default function AdminSelectedCombinations({
       name: player.name,
       teamName: player.teamName,
       image: player.image,
-      rating: pickedPlayerRating != null ? Number(pickedPlayerRating) : 0
-    };
+      rating: pickedPlayerRating != null ? Number(pickedPlayerRating) : null
+    } as any;
 
     setEditingItem({
       ...editingItem,
