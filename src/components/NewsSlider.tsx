@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { NewsItem, TransferItem, HeroSlideItem, LegionnaireItem } from "../types";
 import { ChevronLeft, ChevronRight, Eye, Calendar, ArrowUpRight } from "lucide-react";
-import { getSafeImageUrl } from "../utils";
+import { getSafeImageUrl, formatStatNumber } from "../utils";
 
 interface NewsSliderProps {
   news: NewsItem[];
@@ -148,7 +148,7 @@ export default function NewsSlider({ news, transfers = [], heroSlides = [], legi
   const formatPersianDate = (isoString: string) => {
     try {
       const date = new Date(isoString);
-      return date.toLocaleDateString("fa-IR", { day: "numeric", month: "long" });
+      return date.toLocaleDateString("fa-IR-u-nu-latn", { day: "numeric", month: "long" });
     } catch {
       return "اخیراً";
     }
@@ -180,7 +180,7 @@ export default function NewsSlider({ news, transfers = [], heroSlides = [], legi
           </span>
           <span className="flex items-center gap-1 text-[10px] sm:text-xs text-gray-300 mr-2">
             <Eye className="h-3 w-3 text-cyan-400" />
-            {(currentArticle.viewCount || 0).toLocaleString("fa-IR")} بازدید
+            {formatStatNumber(currentArticle.viewCount || 0)} بازدید
           </span>
         </div>
 

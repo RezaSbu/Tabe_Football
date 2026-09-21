@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { NewsItem } from "../types";
-import { getSafeImageUrl } from "../utils";
+import { getSafeImageUrl, formatStatNumber } from "../utils";
 import { Calendar, Eye, ChevronRight, ChevronLeft, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -106,7 +106,7 @@ export default function HeroSlider({ news = [], onSelectArticle }: HeroSliderPro
           </span>
           <span className="text-[10px] text-slate-300 font-medium flex items-center gap-1 bg-black/30 backdrop-blur-md px-2 py-0.5 rounded border border-white/5">
             <Eye className="h-3 w-3 text-slate-400" />
-            {activeArticle.viewCount.toLocaleString("fa-IR")} بازدید
+            {formatStatNumber(activeArticle.viewCount)} بازدید
           </span>
         </div>
 

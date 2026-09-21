@@ -61,6 +61,7 @@ interface AdminPanelProps {
   isAdminLoggedIn: boolean;
   onLogin: (user: { username: string; role: string; label: string; permissions: string[] }) => void;
   onRefreshData: () => void;
+  onPatchMatches?: (upsert: any | null, removeId?: string) => void;
   onLogout?: () => void;
   adminUser?: { username: string; role: string; label: string; permissions: string[] } | null;
 }
@@ -92,6 +93,7 @@ export default function AdminPanel({
   isAdminLoggedIn,
   onLogin,
   onRefreshData,
+  onPatchMatches,
   onLogout,
   adminUser
 }: AdminPanelProps) {
@@ -494,6 +496,7 @@ export default function AdminPanel({
             stats={stats}
             currentSeason={currentSeason}
             onRefreshData={onRefreshData}
+            onPatchMatches={onPatchMatches}
             onUpdateStandings={onUpdateStandings}
             onUpdateStats={onUpdateStats}
             onUpdateTeam={handleUpdateTeam}

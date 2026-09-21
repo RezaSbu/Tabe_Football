@@ -1,6 +1,7 @@
 import React from "react";
 import { History, UserCog, Activity, ShieldAlert } from "lucide-react";
-import { Card, Stat, toPersian, formatDateTime } from "./ui";
+import { Card, Stat, formatDateTime } from "./ui";
+import { formatStatNumber } from "../../utils";
 
 const actionLabels: Record<string, string> = {
   login: "ورود به حساب",
@@ -46,10 +47,10 @@ export default function AuditSection({ diag }: { diag: any }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Stat label="مجموع اقدامات ثبت‌شده" value={toPersian(audit.total || 0)} color="text-cyan-400" card />
-        <Stat label="کاربران دارای فعالیت" value={toPersian(byUser.length || 0)} color="text-slate-200" card />
-        <Stat label="رویدادهای ورود (سشن)" value={toPersian(audit.authEventCount || 0)} color="text-emerald-400" card />
-        <Stat label="ورودهای ناموفق" value={toPersian(audit.failedCount || 0)} color={audit.failedCount > 0 ? "text-red-400" : "text-emerald-400"} card />
+        <Stat label="مجموع اقدامات ثبت‌شده" value={formatStatNumber(audit.total || 0)} color="text-cyan-400" card />
+        <Stat label="کاربران دارای فعالیت" value={formatStatNumber(byUser.length || 0)} color="text-slate-200" card />
+        <Stat label="رویدادهای ورود (سشن)" value={formatStatNumber(audit.authEventCount || 0)} color="text-emerald-400" card />
+        <Stat label="ورودهای ناموفق" value={formatStatNumber(audit.failedCount || 0)} color={audit.failedCount > 0 ? "text-red-400" : "text-emerald-400"} card />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -62,7 +63,7 @@ export default function AuditSection({ diag }: { diag: any }) {
                 <div key={user}>
                   <div className="flex items-center justify-between text-[11px] mb-1">
                     <span className="text-slate-300 font-bold">{user}</span>
-                    <span className="font-mono text-violet-400">{toPersian(count)}</span>
+                    <span className="font-mono text-violet-400">{formatStatNumber(count)}</span>
                   </div>
                   <div className="h-1.5 bg-slate-800/60 rounded-full overflow-hidden">
                     <div className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-400" style={{ width: `${(count / maxUser) * 100}%` }} />
@@ -82,7 +83,7 @@ export default function AuditSection({ diag }: { diag: any }) {
                 <div key={action}>
                   <div className="flex items-center justify-between text-[11px] mb-1">
                     <span className="text-slate-300 font-bold">{actionLabels[action] || action}</span>
-                    <span className="font-mono text-cyan-400">{toPersian(count)}</span>
+                    <span className="font-mono text-cyan-400">{formatStatNumber(count)}</span>
                   </div>
                   <div className="h-1.5 bg-slate-800/60 rounded-full overflow-hidden">
                     <div className="h-full bg-gradient-to-r from-cyan-500 to-blue-400" style={{ width: `${(count / maxAction) * 100}%` }} />
@@ -126,7 +127,7 @@ export default function AuditSection({ diag }: { diag: any }) {
               {failedIps.map(([ip, count]: any) => (
                 <div key={ip} className="p-2.5 rounded-xl bg-black/15 border border-amber-950/30 text-[10px] flex items-center justify-between">
                   <span className="font-mono text-amber-400" dir="ltr">{ip}</span>
-                  <span className="font-mono text-slate-300">{toPersian(count)} تلاش ناموفق</span>
+                  <span className="font-mono text-slate-300">{formatStatNumber(count)} تلاش ناموفق</span>
                 </div>
               ))}
             </div>
