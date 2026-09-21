@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { MatchItem, TeamItem } from "../types";
-import { convertGregorianToShamsi, convertShamsiToGregorian, convertGregorianToShamsiNumeric, getTodayShamsi, toPersianDigits } from "../utils";
+import { convertGregorianToShamsi, convertShamsiToGregorian, convertGregorianToShamsiNumeric, getTodayShamsi, formatStatNumber } from "../utils";
 import { X, Check, Calendar, Clock, MapPin, ShieldAlert, Award } from "lucide-react";
 
 const normalizeWeekLabel = (w?: string): string => {
@@ -13,12 +13,12 @@ const normalizeWeekLabel = (w?: string): string => {
 };
 
 const formatSeasonDefault = (currentSeason?: string): string => {
-  if (!currentSeason) return "۱۴۰۴-۱۴۰۵";
+  if (!currentSeason) return "1404-1405";
   const en = currentSeason.replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
   const m = en.match(/\d{4}/);
   if (!m) return currentSeason;
   const start = parseInt(m[0], 10);
-  return `${toPersianDigits(String(start))}-${toPersianDigits(String(start + 1))}`;
+  return `${formatStatNumber(String(start))}-${formatStatNumber(String(start + 1))}`;
 };
 
 interface AdminFeatureMatchFormProps {
@@ -53,7 +53,7 @@ export default function AdminFeatureMatchForm({
   const [time, setTime] = useState("");
   const [venue, setVenue] = useState("");
   const [referee, setReferee] = useState("");
-  const [odds, setOdds] = useState("برد میزبان: ۲.۰ | مساوی: ۳.۰ | برد میهمان: ۳.۵");
+  const [odds, setOdds] = useState("برد میزبان: 2.0 | مساوی: 3.0 | برد میهمان: 3.5");
   const [previewDesc, setPreviewDesc] = useState("");
   const [mediaInfo, setMediaInfo] = useState("");
   const [probableHome, setProbableHome] = useState("");
@@ -90,7 +90,7 @@ export default function AdminFeatureMatchForm({
       setTime(match.time || "18:30");
       setVenue(match.venue || "");
       setReferee(match.referee || "");
-      setOdds(match.odds || "برد میزبان: ۲.۰ | مساوی: ۳.۰ | برد میهمان: ۳.۵");
+      setOdds(match.odds || "برد میزبان: 2.0 | مساوی: 3.0 | برد میهمان: 3.5");
       setPreviewDesc(match.previewDesc || "");
       setMediaInfo(match.mediaInfo || "");
       
@@ -267,7 +267,7 @@ export default function AdminFeatureMatchForm({
               type="text"
               value={season}
               onChange={(e) => setSeason(e.target.value)}
-              placeholder="مثال: ۱۴۰۴-۱۴۰۵"
+              placeholder="مثال: 1404-1405"
               className="w-full text-xs rounded-lg bg-[#07070a] border border-white/5 p-2.5 text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500"
             />
           </div>
@@ -280,7 +280,7 @@ export default function AdminFeatureMatchForm({
               className="w-full text-xs rounded-lg bg-[#07070a] border border-white/5 p-2.5 text-white font-bold focus:outline-none focus:border-emerald-500"
             >
               {Array.from({ length: 40 }, (_, i) => i + 1).map((n) => (
-                <option key={n} value={`هفته ${n}`}>هفته {toPersianDigits(n)}</option>
+                <option key={n} value={`هفته ${n}`}>هفته {formatStatNumber(n)}</option>
               ))}
             </select>
           </div>
@@ -361,7 +361,7 @@ export default function AdminFeatureMatchForm({
               type="text"
               value={jalaliDate}
               onChange={(e) => setJalaliDate(e.target.value)}
-              placeholder="مثال: ۱۴۰۵/۰۳/۱۷"
+              placeholder="مثال: 1405/03/17"
               required
               className="w-full text-xs rounded-lg bg-[#07070a] border border-white/5 p-2.5 text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 text-center font-bold"
             />
@@ -377,7 +377,7 @@ export default function AdminFeatureMatchForm({
               type="text"
               value={time}
               onChange={(e) => setTime(e.target.value)}
-              placeholder="مثال: ۱۸:۳۰"
+              placeholder="مثال: 18:30"
               required
               className="w-full text-xs rounded-lg bg-[#07070a] border border-white/5 p-2.5 text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 text-center font-bold"
             />

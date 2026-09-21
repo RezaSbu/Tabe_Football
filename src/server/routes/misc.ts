@@ -613,4 +613,52 @@ export function registerMiscRoutes(app: Express) {
       .map((n: any) => ({ id: n.id, title: n.title, createdAt: n.createdAt }));
     res.json({ success: true, data: news });
   });
+
+  // Server-side paginated news archive. Filtering, search and sorting all
+  // happen here so clients only ever download one page (default 20 items).
+  app.get("/api/news", (req: Request, res: Response) => {
+    const currentDB = loadDB();
+    const page = Math.max(parseInt(String(req.query.page)) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit)) || 20, 1), 50);
+    const category = String(req.query.category || "all");
+    const q = String(req.query.q || "").trim().toLowerCase();
+
+    const mainCategories = ["pro-league", "league-1", "league-2", "hazfi-cup"];
+    const filtered = (currentDB.news || []).filter((item: any) => {
+      if (!item) return false;
+      const matchesCategory = category === "all" ||
+        (category === "other" ? !mainCategories.includes(item.category) : item.category === category) ||
+        (item.tags || []).includes(category);
+      if (!matchesCategory) return false;
+      if (!q) return true;
+      return (item.title || "").toLowerCase().includes(q) ||
+        (item.summary || "").toLowerCase().includes(q) ||
+        (item.content || "").toLowerCase().includes(q) ||
+        (item.tags || []).some((t: any) => String(t || "").toLowerCase().includes(q));
+    });
+
+    filtered.sort((a: any, b: any) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+
+    const total = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const safePage = Math.min(page, totalPages);
+    // Phase-2 perf: archive cards need no body/gallery/read_more (NewsCard
+    // renders title/summary/image/tags/views only). Full body comes from
+    // GET /api/detail/news/:id on open. ~60% smaller page payloads.
+    const items = filtered
+      .slice((safePage - 1) * limit, safePage * limit)
+      .map((n: any) => ({
+        id: n.id,
+        title: n.title,
+        summary: n.summary,
+        image: n.image,
+        category: n.category,
+        tags: n.tags || [],
+        viewCount: n.viewCount || 0,
+        createdAt: n.createdAt,
+      }));
+
+    res.setHeader("Cache-Control", "no-cache");
+    res.json({ success: true, items, total, totalPages, page: safePage, limit });
+  });
 }

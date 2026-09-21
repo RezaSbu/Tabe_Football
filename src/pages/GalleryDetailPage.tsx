@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { ArrowRight, Loader2, Eye, Tag, Calendar, User, Clock, Images, X, ChevronLeft, ChevronRight, Download, Lock } from "lucide-react";
 import { ImageItem, GalleryPhoto } from "../types";
-import { getSafeImageUrl, getTimeAgoPersian, toPersianDigits } from "../utils";
+import { getSafeImageUrl, getTimeAgoPersian, formatStatNumber } from "../utils";
 
 const MAX_GALLERY_PHOTOS = 30;
 
@@ -12,7 +12,7 @@ function formatPersianDateTime(iso?: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "";
   try {
-    return new Intl.DateTimeFormat("fa-IR", { dateStyle: "full", timeStyle: "short" }).format(d);
+    return new Intl.DateTimeFormat("fa-IR-u-nu-latn", { dateStyle: "full", timeStyle: "short" }).format(d);
   } catch {
     return iso;
   }
@@ -35,7 +35,7 @@ function Lightbox({ photos, index, onClose, onNavigate }: {
       <div className="absolute top-4 right-4 left-4 flex items-center justify-between">
         <span className="flex items-center gap-1.5 rounded-full bg-white/5 border border-white/10 px-3 py-1.5 text-[11px] text-slate-300">
           <Images className="h-3.5 w-3.5 text-emerald-400" />
-          {toPersianDigits(index + 1)} از {toPersianDigits(photos.length)}
+          {formatStatNumber(index + 1)} از {formatStatNumber(photos.length)}
         </span>
         <button
           onClick={onClose}
@@ -206,7 +206,7 @@ export default function GalleryDetailPage() {
           )}
           <span className="flex items-center gap-1 rounded-lg bg-black/40 border border-white/5 px-2.5 py-1 text-slate-400">
             <Eye className="h-3 w-3 text-emerald-400" />
-            {(album.viewCount || 0).toLocaleString("fa-IR")} بازدید
+            {formatStatNumber(album.viewCount || 0)} بازدید
           </span>
           {photographer && (
             <span className="flex items-center gap-1 rounded-lg bg-black/40 border border-white/5 px-2.5 py-1 text-slate-400">
@@ -216,7 +216,7 @@ export default function GalleryDetailPage() {
           )}
           <span className="flex items-center gap-1 rounded-lg bg-black/40 border border-white/5 px-2.5 py-1 text-slate-400">
             <Images className="h-3 w-3 text-emerald-400" />
-            {toPersianDigits(photos.length)} عکس
+            {formatStatNumber(photos.length)} عکس
           </span>
         </div>
 

@@ -26,7 +26,7 @@ export function formatDateTime(iso?: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
   try {
-    return d.toLocaleString("fa-IR", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleString("fa-IR-u-nu-latn", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
   } catch {
     return iso;
   }
@@ -35,17 +35,9 @@ export function formatDateTime(iso?: string): string {
 export function formatDateShort(day?: string): string {
   if (!day) return "—";
   try {
-    return new Date(day + "T00:00:00").toLocaleDateString("fa-IR", { month: "2-digit", day: "2-digit" });
+    return new Date(day + "T00:00:00").toLocaleDateString("fa-IR-u-nu-latn", { month: "2-digit", day: "2-digit" });
   } catch {
     return day;
-  }
-}
-
-export function toPersian(n: number): string {
-  try {
-    return n.toLocaleString("fa-IR");
-  } catch {
-    return String(n);
   }
 }
 

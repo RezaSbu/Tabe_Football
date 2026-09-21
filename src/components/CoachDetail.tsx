@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { ArrowLeft, Trophy, Award, UserRound, TrendingUp, Target, BookOpen, BadgeCheck, Clock, Flag, Sparkles, Activity, Newspaper } from "lucide-react";
-import { getSafeImageUrl, toPersianDigits, normalizePersianString } from "../utils";
+import { getSafeImageUrl, formatStatNumber, normalizePersianString } from "../utils";
 
 interface CoachDetailProps {
   coach: any;
@@ -169,7 +169,7 @@ export default function CoachDetail({
           <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="p-3.5 rounded-2xl bg-black/35 border border-white/5 text-center">
               <span className="block text-[9px] text-[#808092] font-black mb-1">سن</span>
-              <span className="text-sm font-black text-slate-100 font-mono">{toPersianDigits(coach.age || "—")} سال</span>
+              <span className="text-sm font-black text-slate-100 font-mono">{formatStatNumber(coach.age || "—")} سال</span>
             </div>
             <div className="p-3.5 rounded-2xl bg-black/35 border border-white/5 text-center">
               <span className="block text-[9px] text-[#808092] font-black mb-1">مدرک مربیگری</span>
@@ -177,11 +177,11 @@ export default function CoachDetail({
             </div>
             <div className="p-3.5 rounded-2xl bg-black/35 border border-white/5 text-center">
               <span className="block text-[9px] text-[#808092] font-black mb-1">سابقه مربیگری</span>
-              <span className="text-sm font-black text-slate-100 font-mono">{toPersianDigits(coach.experienceYears || "۰")} سال</span>
+              <span className="text-sm font-black text-slate-100 font-mono">{formatStatNumber(coach.experienceYears || "0")} سال</span>
             </div>
             <div className="p-3.5 rounded-2xl bg-black/35 border border-white/5 text-center">
               <span className="block text-[9px] text-[#808092] font-black mb-1">درصد برد</span>
-              <span className="text-sm font-black text-emerald-400 font-mono">{toPersianDigits(winRate)}%</span>
+              <span className="text-sm font-black text-emerald-400 font-mono">{formatStatNumber(winRate)}%</span>
             </div>
           </div>
         </div>
@@ -198,7 +198,7 @@ export default function CoachDetail({
           onClick={() => setActiveTab("matches")}
           className={`flex-1 py-3 rounded-xl font-black text-center transition cursor-pointer ${activeTab === "matches" ? "bg-emerald-500 text-black shadow font-black" : "text-slate-400 hover:text-white"}`}
         >
-          ریز کارنامه مسابقات ({toPersianDigits(coachMatches.length)})
+          ریز کارنامه مسابقات ({formatStatNumber(coachMatches.length)})
         </button>
         <button
           onClick={() => setActiveTab("career")}
@@ -210,7 +210,7 @@ export default function CoachDetail({
           onClick={() => setActiveTab("news")}
           className={`flex-1 py-3 rounded-xl font-black text-center transition cursor-pointer ${activeTab === "news" ? "bg-emerald-500 text-black shadow font-black" : "text-slate-400 hover:text-white"}`}
         >
-          اخبار ({toPersianDigits(coachNews.length)})
+          اخبار ({formatStatNumber(coachNews.length)})
         </button>
       </div>
 
@@ -235,23 +235,23 @@ export default function CoachDetail({
               <div className="space-y-3">
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-slate-500">بازی‌ها</span>
-                  <span className="font-bold text-white font-mono">{toPersianDigits(matches)}</span>
+                  <span className="font-bold text-white font-mono">{formatStatNumber(matches)}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-slate-500">برد</span>
-                  <span className="font-bold text-emerald-400 font-mono">{toPersianDigits(wins)}</span>
+                  <span className="font-bold text-emerald-400 font-mono">{formatStatNumber(wins)}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-slate-500">مساوی</span>
-                  <span className="font-bold text-amber-400 font-mono">{toPersianDigits(draws)}</span>
+                  <span className="font-bold text-amber-400 font-mono">{formatStatNumber(draws)}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-slate-500">باخت</span>
-                  <span className="font-bold text-red-400 font-mono">{toPersianDigits(losses)}</span>
+                  <span className="font-bold text-red-400 font-mono">{formatStatNumber(losses)}</span>
                 </div>
                 <div className="pt-2 border-t border-white/5 flex justify-between items-center text-xs">
                   <span className="text-slate-500">درصد برد</span>
-                  <span className="font-bold text-emerald-400 font-mono">{toPersianDigits(winRate)}%</span>
+                  <span className="font-bold text-emerald-400 font-mono">{formatStatNumber(winRate)}%</span>
                 </div>
               </div>
             </div>
@@ -264,22 +264,22 @@ export default function CoachDetail({
               <div className="space-y-3">
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-slate-500">گل زده</span>
-                  <span className="font-bold text-emerald-400 font-mono">{toPersianDigits(goalsFor)}</span>
+                  <span className="font-bold text-emerald-400 font-mono">{formatStatNumber(goalsFor)}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-slate-500">گل خورده</span>
-                  <span className="font-bold text-red-400 font-mono">{toPersianDigits(goalsAgainst)}</span>
+                  <span className="font-bold text-red-400 font-mono">{formatStatNumber(goalsAgainst)}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-slate-500">تفاضل گل</span>
                   <span className={`font-bold font-mono ${goalsFor - goalsAgainst >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                    {toPersianDigits(goalsFor - goalsAgainst)}
+                    {formatStatNumber(goalsFor - goalsAgainst)}
                   </span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-slate-500">میانگین گل زده هر بازی</span>
                   <span className="font-bold text-slate-100 font-mono">
-                    {toPersianDigits(matches > 0 ? (goalsFor / matches).toFixed(1) : "۰")}
+                    {formatStatNumber(matches > 0 ? (goalsFor / matches).toFixed(1) : "0")}
                   </span>
                 </div>
               </div>
@@ -341,7 +341,7 @@ export default function CoachDetail({
                   <div className="text-center sm:text-right">
                     <span className="text-[10px] text-slate-500 block mb-0.5">نتیجه کلی مسابقه</span>
                     <strong className="font-mono text-slate-200 font-bold bg-black/40 px-2 py-1 rounded">
-                      {toPersianDigits(m.scoreHome)} - {toPersianDigits(m.scoreAway)}
+                      {formatStatNumber(m.scoreHome)} - {formatStatNumber(m.scoreAway)}
                     </strong>
                   </div>
                 </div>
@@ -351,7 +351,7 @@ export default function CoachDetail({
             <div className="text-center py-10 text-slate-500 text-xs">
               <Award className="h-10 w-10 mx-auto mb-3 text-slate-600" />
               <p>جزئیات عملکرد مسابقات مربی پس از پایان هر بازی به صورت خودکار محاسبه و نمایش داده می‌شود.</p>
-              <p className="mt-1 text-slate-600">تعداد کل مسابقات: {toPersianDigits(matches)}</p>
+              <p className="mt-1 text-slate-600">تعداد کل مسابقات: {formatStatNumber(matches)}</p>
             </div>
           )}
         </div>
@@ -439,7 +439,7 @@ export default function CoachDetail({
                         <p className="text-[10px] text-slate-400 mt-0.5">{history.role || "سرمربی"}</p>
                       </div>
                       <span className="text-[10px] bg-white/5 text-slate-300 font-bold px-2 py-0.5 rounded font-mono">
-                        {toPersianDigits(history.startYear || "—")} - {toPersianDigits(history.endYear || "—")}
+                        {formatStatNumber(history.startYear || "—")} - {formatStatNumber(history.endYear || "—")}
                       </span>
                     </div>
                   </div>
@@ -469,23 +469,23 @@ export default function CoachDetail({
                   <tbody>
                     {coach.careerHistory.map((history: any, idx: number) => (
                       <tr key={idx} className="border-b border-white/[0.02] last:border-0 hover:bg-white/[0.01]">
-                        <td className="py-3 px-2 font-mono font-bold text-slate-300">{toPersianDigits(history.season)}</td>
+                        <td className="py-3 px-2 font-mono font-bold text-slate-300">{formatStatNumber(history.season)}</td>
                         <td className="py-3 px-2 font-semibold text-white">{history.club}</td>
-                        <td className="py-3 px-2 text-center font-mono text-slate-400">{toPersianDigits(history.apps || 0)} بازی</td>
+                        <td className="py-3 px-2 text-center font-mono text-slate-400">{formatStatNumber(history.apps || 0)} بازی</td>
                         <td className="py-3 px-2 text-center font-mono text-slate-400 font-bold">
-                          <span className="text-emerald-400">{toPersianDigits(history.wins || 0)}</span>
+                          <span className="text-emerald-400">{formatStatNumber(history.wins || 0)}</span>
                           <span className="text-slate-600 px-1">/</span>
-                          <span className="text-amber-400">{toPersianDigits(history.draws || 0)}</span>
+                          <span className="text-amber-400">{formatStatNumber(history.draws || 0)}</span>
                           <span className="text-slate-600 px-1">/</span>
-                          <span className="text-red-400">{toPersianDigits(history.losses || 0)}</span>
+                          <span className="text-red-400">{formatStatNumber(history.losses || 0)}</span>
                         </td>
                         <td className="py-3 px-2 text-center font-mono text-slate-400 font-bold">
-                          <span className="text-emerald-400">{toPersianDigits(history.goalsFor || 0)}</span>
+                          <span className="text-emerald-400">{formatStatNumber(history.goalsFor || 0)}</span>
                           <span className="text-slate-600 px-1">:</span>
-                          <span className="text-red-400">{toPersianDigits(history.goalsAgainst || 0)}</span>
+                          <span className="text-red-400">{formatStatNumber(history.goalsAgainst || 0)}</span>
                         </td>
                         <td className="py-3 px-2 text-center font-mono text-emerald-400 font-bold">
-                          {toPersianDigits(history.winRate || 0)}٪
+                          {formatStatNumber(history.winRate || 0)}٪
                         </td>
                       </tr>
                     ))}
@@ -511,7 +511,7 @@ export default function CoachDetail({
               </div>
               <div>
                 <span className="block text-[10px] text-slate-500 mb-1">سال‌های تجربه</span>
-                <span className="text-xs font-bold text-white font-mono">{toPersianDigits(coach.experienceYears || "۰")} سال</span>
+                <span className="text-xs font-bold text-white font-mono">{formatStatNumber(coach.experienceYears || "0")} سال</span>
               </div>
               <div>
                 <span className="block text-[10px] text-slate-500 mb-1">ملیت</span>

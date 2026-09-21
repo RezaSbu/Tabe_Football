@@ -33,7 +33,7 @@ export default function TeamCard({ team, onClick, highlightedRank }: TeamCardPro
             <h3 className="font-extrabold text-sm text-white group-hover:text-emerald-400 transition-all">
               {team.name}
             </h3>
-            <p className="text-[10px] text-slate-500 mt-0.5">تاسیس: {team.founded || "۱۳۰۰"} هجری</p>
+            <p className="text-[10px] text-slate-500 mt-0.5">تاسیس: {team.founded || "1300"} هجری</p>
           </div>
         </div>
 

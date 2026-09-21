@@ -57,7 +57,7 @@ export default function AdminHeroSlides({
     link: string,
   ) => {
     if (heroSlides.length >= 10) {
-      alert("حداکثر ۱0 اسلاید مجاز است. ابتدا یک اسلاید حذف کنید.");
+      alert("حداکثر 10 اسلاید مجاز است. ابتدا یک اسلاید حذف کنید.");
       return;
     }
     const maxOrder = heroSlides.reduce((max, s) => Math.max(max, s.sort_order || 0), 0);
@@ -213,7 +213,7 @@ export default function AdminHeroSlides({
             }`}
           >
             <Plus className="h-4 w-4" />
-            <span>افزودن اسلاید ({heroSlides.length}/۱۰)</span>
+            <span>افزودن اسلاید ({heroSlides.length}/10)</span>
           </button>
         </div>
 

@@ -78,9 +78,11 @@ export interface MatchScorerItem {
 export interface MatchLineupPlayer {
   id: string;
   name: string;
-  number: number | string;
   position: string;
   rating?: number;
+  // Explicit per-match role. Entries in home/away are starters, entries in
+  // homeSubs/awaySubs are substitutes; the field only clarifies intent.
+  role?: "starter" | "substitute";
 }
 
 export interface MatchLineup {
@@ -230,8 +232,6 @@ export interface TeamItem {
 export interface PlayerItem {
   id: string;
   name: string;
-  number: string | number;
-  shirt_number?: string | number;
   position: string;
   age: number | string;
   nationality: string;

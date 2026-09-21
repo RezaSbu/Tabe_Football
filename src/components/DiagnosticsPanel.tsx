@@ -331,7 +331,7 @@ export default function DiagnosticsPanel() {
                         </span>
                         <span className="text-slate-500 text-[10px] flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          {new Date(log.timestamp).toLocaleTimeString("fa-IR")}
+                          {new Date(log.timestamp).toLocaleTimeString("fa-IR-u-nu-latn")}
                         </span>
                       </div>
                       <p className="text-slate-200 mt-1 font-sans text-xs leading-relaxed">{log.message}</p>

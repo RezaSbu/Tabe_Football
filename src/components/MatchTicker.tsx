@@ -22,11 +22,11 @@ export default function MatchTicker({ matches, selectedLeagueFilter, onSelectMat
   };
 
   const getDayNamePersian = (offsetDays: number) => {
-    if (offsetDays === -2) return "۲ روز قبل";
+    if (offsetDays === -2) return "2 روز قبل";
     if (offsetDays === -1) return "دیروز";
     if (offsetDays === 0) return "امروز";
     if (offsetDays === 1) return "فردا";
-    if (offsetDays === 2) return "۲ روز بعد";
+    if (offsetDays === 2) return "2 روز بعد";
     return "";
   };
 
@@ -34,13 +34,13 @@ export default function MatchTicker({ matches, selectedLeagueFilter, onSelectMat
     const date = new Date(BASE_DATE);
     date.setDate(date.getDate() + offsetDays);
     const options: Intl.DateTimeFormatOptions = { weekday: "long" };
-    return date.toLocaleDateString("fa-IR", options);
+    return date.toLocaleDateString("fa-IR-u-nu-latn", options);
   };
 
   const getPersianDateString = (offsetDays: number) => {
     const date = new Date(BASE_DATE);
     date.setDate(date.getDate() + offsetDays);
-    return date.toLocaleDateString("fa-IR", { day: "numeric", month: "long" });
+    return date.toLocaleDateString("fa-IR-u-nu-latn", { day: "numeric", month: "long" });
   };
 
   // Generate 5 days: -2, -1, 0, 1, 2
@@ -88,8 +88,8 @@ export default function MatchTicker({ matches, selectedLeagueFilter, onSelectMat
             {[
               { id: "all", label: "همه لیگ‌ها" },
               { id: "pro-league", label: "لیگ برتر" },
-              { id: "league-1", label: "لیگ ۱" },
-              { id: "league-2", label: "لیگ ۲" },
+              { id: "league-1", label: "لیگ 1" },
+              { id: "league-2", label: "لیگ 2" },
               { id: "hazfi-cup", label: "جام حذفی" }
             ].map((tab) => (
               <button

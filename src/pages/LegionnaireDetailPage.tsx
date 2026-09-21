@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { ArrowRight, Loader2, Eye, MapPin, Trophy, Star, Shirt, FileText } from "lucide-react";
-import { getSafeImageUrl } from "../utils";
+import { getSafeImageUrl, formatStatNumber } from "../utils";
 
 export default function LegionnaireDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -76,7 +76,7 @@ export default function LegionnaireDetailPage() {
               </div>
               <div className="mt-4 flex items-center gap-1.5 text-gray-500">
                 <Eye className="h-3.5 w-3.5" />
-                <span className="text-[11px] font-medium">{(legionnaire.viewCount || 0).toLocaleString("fa-IR")} بازدید</span>
+                <span className="text-[11px] font-medium">{formatStatNumber(legionnaire.viewCount || 0)} بازدید</span>
               </div>
             </div>
 

@@ -376,7 +376,7 @@ export default function AdminBracketManager({
           {/* Section 1: Round of 16 */}
           <div className="space-y-4">
             <h3 className="text-xs font-black text-slate-300 border-r-2 border-red-500 pr-2">
-              یک‌هشتم نهایی (۸ بازی - ۱۶ تیم)
+              یک‌هشتم نهایی (8 بازی - 16 تیم)
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
               {Array(8)
@@ -405,7 +405,7 @@ export default function AdminBracketManager({
           {/* Section 2: Quarter Finals */}
           <div className="space-y-4">
             <h3 className="text-xs font-black text-cyan-400 border-r-2 border-cyan-500 pr-2">
-              یک‌چهارم نهایی (۴ بازی - ۸ تیم)
+              یک‌چهارم نهایی (4 بازی - 8 تیم)
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
               {Array(4)
@@ -434,7 +434,7 @@ export default function AdminBracketManager({
           {/* Section 3: Semi Finals */}
           <div className="space-y-4">
             <h3 className="text-xs font-black text-amber-400 border-r-2 border-amber-500 pr-2">
-              نیمه‌نهایی (۲ بازی - ۴ تیم)
+              نیمه‌نهایی (2 بازی - 4 تیم)
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {Array(2)

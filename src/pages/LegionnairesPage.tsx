@@ -1,4 +1,5 @@
 import { Search, Eye, Tag } from "lucide-react";
+import { formatStatNumber } from "../utils";
 import { LegionnaireItem } from "../types";
 
 interface LegionnairesPageProps {
@@ -97,7 +98,7 @@ function LegionnairesPage({
               <div className="flex items-center justify-between border-t border-white/5 pt-2.5">
                 <span className="flex items-center gap-1 text-[11px] text-gray-500">
                   <Eye className="h-3 w-3" />
-                  {(leg.viewCount || 0).toLocaleString("fa-IR")} بازدید
+                  {formatStatNumber(leg.viewCount || 0)} بازدید
                 </span>
 
                 {leg.tags && leg.tags.length > 0 && (

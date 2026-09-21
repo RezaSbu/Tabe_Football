@@ -4,7 +4,7 @@ import {
   Shield, Activity 
 } from "lucide-react";
 import { StandingRow } from "../types";
-import { getSafeImageUrl, convertGregorianToShamsi, toPersianDigits, normalizePersianString } from "../utils";
+import { getSafeImageUrl, convertGregorianToShamsi, formatStatNumber, normalizePersianString } from "../utils";
 import TeamLogo from "./TeamLogo";
 
 interface TeamDetailProps {
@@ -70,17 +70,17 @@ export default function TeamDetail({
   let founded = team.founded || "";
 
   if (!founded || founded.trim() === "") {
-    if (teamName.includes("پرسپولیس")) founded = "۱۳۴۲";
-    else if (teamName.includes("استقلال")) founded = "۱۳۲۴";
-    else if (teamName.includes("سپاهان")) founded = "۱۳۳۲";
-    else if (teamName.includes("تراکتور")) founded = "۱۳۴۹";
-    else if (teamName.includes("ملوان")) founded = "۱۳۴۸";
-    else if (teamName.includes("ذوب") && teamName.includes("آهن")) founded = "۱۳۴۷";
-    else if (teamName.includes("گل") && teamName.includes("گهر")) founded = "۱۳۶۷";
-    else if (teamName.includes("فولاد")) founded = "۱۳۶۵";
-    else if (teamName.includes("مس") && teamName.includes("رفسنجان")) founded = "۱۳۵۴";
-    else if (teamName.includes("نساجی")) founded = "۱۳۳۸";
-    else founded = "۱۳۵۰";
+    if (teamName.includes("پرسپولیس")) founded = "1342";
+    else if (teamName.includes("استقلال")) founded = "1324";
+    else if (teamName.includes("سپاهان")) founded = "1332";
+    else if (teamName.includes("تراکتور")) founded = "1349";
+    else if (teamName.includes("ملوان")) founded = "1348";
+    else if (teamName.includes("ذوب") && teamName.includes("آهن")) founded = "1347";
+    else if (teamName.includes("گل") && teamName.includes("گهر")) founded = "1367";
+    else if (teamName.includes("فولاد")) founded = "1365";
+    else if (teamName.includes("مس") && teamName.includes("رفسنجان")) founded = "1354";
+    else if (teamName.includes("نساجی")) founded = "1338";
+    else founded = "1350";
   }
 
   const coverImage = team.coverImage || "";
@@ -241,11 +241,11 @@ export default function TeamDetail({
               <span>{team.name}</span>
               {teamInStandings && (
                 <span className="rounded-full bg-emerald-950 text-emerald-400 text-[10px] font-black tracking-tight px-3 py-1 border border-emerald-950">
-                  رتبه {toPersianDigits(teamInStandings.rank)} جدول زنده
+                  رتبه {formatStatNumber(teamInStandings.rank)} جدول زنده
                 </span>
               )}
             </h1>
-            <p className="text-xs text-slate-400 mt-1 sm:mt-2 max-w-lg truncate">تاسیس: {toPersianDigits(founded)}</p>
+            <p className="text-xs text-slate-400 mt-1 sm:mt-2 max-w-lg truncate">تاسیس: {formatStatNumber(founded)}</p>
           </div>
         </div>
 
@@ -269,7 +269,7 @@ export default function TeamDetail({
                 : "text-slate-400 hover:text-white"
             }`}
           >
-            مسابقات ({toPersianDigits(teamMatches.length)})
+            مسابقات ({formatStatNumber(teamMatches.length)})
           </button>
           <button
             onClick={() => setActiveSubTab("squad")}
@@ -279,7 +279,7 @@ export default function TeamDetail({
                 : "text-slate-400 hover:text-white"
             }`}
           >
-            لیست بازیکنان ({toPersianDigits(teamPlayers.length)})
+            لیست بازیکنان ({formatStatNumber(teamPlayers.length)})
           </button>
         </div>
       </div>
@@ -308,7 +308,7 @@ export default function TeamDetail({
                   <div className="p-4 rounded-xl bg-[#161619]/60 border border-white/5 space-y-2">
                     <span className="block text-[10px] text-emerald-400 font-bold tracking-tight">⚽ برترین گلزن فصل</span>
                     <strong className="text-slate-100 text-xs block truncate">{bestScorer.name}</strong>
-                    <span className="text-[10px] font-mono text-slate-500 block">{toPersianDigits(bestScorer.seasonStats?.goals || 0)} گل در بازی‌ها</span>
+                    <span className="text-[10px] font-mono text-slate-500 block">{formatStatNumber(bestScorer.seasonStats?.goals || 0)} گل در بازی‌ها</span>
                   </div>
                 )}
 
@@ -316,7 +316,7 @@ export default function TeamDetail({
                   <div className="p-4 rounded-xl bg-[#161619]/60 border border-white/5 space-y-2">
                     <span className="block text-[10px] text-cyan-400 font-bold tracking-tight font-extrabold">🎯 مهندس پاس گل</span>
                     <strong className="text-slate-100 text-xs block truncate">{bestAssister.name}</strong>
-                    <span className="text-[10px] font-mono text-slate-500 block">{toPersianDigits(bestAssister.seasonStats?.assists || 0)} پاس گل موفق</span>
+                    <span className="text-[10px] font-mono text-slate-500 block">{formatStatNumber(bestAssister.seasonStats?.assists || 0)} پاس گل موفق</span>
                   </div>
                 )}
 
@@ -324,7 +324,7 @@ export default function TeamDetail({
                   <div className="p-4 rounded-xl bg-gradient-to-tr from-amber-500/5 to-yellow-500/5 border border-amber-500/10 space-y-2">
                     <span className="block text-[10px] text-yellow-400 font-bold tracking-tight">🏆 بیشترین عنوان MVP</span>
                     <strong className="text-amber-350 text-xs block truncate">{topMvp.name}</strong>
-                    <span className="text-[10px] text-slate-400 block">{toPersianDigits(topMvp.count)} بار بهترین بازیکن زمین</span>
+                    <span className="text-[10px] text-slate-400 block">{formatStatNumber(topMvp.count)} بار بهترین بازیکن زمین</span>
                   </div>
                 )}
               </div>
@@ -366,23 +366,23 @@ export default function TeamDetail({
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
                       <div className="p-3.5 bg-black/25 rounded-2xl border border-white/5">
                         <span className="block text-[10px] text-slate-450 mb-1">بردها</span>
-                        <span className="text-lg font-mono font-black text-emerald-400">{toPersianDigits(targetStats.won || 0)}</span>
+                        <span className="text-lg font-mono font-black text-emerald-400">{formatStatNumber(targetStats.won || 0)}</span>
                       </div>
                       <div className="p-3.5 bg-black/25 rounded-2xl border border-white/5">
                         <span className="block text-[10px] text-slate-450 mb-1">تساوی‌ها</span>
-                        <span className="text-lg font-mono font-black text-slate-300">{toPersianDigits(targetStats.drawn || 0)}</span>
+                        <span className="text-lg font-mono font-black text-slate-300">{formatStatNumber(targetStats.drawn || 0)}</span>
                       </div>
                       <div className="p-3.5 bg-black/25 rounded-2xl border border-white/5">
                         <span className="block text-[10px] text-slate-450 mb-1">باخت‌ها</span>
-                        <span className="text-lg font-mono font-black text-red-500">{toPersianDigits(targetStats.lost || 0)}</span>
+                        <span className="text-lg font-mono font-black text-red-500">{formatStatNumber(targetStats.lost || 0)}</span>
                       </div>
                       <div className="p-3.5 bg-black/25 rounded-2xl border border-white/5">
                         <span className="block text-[10px] text-slate-450 mb-1">گل زده</span>
-                        <span className="text-lg font-mono font-black text-emerald-400">{toPersianDigits(targetStats.goalsFor || 0)}</span>
+                        <span className="text-lg font-mono font-black text-emerald-400">{formatStatNumber(targetStats.goalsFor || 0)}</span>
                       </div>
                       <div className="p-3.5 bg-black/25 rounded-2xl border border-white/5 col-span-2 sm:col-span-1">
                         <span className="block text-[10px] text-slate-450 mb-1">گل خورده</span>
-                        <span className="text-lg font-mono font-black text-red-500">{toPersianDigits(targetStats.goalsAgainst || 0)}</span>
+                        <span className="text-lg font-mono font-black text-red-500">{formatStatNumber(targetStats.goalsAgainst || 0)}</span>
                       </div>
                     </div>
 
@@ -516,12 +516,12 @@ export default function TeamDetail({
                           >
                             <span className="flex items-center gap-2 min-w-0">
                               <span className={`font-mono font-black text-[10px] w-5 text-center shrink-0 ${rowRank <= 3 ? "text-emerald-400" : "text-slate-500"}`}>
-                                {toPersianDigits(rowRank)}
+                                {formatStatNumber(rowRank)}
                               </span>
                               <span className="truncate">{rowName}</span>
                             </span>
                             <span className={`font-mono font-black text-[10px] shrink-0 ${isCurrent ? "text-emerald-300" : "text-slate-400"}`}>
-                              {toPersianDigits(row.points || 0)} امتیاز
+                              {formatStatNumber(row.points || 0)} امتیاز
                             </span>
                           </div>
                         );
@@ -541,7 +541,7 @@ export default function TeamDetail({
             <div className="space-y-4">
               <h2 className="font-black text-base text-white border-r-4 border-emerald-500 pr-2 pb-0.5 flex items-center gap-2">
                 <Trophy className="h-5 w-5 text-emerald-500" />
-                <span>نتایج کل مسابقات اخیر باشگاه ({toPersianDigits(finishedMatches.length)})</span>
+                <span>نتایج کل مسابقات اخیر باشگاه ({formatStatNumber(finishedMatches.length)})</span>
               </h2>
 
               {finishedMatches.length > 0 ? (
@@ -580,7 +580,7 @@ export default function TeamDetail({
                             {outcome === "W" ? "برد" : outcome === "D" ? "تساوی" : "باخت"}
                           </span>
                           <span className="font-black text-white text-xs bg-black/45 px-2.5 py-1 rounded-lg border border-white/5">
-                            {toPersianDigits(homeG)} - {toPersianDigits(awayG)}
+                            {formatStatNumber(homeG)} - {formatStatNumber(awayG)}
                           </span>
                         </div>
                       </div>
@@ -598,7 +598,7 @@ export default function TeamDetail({
             <div className="space-y-4">
               <h2 className="font-black text-base text-white border-r-4 border-cyan-500 pr-2 pb-0.5 flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-cyan-400" />
-                <span>مسابقات پیش‌روی باشگاه ({toPersianDigits(upcomingMatches.length)})</span>
+                <span>مسابقات پیش‌روی باشگاه ({formatStatNumber(upcomingMatches.length)})</span>
               </h2>
 
               {upcomingMatches.length > 0 ? (
@@ -614,7 +614,7 @@ export default function TeamDetail({
                           {m.league === "pro-league" ? "لیگ برتر خلیج فارس" : "جام حذفی"}
                         </span>
                         <span className="text-[10px] text-cyan-400 font-bold font-mono">
-                          {convertGregorianToShamsi(m.date)} | {toPersianDigits(m.time)}
+                          {convertGregorianToShamsi(m.date)} | {formatStatNumber(m.time)}
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-xs py-1">
@@ -648,14 +648,13 @@ export default function TeamDetail({
         {activeSubTab === "squad" && (
           <div className="space-y-6 animate-in fade-in duration-200">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 border-b border-white/5 pb-3">
-              <h2 className="font-black text-base text-white border-r-4 border-emerald-500 pr-2">سیاهه کادر و اعضای لیست ({toPersianDigits(teamPlayers.length)} بازیکن)</h2>
+              <h2 className="font-black text-base text-white border-r-4 border-emerald-500 pr-2">سیاهه کادر و اعضای لیست ({formatStatNumber(teamPlayers.length)} بازیکن)</h2>
               <span className="text-[9px] text-slate-450 bg-[#161619] px-2 py-1 rounded border border-white/5">کلیک روی اسامی جهت مشاهده بیوگرافی و کارنامه‌های عمیق بازیکن</span>
             </div>
 
             {teamPlayers.length > 0 ? (
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {teamPlayers.map((player) => {
-                  const shirtNum = player.number !== undefined && player.number !== null ? player.number : (player.shirt_number !== undefined && player.shirt_number !== null ? player.shirt_number : "۱۰");
                   return (
                     <div
                       key={player.id}
@@ -677,13 +676,8 @@ export default function TeamDetail({
                               }}
                             />
                           ) : (
-                            <span className="font-mono font-black text-xs text-slate-300">
-                              #{toPersianDigits(shirtNum)}
-                            </span>
-                          )}
-                          {player.image && (
-                            <span className="absolute bottom-0 right-0 bg-black/80 text-[8px] font-mono font-black text-emerald-400 px-1 rounded-tl-lg">
-                              #{toPersianDigits(shirtNum)}
+                            <span className="font-bold text-xs text-slate-300">
+                              {(player.name || "?").trim().charAt(0)}
                             </span>
                           )}
                         </div>
@@ -691,11 +685,6 @@ export default function TeamDetail({
                           <strong className="text-xs text-white block truncate group-hover:text-emerald-400 transition">{player.name}</strong>
                           <span className="text-[10px] text-slate-500 block">{player.position}</span>
                         </div>
-                      </div>
-
-                      <div className="text-left font-mono shrink-0">
-                        <span className="text-[10px] text-slate-450 block">پیراهن</span>
-                        <span className="text-xs font-black text-slate-200 block">#{toPersianDigits(player.number || "۱۰")}</span>
                       </div>
                     </div>
                   );

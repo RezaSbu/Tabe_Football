@@ -1,6 +1,7 @@
 import React from "react";
 import { ShieldCheck, GitBranch, TrendingDown, CheckCircle2, CircleAlert, MemoryStick, Activity } from "lucide-react";
-import { Card, Stat, ProgressBar, formatBytes, formatDateTime, toPersian } from "./ui";
+import { Card, Stat, ProgressBar, formatBytes, formatDateTime } from "./ui";
+import { formatStatNumber } from "../../utils";
 
 export default function HttpSection({ diag }: { diag: any }) {
   const http = diag?.http || {};
@@ -36,7 +37,7 @@ export default function HttpSection({ diag }: { diag: any }) {
               </div>
               <div className="flex items-center justify-between p-3 rounded-xl bg-black/20">
                 <span className="text-xs text-slate-300">رکوردهای در حافظه:</span>
-                <span className="text-xs font-mono text-cyan-400">{toPersian(dbStatus.count)}</span>
+                <span className="text-xs font-mono text-cyan-400">{formatStatNumber(dbStatus.count)}</span>
               </div>
               <ProgressBar
                 percent={dbStatus.lastSyncSecAgo < 120 ? 100 : Math.max(0, Math.min(100, 100 - (dbStatus.lastSyncSecAgo - 120) / 10))}
@@ -51,9 +52,9 @@ export default function HttpSection({ diag }: { diag: any }) {
 
         <Card title="وضعیت امنیت" icon={<ShieldCheck className="h-4 w-4 text-emerald-400" />}>
           <div className="space-y-3">
-            <Stat label="درخواست‌های ردشده توسط Rate-Limit" value={toPersian(http.rateLimited || 0)} color={http.rateLimited > 0 ? "text-amber-400" : "text-emerald-400"} />
-            <Stat label="شکست‌های سینک خودکار" value={toPersian(http.syncFailures || 0)} color={http.syncFailures > 0 ? "text-red-400" : "text-emerald-400"} />
-            <Stat label="ردشدن درخواست خراب (Malformed)" value={toPersian(http.malformed || 0)} color={http.malformed > 0 ? "text-red-400" : "text-emerald-400"} />
+            <Stat label="درخواست‌های ردشده توسط Rate-Limit" value={formatStatNumber(http.rateLimited || 0)} color={http.rateLimited > 0 ? "text-amber-400" : "text-emerald-400"} />
+            <Stat label="شکست‌های سینک خودکار" value={formatStatNumber(http.syncFailures || 0)} color={http.syncFailures > 0 ? "text-red-400" : "text-emerald-400"} />
+            <Stat label="ردشدن درخواست خراب (Malformed)" value={formatStatNumber(http.malformed || 0)} color={http.malformed > 0 ? "text-red-400" : "text-emerald-400"} />
             <div className="text-[9px] text-slate-500">خطاهای Rate-Limit و Malformed در میدلویر مرکزی ثبت می‌شوند.</div>
           </div>
         </Card>
@@ -61,10 +62,10 @@ export default function HttpSection({ diag }: { diag: any }) {
 
       {/* General stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Stat label="کل درخواست‌های /api" value={toPersian(stats.total || 0)} color="text-slate-200" card />
-        <Stat label="خطاهای ۴xx" value={toPersian(stats.status4xx || 0)} color={stats.status4xx > 0 ? "text-amber-400" : "text-emerald-400"} card />
-        <Stat label="خطاهای ۵xx" value={toPersian(stats.status5xx || 0)} color={stats.status5xx > 0 ? "text-red-400" : "text-emerald-400"} card />
-        <Stat label="سرعت آهسته (>۲ ثانیه)" value={toPersian(stats.slowCount || 0)} color={stats.slowCount > 0 ? "text-red-400" : "text-emerald-400"} card />
+        <Stat label="کل درخواست‌های /api" value={formatStatNumber(stats.total || 0)} color="text-slate-200" card />
+        <Stat label="خطاهای 4xx" value={formatStatNumber(stats.status4xx || 0)} color={stats.status4xx > 0 ? "text-amber-400" : "text-emerald-400"} card />
+        <Stat label="خطاهای 5xx" value={formatStatNumber(stats.status5xx || 0)} color={stats.status5xx > 0 ? "text-red-400" : "text-emerald-400"} card />
+        <Stat label="سرعت آهسته (>2 ثانیه)" value={formatStatNumber(stats.slowCount || 0)} color={stats.slowCount > 0 ? "text-red-400" : "text-emerald-400"} card />
       </div>
 
       {/* Status by endpoint */}
@@ -131,7 +132,7 @@ export default function HttpSection({ diag }: { diag: any }) {
           </div>
         </Card>
         <Card title="مدت اجرای سرویس" icon={<Activity className="h-4 w-4 text-violet-400" />}>
-          <div className="text-3xl font-black text-violet-400 my-3">{toPersian(hours)} ساعت <span className="text-lg text-slate-400">{toPersian(minutes)} دقیقه</span></div>
+          <div className="text-3xl font-black text-violet-400 my-3">{formatStatNumber(hours)} ساعت <span className="text-lg text-slate-400">{formatStatNumber(minutes)} دقیقه</span></div>
           <div className="text-[9px] text-slate-500">از آخرین راه‌اندازی سرور</div>
         </Card>
         <Card title="حافظه فرآیند" icon={<MemoryStick className="h-4 w-4 text-amber-400" />}>

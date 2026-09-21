@@ -756,7 +756,7 @@ export default function AdminPortalHub({
               </div>
 
               <div>
-                <label className="block text-[10px] text-gray-500 mb-1">تصاویر اضافه داخل خبر (حداکثر ۲ - با کاما "," جدا کنید)</label>
+                <label className="block text-[10px] text-gray-500 mb-1">تصاویر اضافه داخل خبر (حداکثر 2 - با کاما "," جدا کنید)</label>
                 <input type="text" value={newsGallery} onChange={e => setNewsGallery(e.target.value)} placeholder="https://..., https://..." className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" />
               </div>
 
@@ -765,16 +765,16 @@ export default function AdminPortalHub({
                 <p className="text-[10px] text-gray-500 mb-3 leading-relaxed">ترتیب نمایش در صفحه خبر: <span className="text-emerald-400/80">متن بالای ادامه مطلب</span> ← <span className="text-emerald-400/80">تصویر(ها)</span> ← <span className="text-emerald-400/80">متن پایین ادامه مطلب</span></p>
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="md:col-span-2">
-                    <label className="block text-[10px] text-gray-500 mb-1">متن بالای ادامه مطلب (قسمت ۱)</label>
+                    <label className="block text-[10px] text-gray-500 mb-1">متن بالای ادامه مطلب (قسمت 1)</label>
                     <textarea rows={3} value={newsReadMore} onChange={e => setNewsReadMore(e.target.value)} className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white resize-none" placeholder="متن بالای ادامه مطلب که ابتدا نمایش داده می‌شود..." />
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-[10px] text-gray-500 mb-1">تصاویر ادامه مطلب (حداکثر ۲ - با کاما جدا کنید)</label>
+                    <label className="block text-[10px] text-gray-500 mb-1">تصاویر ادامه مطلب (حداکثر 2 - با کاما جدا کنید)</label>
                     <input type="text" value={newsReadMoreImages} onChange={e => setNewsReadMoreImages(e.target.value)} placeholder="https://..., https://..." className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" />
-                    <p className="text-[10px] text-gray-600 mt-1">۱ عکس: بزرگ نمایش داده می‌شود | ۲ عکس: کنار هم و منظم نمایش داده می‌شوند</p>
+                    <p className="text-[10px] text-gray-600 mt-1">1 عکس: بزرگ نمایش داده می‌شود | 2 عکس: کنار هم و منظم نمایش داده می‌شوند</p>
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-[10px] text-gray-500 mb-1">متن پایین ادامه مطلب (قسمت ۲)</label>
+                    <label className="block text-[10px] text-gray-500 mb-1">متن پایین ادامه مطلب (قسمت 2)</label>
                     <textarea rows={3} value={newsReadMore2} onChange={e => setNewsReadMore2(e.target.value)} className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white resize-none" placeholder="متن پایین ادامه مطلب که بعد از تصویرها نمایش داده می‌شود..." />
                   </div>
                 </div>
@@ -807,7 +807,7 @@ export default function AdminPortalHub({
                   <p className="text-[10px] text-slate-400 line-clamp-2">{n.summary}</p>
                 </div>
                 <div className="flex flex-col justify-between items-end flex-shrink-0">
-                  <span className="text-[9px] text-slate-500 font-mono">{n.createdAt ? n.createdAt.split("T")[0] : "۲ روز پیش"}</span>
+                  <span className="text-[9px] text-slate-500 font-mono">{n.createdAt ? n.createdAt.split("T")[0] : "2 روز پیش"}</span>
                   <div className="flex gap-1.5 pt-2">
                     <button onClick={() => handleEditNews(n)} className="p-1 rounded bg-white/5 text-slate-300">
                       <Edit className="h-3.5 w-3.5" />
@@ -867,7 +867,7 @@ export default function AdminPortalHub({
               <div className="grid gap-3 md:grid-cols-3">
                 <div>
                   <label className="block text-[10px] text-gray-500 mb-1">مبلغ قرارداد (ریال / دلار / تهاتر)</label>
-                  <input type="text" value={trFee} onChange={e => setTrFee(e.target.value)} placeholder="مثال: ۱۲ میلیارد یا نامشخص" className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" />
+                  <input type="text" value={trFee} onChange={e => setTrFee(e.target.value)} placeholder="مثال: 12 میلیارد یا نامشخص" className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" />
                 </div>
                 <div>
                   <label className="block text-[10px] text-gray-500 mb-1">نوع جذب بازیکن</label>
@@ -1327,7 +1327,7 @@ export default function AdminPortalHub({
                 <input type="text" value={imageTitle} onChange={e => setImageTitle(e.target.value)} required className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" placeholder="مثلاً: قهرمانی استقلال در جام حذفی" />
               </div>
               <div>
-                <label className="block text-[10px] text-gray-500 mb-1">عکس‌های آلبوم (هر لینک در یک خط — تا ۳۰ عکس)</label>
+                <label className="block text-[10px] text-gray-500 mb-1">عکس‌های آلبوم (هر لینک در یک خط — تا 30 عکس)</label>
                 <textarea rows={5} value={imagePhotosText} onChange={e => setImagePhotosText(e.target.value)} placeholder={"https://...\nhttps://...\nhttps://..."} className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white resize-y" />
               </div>
               <div>

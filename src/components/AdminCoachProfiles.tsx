@@ -1,7 +1,10 @@
 import React, { useState } from "react";
 import { CoachItem, TeamItem } from "../types";
-import { toPersianDigits, getSafeImageUrl } from "../utils";
+import { formatStatNumber, getSafeImageUrl } from "../utils";
 import { Users, Plus, Trash2, Edit2, Search, X, Check, Save, Trophy } from "lucide-react";
+import AdminPager from "./AdminPager";
+
+const ADMIN_LIST_PAGE_SIZE = 24;
 
 interface AdminCoachProfilesProps {
   coaches: CoachItem[];
@@ -19,6 +22,7 @@ export default function AdminCoachProfiles({
   const [isEditing, setIsEditing] = useState(false);
   const [editingItem, setEditingItem] = useState<Partial<CoachItem> | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
 
   const handleCreateNew = () => {
     setEditingItem({
@@ -111,6 +115,9 @@ export default function AdminCoachProfiles({
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.teamName.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  const coachTotalPages = Math.max(1, Math.ceil(filteredCoaches.length / ADMIN_LIST_PAGE_SIZE));
+  const safeCoachPage = Math.min(page, coachTotalPages);
+  const pagedCoaches = filteredCoaches.slice((safeCoachPage - 1) * ADMIN_LIST_PAGE_SIZE, safeCoachPage * ADMIN_LIST_PAGE_SIZE);
 
   return (
     <div className="bg-[#0b0b0f] border border-white/5 rounded-3xl p-6 space-y-6" dir="rtl">
@@ -138,7 +145,7 @@ export default function AdminCoachProfiles({
               type="text"
               placeholder="جستجوی سریع مربی بر اساس نام یا نام تیم..."
               value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
+              onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
               className="w-full bg-gray-950 border border-white/5 rounded-xl pr-9 pl-4 py-2.5 text-xs text-white focus:outline-none focus:border-red-655"
             />
             <Search className="absolute right-3 top-3.5 h-4 w-4 text-gray-500" />
@@ -149,8 +156,9 @@ export default function AdminCoachProfiles({
               <p className="text-xs text-gray-500">هیچ مربی‌ای یافت نشد.</p>
             </div>
           ) : (
+            <>
             <div className="grid gap-3 max-h-[60vh] overflow-y-auto pr-1">
-              {filteredCoaches.map(c => (
+              {pagedCoaches.map(c => (
                 <div key={c.id} className="flex items-center justify-between p-3.5 rounded-xl bg-gray-950/40 border border-white/5 hover:border-red-550/20 transition">
                   <div className="flex items-center gap-3">
                     <img loading="lazy" decoding="async" 
@@ -166,7 +174,7 @@ export default function AdminCoachProfiles({
                         <span>•</span>
                         <span>{c.teamName}</span>
                         <span>•</span>
-                        <span>{toPersianDigits(c.seasonStats?.wins || 0)} برد</span>
+                        <span>{formatStatNumber(c.seasonStats?.wins || 0)} برد</span>
                       </div>
                     </div>
                   </div>
@@ -190,6 +198,8 @@ export default function AdminCoachProfiles({
                 </div>
               ))}
             </div>
+            <AdminPager page={safeCoachPage} totalPages={coachTotalPages} total={filteredCoaches.length} unitLabel="مربی" onPage={setPage} />
+            </>
           )}
         </div>
       ) : (
@@ -391,7 +401,7 @@ export default function AdminCoachProfiles({
                 titles: e.target.value.split("\n").filter(t => t.trim())
               })}
               className="w-full bg-slate-950 border border-white/5 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-red-655 h-20"
-              placeholder="قهرمان لیگ برتر ۱۴۰۲&#10;نایب قهرمان جام حذفی&#10;..."
+              placeholder="قهرمان لیگ برتر 1402&#10;نایب قهرمان جام حذفی&#10;..."
             />
           </div>
 
@@ -407,9 +417,9 @@ export default function AdminCoachProfiles({
                     <div className="flex flex-wrap gap-3 text-gray-300">
                       <span className="text-white font-extrabold">{h.teamName}</span>
                       <span>•</span>
-                      <span className="text-emerald-400">{toPersianDigits(h.role || "سرمربی")}</span>
+                      <span className="text-emerald-400">{formatStatNumber(h.role || "سرمربی")}</span>
                       <span>•</span>
-                      <span className="font-mono text-slate-400">{toPersianDigits(h.startYear)} تا {toPersianDigits(h.endYear || "اکنون")}</span>
+                      <span className="font-mono text-slate-400">{formatStatNumber(h.startYear)} تا {formatStatNumber(h.endYear || "اکنون")}</span>
                     </div>
                     <button
                       type="button"
@@ -505,7 +515,7 @@ export default function AdminCoachProfiles({
                         teamId: tId,
                         teamName: tName,
                         role: roleInp?.value || "سرمربی",
-                        startYear: startInp?.value || "۱۴۰۲",
+                        startYear: startInp?.value || "1402",
                         endYear: endInp?.value || "اکنون"
                       };
 

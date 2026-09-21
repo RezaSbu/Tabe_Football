@@ -75,7 +75,7 @@ export default function AdminAiPressroom({
           `نیمه نخست بازی بسیار فشرده پیش رفت، اما در نیمه مربیان، برتری مطلق میهمان در جنگ‌های میانه زمین آشکار گردید. قهرمانان گلزنی این بازی ${scorersNames ? scorersNames : "با همکاری هوشمندانه هافبک‌ها"} نام خود را در تاریخ باشگاه ثبت کردند.\n\n` +
           `شکست امروز به نظر زنگ خطری برای کادر ${home} خواهد بود، در حالی که هواداران ${away} تا ساعات پایانی امشب پیروزی حماسی تیم محبوب خود را در صدر اخبار کلوب دنبال خواهند کرد.`;
       } else {
-        narrativeText = `تقسیم امتیازات در کارزار نفس‌گیر استادیوم ${venue}. دیدار جنجالی و نفس‌گیر میان دو غول مستطیل سبز یعنی ${home} و ${away} پس از ۹۰ دقیقه فوتبال تاکتیکی و دفاع فشرده با تساوی ${sh}-${sa} و تساوی مهیج خاتمه یافت.\n\n` +
+        narrativeText = `تقسیم امتیازات در کارزار نفس‌گیر استادیوم ${venue}. دیدار جنجالی و نفس‌گیر میان دو غول مستطیل سبز یعنی ${home} و ${away} پس از 90 دقیقه فوتبال تاکتیکی و دفاع فشرده با تساوی ${sh}-${sa} و تساوی مهیج خاتمه یافت.\n\n` +
           `دیدار در جوی سنگین آغاز شد و هر دو مربی با چیدمان محتاطانه بازی را اداره کردند. ${scorersNames ? `ضربات دقیق و گل‌های ارزشمند این دیدار حساس را ${scorersNames} ثبت کردند.` : "خطوط دفاعی منسجم اجازه عبور بی‌پژواک توپ از خط دروازه‌ها را ندادند."}\n\n` +
           `تساوی عادلانه امروز اگرچه هیچ‌کدام از کادر فنی را کاملاً راضی به رختکن نفرستاد، اما تماشاگران حاضر در استادیوم گواهی تماشای مسابقه‌ای کم‌نظیر و باکیفیت استاندارد در سطح فوتبال ملی دادند.`;
       }
@@ -114,7 +114,7 @@ export default function AdminAiPressroom({
       
       let advice: string;
       if (homeWinsProb > awayWinsProb + 15) {
-        advice = `بر اساس محاسبات رگرسیون تیمی و امتیازات رده‌بندی، باشگاه ${home} به واسطه مزیت میزبانی و برخورداری از هارمونی دفاعی منسجم، بخت نخست پیروزی در این نبرد خواهد بود. شبیه‌ساز پیشنهاد می‌کند بر روی سیستم ۲-۵-۳ تیم میزبان تمرکز کنید.`;
+        advice = `بر اساس محاسبات رگرسیون تیمی و امتیازات رده‌بندی، باشگاه ${home} به واسطه مزیت میزبانی و برخورداری از هارمونی دفاعی منسجم، بخت نخست پیروزی در این نبرد خواهد بود. شبیه‌ساز پیشنهاد می‌کند بر روی سیستم 2-5-3 تیم میزبان تمرکز کنید.`;
       } else if (awayWinsProb > homeWinsProb + 15) {
         advice = `روند صعودی بازی‌های خارج از خانه باشگاه ${away} و انگیزه مبالغه‌آمیز آنها نشان می‌دهد با وجود جو ورزشگاه حریف، شانس برد بالاتری دارند. سیستم ضدحمله سریع به احتمال زیاد پاشنه آشیل میزبان خواهد بود.`;
       } else {
@@ -178,7 +178,7 @@ export default function AdminAiPressroom({
       <div className="grid gap-6 md:grid-cols-12 items-start">
         {/* Match picker panel */}
         <div className="md:col-span-5 bg-[#0b0b0f] border border-white/5 p-4 rounded-xl space-y-4">
-          <span className="font-extrabold text-xs text-white block border-r-2 border-red-500 pr-2">۱. مسابقه مورد نظر را انتخاب کنید:</span>
+          <span className="font-extrabold text-xs text-white block border-r-2 border-red-500 pr-2">1. مسابقه مورد نظر را انتخاب کنید:</span>
           
           <div className="space-y-3">
             <div>
@@ -190,7 +190,7 @@ export default function AdminAiPressroom({
               >
                 <option value="">-- انتخاب بازی تمام شده --</option>
                 {finishedMatches.map(m => (
-                  <option key={m.id} value={m.id}>{m.teamHome} {m.scoreHome} - {m.scoreAway} {m.teamAway} (هفته {m.week || "۱"})</option>
+                  <option key={m.id} value={m.id}>{m.teamHome} {m.scoreHome} - {m.scoreAway} {m.teamAway} (هفته {m.week || "1"})</option>
                 ))}
               </select>
             </div>
@@ -248,7 +248,7 @@ export default function AdminAiPressroom({
         {/* Draft Output Console */}
         <div className="md:col-span-7 bg-[#0b0b0f] border border-white/5 p-4 rounded-xl space-y-4 min-h-[350px] flex flex-col justify-between">
           <div className="space-y-3">
-            <span className="font-extrabold text-xs text-white block border-r-2 border-emerald-500 pr-2">۲. سند پیش‌نویس خروجی پورتال:</span>
+            <span className="font-extrabold text-xs text-white block border-r-2 border-emerald-500 pr-2">2. سند پیش‌نویس خروجی پورتال:</span>
 
             {isGenerating ? (
               <div className="py-20 text-center space-y-3 animate-pulse">

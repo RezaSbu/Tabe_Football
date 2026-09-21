@@ -1,6 +1,7 @@
 import React from "react";
 import { FileImage, Images, FileCheck2, Files, Boxes } from "lucide-react";
-import { Card, Stat, ProgressBar, formatBytes, toPersian } from "./ui";
+import { Card, Stat, ProgressBar, formatBytes } from "./ui";
+import { formatStatNumber } from "../../utils";
 
 const categoryLabels: Record<string, string> = {
   news_image: "عکس خبر",
@@ -26,16 +27,16 @@ export default function MediaSection({ diag }: { diag: any }) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card title="تصاویر آپلودشده" icon={<FileImage className="h-4 w-4 text-pink-400" />}>
           <div className="space-y-3">
-            <Stat label="تعداد فایل‌های رسانه" value={toPersian(m.totalFiles || 0)} color="text-pink-400" />
+            <Stat label="تعداد فایل‌های رسانه" value={formatStatNumber(m.totalFiles || 0)} color="text-pink-400" />
             <Stat label="حجم کل فایل‌ها" value={formatBytes(m.totalSize)} color="text-cyan-400" />
-            <Stat label="تصاویر گالری (images)" value={toPersian(m.galleryImages || 0)} color="text-violet-400" />
+            <Stat label="تصاویر گالری (images)" value={formatStatNumber(m.galleryImages || 0)} color="text-violet-400" />
           </div>
         </Card>
 
         <Card title="تبدیل به WebP" icon={<FileCheck2 className="h-4 w-4 text-emerald-400" />}>
           <div className="space-y-3">
-            <Stat label="تعداد WebP" value={toPersian(m.webpCount || 0)} color="text-emerald-400" />
-            <Stat label="تعداد سایر فرمت‌ها" value={toPersian(m.otherCount || 0)} color="text-amber-400" />
+            <Stat label="تعداد WebP" value={formatStatNumber(m.webpCount || 0)} color="text-emerald-400" />
+            <Stat label="تعداد سایر فرمت‌ها" value={formatStatNumber(m.otherCount || 0)} color="text-amber-400" />
             <Stat label="حجم WebP" value={formatBytes(m.webpBytes)} color="text-emerald-400" sub={<span className="text-[9px] text-slate-500">از {formatBytes(m.totalSize)}</span>} />
             <ProgressBar percent={m.webpPercent || 0} colorClass="from-emerald-500 to-emerald-400" label={`${m.webpPercent || 0}٪ تصاویر WebP`} />
           </div>
@@ -49,7 +50,7 @@ export default function MediaSection({ diag }: { diag: any }) {
               {mimeEntries.map(([mime, v]: any) => (
                 <div key={mime} className="flex items-center justify-between p-2 rounded-xl bg-black/20 text-[10px]">
                   <span className="font-mono text-slate-300 truncate" dir="ltr">{mime}</span>
-                  <span className="font-bold text-slate-200">{toPersian(v.count)} <span className="text-slate-500 font-mono text-[9px]">({formatBytes(v.bytes)})</span></span>
+                  <span className="font-bold text-slate-200">{formatStatNumber(v.count)} <span className="text-slate-500 font-mono text-[9px]">({formatBytes(v.bytes)})</span></span>
                 </div>
               ))}
             </div>
@@ -66,7 +67,7 @@ export default function MediaSection({ diag }: { diag: any }) {
               <div key={cat} className="bg-black/15 p-3 rounded-xl border border-white/[0.02]">
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="text-slate-300 font-bold">{categoryLabels[cat] || cat}</span>
-                  <span className="font-mono text-pink-400 font-black">{toPersian(count)}</span>
+                  <span className="font-mono text-pink-400 font-black">{formatStatNumber(count)}</span>
                 </div>
                 <div className="h-1.5 bg-slate-800/60 rounded-full overflow-hidden mt-2">
                   <div className="h-full bg-gradient-to-r from-pink-500 to-rose-400" style={{ width: `${(Number(count) / maxCat) * 100}%` }} />

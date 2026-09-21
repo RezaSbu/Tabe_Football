@@ -12,7 +12,7 @@ import {
 interface ArticleDetailPageProps {
   article: any;
   setActiveArticle: (article: any) => void;
-  toPersianDigits: (n: any) => string;
+  formatStatNumber: (n: any) => string;
   getSafeImageUrl: (url: string) => string;
 }
 
@@ -32,7 +32,7 @@ const getPersianCategory = (cat: string) => {
 const ArticleDetailPage: React.FC<ArticleDetailPageProps> = ({
   article,
   setActiveArticle,
-  toPersianDigits,
+  formatStatNumber,
   getSafeImageUrl,
 }) => {
   return (
@@ -60,20 +60,20 @@ const ArticleDetailPage: React.FC<ArticleDetailPageProps> = ({
         <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400 border-t border-b border-white/5 py-3">
           <span className="flex items-center gap-1.5">
             <Calendar className="h-4 w-4 text-gray-500" />{" "}
-            {new Date(article.createdAt).toLocaleDateString("fa-IR", {
+            {new Date(article.createdAt).toLocaleDateString("fa-IR-u-nu-latn", {
               dateStyle: "long",
             })}
           </span>
           <span className="flex items-center gap-1.5">
             <Clock className="h-4 w-4 text-gray-500" />{" "}
-            {new Date(article.createdAt).toLocaleTimeString("fa-IR", {
+            {new Date(article.createdAt).toLocaleTimeString("fa-IR-u-nu-latn", {
               hour: "2-digit",
               minute: "2-digit",
             })}
           </span>
           <span className="flex items-center gap-1.5">
             <Eye className="h-4 w-4 text-gray-500" />{" "}
-            {article.viewCount.toLocaleString("fa-IR")} بازدید
+            {formatStatNumber(article.viewCount)} بازدید
           </span>
           <span className="flex items-center gap-1.5">
             <User className="h-4 w-4 text-gray-500" /> تحریریه تب فوتبال

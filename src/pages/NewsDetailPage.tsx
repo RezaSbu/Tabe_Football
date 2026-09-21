@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { ArrowRight, Loader2, Tag, Clock } from "lucide-react";
-import { getSafeImageUrl, toPersianDigits } from "../utils";
+import { getSafeImageUrl, formatStatNumber } from "../utils";
 
 export default function NewsDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -69,12 +69,12 @@ export default function NewsDetailPage() {
       const diffMs = now.getTime() - d.getTime();
       const diffMin = Math.floor(diffMs / 60000);
       if (diffMin < 1) return "همین لحظه";
-      if (diffMin < 60) return `${toPersianDigits(diffMin)} دقیقه پیش`;
+      if (diffMin < 60) return `${formatStatNumber(diffMin)} دقیقه پیش`;
       const diffHr = Math.floor(diffMin / 60);
-      if (diffHr < 24) return `${toPersianDigits(diffHr)} ساعت پیش`;
+      if (diffHr < 24) return `${formatStatNumber(diffHr)} ساعت پیش`;
       const diffDay = Math.floor(diffHr / 24);
-      if (diffDay < 7) return `${toPersianDigits(diffDay)} روز پیش`;
-      return d.toLocaleDateString("fa-IR", { dateStyle: "short" });
+      if (diffDay < 7) return `${formatStatNumber(diffDay)} روز پیش`;
+      return d.toLocaleDateString("fa-IR-u-nu-latn", { dateStyle: "short" });
     } catch {
       return "";
     }
@@ -141,14 +141,14 @@ export default function NewsDetailPage() {
             </span>
             <h1 className="font-black text-xl sm:text-3xl text-white leading-snug">{article.title}</h1>
             <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400 border-b border-white/5 pb-3">
-              <span>{new Date(article.createdAt).toLocaleDateString("fa-IR", { dateStyle: "long" })}</span>
-              <span>{article.viewCount?.toLocaleString("fa-IR") || "۰"} بازدید</span>
+              <span>{new Date(article.createdAt).toLocaleDateString("fa-IR-u-nu-latn", { dateStyle: "long" })}</span>
+              <span>{formatStatNumber(article.viewCount ?? 0)} بازدید</span>
             </div>
           </header>
 
           <div className="grid gap-0 lg:grid-cols-12">
             {/* Main content column */}
-            <div className="lg:col-span-8 p-4 sm:p-6 space-y-4">
+            <div className="order-2 lg:col-span-8 p-4 sm:p-6 space-y-4">
               <blockquote className="border-r-4 border-red-655 bg-[#0a0a0c]/55 p-4 rounded-l-xl text-gray-300 text-sm sm:text-base leading-loose text-justify">
                 {article.summary}
               </blockquote>
@@ -182,11 +182,20 @@ export default function NewsDetailPage() {
               )}
             </div>
 
+            {/* Mobile-only main image: title -> image -> body on small screens.
+                DOM order is unchanged (h1 stays first for SEO); desktop keeps
+                the sidebar image and never renders this copy. */}
+            <div className="order-1 lg:hidden px-4 sm:px-6 pb-4">
+              <div className="overflow-hidden rounded-xl bg-gray-950 border border-white/5 shadow-lg h-48 sm:h-64">
+                <img loading="eager" decoding="async" src={getSafeImageUrl(article.image)} alt={article.title} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+              </div>
+            </div>
+
             {/* Right sidebar - sticky */}
-            <div className="lg:col-span-4 lg:border-r border-white/5">
+            <div className="order-3 lg:col-span-4 lg:border-r border-white/5">
               <div className="lg:sticky lg:top-20 p-4 sm:p-6 space-y-4">
-                {/* Main image */}
-                <div className="overflow-hidden rounded-xl bg-gray-950 border border-white/5 shadow-lg sm:h-64 h-48">
+                {/* Main image (desktop only; mobile uses the copy above the body) */}
+                <div className="hidden lg:block overflow-hidden rounded-xl bg-gray-950 border border-white/5 shadow-lg sm:h-64 h-48">
                   <img loading="lazy" decoding="async" src={getSafeImageUrl(article.image)} alt={article.title} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                 </div>
 

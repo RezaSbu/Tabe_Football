@@ -29,29 +29,39 @@ export default function Header({
   setActiveTab
 }: HeaderProps) {
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedTerm, setDebouncedTerm] = useState("");
   const [showResults, setShowResults] = useState(false);
 
-  // Search logic across news, teams, and players
-  const filteredTeams = searchTerm
-    ? teams
-        .filter((t) => t.name.includes(searchTerm))
-        .sort((a, b) => {
-          const normTerm = normalizePersianString(searchTerm);
-          const exactA = normalizePersianString(a.name) === normTerm ? 0 : 1;
-          const exactB = normalizePersianString(b.name) === normTerm ? 0 : 1;
-          if (exactA !== exactB) return exactA - exactB;
-          return (a.name || "").length - (b.name || "").length;
-        })
-    : [];
-  const filteredPlayers = searchTerm
-    ? players.filter((p) => p.name.includes(searchTerm))
-    : [];
-  const filteredCoaches = searchTerm
-    ? coaches.filter((c) => c.name.includes(searchTerm))
-    : [];
-  const filteredNews = searchTerm
-    ? news.filter((n) => n.title.includes(searchTerm) || n.summary.includes(searchTerm))
-    : [];
+  React.useEffect(() => {
+    const t = setTimeout(() => setDebouncedTerm(searchTerm), 200);
+    return () => clearTimeout(t);
+  }, [searchTerm]);
+
+  // Phase-4: memoize heavy search computations
+  const filteredTeams = React.useMemo(() => {
+    if (!debouncedTerm) return [];
+    const normTerm = normalizePersianString(debouncedTerm);
+    return teams
+      .filter((t) => t.name.includes(debouncedTerm))
+      .sort((a, b) => {
+        const exactA = normalizePersianString(a.name) === normTerm ? 0 : 1;
+        const exactB = normalizePersianString(b.name) === normTerm ? 0 : 1;
+        if (exactA !== exactB) return exactA - exactB;
+        return (a.name || "").length - (b.name || "").length;
+      });
+  }, [teams, debouncedTerm]);
+
+  const filteredPlayers = React.useMemo(() => {
+    return debouncedTerm ? players.filter((p) => p.name.includes(debouncedTerm)) : [];
+  }, [players, debouncedTerm]);
+
+  const filteredCoaches = React.useMemo(() => {
+    return debouncedTerm ? coaches.filter((c) => c.name.includes(debouncedTerm)) : [];
+  }, [coaches, debouncedTerm]);
+
+  const filteredNews = React.useMemo(() => {
+    return debouncedTerm ? news.filter((n) => n.title.includes(debouncedTerm) || n.summary.includes(debouncedTerm)) : [];
+  }, [news, debouncedTerm]);
 
   const hasResults = filteredTeams.length > 0 || filteredPlayers.length > 0 || filteredCoaches.length > 0 || filteredNews.length > 0;
 
@@ -157,7 +167,7 @@ export default function Header({
                             className="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-white/5 cursor-pointer transition text-xs"
                           >
                             <span className="h-6 w-6 rounded-full bg-slate-800 flex items-center justify-center text-[10px] font-bold text-cyan-400">
-                              {player.number}
+                              {(player.name || "?").trim().charAt(0)}
                             </span>
                             <div>
                               <span className="font-semibold text-slate-200 block">{player.name}</span>

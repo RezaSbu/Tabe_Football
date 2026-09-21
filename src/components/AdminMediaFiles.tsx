@@ -87,28 +87,29 @@ export default function AdminMediaFiles() {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  const fetchMedia = async () => {
+  const fetchMedia = async (signal?: AbortSignal) => {
     setLoading(true);
     try {
       const url = `/api/media?category=${categoryFilter}&q=${encodeURIComponent(searchQuery)}&page=${page}&limit=12`;
-      const res = await fetch(url);
+      const res = await fetch(url, { signal });
       const data = await res.json();
       if (data.success) {
         setMediaList(data.data || []);
         setTotalCount(data.totalCount || 0);
       }
-    } catch (err) {
-      console.error("Error fetching media:", err);
+    } catch (err: any) {
+      if (err?.name !== "AbortError") console.error("Error fetching media:", err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
+    const controller = new AbortController();
     const timer = setTimeout(() => {
-      fetchMedia();
+      fetchMedia(controller.signal);
     }, 350);
-    return () => clearTimeout(timer);
+    return () => { clearTimeout(timer); controller.abort(); };
   }, [page, categoryFilter, searchQuery]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -414,7 +415,7 @@ export default function AdminMediaFiles() {
                       "چندین فایل را به اینجا بکشید یا کلیک کنید"
                     )}
                   </p>
-                  <p className="text-[9px] text-slate-500 mt-1">پسوندهای مجاز: WebP ,PNG ,JPEG ,SVG (تا ۲۰ فایل در هر بار)</p>
+                  <p className="text-[9px] text-slate-500 mt-1">پسوندهای مجاز: WebP ,PNG ,JPEG ,SVG (تا 20 فایل در هر بار)</p>
                 </div>
               </div>
               
@@ -556,7 +557,7 @@ export default function AdminMediaFiles() {
                       {/* File Metrics */}
                       <div className="grid grid-cols-2 gap-1 pt-2 border-t border-white/5 mt-2.5 text-[9px] text-slate-400 font-mono">
                         <div>حجم: {formatBytes(item.file_size)}</div>
-                        <div className="text-left font-sans">{new Date(item.created_at).toLocaleDateString("fa-IR")}</div>
+                        <div className="text-left font-sans">{new Date(item.created_at).toLocaleDateString("fa-IR-u-nu-latn")}</div>
                       </div>
                     </div>
 

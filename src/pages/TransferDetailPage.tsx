@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { ArrowRight, Loader2, ArrowUpRight, ArrowDownLeft, Calendar, Eye, Tag, BadgeCheck, Banknote } from "lucide-react";
-import { getSafeImageUrl } from "../utils";
+import { getSafeImageUrl, formatStatNumber } from "../utils";
 import TeamLogo from "../components/TeamLogo";
 
 export default function TransferDetailPage() {
@@ -79,7 +79,7 @@ export default function TransferDetailPage() {
               {/* View count */}
               <div className="mt-4 flex items-center gap-1.5 text-gray-500">
                 <Eye className="h-3.5 w-3.5" />
-                <span className="text-[11px] font-medium">{(transfer.viewCount || 0).toLocaleString("fa-IR")} بازدید</span>
+                <span className="text-[11px] font-medium">{formatStatNumber(transfer.viewCount || 0)} بازدید</span>
               </div>
             </div>
 

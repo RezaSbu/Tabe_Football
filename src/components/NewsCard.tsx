@@ -1,7 +1,7 @@
 import React from "react";
 import { NewsItem } from "../types";
 import { Calendar, Eye, ArrowLeft, Tag } from "lucide-react";
-import { getSafeImageUrl } from "../utils";
+import { getSafeImageUrl, formatStatNumber } from "../utils";
 
 interface NewsCardProps {
   newsItem: NewsItem;
@@ -69,7 +69,7 @@ export default function NewsCard({ newsItem, onClick, onTagClick }: NewsCardProp
       <div className="p-4 pt-0 border-t border-white/[0.03] mt-2 flex items-center justify-between text-[10px] text-slate-500 font-medium">
         <span className="flex items-center gap-1">
           <Eye className="h-3 w-3 text-slate-450" />
-          {newsItem.viewCount.toLocaleString("fa-IR")} بازدید
+          {formatStatNumber(newsItem.viewCount)} بازدید
         </span>
         <div className="flex items-center gap-1 text-emerald-400 font-extrabold group-hover:translate-x-1 transition-transform">
           <span>ادامه خبر</span>

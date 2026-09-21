@@ -1,10 +1,10 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import NewsCard from "../components/NewsCard";
 import { NewsItem } from "../types";
+import { formatStatNumber } from "../utils";
 
 interface NewsPageProps {
-  news: NewsItem[];
   newsCategoryFilter: string;
   setNewsCategoryFilter: (filter: string) => void;
   newsSearch: string;
@@ -12,8 +12,9 @@ interface NewsPageProps {
   setActiveArticle: (article: NewsItem) => void;
 }
 
+const PAGE_SIZE = 20;
+
 export default function NewsPage({
-  news,
   newsCategoryFilter,
   setNewsCategoryFilter,
   newsSearch,
@@ -21,14 +22,71 @@ export default function NewsPage({
   setActiveArticle,
 }: NewsPageProps) {
   const [searchParams, setSearchParams] = useSearchParams();
+  const [page, setPage] = useState(1);
+  const [items, setItems] = useState<NewsItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     const tag = searchParams.get("tag");
     if (tag) {
       setNewsSearch(tag);
+      setPage(1);
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, setNewsSearch, setSearchParams]);
+
+  // Reset to the first page whenever the filter or the search text changes.
+  useEffect(() => {
+    setPage(1);
+  }, [newsCategoryFilter, newsSearch]);
+
+  // Debounced server-side fetch with AbortController to cancel stale requests.
+  useEffect(() => {
+    setLoading(true);
+    setLoadError(false);
+    const controller = new AbortController();
+    const t = setTimeout(() => {
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(PAGE_SIZE),
+        category: newsCategoryFilter,
+        q: newsSearch,
+      });
+      fetch(`/api/news?${params.toString()}`, { signal: controller.signal })
+        .then(res => {
+          if (!res.ok) throw new Error("news fetch failed");
+          return res.json();
+        })
+        .then(data => {
+          if (data.success) {
+            setItems(Array.isArray(data.items) ? data.items : []);
+            setTotal(Number(data.total) || 0);
+            setTotalPages(Math.max(1, Number(data.totalPages) || 1));
+            if (Number(data.page) && Number(data.page) !== page) {
+              setPage(Number(data.page));
+            }
+          } else {
+            setLoadError(true);
+          }
+        })
+        .catch((e) => {
+          if (e?.name !== "AbortError") setLoadError(true);
+        })
+        .finally(() => setLoading(false));
+    }, 350);
+    return () => { clearTimeout(t); controller.abort(); };
+  }, [page, newsCategoryFilter, newsSearch]);
+
+  const pageWindow = (() => {
+    const start = Math.max(1, Math.min(page - 2, Math.max(1, totalPages - 4)));
+    const end = Math.min(totalPages, start + 4);
+    const arr: number[] = [];
+    for (let p = start; p <= end; p++) arr.push(p);
+    return arr;
+  })();
 
   return (
     <div className="space-y-6 animate-in fade-in" dir="rtl">
@@ -84,44 +142,76 @@ export default function NewsPage({
         </div>
       </div>
 
-      {(() => {
-        const mainCategories = ["pro-league", "league-1", "league-2", "hazfi-cup"];
-        const filtered = news.filter((item) => {
-          const matchesCategory = newsCategoryFilter === "all" ||
-            (newsCategoryFilter === "other" ? !mainCategories.includes(item.category) : item.category === newsCategoryFilter) ||
-            item.tags?.includes(newsCategoryFilter);
-          const q = newsSearch.toLowerCase();
-          const matchesQuery = !newsSearch ||
-            item.title.toLowerCase().includes(q) ||
-            item.summary.toLowerCase().includes(q) ||
-            item.content?.toLowerCase().includes(q) ||
-            item.tags?.some(t => t.toLowerCase().includes(q));
-          return matchesCategory && matchesQuery;
-        });
-
-        if (filtered.length === 0) {
-          return (
-            <div className="p-12 text-center rounded-2xl border border-dashed border-white/5 text-xs text-slate-500 font-bold bg-[#121215]/40">
-              هیچ رویداد یا اخباری با فیلتر جستجوی شما مطابقت ندارد.
-            </div>
-          );
-        }
-
-        return (
+      {loading ? (
+        <div className="p-12 text-center rounded-2xl border border-dashed border-white/5 text-xs text-slate-500 font-bold bg-[#121215]/40">
+          در حال بارگذاری خبرها...
+        </div>
+      ) : loadError ? (
+        <div className="p-12 text-center rounded-2xl border border-dashed border-white/5 text-xs text-slate-500 font-bold bg-[#121215]/40">
+          خطا در دریافت خبرها. لطفا دوباره تلاش کنید.
+        </div>
+      ) : items.length === 0 ? (
+        <div className="p-12 text-center rounded-2xl border border-dashed border-white/5 text-xs text-slate-500 font-bold bg-[#121215]/40">
+          هیچ رویداد یا اخباری با فیلتر جستجوی شما مطابقت ندارد.
+        </div>
+      ) : (
+        <>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((item) => (
+            {items.map((item) => (
               <Link
                 key={item.id}
                 to={`/news/${item.id}`}
-                onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+                onClick={() => {
+                  setActiveArticle(item);
+                  window.scrollTo({ top: 0, behavior: "smooth" });
+                }}
                 className="block cursor-pointer"
               >
                 <NewsCard newsItem={item} onClick={() => {}} onTagClick={(tag) => setNewsSearch(tag)} />
               </Link>
             ))}
           </div>
-        );
-      })()}
+
+          <div className="flex flex-wrap items-center justify-center gap-1.5 pt-2" dir="rtl">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="rounded-xl px-3 py-1.5 text-xs font-black bg-gray-950 text-gray-300 border border-white/5 hover:text-white disabled:opacity-40 disabled:cursor-default transition"
+            >
+              قبلی
+            </button>
+            {pageWindow[0] > 1 && (
+              <span className="text-[11px] text-slate-500 px-1">...</span>
+            )}
+            {pageWindow.map((p) => (
+              <button
+                key={p}
+                onClick={() => setPage(p)}
+                className={`min-w-8 rounded-xl px-2.5 py-1.5 text-xs font-black font-mono transition ${
+                  p === page
+                    ? "bg-red-655 text-white shadow shadow-red-950/40"
+                    : "bg-gray-950 text-gray-400 hover:text-white border border-white/5"
+                }`}
+              >
+                {formatStatNumber(p)}
+              </button>
+            ))}
+            {pageWindow[pageWindow.length - 1] < totalPages && (
+              <span className="text-[11px] text-slate-500 px-1">...</span>
+            )}
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="rounded-xl px-3 py-1.5 text-xs font-black bg-gray-950 text-gray-300 border border-white/5 hover:text-white disabled:opacity-40 disabled:cursor-default transition"
+            >
+              بعدی
+            </button>
+            <span className="w-full text-center text-[11px] text-slate-500 font-bold mt-1">
+              صفحه {formatStatNumber(page)} از {formatStatNumber(totalPages)} ــ {formatStatNumber(total)} خبر
+            </span>
+          </div>
+        </>
+      )}
 
     </div>
   );

@@ -12,6 +12,7 @@ export default function PlayerDetailPage() {
   const [player, setPlayer] = useState<any>(null);
   const [allMatches, setAllMatches] = useState<any[]>([]);
   const [allTeams, setAllTeams] = useState<any[]>([]);
+  const [allPlayers, setAllPlayers] = useState<any[]>([]);
   const [news, setNews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -43,6 +44,7 @@ export default function PlayerDetailPage() {
       .then(d => {
         if (d && d.status === "ok") {
           setAllTeams(d.teams || []);
+          setAllPlayers(d.players || []);
           setNews(d.news || []);
           if (!relatedMatchesRef.current || relatedMatchesRef.current.length === 0) {
             setAllMatches(d.matches || []);
@@ -103,6 +105,7 @@ export default function PlayerDetailPage() {
         player={player}
         allMatches={allMatches}
         allTeams={allTeams}
+        allPlayers={allPlayers}
         news={news}
         onBack={() => navigate(-1)}
         onSelectTeam={(teamName: string) => {

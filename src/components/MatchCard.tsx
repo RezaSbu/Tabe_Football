@@ -1,7 +1,7 @@
 import React from "react";
 import { MatchItem } from "../types";
 import { Calendar, MapPin, Clock, Vote } from "lucide-react";
-import { isTeamInDb, convertGregorianToShamsi } from "../utils";
+import { isTeamInDb, convertGregorianToShamsi, formatStatNumber } from "../utils";
 import TeamLogo from "./TeamLogo";
 
 interface MatchCardProps {
@@ -134,7 +134,7 @@ export default function MatchCard({ match, predictions, onVote, onSelectTeam }: 
         <div className="pt-2 border-t border-white/[0.03] space-y-2">
           <div className="flex justify-between items-center text-[9px] text-slate-500 font-bold">
             <span>پیش‌بینی نتیجه مسابقه توسط هواداران:</span>
-            {pStats && <span>{pStats.totalVotes.toLocaleString("fa-IR")} رای ثبت شده</span>}
+            {pStats && <span>{formatStatNumber(pStats.totalVotes)} رای ثبت شده</span>}
           </div>
           <div className="grid grid-cols-3 gap-1.5">
             <button

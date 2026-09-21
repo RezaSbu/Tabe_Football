@@ -1,43 +1,56 @@
 import { loadDB, setDb } from "../state";
-import { normalizePersianString, toPersianDigits } from "../utils/persian";
+import { normalizePersianString } from "../utils/persian";
+import {
+  buildPlayerIdentityIndex,
+  collectPlayerTeamRefs,
+  findMatchLineupPlacement,
+  isSamePlayer,
+  normalizePlayerName,
+  playerTeamMatchesSide,
+} from "../../shared/playerIdentity";
+import type { PlayerIdentityIndex } from "../../shared/playerIdentity";
 import { logMessage } from "../utils/logger";
 import { realMinute } from "../../shared/matchMinute";
 import { resolveTeam, resolveTeamLeague, normalizeLeagueKey } from "../../shared/teamMatch";
 
-export function calculatePlayerMinutesAndPlayed(player: any, match: any): { played: boolean; minutes: number; started: boolean } {
+export function calculatePlayerMinutesAndPlayed(
+  player: any,
+  match: any,
+  playersOrIndex?: any[] | PlayerIdentityIndex,
+  memberships?: any[]
+): { played: boolean; minutes: number; started: boolean } {
   const isFutsal = match.sport === "futsal" || match.league === "futsal";
   const fullDuration = isFutsal ? 40 : 90;
 
-  const normPName = normalizePersianString(player.name || "");
-  const normPId = String(player.id || "");
-
-  const isPlayerMatch = (key?: any) => {
-    if (!key) return false;
-    const normKey = normalizePersianString(String(key));
-    return normKey === normPName || normKey === normPId;
-  };
+  // Accept a prebuilt index (hot recalc paths) to avoid rebuilding it
+  // per player-match pair; fall back to building from the roster or player.
+  const index: PlayerIdentityIndex = Array.isArray(playersOrIndex)
+    ? buildPlayerIdentityIndex(playersOrIndex.length > 0 ? playersOrIndex : [player])
+    : (playersOrIndex || buildPlayerIdentityIndex([player]));
+  const same = (ref: { id?: any; name?: any }, side: "home" | "away" | null) =>
+    isSamePlayer({ ...ref, side }, player, match, index, memberships || []);
 
   const lineups = match.lineups || { home: [], away: [] };
   const homeLineup = lineups.home || [];
   const awayLineup = lineups.away || [];
-  
-  const inHome = homeLineup.find((lp: any) => isPlayerMatch(lp.id) || isPlayerMatch(lp.name));
-  const inAway = awayLineup.find((lp: any) => isPlayerMatch(lp.id) || isPlayerMatch(lp.name));
+
+  const inHome = homeLineup.find((lp: any) => same({ id: lp.id, name: lp.name }, "home"));
+  const inAway = awayLineup.find((lp: any) => same({ id: lp.id, name: lp.name }, "away"));
   const lineupPlayer = inHome || inAway;
 
   const events = match.events || [];
 
-  const subInEvents = events.filter((ev: any) => ev && ev.type === "substitution" && isPlayerMatch(ev.player2Name));
+  const subInEvents = events.filter((ev: any) => ev && ev.type === "substitution" && same({ id: ev.player2Id, name: ev.player2Name }, ev.team));
   const subInEvent = subInEvents[0];
 
-  const subOutEvents = events.filter((ev: any) => ev && ev.type === "substitution" && isPlayerMatch(ev.playerName));
+  const subOutEvents = events.filter((ev: any) => ev && ev.type === "substitution" && same({ id: ev.playerId, name: ev.playerName }, ev.team));
   const subOutEvent = subOutEvents[0];
 
-  const redCardEvents = events.filter((ev: any) => ev && ev.type === "red-card" && isPlayerMatch(ev.playerName));
+  const redCardEvents = events.filter((ev: any) => ev && ev.type === "red-card" && same({ id: ev.playerId, name: ev.playerName }, ev.team));
   const redCardEvent = redCardEvents[0];
 
-  const hasOtherEvent = events.some((ev: any) => ev && ev.type !== "substitution" && (isPlayerMatch(ev.playerName) || isPlayerMatch(ev.player2Name)));
-  const inScorersList = (match.scorersList || []).some((sc: any) => sc && (isPlayerMatch(sc.scorerName) || isPlayerMatch(sc.scorerId) || isPlayerMatch(sc.name) || isPlayerMatch(sc.assist)));
+  const hasOtherEvent = events.some((ev: any) => ev && ev.type !== "substitution" && (same({ id: ev.playerId, name: ev.playerName }, ev.team) || same({ id: ev.player2Id, name: ev.player2Name }, ev.team)));
+  const inScorersList = (match.scorersList || []).some((sc: any) => sc && (same({ id: sc.scorerId, name: sc.scorerName || sc.name }, null) || same({ id: sc.assistId, name: sc.assistName || sc.assist }, null)));
 
   const started = !!lineupPlayer;
   const played = started || !!subInEvent || hasOtherEvent || inScorersList;
@@ -81,8 +94,18 @@ export function getPlayerCalculatedStatsFromMatches(playerId: string, matches: a
   const player = allPlayers.find((p: any) => String(p.id) === playerId);
   if (!player) return { matches: 0, goals: 0, assists: 0, yellowCards: 0, redCards: 0, cleanSheets: 0 };
 
-  const normPlayerName = normalizePersianString(player.name || "");
-  const normPlayerId = String(player.id || "");
+  const index: PlayerIdentityIndex = buildPlayerIdentityIndex(allPlayers);
+  const dbForMemberships = loadDB();
+  const membershipsForIdentity = (dbForMemberships && dbForMemberships.teamMemberships) || [];
+  const membershipsByPlayer = new Map<string, any[]>();
+  membershipsForIdentity.forEach((mm: any) => {
+    if (!mm || !mm.playerId) return;
+    const k = String(mm.playerId);
+    const arr = membershipsByPlayer.get(k) || [];
+    arr.push(mm);
+    membershipsByPlayer.set(k, arr);
+  });
+  const playerMemberships = membershipsByPlayer.get(String(player.id)) || [];
   
   let matchCount = 0;
   let goalCount = 0;
@@ -93,21 +116,19 @@ export function getPlayerCalculatedStatsFromMatches(playerId: string, matches: a
 
   const finishedGames = matches.filter((m: any) => m.status === "finished" && !m.archived_stats && !m.isAutoFinished);
 
-  const matchNames = (name1?: string, name2?: string) => {
-    if (!name1 || !name2) return false;
-    return normalizePersianString(name1) === normalizePersianString(name2);
-  };
-
   finishedGames.forEach((match: any) => {
-    const lineups = match.lineups || { home: [], away: [] };
-    const homeLineup = lineups.home || [];
-    const awayLineup = lineups.away || [];
+    const same = (ref: { id?: any; name?: any }, side: "home" | "away" | null) =>
+      isSamePlayer({ ...ref, side }, player, match, index, playerMemberships);
 
-    const inHome = homeLineup.find((lp: any) => String(lp.id) === normPlayerId || matchNames(lp.name, player.name));
-    const inAway = awayLineup.find((lp: any) => String(lp.id) === normPlayerId || matchNames(lp.name, player.name));
-    const lp = inHome || inAway;
+    let { played: playedThisMatch } = calculatePlayerMinutesAndPlayed(player, match, index, playerMemberships);
 
-    let { played: playedThisMatch } = calculatePlayerMinutesAndPlayed(player, match);
+    // Rating/lineup source: starters always; substitutes only when they
+    // actually entered the pitch (a bench rating without entry is ignored).
+    const placement = findMatchLineupPlacement(player, match, index, playerMemberships);
+    const inHome = placement.role === "starter" && placement.side === "home";
+    const lp = placement.role === "starter" || (placement.role === "substitute" && playedThisMatch)
+      ? placement.entry
+      : null;
     let lGoals = 0;
     let lAssists = 0;
     let lYellow = 0;
@@ -129,8 +150,8 @@ export function getPlayerCalculatedStatsFromMatches(playerId: string, matches: a
     events.forEach((ev: any) => {
       if (!ev) return;
       
-      const isScorer = matchNames(ev.playerName, player.name);
-      const isAssistant = matchNames(ev.player2Name, player.name);
+      const isScorer = same({ id: ev.playerId, name: ev.playerName }, ev.team);
+      const isAssistant = same({ id: ev.player2Id, name: ev.player2Name }, ev.team);
 
       if (isScorer) {
         playedThisMatch = true;
@@ -158,8 +179,8 @@ export function getPlayerCalculatedStatsFromMatches(playerId: string, matches: a
     const scorers = match.scorersList || [];
     scorers.forEach((sc: any) => {
       if (!sc) return;
-      const isScorer = matchNames(sc.scorerName, player.name) || matchNames(sc.scorerId, player.id) || matchNames(sc.name, player.name);
-      const isAssistant = matchNames(sc.assistName, player.name) || matchNames(sc.assistId, player.id) || matchNames(sc.assist, player.name);
+      const isScorer = same({ id: sc.scorerId, name: sc.scorerName || sc.name }, null);
+      const isAssistant = same({ id: sc.assistId, name: sc.assistName || sc.assist }, null);
 
       if (isScorer) {
         playedThisMatch = true;
@@ -272,9 +293,20 @@ export function recalculateAndSyncDatabase(): void {
 
   logMessage("info", "database", "آغاز عملیات هماهنگ‌سازی بازگشتی آمار بازیکنان، تیم‌ها و لیدربردهای لیگ...");
 
+  // Hoisted: identical for every player (was rebuilt per player inside the loop).
+  const nonCupMatchesForBase = (db.matches || []).filter((m: any) => m.league !== "hazfi-cup");
+
   db.players.forEach((p: any) => {
-    const nonCupMatches = (db.matches || []).filter((m: any) => m.league !== "hazfi-cup");
-    const calc = getPlayerCalculatedStatsFromMatches(String(p.id), nonCupMatches, db.players);
+    // One-time legacy seeding only: if all base* are already defined (the
+    // common case after the first run), skip the full player x matches scan.
+    const needsBaseSeed =
+      p.baseMatches === undefined || p.baseGoals === undefined ||
+      p.baseAssists === undefined || p.baseCleanSheets === undefined ||
+      p.baseYellowCards === undefined || p.baseRedCards === undefined;
+    let calc = { matches: 0, goals: 0, assists: 0, cleanSheets: 0, yellowCards: 0, redCards: 0 };
+    if (needsBaseSeed) {
+      calc = getPlayerCalculatedStatsFromMatches(String(p.id), nonCupMatchesForBase, db.players);
+    }
     
     if (p.baseMatches === undefined) {
       p.baseMatches = Math.max(0, (parseInt(p.seasonStats?.matches) || 0) - calc.matches);
@@ -430,6 +462,27 @@ export function recalculateAndSyncDatabase(): void {
       playerMap[p.name] = p;
       playerMap[normalizePersianString(p.name)] = p;
     }
+  });
+
+  // Stable identity first: every known id plus, for each normalized name,
+  // EVERY player sharing it (so duplicate names never collapse to one survivor).
+  const identityIndex: PlayerIdentityIndex = buildPlayerIdentityIndex(db.players);
+  const membershipsByPlayer = new Map<string, any[]>();
+  (db.teamMemberships || []).forEach((mm: any) => {
+    if (!mm || !mm.playerId) return;
+    const k = String(mm.playerId);
+    const arr = membershipsByPlayer.get(k) || [];
+    arr.push(mm);
+    membershipsByPlayer.set(k, arr);
+  });
+  const playerNameToIds = new Map<string, string[]>();
+  db.players.forEach((p: any) => {
+    if (!p || !p.name || !p.id) return;
+    const key = normalizePlayerName(p.name);
+    if (!key) return;
+    const arr = playerNameToIds.get(key) || [];
+    if (!arr.includes(String(p.id))) arr.push(String(p.id));
+    playerNameToIds.set(key, arr);
   });
 
   const teamMap: Record<string, any> = {};
@@ -602,7 +655,9 @@ export function recalculateAndSyncDatabase(): void {
       const events = match.events || [];
       events.forEach((ev: any) => {
         if (!ev) return;
+        if (ev.playerId) idsAndNames.add(String(ev.playerId));
         if (ev.playerName) idsAndNames.add(ev.playerName);
+        if (ev.player2Id) idsAndNames.add(String(ev.player2Id));
         if (ev.player2Name) idsAndNames.add(ev.player2Name);
       });
       
@@ -628,6 +683,8 @@ export function recalculateAndSyncDatabase(): void {
       if (pObj && pObj.id) {
         involvedPlayerIds.add(String(pObj.id));
       }
+      const dupIds = playerNameToIds.get(normalizePlayerName(String(key)));
+      if (dupIds) dupIds.forEach(id => involvedPlayerIds.add(id));
     });
 
     involvedPlayerIds.forEach(pId => {
@@ -636,17 +693,12 @@ export function recalculateAndSyncDatabase(): void {
 
       const isFutsal = match.sport === "futsal" || match.league === "futsal";
       const fullDuration = isFutsal ? 40 : 90;
+      const pMemberships = membershipsByPlayer.get(String(pObj.id)) || [];
 
-      const normPName = normalizePersianString(pObj.name || "");
-      const normPId = String(pId);
+      const same = (ref: { id?: any; name?: any }, side: "home" | "away" | null) =>
+        isSamePlayer({ ...ref, side }, pObj, match, identityIndex, pMemberships);
 
-      const checkMatch = (key?: any) => {
-        if (!key) return false;
-        const normKey = normalizePersianString(String(key));
-        return normKey === normPName || normKey === normPId;
-      };
-
-      const playInfo = calculatePlayerMinutesAndPlayed(pObj, match);
+      const playInfo = calculatePlayerMinutesAndPlayed(pObj, match, identityIndex, pMemberships);
       if (!playInfo.played) {
         return;
       }
@@ -657,11 +709,8 @@ export function recalculateAndSyncDatabase(): void {
       let lRed = 0;
       let minutesPlayed = playInfo.minutes;
 
-      const lineups = match.lineups || { home: [], away: [] };
-      const homeLineup = lineups.home || [];
-      const awayLineup = lineups.away || [];
-      const lp = homeLineup.find((x: any) => checkMatch(x.id) || checkMatch(x.name)) || 
-                 awayLineup.find((x: any) => checkMatch(x.id) || checkMatch(x.name));
+      const placementForEntry = findMatchLineupPlacement(pObj, match, identityIndex, pMemberships);
+      const lp = placementForEntry.entry;
       
       if (lp) {
         lGoals = parseInt(lp.goals) || 0;
@@ -681,7 +730,7 @@ export function recalculateAndSyncDatabase(): void {
       const events = match.events || [];
       events.forEach((ev: any) => {
         if (!ev) return;
-        if (ev.playerName && checkMatch(ev.playerName)) {
+        if (ev.playerName && same({ id: ev.playerId, name: ev.playerName }, ev.team)) {
           if (ev.type === "goal" || ev.type === "penalty") {
             evGoals += 1;
           } else if (ev.type === "yellow-card") {
@@ -692,7 +741,7 @@ export function recalculateAndSyncDatabase(): void {
             evAssists += 1;
           }
         }
-        if (ev.player2Name && checkMatch(ev.player2Name)) {
+        if (ev.player2Name && same({ id: ev.player2Id, name: ev.player2Name }, ev.team)) {
           if (ev.type === "goal" || ev.type === "assist") {
             evAssists += 1;
           }
@@ -705,8 +754,8 @@ export function recalculateAndSyncDatabase(): void {
       const scorers = match.scorersList || [];
       scorers.forEach((sc: any) => {
         if (!sc) return;
-        const isScorer = checkMatch(sc.scorerName) || checkMatch(sc.scorerId) || checkMatch(sc.name);
-        const isAssistant = checkMatch(sc.assistName) || checkMatch(sc.assistId) || checkMatch(sc.assist);
+        const isScorer = same({ id: sc.scorerId, name: sc.scorerName || sc.name }, null);
+        const isAssistant = same({ id: sc.assistId, name: sc.assistName || sc.assist }, null);
 
         if (isScorer) {
           scGoals += 1;
@@ -732,34 +781,33 @@ export function recalculateAndSyncDatabase(): void {
     });
 
      matchPlayerset.forEach((pId) => {
-       const pObj = playerMap[pId];
-       if (pObj) {
-         const stats = playerStatsOnMatch[pId];
-         const isCup = match.league === "hazfi-cup";
-         const isGK = typeof pObj.position === "string" && pObj.position.includes("دروازه");
+        const pObj = playerMap[pId];
+        if (pObj) {
+          const stats = playerStatsOnMatch[pId];
+          const isCup = match.league === "hazfi-cup";
+          const isGK = typeof pObj.position === "string" && pObj.position.includes("دروازه");
+          const pMemberships = membershipsByPlayer.get(String(pObj.id)) || [];
 
-         const lineups = match.lineups || { home: [], away: [] };
-         const homeLineup = lineups.home || [];
-         const awayLineup = lineups.away || [];
-         const checkMatch = (key?: any) => {
-           if (!key) return false;
-           const normKey = normalizePersianString(String(key));
-           return normKey === normalizePersianString(pObj.name || "") || normKey === String(pObj.id);
-         };
-         const lp = homeLineup.find((x: any) => checkMatch(x.id) || checkMatch(x.name)) || 
-                    awayLineup.find((x: any) => checkMatch(x.id) || checkMatch(x.name));
-         let isHome: boolean | null = homeLineup.some((x: any) => checkMatch(x.id) || checkMatch(x.name)) ? true :
-           awayLineup.some((x: any) => checkMatch(x.id) || checkMatch(x.name)) ? false : null;
-         if (isHome === null) {
-           const sideEvent = (match.events || []).find((ev: any) => ev && (checkMatch(ev.playerName) || checkMatch(ev.player2Name)) && (ev.team === "home" || ev.team === "away"));
-           isHome = sideEvent ? sideEvent.team === "home" : null;
-         }
-         if (isHome === null) {
-           isHome = pObj.teamName === match.teamHome || pObj.teamId === match.teamHomeId;
-         }
-         const conceded = isHome ? (parseInt(String(match.scoreAway), 10) || 0) : (parseInt(String(match.scoreHome), 10) || 0);
-         const cleanSheetCount = (isGK && conceded === 0) ? 1 : 0;
-          const isMvp = match.mvpId === pObj.id || match.mvpId === pObj.name || (match.mvpId && match.mvpId.includes(pObj.name)) || false;
+          const sameSide = (ref: { id?: any; name?: any }, side: "home" | "away" | null) =>
+            isSamePlayer({ ...ref, side }, pObj, match, identityIndex, pMemberships);
+          // This player is in matchPlayerset, i.e. involved in this match, so a
+          // substitute rating counts; bench ratings without entry never reach here.
+          const placement = findMatchLineupPlacement(pObj, match, identityIndex, pMemberships);
+          const lp = placement.entry;
+          let isHome: boolean | null = placement.side === "home" ? true :
+            placement.side === "away" ? false : null;
+          if (isHome === null) {
+            const sideEvent = (match.events || []).find((ev: any) => ev && (sameSide({ id: ev.playerId, name: ev.playerName }, ev.team) || sameSide({ id: ev.player2Id, name: ev.player2Name }, ev.team)) && (ev.team === "home" || ev.team === "away"));
+            isHome = sideEvent ? sideEvent.team === "home" : null;
+          }
+          if (isHome === null) {
+            const refs = collectPlayerTeamRefs(pObj, pMemberships, match);
+            if (refs.some((r) => playerTeamMatchesSide(r, match, "home"))) isHome = true;
+            else if (refs.some((r) => playerTeamMatchesSide(r, match, "away"))) isHome = false;
+          }
+          const conceded = isHome ? (parseInt(String(match.scoreAway), 10) || 0) : (parseInt(String(match.scoreHome), 10) || 0);
+          const cleanSheetCount = (isGK && conceded === 0) ? 1 : 0;
+           const isMvp = isSamePlayer({ id: match.mvpId, name: (match as any).mvpName }, pObj, match, identityIndex, pMemberships);
           const rawRating = lp && lp.rating != null ? parseFloat(String(lp.rating)) : null;
           const hasValidRating = rawRating != null && !isNaN(rawRating) && rawRating > 0;
           const ratingVal = hasValidRating ? rawRating : null;
@@ -822,9 +870,9 @@ export function recalculateAndSyncDatabase(): void {
               time: match.time || "00:00",
               goals: stats.goals,
               assists: stats.assists,
-              minutes: stats.minutes,
-              isMvp: match.mvpId === pObj.id || match.mvpId === pObj.name || (match.mvpId && match.mvpId.includes(pObj.name))
-            });
+               minutes: stats.minutes,
+               isMvp: isSamePlayer({ id: match.mvpId, name: (match as any).mvpName }, pObj, match, identityIndex, pMemberships)
+             });
            }
         }
      });
@@ -903,7 +951,7 @@ export function recalculateAndSyncDatabase(): void {
         date: m.date,
         opponent,
         opponentLogo: opponentLogo || "👤",
-        score: toPersianDigits(scoreStr),
+        score: scoreStr,
         isHome,
         result
       };

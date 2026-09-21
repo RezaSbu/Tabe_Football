@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { StandingRow, NewsItem, MatchItem, TeamItem, PlayerItem, StatsData } from "../types";
 import { Trophy, Award, Newspaper, Calendar, BarChart3, List, ChevronLeft, Star, Flame, Zap, Target, Search, X } from "lucide-react";
-import { isTeamInDb, convertGregorianToShamsi } from "../utils";
+import { isTeamInDb, convertGregorianToShamsi, formatStatNumber } from "../utils";
 import { resolveTeam } from "../shared/teamMatch";
 import HazfiCupBracket from "./HazfiCupBracket";
 import TeamLogo from "./TeamLogo";
@@ -147,12 +147,6 @@ export default function LeagueTables({
     }
   }, [currentSeason]);
 
-  const toPersianDigits = (num: number | string): string => {
-    const numStr = String(num);
-    const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
-    return numStr.replace(/[0-9]/g, (w) => persianDigits[parseInt(w, 10)]);
-  };
-
   const getAvailableArchiveSeasons = (): string[] => {
     if (!archives || !Array.isArray(archives)) return [];
     let filtered: any[] = [];
@@ -195,7 +189,7 @@ export default function LeagueTables({
         return {
           badge: "مسابقات فوتبال کشور کشوری",
           title: "لیگ برتر فوتبال ایران",
-          desc: "بالاترین دپارتمان رسمی فوتبال حرفه‌ای ایران، میزبان ۱۶ مدعی با کلاس قهرمانی فوتبال آسیا",
+          desc: "بالاترین دپارتمان رسمی فوتبال حرفه‌ای ایران، میزبان 16 مدعی با کلاس قهرمانی فوتبال آسیا",
           colorTheme: "red",
           btnColor: "bg-red-650 hover:bg-red-500 text-white",
           activeBtn: "bg-red-600 text-white",
@@ -207,7 +201,7 @@ export default function LeagueTables({
         return {
           badge: "مسابقات فوتبال کشور کشوری",
           title: "لیگ یک فوتبال ایران",
-          desc: "بالاترین دپارتمان رسمی فوتبال حرفه‌ای ایران، میزبان ۱۸ مدعی با کلاس هیجان صعود فوتبال آسیا",
+          desc: "بالاترین دپارتمان رسمی فوتبال حرفه‌ای ایران، میزبان 18 مدعی با کلاس هیجان صعود فوتبال آسیا",
           colorTheme: "red",
           btnColor: "bg-red-650 hover:bg-red-500 text-white",
           activeBtn: "bg-red-600 text-white",
@@ -219,7 +213,7 @@ export default function LeagueTables({
         return {
           badge: "مسابقات فوتبال کشور کشوری",
           title: "لیگ دو فوتبال ایران",
-          desc: "بالاترین دپارتمان رسمی فوتبال حرفه‌ای ایران، میزبان ۲۸ مدعی با کلاس تقابل صعود فوتبال آسیا",
+          desc: "بالاترین دپارتمان رسمی فوتبال حرفه‌ای ایران، میزبان 28 مدعی با کلاس تقابل صعود فوتبال آسیا",
           colorTheme: "red",
           btnColor: "bg-red-650 hover:bg-red-500 text-white",
           activeBtn: "bg-red-600 text-white",
@@ -359,7 +353,7 @@ export default function LeagueTables({
     const isTagged = n.tags?.some(t => {
       if (leagueKey === "pro-league") return t.includes("لیگ برتر") || t.includes("پرسپولیس") || t.includes("استقلال") || t.includes("سپاهان") || t.includes("تراکتور");
       if (leagueKey === "league-1") return t.includes("لیگ یک") || t.includes("آزادگان") || t.includes("خیبر");
-      if (leagueKey === "league-2") return t.includes("لیگ دو") || t.includes("لیگ ۲");
+      if (leagueKey === "league-2") return t.includes("لیگ دو") || t.includes("لیگ 2");
       if (leagueKey === "hazfi-cup") return t.includes("حذفی") || t.includes("جام حذفی");
       return false;
     });
@@ -472,10 +466,10 @@ export default function LeagueTables({
                   onChange={(e) => setSelectedSeason(e.target.value)}
                   className="bg-transparent focus:outline-none text-white font-extrabold cursor-pointer pr-1"
                 >
-                  <option value={currentSeason} className="bg-slate-900 text-white">فصل جاری ({toPersianDigits(currentSeason)})</option>
+                  <option value={currentSeason} className="bg-slate-900 text-white">فصل جاری ({formatStatNumber(currentSeason)})</option>
                   {getDeduplicatedSeasons().map((season) => (
                     <option key={season} value={season} className="bg-slate-900 text-white">
-                      فصل {toPersianDigits(season)}
+                      فصل {formatStatNumber(season)}
                     </option>
                   ))}
                 </select>
@@ -573,7 +567,7 @@ export default function LeagueTables({
                       activeL2Group === "league-2-group-a" ? "bg-teal-900/60 text-teal-400 border border-teal-950" : "text-gray-400 hover:text-white"
                     }`}
                   >
-                    گروه الف (۱۴ مدعی)
+                    گروه الف (14 مدعی)
                   </button>
                   <button
                     onClick={() => setActiveL2Group("league-2-group-b")}
@@ -581,7 +575,7 @@ export default function LeagueTables({
                       activeL2Group === "league-2-group-b" ? "bg-teal-900/60 text-teal-400 border border-teal-950" : "text-gray-400 hover:text-white"
                     }`}
                   >
-                    گروه ب (۱۴ مدعی)
+                    گروه ب (14 مدعی)
                   </button>
                 </div>
               )}
@@ -723,7 +717,7 @@ export default function LeagueTables({
                 >
                   <option value="">همه هفته‌ها</option>
                   {availableWeeks.map((w) => (
-                    <option key={w} value={w}>هفته {toPersianDigits(w)}</option>
+                    <option key={w} value={w}>هفته {formatStatNumber(w)}</option>
                   ))}
                 </select>
               </div>

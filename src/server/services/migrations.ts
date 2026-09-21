@@ -119,7 +119,7 @@ export function runDatabaseMigrationsAndTransitions(parsed: any): { parsed: any;
             if (!alreadyFinished) {
               parsed[finishedKey].push({ ...m });
             }
-            logMessage("info", "database", `پایان خودکار: بازی ${m.teamHome} - ${m.teamAway} به دلیل سپری شدن بیش از ۳ ساعت از زمان آغاز، با تگ "اعمال نشده" بایگانی شد.`);
+            logMessage("info", "database", `پایان خودکار: بازی ${m.teamHome} - ${m.teamAway} به دلیل سپری شدن بیش از 3 ساعت از زمان آغاز، با تگ "اعمال نشده" بایگانی شد.`);
             changed = true;
           } else if (elapsedMs >= 0) {
             if (m.status !== "live") {
@@ -165,7 +165,7 @@ export function runDatabaseMigrationsAndTransitions(parsed: any): { parsed: any;
             fMatch.isAutoFinished = true;
           }
 
-          logMessage("info", "database", `پایان خودکار (از جدول جریان): بازی ${m.teamHome} - ${m.teamAway} به دلیل سپری شدن بیش از ۳ ساعت، با تگ "اعمال نشده" خاتمه یافت.`);
+          logMessage("info", "database", `پایان خودکار (از جدول جریان): بازی ${m.teamHome} - ${m.teamAway} به دلیل سپری شدن بیش از 3 ساعت، با تگ "اعمال نشده" خاتمه یافت.`);
           changed = true;
           return false;
         }

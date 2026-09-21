@@ -11,7 +11,7 @@ interface StatsPageProps {
   selectedLeagueFilterOnStats: string;
   setSelectedLeagueFilterOnStats: (s: string) => void;
   currentSeason: string;
-  toPersianDigits: (s: string) => string;
+  formatStatNumber: (s: string) => string;
 }
 
 const VISIBLE_DEFAULT = 10;
@@ -144,7 +144,7 @@ export default function StatsPage({
   selectedLeagueFilterOnStats,
   setSelectedLeagueFilterOnStats,
   currentSeason,
-  toPersianDigits,
+  formatStatNumber,
 }: StatsPageProps) {
   const navigate = useNavigate();
   const availableSeasons = (archives || [])
@@ -197,7 +197,7 @@ export default function StatsPage({
             className="bg-transparent focus:outline-none text-white font-extrabold cursor-pointer pr-1"
           >
             <option value={currentSeason} className="bg-slate-900 text-white">
-              فصل جاری ({toPersianDigits(currentSeason)})
+              فصل جاری ({formatStatNumber(currentSeason)})
             </option>
             {uniqueSeasons.map((season) => (
               <option
@@ -205,7 +205,7 @@ export default function StatsPage({
                 value={season}
                 className="bg-slate-900 text-white"
               >
-                فصل {toPersianDigits(season)}
+                فصل {formatStatNumber(season)}
               </option>
             ))}
           </select>
@@ -274,7 +274,7 @@ export default function StatsPage({
             icon={<Star className="h-5 w-5 text-emerald-400" />}
             valueColor="text-emerald-400"
             items={(activeStatsData.ratings || []).filter((p: any) => p.rating > 0)}
-            valueRenderer={(p: any) => `${toPersianDigits(Number(p.rating).toFixed(1))}`}
+            valueRenderer={(p: any) => `${formatStatNumber(Number(p.rating).toFixed(1))}`}
             onSelectPlayer={(id) => navigate(`/player/${id}`)}
           />
         </div>

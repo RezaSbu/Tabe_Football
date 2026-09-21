@@ -133,7 +133,7 @@ export function registerMediaRoutes(app: Express) {
       const originalSize = buffer.length;
 
       if (originalSize > MAX_FILE_BYTES) {
-        return res.status(400).json({ success: false, message: "حجم فایل بیش از حد مجاز است (حداکثر ۸ مگابایت)." });
+        return res.status(400).json({ success: false, message: "حجم فایل بیش از حد مجاز است (حداکثر 8 مگابایت)." });
       }
 
       const validationError = validateUploadedFile(fileName, buffer);
@@ -229,7 +229,7 @@ export function registerMediaRoutes(app: Express) {
         const originalSize = buffer.length;
 
         if (originalSize > MAX_FILE_BYTES) {
-          errors.push({ fileName, error: "حجم فایل بیش از حد مجاز است (حداکثر ۸ مگابایت)." });
+          errors.push({ fileName, error: "حجم فایل بیش از حد مجاز است (حداکثر 8 مگابایت)." });
           continue;
         }
 

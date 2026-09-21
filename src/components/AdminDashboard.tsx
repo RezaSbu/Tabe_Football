@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { MatchItem, StandingRow, PlayerItem, TeamItem } from "../types";
 import { normalizePersianString } from "../utils";
+import { buildPlayerIdentityIndex, isSamePlayer } from "../shared/playerIdentity";
 
 interface AdminDashboardProps {
   matches: MatchItem[];
@@ -69,6 +70,7 @@ export default function AdminDashboard({
   const runSyncScanner = () => {
     setIsScanning(true);
     const found: Discrepancy[] = [];
+    const identityIndex = buildPlayerIdentityIndex(players);
 
     // 1. Standings Scanner
     const leagues = ["pro-league", "league-1", "league-2-group-a", "league-2-group-b", "futsal"];
@@ -184,27 +186,25 @@ export default function AdminDashboard({
           }
         }
 
-        const matchNames = (name1?: string, name2?: string) => {
-          if (!name1 || !name2) return false;
-          return normalizePersianString(name1) === normalizePersianString(name2);
-        };
+        const diagSame = (ref: { id?: any; name?: any }, side: "home" | "away" | null) =>
+          isSamePlayer({ ...ref, side }, p, m, identityIndex, []);
 
         // Count goals and assists from events or scorersList
         if (m.events && m.events.length > 0) {
           m.events.forEach((ev: any) => {
             if (!ev) return;
             if (ev.type === "goal" || ev.type === "penalty") {
-              if (matchNames(ev.playerName, p.name)) {
+              if (diagSame({ id: ev.playerId, name: ev.playerName }, ev.team)) {
                 compGoals += 1;
               }
-              if (matchNames(ev.player2Name, p.name)) {
+              if (diagSame({ id: ev.player2Id, name: ev.player2Name }, ev.team)) {
                 compAssists += 1;
               }
             } else if (ev.type === "assist") {
-              if (matchNames(ev.playerName, p.name) && !ev.player2Name) {
+              if (diagSame({ id: ev.playerId, name: ev.playerName }, ev.team) && !ev.player2Name) {
                 compAssists += 1;
               }
-              if (matchNames(ev.player2Name, p.name)) {
+              if (diagSame({ id: ev.player2Id, name: ev.player2Name }, ev.team)) {
                 compAssists += 1;
               }
             }
@@ -214,17 +214,17 @@ export default function AdminDashboard({
         const scorers = m.scorersList || [];
         scorers.forEach((sc: any) => {
           if (!sc) return;
-          const isScorer = matchNames(sc.scorerName, p.name) || matchNames(sc.scorerId, p.id) || matchNames(sc.name, p.name);
-          const isAssistant = matchNames(sc.assistName, p.name) || matchNames(sc.assistId, p.id) || matchNames(sc.assist, p.name);
+          const isScorer = diagSame({ id: sc.scorerId, name: sc.scorerName || sc.name }, null);
+          const isAssistant = diagSame({ id: sc.assistId, name: sc.assistName || sc.assist }, null);
 
           if (isScorer) {
-            const hasScoringEvent = m.events && m.events.some((ev: any) => ev && (ev.type === "goal" || ev.type === "penalty") && matchNames(ev.playerName, p.name));
+            const hasScoringEvent = m.events && m.events.some((ev: any) => ev && (ev.type === "goal" || ev.type === "penalty") && diagSame({ id: ev.playerId, name: ev.playerName }, ev.team));
             if (!hasScoringEvent) {
               compGoals += 1;
             }
           }
           if (isAssistant) {
-            const hasAssistingEvent = m.events && m.events.some((ev: any) => ev && (ev.type === "goal" || ev.type === "assist") && (matchNames(ev.player2Name, p.name) || matchNames(ev.playerName, p.name)));
+            const hasAssistingEvent = m.events && m.events.some((ev: any) => ev && (ev.type === "goal" || ev.type === "assist") && (diagSame({ id: ev.player2Id, name: ev.player2Name }, ev.team) || diagSame({ id: ev.playerId, name: ev.playerName }, ev.team)));
             if (!hasAssistingEvent) {
               compAssists += 1;
             }
@@ -269,6 +269,7 @@ export default function AdminDashboard({
     if (discrepancies.length === 0) return;
     setIsResolverRunning(true);
     setHealStatus("در حال همگام‌سازی و بازگردانی هماهنگی جداول...");
+    const identityIndex = buildPlayerIdentityIndex(players);
 
     try {
       // Group standings updates by league
@@ -376,27 +377,25 @@ export default function AdminDashboard({
               }
             }
 
-            const matchNames = (name1?: string, name2?: string) => {
-              if (!name1 || !name2) return false;
-              return normalizePersianString(name1) === normalizePersianString(name2);
-            };
+            const healSame = (ref: { id?: any; name?: any }, side: "home" | "away" | null) =>
+              isSamePlayer({ ...ref, side }, player, m, identityIndex, []);
 
             // Count goals and assists from events or scorersList
             if (m.events && m.events.length > 0) {
               m.events.forEach((ev: any) => {
                 if (!ev) return;
                 if (ev.type === "goal" || ev.type === "penalty") {
-                  if (matchNames(ev.playerName, player.name)) {
+                  if (healSame({ id: ev.playerId, name: ev.playerName }, ev.team)) {
                     calculatedGoals += 1;
                   }
-                  if (matchNames(ev.player2Name, player.name)) {
+                  if (healSame({ id: ev.player2Id, name: ev.player2Name }, ev.team)) {
                     calculatedAssists += 1;
                   }
                 } else if (ev.type === "assist") {
-                  if (matchNames(ev.playerName, player.name) && !ev.player2Name) {
+                  if (healSame({ id: ev.playerId, name: ev.playerName }, ev.team) && !ev.player2Name) {
                     calculatedAssists += 1;
                   }
-                  if (matchNames(ev.player2Name, player.name)) {
+                  if (healSame({ id: ev.player2Id, name: ev.player2Name }, ev.team)) {
                     calculatedAssists += 1;
                   }
                 }
@@ -406,17 +405,17 @@ export default function AdminDashboard({
             const scorers = m.scorersList || [];
             scorers.forEach((sc: any) => {
               if (!sc) return;
-              const isScorer = matchNames(sc.scorerName, player.name) || matchNames(sc.scorerId, player.id) || matchNames(sc.name, player.name);
-              const isAssistant = matchNames(sc.assistName, player.name) || matchNames(sc.assistId, player.id) || matchNames(sc.assist, player.name);
+              const isScorer = healSame({ id: sc.scorerId, name: sc.scorerName || sc.name }, null);
+              const isAssistant = healSame({ id: sc.assistId, name: sc.assistName || sc.assist }, null);
 
               if (isScorer) {
-                const hasScoringEvent = m.events && m.events.some((ev: any) => ev && (ev.type === "goal" || ev.type === "penalty") && matchNames(ev.playerName, player.name));
+                const hasScoringEvent = m.events && m.events.some((ev: any) => ev && (ev.type === "goal" || ev.type === "penalty") && healSame({ id: ev.playerId, name: ev.playerName }, ev.team));
                 if (!hasScoringEvent) {
                   calculatedGoals += 1;
                 }
               }
               if (isAssistant) {
-                const hasAssistingEvent = m.events && m.events.some((ev: any) => ev && (ev.type === "goal" || ev.type === "assist") && (matchNames(ev.player2Name, player.name) || matchNames(ev.playerName, player.name)));
+                const hasAssistingEvent = m.events && m.events.some((ev: any) => ev && (ev.type === "goal" || ev.type === "assist") && (healSame({ id: ev.player2Id, name: ev.player2Name }, ev.team) || healSame({ id: ev.playerId, name: ev.playerName }, ev.team)));
                 if (!hasAssistingEvent) {
                   calculatedAssists += 1;
                 }
@@ -570,7 +569,7 @@ export default function AdminDashboard({
               <div className="flex items-center gap-3">
                 <CheckCircle className="h-8 w-8 text-emerald-400" />
                 <div>
-                  <h4 className="font-extrabold text-sm text-white">تطبیق دیتابیس در تراز ۱۰۰٪ است</h4>
+                  <h4 className="font-extrabold text-sm text-white">تطبیق دیتابیس در تراز 100٪ است</h4>
                   <p className="text-[10px] text-slate-400 mt-1">تمام مسابقات تمام‌شده، کارت‌ها و گل‌ها کاملاً با جداول رده‌بندی و پروفایل‌های بازیکنان یکپارچه و فاقد تناقض هستند.</p>
                 </div>
               </div>

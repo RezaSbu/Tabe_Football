@@ -2,7 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ImageItem, GalleryPhoto } from "../types";
 import { Camera, Search, Eye, Tag, User, Clock, Images } from "lucide-react";
-import { getSafeImageUrl, getTimeAgoPersian, toPersianDigits } from "../utils";
+import { getSafeImageUrl, getTimeAgoPersian, formatStatNumber } from "../utils";
 
 interface PhotoGalleryProps {
   images: ImageItem[];
@@ -153,13 +153,13 @@ export default function PhotoGallery({ images, initialSearchTag = "" }: PhotoGal
                   {/* Photo count badge */}
                   <span className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-black/70 backdrop-blur border border-white/10 px-2 py-1 text-[9px] font-bold text-white">
                     <Images className="h-3 w-3 text-emerald-400" />
-                    {toPersianDigits(photos.length)} عکس
+                    {formatStatNumber(photos.length)} عکس
                   </span>
 
                   {/* View badge */}
                   <span className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-black/70 backdrop-blur border border-white/10 px-2 py-1 text-[9px] font-bold text-white">
                     <Eye className="h-3 w-3 text-emerald-400" />
-                    {viewCount.toLocaleString("fa-IR")}
+                    {formatStatNumber(viewCount)}
                   </span>
                 </div>
 
