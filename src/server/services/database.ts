@@ -9,6 +9,62 @@ import { markDataSync } from "./monitoring";
 
 let constraintsMigrated = false;
 
+// Dirty-table tracking for differential saveDB: routes mark which collections
+// actually changed, so one-match writes don't rewrite the whole database.
+export type DirtyTable =
+  | "news" | "teams" | "players" | "coaches" | "matches" | "transfers"
+  | "legionnaires" | "images" | "standings" | "stats" | "teamTransfersList"
+  | "ads" | "bracket" | "heroSlides" | "selectedCombinations" | "systemInfo"
+  | "submissions" | "mediaFiles" | "archives";
+
+const dirtyTables = new Set<DirtyTable | "all">(["all"]);
+
+export function markTablesDirty(...tables: Array<DirtyTable | "all">): void {
+  for (const t of tables) dirtyTables.add(t);
+}
+
+function consumeDirty(all: boolean): Set<DirtyTable | "all"> {
+  const out = new Set(dirtyTables);
+  dirtyTables.clear();
+  dirtyTables.add("all");
+  void all;
+  return out;
+}
+
+function isDirty(dirty: Set<DirtyTable | "all">, table: DirtyTable): boolean {
+  return dirty.has("all") || dirty.has(table);
+}
+
+// Recalc is only needed when finished-match data changed. Structural writes
+// (future games, news, media, ads...) skip the ~46s full recompute.
+// skipRecalc=true is a caller assertion; the helper double-checks nothing
+// finished was touched when the flag is absent.
+export function matchTouchesFinishedStats(before: any, after: any): boolean {
+  const b = before || {};
+  const a = after || {};
+  if (b.status === "finished" || a.status === "finished") return true;
+  if ((b.archived_stats || a.archived_stats) && (b.status === "finished" || a.status === "finished")) return true;
+  const keys = ["scoreHome", "scoreAway", "scorersList", "events", "lineups", "league", "teamHomeId", "teamAwayId", "teamHome", "teamAway", "date", "isAutoFinished"];
+  return keys.some((k) => JSON.stringify(b[k]) !== JSON.stringify(a[k]));
+}
+
+// Shirt numbers were removed from the data model: strip the legacy `number`
+// key from lineup entries before persisting so it can never come back.
+function stripShirtNumbersFromLineups(lineups: any): any {
+  if (!lineups || typeof lineups !== "object") return lineups;
+  const clean: any = { ...lineups };
+  for (const key of ["home", "away", "homeSubs", "awaySubs"]) {
+    if (Array.isArray(clean[key])) {
+      clean[key] = clean[key].map((lp: any) => {
+        if (!lp || typeof lp !== "object") return lp;
+        const { number, ...rest } = lp;
+        return rest;
+      });
+    }
+  }
+  return clean;
+}
+
 export async function migrateConstraints(): Promise<void> {
   if (constraintsMigrated) return;
   try {
@@ -121,9 +177,81 @@ export async function migrateNewsGalleryColumns(): Promise<void> {
   }
 }
 
-export async function migrateReadMoreContent2(): Promise<void> {
+export async function migrateNewsArchiveIndexes(): Promise<void> {
+  // Supports the server-side paginated archive (GET /api/news): newest-first
+  // ordering plus category filtering. Idempotent; safe to run on every boot.
   try {
     const { pool } = await import("../db");
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_news_created_at ON public.news(created_at DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_news_category ON public.news(category)`);
+    logMessage("info", "database", "ایندکس‌های created_at و category جدول اخبار اعمال شد.");
+  } catch (err: any) {
+    logMessage("warn", "database", "خطا در مهاجرت ایندکس‌های اخبار:", err.message || err);
+  }
+}
+
+export async function migrateDropShirtNumberColumn(): Promise<void> {
+  // Shirt numbers were removed from the data model (players + lineups).
+  // Drops players.shirt_number for real and strips the legacy `number` key
+  // from every lineup entry in matches.lineups. Runs once via guard.
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, applied_at TIMESTAMPTZ DEFAULT NOW())`);
+    const { rows } = await pool.query(`SELECT 1 FROM schema_migrations WHERE name = 'drop_shirt_number_v1'`);
+    if (rows.length > 0) return;
+    await pool.query(`ALTER TABLE players DROP COLUMN IF EXISTS shirt_number`);
+    await pool.query(`
+      UPDATE matches
+      SET lineups = (
+        SELECT jsonb_object_agg(
+          key,
+          CASE WHEN key IN ('home', 'away', 'homeSubs', 'awaySubs') AND jsonb_typeof(value) = 'array'
+            THEN (SELECT coalesce(jsonb_agg(elem - 'number'), '[]'::jsonb) FROM jsonb_array_elements(value) elem)
+            ELSE value END
+        )
+        FROM jsonb_each(COALESCE(lineups, '{}'::jsonb))
+      )
+      WHERE lineups IS NOT NULL
+    `);
+    await pool.query(`INSERT INTO schema_migrations (name) VALUES ('drop_shirt_number_v1')`);
+    logMessage("info", "database", "ستون shirt_number حذف و کلید number از ترکیب‌ها پاکسازی شد.");
+  } catch (err: any) {
+    logMessage("warn", "database", "خطا در حذف ستون shirt_number:", err.message || err);
+  }
+}
+
+// Phase-4 perf: add missing indexes for common query patterns.
+export async function migrateMissingIndexes(): Promise<void> {
+  try {
+    const { pool } = await import("../db");
+    // visits page-based analytics queries
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_visits_page ON public.visits(page) WHERE page IS NOT NULL AND page <> ''`);
+    // archive composite lookup (type + season_tag)
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_archive_type_season ON public.archive(type, season_tag)`);
+    // submissions chronological listing in admin
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_submissions_created_at ON public.submissions(created_at DESC)`);
+    // media_files ordering
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_media_files_created_at ON public.media_files(created_at DESC)`);
+    // audit_logs action filtering
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON public.audit_logs(action)`);
+    // matches composite (status + league) for admin list endpoint
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_matches_status_league ON public.matches(status, league)`);
+    // players search on name
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_players_name_trgm ON public.players USING gin(name gin_trgm_ops)`);
+  } catch (err: any) {
+    // gin_trgm_ops may not be available on some PG installs; catch gracefully
+    logMessage("warn", "database", "خطا در اعمال ایندکس‌های بهینه:", err.message || err);
+  }
+}
+
+export async function migrateReadMoreContent2(): Promise<void> {
+  // One-time backfill: after the first run every row already has content2,
+  // so skip the full-table UPDATE on every boot.
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, applied_at TIMESTAMPTZ DEFAULT NOW())`);
+    const { rows } = await pool.query(`SELECT 1 FROM schema_migrations WHERE name = 'readmore_content2_v1'`);
+    if (rows.length > 0) return;
     await pool.query(`
       UPDATE news
       SET read_more = CASE
@@ -132,7 +260,11 @@ export async function migrateReadMoreContent2(): Promise<void> {
           THEN read_more || jsonb_build_object('content2', COALESCE(read_more->>'content2', ''))
         ELSE read_more
       END
+      WHERE read_more IS NOT NULL
+        AND jsonb_typeof(read_more) = 'object'
+        AND NOT (read_more ? 'content2')
     `);
+    await pool.query(`INSERT INTO schema_migrations (name) VALUES ('readmore_content2_v1')`);
     logMessage("info", "database", "مهاجرت فیلد content2 (متن پایین ادامه مطلب) اخبار اعمال شد.");
   } catch (err: any) {
     logMessage("warn", "database", "خطا در مهاجرت content2 ادامه مطلب:", err.message || err);
@@ -380,9 +512,7 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
           age: p.age || null,
           nationality: p.nationality || null,
           foot: p.foot || null,
-          height: p.height || null,
-          number: p.shirt_number || null,
-          shirt_number: p.shirt_number || null
+          height: p.height || null
         };
       });
     }
@@ -726,10 +856,15 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
   }
 }
 
-export async function saveDB(): Promise<void> {
+export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<DirtyTable | "all"> }): Promise<void> {
   return dbLock.acquire(async () => {
   const data = loadDB();
   try {
+    const dirty = consumeDirty(false);
+    if (options && options.tables) {
+      for (const t of options.tables) dirty.add(t);
+    }
+    const need = (t: DirtyTable) => isDirty(dirty, t);
     const allStagedMatches: any[] = [];
     const sports = ["football", "futsal"];
     const stages = ["Feature_Games", "Now_Games", "Finished_Games"];
@@ -758,11 +893,15 @@ export async function saveDB(): Promise<void> {
     data.matches = Array.from(matchIdMap.values());
 
     runDatabaseMigrationsAndTransitions(data);
-    recalculateAndSyncDatabase();
+    if (options && options.skipRecalc) {
+      logMessage("info", "database", "saveDB بدون بازمحاسبه آمار (تغییر غیر finished).");
+    } else {
+      recalculateAndSyncDatabase();
+    }
 
     const promises: any[] = [];
 
-    if (data.news && data.news.length > 0) {
+    if (need("news") && data.news && data.news.length > 0) {
       const formattedNews = data.news.map((n: any) => ({
         id: n.id,
         title: n.title,
@@ -780,13 +919,13 @@ export async function saveDB(): Promise<void> {
       
       const newsIds = data.news.map((x: any) => x.id);
       promises.push(pgDb.from('news').delete().not('id', 'in', `(${newsIds.join(',')})`));
-    } else if (data.news) {
+    } else if (need("news") && data.news) {
       promises.push(pgDb.from('news').delete().neq('id', ''));
     }
 
     const teamIdSet = new Set<string>((data.teams || []).map((t: any) => t.id));
 
-    if (data.teams && data.teams.length > 0) {
+    if (need("teams") && data.teams && data.teams.length > 0) {
       const formattedTeams = data.teams.map((t: any) => {
         const stats = {
           ...(t.stats || {}),
@@ -821,11 +960,11 @@ export async function saveDB(): Promise<void> {
 
       const teamIds = data.teams.map((x: any) => x.id);
       promises.push(pgDb.from('teams').delete().not('id', 'in', `(${teamIds.join(',')})`));
-    } else if (data.teams) {
+    } else if (need("teams") && data.teams) {
       promises.push(pgDb.from('teams').delete().neq('id', ''));
     }
 
-    if (data.players && data.players.length > 0) {
+    if (need("players") && data.players && data.players.length > 0) {
       const formattedPlayers = data.players.map((p: any) => ({
         id: p.id,
         name: p.name,
@@ -851,18 +990,17 @@ export async function saveDB(): Promise<void> {
         age: p.age || null,
         nationality: p.nationality || null,
         foot: p.foot || null,
-        height: p.height || null,
-        shirt_number: p.shirt_number ? parseInt(String(p.shirt_number)) || null : (p.number ? parseInt(String(p.number)) || null : null)
+        height: p.height || null
       }));
       promises.push(pgDb.from('players').upsert(formattedPlayers));
 
       const playerIds = data.players.map((x: any) => x.id);
       promises.push(pgDb.from('players').delete().not('id', 'in', `(${playerIds.join(',')})`));
-    } else if (data.players) {
+    } else if (need("players") && data.players) {
       promises.push(pgDb.from('players').delete().neq('id', ''));
     }
 
-    if (data.coaches && data.coaches.length > 0) {
+    if (need("coaches") && data.coaches && data.coaches.length > 0) {
       const formattedCoaches = data.coaches.map((c: any) => ({
         id: c.id,
         name: c.name,
@@ -891,11 +1029,11 @@ export async function saveDB(): Promise<void> {
 
       const coachIds = data.coaches.map((x: any) => x.id);
       promises.push(pgDb.from('coaches').delete().not('id', 'in', `(${coachIds.join(',')})`));
-    } else if (data.coaches) {
+    } else if (need("coaches") && data.coaches) {
       promises.push(pgDb.from('coaches').delete().neq('id', ''));
     }
 
-    if (data.matches && data.matches.length > 0) {
+    if (need("matches") && data.matches && data.matches.length > 0) {
       const formattedMatches = data.matches.map((m: any) => {
         const isFutsal = m.league === "futsal" || m.sport === "futsal";
         const sport = m.sport || (isFutsal ? "futsal" : "football");
@@ -923,7 +1061,7 @@ export async function saveDB(): Promise<void> {
           stage: stage,
           tag: m.tag || null,
           is_auto_finished: m.isAutoFinished || false,
-          lineups: m.lineups,
+          lineups: stripShirtNumbersFromLineups(m.lineups),
           events: m.events,
           scorers_list: m.scorersList,
           team_stats: m.teamStats,
@@ -939,7 +1077,7 @@ export async function saveDB(): Promise<void> {
       promises.push(pgDb.from('matches').delete().neq('id', ''));
     }
 
-    if (data.transfers && data.transfers.length > 0) {
+    if (need("transfers") && data.transfers && data.transfers.length > 0) {
       const formattedTransfers = data.transfers.map((t: any) => ({
         id: t.id,
         player_name: t.playerName,
@@ -960,11 +1098,11 @@ export async function saveDB(): Promise<void> {
 
       const transferIds = data.transfers.map((x: any) => x.id);
       promises.push(pgDb.from('transfers').delete().not('id', 'in', `(${transferIds.join(',')})`));
-    } else if (data.transfers) {
+    } else if (need("transfers") && data.transfers) {
       promises.push(pgDb.from('transfers').delete().neq('id', ''));
     }
 
-    if (data.legionnaires && data.legionnaires.length > 0) {
+    if (need("legionnaires") && data.legionnaires && data.legionnaires.length > 0) {
       const formattedLegionnaires = data.legionnaires.map((l: any) => ({
         id: l.id,
         name: l.name,
@@ -983,11 +1121,11 @@ export async function saveDB(): Promise<void> {
 
       const legionId = data.legionnaires.map((x: any) => x.id);
       promises.push(pgDb.from('legionnaires').delete().not('id', 'in', `(${legionId.join(',')})`));
-    } else if (data.legionnaires) {
+    } else if (need("legionnaires") && data.legionnaires) {
       promises.push(pgDb.from('legionnaires').delete().neq('id', ''));
     }
 
-    if (data.images && data.images.length > 0) {
+    if (need("images") && data.images && data.images.length > 0) {
       const formattedImages = data.images.map((img: any) => ({
         id: img.id,
         url: img.url,
@@ -1004,23 +1142,23 @@ export async function saveDB(): Promise<void> {
 
       const imgIds = data.images.map((x: any) => x.id);
       promises.push(pgDb.from('images').delete().not('id', 'in', `(${imgIds.join(',')})`));
-    } else if (data.images) {
+    } else if (need("images") && data.images) {
       promises.push(pgDb.from('images').delete().neq('id', ''));
     }
 
-    if (data.standings) {
+    if (need("standings") && data.standings) {
       for (const [key, val] of Object.entries(data.standings)) {
         promises.push(pgDb.from('standings').upsert({ league_key: key, rows: val }));
       }
     }
 
-    if (data.stats) {
+    if (need("stats") && data.stats) {
       for (const [key, val] of Object.entries(data.stats)) {
         promises.push(pgDb.from('stats').upsert({ league_key: key, data: val }));
       }
     }
 
-    if (data.teamTransfersList && data.teamTransfersList.length > 0) {
+    if (need("teamTransfersList") && data.teamTransfersList && data.teamTransfersList.length > 0) {
       const formattedTeamTransfers = data.teamTransfersList.map((t: any) => ({
         id: t.id,
         team_name: t.teamName,
@@ -1048,7 +1186,7 @@ export async function saveDB(): Promise<void> {
           .not('id', 'in', `(${ttIds.join(',')})`)
           .then(res => res)
       );
-    } else if (data.teamTransfersList) {
+    } else if (need("teamTransfersList") && data.teamTransfersList) {
       promises.push(
         pgDb.from('team_transfers_list')
           .delete()
@@ -1057,7 +1195,7 @@ export async function saveDB(): Promise<void> {
       );
     }
 
-    if (data.ads && data.ads.length > 0) {
+    if (need("ads") && data.ads && data.ads.length > 0) {
       const formattedAds = data.ads.map((a: any) => ({
         id: a.id,
         type: a.type || 'slot',
@@ -1083,11 +1221,11 @@ export async function saveDB(): Promise<void> {
 
       const adIds = data.ads.map((x: any) => x.id);
       promises.push(pgDb.from('ads').delete().not('id', 'in', `(${adIds.join(',')})`));
-    } else if (data.ads) {
+    } else if (need("ads") && data.ads) {
       promises.push(pgDb.from('ads').delete().neq('id', ''));
     }
 
-    if (data.bracket) {
+    if (need("bracket") && data.bracket) {
       promises.push(pgDb.from('bracket').upsert({ id: 'main', data: data.bracket }));
 
       const slots: any[] = [];
@@ -1145,7 +1283,7 @@ export async function saveDB(): Promise<void> {
       (global as any).__pendingBracketSlots = slots;
     }
 
-    if (data.heroSlides && data.heroSlides.length > 0) {
+    if (need("heroSlides") && data.heroSlides && data.heroSlides.length > 0) {
       const formattedSlides = data.heroSlides.map((slide: any) => ({
         id: slide.id,
         image: slide.image,
@@ -1161,11 +1299,11 @@ export async function saveDB(): Promise<void> {
 
       const slideIds = data.heroSlides.map((x: any) => x.id);
       promises.push(pgDb.from('hero_slides').delete().not('id', 'in', `(${slideIds.join(',')})`));
-    } else if (data.heroSlides) {
+    } else if (need("heroSlides") && data.heroSlides) {
       promises.push(pgDb.from('hero_slides').delete().neq('id', ''));
     }
 
-    if (data.selectedCombinations && data.selectedCombinations.length > 0) {
+    if (need("selectedCombinations") && data.selectedCombinations && data.selectedCombinations.length > 0) {
       const formattedSC = data.selectedCombinations.map((sc: any) => {
         let posObj = sc.positions || {};
         if (typeof posObj === "string" && posObj.trim() !== "") {
@@ -1205,19 +1343,19 @@ export async function saveDB(): Promise<void> {
 
       const scIds = data.selectedCombinations.map((x: any) => x.id);
       promises.push(pgDb.from('selected_combinations').delete().not('id', 'in', `(${scIds.join(',')})`));
-    } else if (data.selectedCombinations) {
+    } else if (need("selectedCombinations") && data.selectedCombinations) {
       promises.push(pgDb.from('selected_combinations').delete().neq('id', ''));
     }
 
-    if (data.lastScraped) {
+    if (need("systemInfo") && data.lastScraped) {
       promises.push(pgDb.from('system_info').upsert({ key: 'lastScraped', value: data.lastScraped }));
     }
 
-    if (data.currentSeason) {
+    if (need("systemInfo") && data.currentSeason) {
       promises.push(pgDb.from('system_info').upsert({ key: 'currentSeason', value: data.currentSeason }));
     }
 
-    if (data.submissions && data.submissions.length > 0) {
+    if (need("submissions") && data.submissions && data.submissions.length > 0) {
       const formattedSubs = data.submissions.map((sub: any) => ({
         id: sub.id,
         name: sub.name,
@@ -1231,11 +1369,11 @@ export async function saveDB(): Promise<void> {
 
       const subIds = data.submissions.map((x: any) => x.id);
       promises.push(pgDb.from('submissions').delete().not('id', 'in', `(${subIds.join(',')})`));
-    } else if (data.submissions) {
+    } else if (need("submissions") && data.submissions) {
       promises.push(pgDb.from('submissions').delete().neq('id', ''));
     }
 
-    if (data.media_files && data.media_files.length > 0) {
+    if (need("mediaFiles") && data.media_files && data.media_files.length > 0) {
       const formattedMedia = data.media_files.map((mf: any) => ({
         id: mf.id,
         title: mf.title || null,
@@ -1268,7 +1406,7 @@ export async function saveDB(): Promise<void> {
             .not('id', 'in', `(${mfIds.join(',')})`)
         ).catch(e => null)
       );
-    } else if (data.media_files) {
+    } else if (need("mediaFiles") && data.media_files) {
       promises.push(
         Promise.resolve(
           pgDb.from('media_files')
@@ -1278,7 +1416,7 @@ export async function saveDB(): Promise<void> {
       );
     }
 
-    if (data.archives && data.archives.length > 0) {
+    if (need("archives") && data.archives && data.archives.length > 0) {
       const formattedArchives = data.archives.map((a: any) => ({
         id: a.id,
         season_tag: a.season_tag,
@@ -1301,7 +1439,7 @@ export async function saveDB(): Promise<void> {
             .not('id', 'in', `(${archiveIds.join(',')})`)
         ).catch(e => ({ error: e }))
       );
-    } else if (data.archives) {
+    } else if (need("archives") && data.archives) {
       promises.push(
         Promise.resolve(
           pgDb.from('archive')

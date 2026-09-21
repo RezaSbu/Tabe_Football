@@ -2,7 +2,7 @@ import express, { Express, Request, Response } from "express";
 import { db as pgDb } from "../db";
 import { loadDB } from "../state";
 import { logMessage } from "../utils/logger";
-import { saveDB, updateMatchInDb } from "../services/database";
+import { saveDB, updateMatchInDb, matchTouchesFinishedStats } from "../services/database";
 import { detectConflict } from "../utils/versioning";
 import { requirePermission } from "../middleware/auth";
 
@@ -69,7 +69,11 @@ export function registerMatchRoutes(app: Express) {
       }
     }
 
-    await saveDB();
+    await saveDB(
+      finalStatus === "finished"
+        ? undefined
+        : { skipRecalc: true, tables: ["matches"] }
+    );
     logMessage("info", "api", `بازی جدید ثبت شد: ${item.teamHome} - ${item.teamAway} در ${sport} (${finalStage})`);
     res.json({ success: true, match: item });
   });
@@ -87,9 +91,12 @@ export function registerMatchRoutes(app: Express) {
     const { updatedAt, ...body } = req.body;
     const success = updateMatchInDb(id, { ...body, updatedAt: new Date().toISOString() });
     if (success) {
-      await saveDB();
+      const touched = matchTouchesFinishedStats(current, { ...current, ...body });
+      await saveDB(
+        touched ? undefined : { skipRecalc: true, tables: ["matches"] }
+      );
       logMessage("info", "api", `بروزرسانی بازی با شناسه ${id} انجام شد.`);
-      res.json({ success: true });
+      res.json({ success: true, match: findCurrentMatch(id) });
     } else {
       res.status(404).json({ success: false, message: "بازی یافت نشد." });
     }
@@ -99,6 +106,8 @@ export function registerMatchRoutes(app: Express) {
     const { sport, stage, id } = req.params;
     const currentDB = loadDB();
     
+    const doomed = findCurrentMatch(id);
+
     const allSportKeys = [
       "football_Feature_Games",
       "football_Now_Games",
@@ -122,7 +131,11 @@ export function registerMatchRoutes(app: Express) {
       console.error("PostgreSQL direct delete failed for match id", id, e);
     }
 
-    await saveDB();
+    await saveDB(
+      (doomed && doomed.status === "finished")
+        ? undefined
+        : { skipRecalc: true, tables: ["matches"] }
+    );
     logMessage("info", "api", `حذف نهایی ورزشی: بازی با شناسه ${id} کلا پاکسازی گردید.`);
     res.json({ success: true });
   });

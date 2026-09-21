@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Calendar, 
   Clock, 
@@ -16,8 +16,11 @@ import {
 } from "lucide-react";
 import TeamLogo from "./TeamLogo";
 import { MatchItem, TeamItem, PlayerItem, StandingRow } from "../types";
+import { formatStatNumber } from "../utils";
 import AdminFeatureMatchForm from "./AdminFeatureMatchForm";
 import AdminLiveMatchConsole from "./AdminLiveMatchConsole";
+
+const ADMIN_MATCH_PAGE_SIZE = 20;
 
 interface AdminMatchHubProps {
   matches: MatchItem[];
@@ -27,6 +30,7 @@ interface AdminMatchHubProps {
   stats: Record<string, any>;
   currentSeason?: string;
   onRefreshData: () => void;
+  onPatchMatches?: (upsert: any | null, removeId?: string) => void;
   onUpdateStandings: (leagueKey: string, rows: StandingRow[]) => Promise<boolean>;
   onUpdateStats: (leagueKey: string, statsData: any) => Promise<boolean>;
   onUpdateTeam: (id: string, data: any) => Promise<boolean>;
@@ -41,6 +45,7 @@ export default function AdminMatchHub({
   stats = {},
   currentSeason,
   onRefreshData,
+  onPatchMatches,
   onUpdateStandings,
   onUpdateTeam,
   onUpdatePlayer,
@@ -51,9 +56,65 @@ export default function AdminMatchHub({
   
   // Game state selection: "upcoming" | "live" | "finished"
   const [stageTab, setStageTab] = useState<"upcoming" | "live" | "finished">("upcoming");
-  
-  // Search query
+
+  // Phase-3 perf: server-side filtered + paginated list. Only the current
+  // page (20 slim rows) is ever downloaded.
+  const [weekFilter, setWeekFilter] = useState<string>("all");
+  const [leagueFilter, setLeagueFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [listItems, setListItems] = useState<MatchItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [listLoading, setListLoading] = useState(true);
+  const [refreshTick, setRefreshTick] = useState(0);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+      setPage(1);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [sportTab, stageTab, weekFilter, leagueFilter]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+    setListLoading(true);
+    const status = stageTab === "upcoming" ? "not-started" : stageTab;
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(ADMIN_MATCH_PAGE_SIZE),
+      sport: sportTab,
+      status,
+      league: leagueFilter,
+      week: weekFilter,
+      q: debouncedQuery,
+      sort: status === "not-started" ? "date_asc" : "date_desc",
+    });
+    fetch(`/api/admin/matches?${params.toString()}`, { signal: controller.signal })
+      .then(res => {
+        if (!res.ok) throw new Error("admin matches fetch failed");
+        return res.json();
+      })
+      .then(data => {
+        if (cancelled || !data.success) return;
+        setListItems(Array.isArray(data.items) ? data.items : []);
+        setTotal(Number(data.total) || 0);
+        setTotalPages(Math.max(1, Number(data.totalPages) || 1));
+        if (Number(data.page) && Number(data.page) !== page) setPage(Number(data.page));
+      })
+      .catch((e) => { if (e?.name !== "AbortError") {} })
+      .finally(() => { if (!cancelled) setListLoading(false); });
+    return () => { cancelled = true; controller.abort(); };
+  }, [page, sportTab, stageTab, weekFilter, leagueFilter, debouncedQuery, refreshTick]);
+
+  const refreshList = () => setRefreshTick(t => t + 1);
 
   // Create or edit toggles
   const [showForm, setShowForm] = useState<boolean>(false);
@@ -67,27 +128,8 @@ export default function AdminMatchHub({
   const [showCascadeModal, setShowCascadeModal] = useState(false);
 
   // Filter list
-  const getFilteredMatches = () => {
-    return matches.filter(m => {
-      const isSportMatch = m.sport === sportTab;
-      const term = searchQuery.toLowerCase();
-      const matchesSearch = !searchQuery || 
-        m.teamHome.toLowerCase().includes(term) || 
-        m.teamAway.toLowerCase().includes(term) || 
-        (m.venue && m.venue.toLowerCase().includes(term));
-
-      if (!isSportMatch || !matchesSearch) return false;
-
-      if (stageTab === "upcoming") {
-        return m.status === "not-started";
-      } else if (stageTab === "live") {
-        return m.status === "live";
-      } else if (stageTab === "finished") {
-        return m.status === "finished";
-      }
-      return false;
-    });
-  };
+  // Phase-3: filtering happens server-side; this keeps the current page rows.
+  const getFilteredMatches = () => listItems;
 
   // 1. DELETE Match
   const handleDeleteMatch = async (match: MatchItem) => {
@@ -99,7 +141,11 @@ export default function AdminMatchHub({
         method: "DELETE"
       });
       if (res.ok) {
-        onRefreshData();
+        // Non-finished changes need no stats refetch: patch the local list
+        // instead of re-downloading the whole dataset.
+        if (match.status !== "finished" && onPatchMatches) onPatchMatches(null, match.id);
+        else onRefreshData();
+        refreshList();
       } else {
         alert("خطا در حذف بازی از سیستم.");
       }
@@ -144,7 +190,13 @@ export default function AdminMatchHub({
         if (response.ok) {
           setShowForm(false);
           setEditingMatch(null);
-          onRefreshData();
+          const saved = await response.json().catch(() => null);
+          if (!isFinishedNow && onPatchMatches) {
+            onPatchMatches(saved && saved.match ? saved.match : { ...editingMatch, ...matchData });
+          } else {
+            onRefreshData();
+          }
+          refreshList();
           if (isFinishedNow) {
             await executeCascadeUpdate({ ...editingMatch, ...matchData });
           }
@@ -173,7 +225,13 @@ export default function AdminMatchHub({
         });
         if (response.ok) {
           setShowForm(false);
-          onRefreshData();
+          const saved = await response.json().catch(() => null);
+          if (!isFinishedNow && onPatchMatches) {
+            onPatchMatches(saved && saved.match ? saved.match : matchData);
+          } else {
+            onRefreshData();
+          }
+          refreshList();
           if (isFinishedNow) {
             // Trigger automatic cascade for newly completed game
             await executeCascadeUpdate(matchData);
@@ -250,6 +308,32 @@ export default function AdminMatchHub({
             />
           </div>
 
+          {/* Phase-3: server-side week + league filters */}
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={weekFilter}
+              onChange={e => setWeekFilter(e.target.value)}
+              className="text-xs bg-slate-950 border border-white/5 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-655 font-bold"
+            >
+              <option value="all">همه هفته‌ها</option>
+              <option value="prev">هفته قبل</option>
+              <option value="this">هفته جاری</option>
+              <option value="next">هفته بعد</option>
+            </select>
+            <select
+              value={leagueFilter}
+              onChange={e => setLeagueFilter(e.target.value)}
+              className="text-xs bg-slate-950 border border-white/5 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-655 font-bold"
+            >
+              <option value="all">همه لیگ‌ها</option>
+              <option value="pro-league">لیگ برتر</option>
+              <option value="league-1">لیگ یک</option>
+              <option value="league-2">لیگ دو</option>
+              <option value="hazfi-cup">جام حذفی</option>
+              <option value="futsal">فوتسال</option>
+            </select>
+          </div>
+
           <div className="flex items-center gap-4 w-full md:w-auto">
             {/* Auto Cascade toggle slider */}
             <label className="flex items-center gap-2 cursor-pointer text-[11px] text-gray-400 font-bold select-none">
@@ -274,11 +358,16 @@ export default function AdminMatchHub({
         </div>
 
         {/* List items */}
-        {getFilteredMatches().length === 0 ? (
+        {listLoading ? (
+          <div className="py-10 text-center space-y-2">
+            <p className="text-xs text-slate-500 italic">در حال بارگذاری مسابقات...</p>
+          </div>
+        ) : getFilteredMatches().length === 0 ? (
           <div className="py-10 text-center space-y-2">
             <p className="text-xs text-slate-500 italic">هیچ بازی منطبق با فیلترها و جستجوی شما یافت نشد.</p>
           </div>
         ) : (
+          <>
           <div className="grid gap-3 md:grid-cols-2">
             {getFilteredMatches().map(m => (
               <div key={m.id} className="p-4 bg-slate-900/20 border border-white/5 rounded-xl flex flex-col justify-between hover:bg-slate-900/35 transition group">
@@ -314,7 +403,7 @@ export default function AdminMatchHub({
                       </span>
                     )}
                     {m.status === "live" && (
-                      <span className="text-[9px] text-red-400 mt-1 animate-pulse font-bold">{m.period === "HT" ? "بین دو نیمه" : `${m.minutes || "۰"}'`}</span>
+                      <span className="text-[9px] text-red-400 mt-1 animate-pulse font-bold">{m.period === "HT" ? "بین دو نیمه" : `${m.minutes || "0"}'`}</span>
                     )}
                   </div>
 
@@ -375,6 +464,28 @@ export default function AdminMatchHub({
               </div>
             ))}
           </div>
+
+          {/* Phase-3: server-side pagination */}
+          <div className="flex flex-wrap items-center justify-center gap-1.5 pt-2" dir="rtl">
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="rounded-xl px-3 py-1.5 text-xs font-black bg-gray-950 text-gray-300 border border-white/5 hover:text-white disabled:opacity-40 disabled:cursor-default transition"
+            >
+              قبلی
+            </button>
+            <span className="text-[11px] text-slate-500 font-bold font-mono">
+              صفحه {formatStatNumber(page)} از {formatStatNumber(totalPages)} ــ {formatStatNumber(total)} بازی
+            </span>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="rounded-xl px-3 py-1.5 text-xs font-black bg-gray-950 text-gray-300 border border-white/5 hover:text-white disabled:opacity-40 disabled:cursor-default transition"
+            >
+              بعدی
+            </button>
+          </div>
+          </>
         )}
       </div>
 
@@ -413,7 +524,7 @@ export default function AdminMatchHub({
                   body: JSON.stringify(body)
                 });
                 if (res.ok) {
-                  onRefreshData();
+                  refreshList();
                   return true;
                 }
                 return false;
@@ -429,6 +540,7 @@ export default function AdminMatchHub({
                   setShowLiveConsole(false);
                   setActiveLiveMatch(null);
                   onRefreshData();
+                  refreshList();
                   // Apply automatic cascade
                   await executeCascadeUpdate({ ...activeLiveMatch, ...data, status: "finished" });
                   return true;
@@ -444,6 +556,7 @@ export default function AdminMatchHub({
                 });
                 if (res.ok) {
                   onRefreshData();
+                  refreshList();
                   // Apply automatic cascade (کنسول باز می‌ماند تا ویرایش ادامه یابد)
                   await executeCascadeUpdate({ ...activeLiveMatch, ...data, status: "finished" });
                   return true;

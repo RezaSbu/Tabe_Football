@@ -268,12 +268,18 @@ export function useAppData() {
     }
   }, []);
 
+  // Phase-2 smart polling: 10s refresh only on live pages (live-scores,
+  // home ticker); 5min elsewhere; paused when the tab is hidden.
+  const pollIntervalMs = activeTab === "live-scores" || activeTab === "home" ? 10_000 : 300_000;
+
   useEffect(() => {
+    if (typeof document !== "undefined" && document.hidden) return;
     const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
       fetchDataQuietly();
-    }, 10000);
+    }, pollIntervalMs);
     return () => clearInterval(interval);
-  }, [subscribedTeams, lastSeenGoalTimestamp]);
+  }, [subscribedTeams, lastSeenGoalTimestamp, pollIntervalMs, activeTab]);
 
   useEffect(() => {
     if (activeArticle) {
@@ -469,6 +475,27 @@ export function useAppData() {
     return matchesSearch && matchesCat;
   });
 
+  // Phase-1 perf: patch the local matches list after admin writes that do
+  // not touch finished stats, instead of refetching the whole 9.5MB dataset.
+  // The next scheduled poll converges any residual difference.
+  const patchMatches = (upsert: any | null, removeId?: string) => {
+    setMatches((prev: MatchItem[]) => {
+      let next = prev || [];
+      if (removeId) {
+        next = next.filter((m: any) => String(m.id) !== String(removeId));
+      }
+      if (upsert && upsert.id) {
+        const idx = next.findIndex((m: any) => String(m.id) === String(upsert.id));
+        if (idx >= 0) {
+          next = next.map((m: any, i: number) => (i === idx ? { ...m, ...upsert } : m));
+        } else {
+          next = [{ ...upsert }, ...next];
+        }
+      }
+      return next;
+    });
+  };
+
   const findPlayerById = (id: string | null) => {
     if (!id) return null;
 
@@ -508,11 +535,10 @@ export function useAppData() {
               image: (player as any).image || "https://images.unsplash.com/photo-1540747737956-378724044602?auto=format&fit=crop&q=80&w=800",
               averageRating: (player as any).rating != null ? Number((player as any).rating) : null,
               rating: (player as any).rating != null ? Number((player as any).rating) : null,
-              age: "۲۴",
+              age: "24",
               nationality: "ایرانی",
               foot: "راست",
-              height: "۱۸۰ سانتی‌متر",
-              number: "۱۰",
+              height: "180 سانتی‌متر",
               seasonStats: {
                 matches: 12,
                 goals: posKey.toLowerCase().startsWith("st") ? 4 : 1,
@@ -522,7 +548,7 @@ export function useAppData() {
                 redCards: 0
               },
               ratingsHistory: [
-                { matchId: "f-1", matchOpponent: "تیم حریف", rating: (player as any).rating != null ? Number((player as any).rating) : null, date: "۱۴۰۴/۰۷/۱۰", isMvp: false }
+                { matchId: "f-1", matchOpponent: "تیم حریف", rating: (player as any).rating != null ? Number((player as any).rating) : null, date: "1404/07/10", isMvp: false }
               ]
             };
           }
@@ -579,7 +605,7 @@ export function useAppData() {
     visibleNewsCount, setVisibleNewsCount,
     livescoreFilter, setLivescoreFilter,
     ads, setAds,
-    applyFetchedData, fetchData, fetchDataQuietly, adminRefreshData,
+    applyFetchedData, fetchData, fetchDataQuietly, adminRefreshData, patchMatches,
     handleSelectLegionnaire,
     handlePredictionVote, handleToggleSubscription,
     handleUpdateStandings, handleUpdateStats,
