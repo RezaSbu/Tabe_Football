@@ -4,7 +4,7 @@ import { MatchItem, StandingRow, NewsItem, TeamItem, PlayerItem } from "../types
 import { Trophy, Calendar, Users, Newspaper, Award, Star, Zap, Flame, BarChart3, Shuffle, ChevronLeft, Search, X, List } from "lucide-react";
 import MatchCard from "./MatchCard";
 import TeamLogo from "./TeamLogo";
-import { convertGregorianToShamsi } from "../utils";
+import { convertGregorianToShamsi, formatStatNumber } from "../utils";
 
 interface FutsalPageProps {
   standings: Record<string, StandingRow[]>;
@@ -131,12 +131,6 @@ export default function FutsalPage({
       setSelectedSeason(currentSeason);
     }
   }, [currentSeason]);
-
-  const toPersianDigits = (num: number | string): string => {
-    const numStr = String(num);
-    const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
-    return numStr.replace(/[0-9]/g, (w) => persianDigits[parseInt(w, 10)]);
-  };
 
   const getAvailableArchiveSeasons = (): string[] => {
     if (!archives || !Array.isArray(archives)) return [];
@@ -347,7 +341,7 @@ export default function FutsalPage({
               لیگ برتر فوتسال ایران
             </h2>
             <p className="text-xs text-gray-400 mt-1">
-              بالاترین دپارتمان رسمی فوتسال حرفه‌ای ایران، میزبان ۱۴ مدعی با کلاس قهرمانی فوتبال تحت سالن آسیا
+              بالاترین دپارتمان رسمی فوتسال حرفه‌ای ایران، میزبان 14 مدعی با کلاس قهرمانی فوتبال تحت سالن آسیا
             </p>
 
             {/* Season Selector */}
@@ -359,10 +353,10 @@ export default function FutsalPage({
                   onChange={(e) => setSelectedSeason(e.target.value)}
                   className="bg-transparent focus:outline-none text-white font-extrabold cursor-pointer pr-1"
                 >
-                  <option value={currentSeason} className="bg-slate-900 text-white">فصل جاری ({toPersianDigits(currentSeason)})</option>
+                  <option value={currentSeason} className="bg-slate-900 text-white">فصل جاری ({formatStatNumber(currentSeason)})</option>
                   {getDeduplicatedSeasons().map((season) => (
                     <option key={season} value={season} className="bg-slate-900 text-white">
-                      فصل {toPersianDigits(season)}
+                      فصل {formatStatNumber(season)}
                     </option>
                   ))}
                 </select>
@@ -415,7 +409,7 @@ export default function FutsalPage({
             <div className="flex items-center gap-1.5 border-b border-white/5 pb-3 mb-4">
               <Trophy className="h-5 w-5 text-yellow-500" />
               <h3 className="font-black text-sm text-white">
-                جدول {isCurrentSeason ? "زنده" : "آرشیوی"} لیگ برتر فوتسال {isCurrentSeason ? `(${toPersianDigits(selectedSeason)}-${toPersianDigits(String(parseInt(selectedSeason, 10) + 1))})` : `(فصل ${toPersianDigits(selectedSeason)})`}
+                جدول {isCurrentSeason ? "زنده" : "آرشیوی"} لیگ برتر فوتسال {isCurrentSeason ? `(${formatStatNumber(selectedSeason)}-${formatStatNumber(String(parseInt(selectedSeason, 10) + 1))})` : `(فصل ${formatStatNumber(selectedSeason)})`}
               </h3>
             </div>
 
@@ -510,7 +504,7 @@ export default function FutsalPage({
                 >
                   <option value="">همه هفته‌ها</option>
                   {availableWeeks.map((w) => (
-                    <option key={w} value={w}>هفته {toPersianDigits(w)}</option>
+                    <option key={w} value={w}>هفته {formatStatNumber(w)}</option>
                   ))}
                 </select>
               </div>

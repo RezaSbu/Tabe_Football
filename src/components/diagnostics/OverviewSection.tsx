@@ -1,6 +1,7 @@
 import React from "react";
 import { Server, Database, HardDrive, RefreshCw, CheckCircle, XCircle, Info, Cpu, ShieldCheck } from "lucide-react";
-import { Card, Stat, ProgressBar, EmptyState, formatBytes, formatUptime, toPersian } from "./ui";
+import { Card, Stat, ProgressBar, EmptyState, formatBytes, formatUptime } from "./ui";
+import { formatStatNumber } from "../../utils";
 
 const tableLabels: Record<string, string> = {
   news: "اخبار",
@@ -112,7 +113,7 @@ export default function OverviewSection({ diag, loading, onRefresh }: {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400 font-sans">اتصال‌های فعال:</span>
-                <span className="text-cyan-400">{toPersian(pg.activeConnections || 0)} / {toPersian(pg.maxConnections || "—")}</span>
+                <span className="text-cyan-400">{formatStatNumber(pg.activeConnections || 0)} / {formatStatNumber(pg.maxConnections || "—")}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-400 font-sans">Autovacuum:</span>
@@ -144,7 +145,7 @@ export default function OverviewSection({ diag, loading, onRefresh }: {
               {Object.entries(cache.memoryCounts).map(([key, count]) => (
                 <div key={key} className="bg-black/15 p-2.5 rounded-xl border border-white/[0.02] hover:border-slate-800 transition text-center select-none">
                   <span className="block text-[10px] text-slate-400 font-medium truncate">{tableLabels[key] || key}</span>
-                  <span className={`block font-mono text-lg font-black mt-1 ${tableColors[key] || "text-slate-300"}`}>{toPersian(count as number)}</span>
+                  <span className={`block font-mono text-lg font-black mt-1 ${tableColors[key] || "text-slate-300"}`}>{formatStatNumber(count as number)}</span>
                 </div>
               ))}
             </div>
@@ -154,7 +155,7 @@ export default function OverviewSection({ diag, loading, onRefresh }: {
 
           <div className="bg-slate-800/20 rounded-xl px-4 py-2.5 border border-white/5 text-[10px] text-slate-400 leading-relaxed flex items-center gap-2">
             <Info className="h-4 w-4 text-slate-400 flex-shrink-0" />
-            <span>همگام‌سازی کش: {cache.lastSyncAt ? new Date(cache.lastSyncAt).toLocaleString("fa-IR") : "—"} — وضعیت: {cache.lastSyncOk ? "موفق" : "ناموفق"} — تعداد همگام‌سازی: {toPersian(cache.syncCount || 0)}</span>
+            <span>همگام‌سازی کش: {cache.lastSyncAt ? new Date(cache.lastSyncAt).toLocaleString("fa-IR-u-nu-latn") : "—"} — وضعیت: {cache.lastSyncOk ? "موفق" : "ناموفق"} — تعداد همگام‌سازی: {formatStatNumber(cache.syncCount || 0)}</span>
           </div>
         </Card>
       </div>
@@ -188,10 +189,10 @@ export default function OverviewSection({ diag, loading, onRefresh }: {
         <Card title="نسخه و اطلاعات اجرا" icon={<Info className="h-4 w-4 text-blue-400" />}>
           <div className="space-y-3">
             <Stat label="نسخه پکیج" value={diag?.version?.packageVersion || "—"} color="text-slate-200" />
-            <Stat label="آغاز سرویس" value={diag?.version?.startedAt ? new Date(diag.version.startedAt).toLocaleString("fa-IR") : "—"} color="text-slate-300" />
+            <Stat label="آغاز سرویس" value={diag?.version?.startedAt ? new Date(diag.version.startedAt).toLocaleString("fa-IR-u-nu-latn") : "—"} color="text-slate-300" />
             <Stat label="میزبان" value={system.hostname || "—"} color="text-slate-200" />
             <Stat label="کرنل" value={system.kernel || "—"} color="text-slate-300" />
-            <Stat label="مدل CPU" value={system.cpuModel || "—"} color="text-slate-300" sub={<span className="text-[9px] text-slate-500">{toPersian(system.cpuCores || 0)} هسته</span>} />
+            <Stat label="مدل CPU" value={system.cpuModel || "—"} color="text-slate-300" sub={<span className="text-[9px] text-slate-500">{formatStatNumber(system.cpuCores || 0)} هسته</span>} />
           </div>
         </Card>
       </div>

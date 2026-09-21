@@ -10,6 +10,7 @@ import useLightTheme from "../hooks/useLightTheme";
 import AdSlot, { isAdActive } from "../components/AdSlot";
 import AdBannerWidget from "../components/AdBannerWidget";
 import { AdItem } from "../types";
+import { formatStatNumber } from "../utils";
 
 interface HomePageProps {
   matches: any[];
@@ -24,7 +25,7 @@ interface HomePageProps {
   handleTabChangeSubmit: (tab: string) => void;
   getRelativeDateLabel: (d: string) => string;
   convertGregorianToShamsi: (d: string) => string;
-  toPersianDigits: (n: any) => string;
+  formatStatNumber: (n: any) => string;
   getSafeImageUrl: (url: string) => string;
   currentSeason: string;
   selectedLeagueFilterOnStats: string;
@@ -223,9 +224,9 @@ export default function HomePage({
                             <span className="rounded bg-gray-950 border border-white/5 px-2 py-0.5 text-red-400 font-black">
                               {getPersianCategory(art.category)}
                             </span>
-                            <span>{new Date(art.createdAt).toLocaleDateString("fa-IR")}</span>
+                            <span>{new Date(art.createdAt).toLocaleDateString("fa-IR-u-nu-latn")}</span>
                             <span>•</span>
-                            <span>{art.viewCount.toLocaleString("fa-IR")} بازدید</span>
+                            <span>{formatStatNumber(art.viewCount)} بازدید</span>
                           </div>
                           <h3 className="font-extrabold text-sm text-white group-hover:text-red-400 transition leading-snug line-clamp-2">{art.title}</h3>
                           <p className="mt-1.5 text-xs text-gray-400 line-clamp-2 leading-relaxed">{art.summary}</p>

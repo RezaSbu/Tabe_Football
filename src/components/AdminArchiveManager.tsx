@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Database, Calendar, Trash2, ShieldAlert, CheckCircle2, Trophy, Users, BarChart3, AlertCircle } from "lucide-react";
+import { formatStatNumber } from "../utils";
 
 interface ArchiveItem {
   id: string;
@@ -143,11 +144,11 @@ export const AdminArchiveManager: React.FC<AdminArchiveManagerProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!seasonTag.trim()) {
-      setError("لطفا تگ فصل را وارد نمایید (مثلا: ۱۴۰۳-۱۴۰۴ یا 1403-1404)");
+      setError("لطفا تگ فصل را وارد نمایید (مثلا: 1403-1404 یا 1403-1404)");
       return;
     }
     if (!newCurrentSeason.trim()) {
-      setError("لطفا تگ فصل جاری جدید را وارد نمایید (مثلا: ۱۴۰۴-۱۴۰۵ یا 1405)");
+      setError("لطفا تگ فصل جاری جدید را وارد نمایید (مثلا: 1404-1405 یا 1405)");
       return;
     }
 
@@ -215,12 +216,6 @@ export const AdminArchiveManager: React.FC<AdminArchiveManagerProps> = ({
     }
   };
 
-  const toPersianDigits = (num: number | string): string => {
-    const numStr = String(num);
-    const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
-    return numStr.replace(/[0-9]/g, (w) => persianDigits[parseInt(w, 10)]);
-  };
-
   return (
     <div className="space-y-6 text-right" dir="rtl">
       <div className="flex items-center gap-3 border-b border-white/5 pb-4">
@@ -265,7 +260,7 @@ export const AdminArchiveManager: React.FC<AdminArchiveManagerProps> = ({
           <div className="flex items-center gap-2 bg-emerald-950/20 border border-emerald-500/10 px-3.5 py-1.5 rounded-xl shrink-0">
             <span className="text-[11px] text-slate-400">فصل فعال فعلی:</span>
             <span className="text-xs font-black text-emerald-400 bg-emerald-400/10 px-2 py-0.5 rounded-lg border border-emerald-400/20 font-mono">
-              {toPersianDigits(currentSeason)}
+              {formatStatNumber(currentSeason)}
             </span>
           </div>
         </div>
@@ -275,7 +270,7 @@ export const AdminArchiveManager: React.FC<AdminArchiveManagerProps> = ({
             <Calendar className="absolute right-3.5 top-3 h-4 w-4 text-slate-500" />
             <input
               type="text"
-              placeholder="مثال: ۱۴۰۴-۱۴۰۵ یا 1404"
+              placeholder="مثال: 1404-1405 یا 1404"
               value={directSeasonInput}
               onChange={(e) => setDirectSeasonInput(e.target.value)}
               className="w-full bg-slate-950 border border-white/5 rounded-xl pr-10 pl-4 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition"
@@ -335,7 +330,7 @@ export const AdminArchiveManager: React.FC<AdminArchiveManagerProps> = ({
                 <Calendar className="absolute right-3.5 top-3 h-4 w-4 text-slate-500" />
                 <input
                   type="text"
-                  placeholder="مثال: ۱۴۰۳-۱۴۰۴"
+                  placeholder="مثال: 1403-1404"
                   value={seasonTag}
                   onChange={(e) => handleSeasonTagChange(e.target.value)}
                   className="w-full bg-slate-950 border border-white/5 rounded-xl pr-10 pl-4 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-red-500 transition"
@@ -343,7 +338,7 @@ export const AdminArchiveManager: React.FC<AdminArchiveManagerProps> = ({
                 />
               </div>
               <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
-                این تگ برای تفکیک آرشیوها در دراپ‌داون‌های صفحات عمومی استفاده می‌شود. ترجیحا از ساختار استاندارد فارسی (مثلا ۱۴۰۳-۱۴۰۴) استفاده نمایید.
+                این تگ برای تفکیک آرشیوها در دراپ‌داون‌های صفحات عمومی استفاده می‌شود. ترجیحا از ساختار استاندارد فارسی (مثلا 1403-1404) استفاده نمایید.
               </p>
             </div>
 
@@ -353,7 +348,7 @@ export const AdminArchiveManager: React.FC<AdminArchiveManagerProps> = ({
                 <Calendar className="absolute right-3.5 top-3 h-4 w-4 text-slate-500" />
                 <input
                   type="text"
-                  placeholder="مثال: ۱۴۰۴-۱۴۰۵"
+                  placeholder="مثال: 1404-1405"
                   value={newCurrentSeason}
                   onChange={(e) => setNewCurrentSeason(e.target.value)}
                   className="w-full bg-slate-950 border border-white/5 rounded-xl pr-10 pl-4 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-red-500 transition"
@@ -415,7 +410,7 @@ export const AdminArchiveManager: React.FC<AdminArchiveManagerProps> = ({
         <div className="lg:col-span-7 bg-slate-900/40 border border-white/5 p-5 rounded-2xl">
           <h3 className="text-sm font-black text-white mb-4 flex items-center gap-1.5">
             <Database className="h-4 w-4 text-slate-400" />
-            آرشیو‌های ثبت شده در سیستم ({toPersianDigits(archives.length)})
+            آرشیو‌های ثبت شده در سیستم ({formatStatNumber(archives.length)})
           </h3>
 
           {archives.length === 0 ? (
@@ -444,11 +439,11 @@ export const AdminArchiveManager: React.FC<AdminArchiveManagerProps> = ({
                         <div className="flex items-center gap-2">
                           <span className="text-xs font-black text-white">{typeInfo.label}</span>
                           <span className="text-[10px] px-1.5 py-0.5 bg-white/5 border border-white/10 text-slate-400 rounded-full font-bold">
-                            فصل {toPersianDigits(archive.season_tag)}
+                            فصل {formatStatNumber(archive.season_tag)}
                           </span>
                         </div>
                         <div className="text-[10px] text-slate-500 mt-1">
-                          ایجاد شده در: {toPersianDigits(new Date(archive.createdAt).toLocaleDateString("fa-IR"))}
+                          ایجاد شده در: {formatStatNumber(new Date(archive.createdAt).toLocaleDateString("fa-IR"))}
                         </div>
                       </div>
                     </div>
@@ -486,7 +481,7 @@ export const AdminArchiveManager: React.FC<AdminArchiveManagerProps> = ({
               })}
               
               <div className="text-[10px] text-slate-500 mt-2 text-center bg-slate-950/25 p-2 rounded-lg">
-                ⚠️ طبق الگوریتم، حداکثر ۵ آرشیو برای هر بخش نگهداری می‌شود و ثبت آرشیو ششم، قدیمی‌ترین آرشیوِ مربوطه را به صورت خودکار حذف می‌کند.
+                ⚠️ طبق الگوریتم، حداکثر 5 آرشیو برای هر بخش نگهداری می‌شود و ثبت آرشیو ششم، قدیمی‌ترین آرشیوِ مربوطه را به صورت خودکار حذف می‌کند.
               </div>
             </div>
           )}

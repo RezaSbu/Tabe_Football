@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { SelectedCombination, SelectedCombinationPlayer } from "../types";
-import { toPersianDigits, getSafeImageUrl } from "../utils";
+import { formatStatNumber, getSafeImageUrl } from "../utils";
 import { Award, Calendar, Layers, Star, Shield, HelpCircle, Trophy } from "lucide-react";
 
 interface TeamOfTheWeekWidgetProps {
@@ -160,7 +160,7 @@ export default function TeamOfTheWeekWidget({ combinations = [], allPlayers = []
                   }`}
                 >
                   <span className="text-[9px] font-medium text-gray-400">هفته</span>
-                  <span className="text-sm font-black mt-0.5">{toPersianDigits(weekNum)}</span>
+                  <span className="text-sm font-black mt-0.5">{formatStatNumber(weekNum)}</span>
                   <span className="h-1.5 w-1.5 rounded-full bg-amber-400 mt-1 shadow-[0_0_8px_#f59e0b]" />
                 </button>
               );
@@ -177,16 +177,16 @@ export default function TeamOfTheWeekWidget({ combinations = [], allPlayers = []
           <div className="flex items-center justify-between text-xs font-bold text-gray-300 pb-2 border-b border-white/5">
             <span className="flex items-center gap-2">
               <Layers className="h-4.5 w-4.5 text-amber-400" />
-              <span>لیست بازیکنان منتخب هفته {toPersianDigits(currentWeek)}</span>
+              <span>لیست بازیکنان منتخب هفته {formatStatNumber(currentWeek)}</span>
             </span>
-            <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20 font-bold">۱۱ بازیکن برگزیده</span>
+            <span className="text-[10px] text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20 font-bold">11 بازیکن برگزیده</span>
           </div>
 
           {Object.keys(activePlayers).length === 0 ? (
             <div className="text-center py-16 bg-gray-950/40 rounded-2xl border border-white/5 flex flex-col items-center justify-center p-6">
               <HelpCircle className="h-8 w-8 text-gray-600 mb-2 stroke-[1.5px]" />
               <p className="text-xs text-gray-400 font-bold">ترکیب بازی‌های این هفته هنوز توسط ادمین کامل نشده است.</p>
-              <p className="text-[10px] text-gray-500 mt-1">مدیران از پنل مدیریت می‌توانند ۱۱ بازیکن ارنج این هفته را انتخاب کنند.</p>
+              <p className="text-[10px] text-gray-500 mt-1">مدیران از پنل مدیریت می‌توانند 11 بازیکن ارنج این هفته را انتخاب کنند.</p>
             </div>
           ) : (
             <div className="max-h-[480px] overflow-y-auto space-y-2 pr-1 custom-scrollbar">

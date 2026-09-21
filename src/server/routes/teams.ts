@@ -210,9 +210,10 @@ export function registerTeamRoutes(app: Express) {
     item.baseYellowCards = enteredYellow;
     item.baseRedCards = enteredRed;
 
-    const resolvedShirtNumber = req.body.number !== undefined && req.body.number !== "" ? req.body.number : (req.body.shirt_number || null);
-    item.shirt_number = resolvedShirtNumber;
-    item.number = resolvedShirtNumber;
+    // Shirt numbers were removed from the data model: never persist them,
+    // even if a stale client still sends the legacy fields.
+    delete (item as any).number;
+    delete (item as any).shirt_number;
 
     item.seasonStats = {
       matches: enteredMatches,
@@ -262,9 +263,10 @@ export function registerTeamRoutes(app: Express) {
       updatedPlayer.baseYellowCards = Math.max(0, enteredYellow - matchStats.yellowCards);
       updatedPlayer.baseRedCards = Math.max(0, enteredRed - matchStats.redCards);
 
-      const resolvedShirtNumber = req.body.number !== undefined && req.body.number !== "" ? req.body.number : (req.body.shirt_number || null);
-      updatedPlayer.shirt_number = resolvedShirtNumber;
-      updatedPlayer.number = resolvedShirtNumber;
+      // Shirt numbers were removed from the data model: never persist them,
+      // even if a stale client still sends the legacy fields.
+      delete (updatedPlayer as any).number;
+      delete (updatedPlayer as any).shirt_number;
 
       updatedPlayer.seasonStats = {
         matches: enteredMatches,

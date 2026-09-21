@@ -14,9 +14,9 @@ export default function PlayerCard({ player, onClick }: PlayerCardProps) {
       className="group relative rounded-xl border border-white/5 bg-[#18181c]/45 p-4 hover:border-cyan-500/30 hover:bg-[#18181c] cursor-pointer transition shadow-md flex flex-col justify-between"
       dir="rtl"
     >
-      {/* Absolute standard kit number */}
-      <span className="absolute top-4 left-4 font-mono font-black text-2xl text-white/5 group-hover:text-cyan-500/10 transition">
-        #{player.number}
+      {/* Absolute player position marker */}
+      <span className="absolute top-4 left-4 font-bold text-[10px] text-white/20 group-hover:text-cyan-500/30 transition">
+        {player.position}
       </span>
 
       <div>

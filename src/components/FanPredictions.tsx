@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { MatchItem } from "../types";
-import { getSafeImageUrl } from "../utils";
+import { getSafeImageUrl, formatStatNumber } from "../utils";
 import TeamLogo from "./TeamLogo";
 
 interface FanPredictionsProps {
@@ -367,7 +367,7 @@ export default function FanPredictions({
 
         <div className="pt-2 text-[9px] text-gray-500 flex items-center gap-1 border-t border-white/5">
           <Sparkles size={11} className="text-gray-650" />
-          <span>۱۵۰ امتیاز باشگاه هواداران برای پاسخ صحیح</span>
+          <span>150 امتیاز باشگاه هواداران برای پاسخ صحیح</span>
         </div>
       </div>
 
@@ -412,7 +412,7 @@ export default function FanPredictions({
                 <div className="flex items-center justify-between text-[10px] text-gray-400 border-b border-white/5 pb-1.5">
                   <span className="font-bold">{matchedStatsMatch.teamHome} × {matchedStatsMatch.teamAway}</span>
                   <span className="font-mono bg-emerald-900/10 border border-emerald-950 px-1.5 py-0.5 rounded text-emerald-400 font-bold">
-                    {total.toLocaleString("fa-IR")} رای ثبت شده
+                    {formatStatNumber(total)} رای ثبت شده
                   </span>
                 </div>
 
@@ -422,7 +422,7 @@ export default function FanPredictions({
                   <div>
                     <div className="flex justify-between text-[10px] mb-0.5">
                       <span className="text-gray-300 font-bold">برد {matchedStatsMatch.teamHome}</span>
-                      <span className="text-emerald-400 font-black font-mono">{pctHome.toLocaleString("fa-IR")}%</span>
+                      <span className="text-emerald-400 font-black font-mono">{formatStatNumber(pctHome)}%</span>
                     </div>
                     <div className="w-full h-2 bg-gray-950 rounded-full overflow-hidden border border-white/5">
                       <motion.div 
@@ -438,7 +438,7 @@ export default function FanPredictions({
                   <div>
                     <div className="flex justify-between text-[10px] mb-0.5">
                       <span className="text-gray-300 font-bold">نتیجه مساوی</span>
-                      <span className="text-amber-505 font-black font-mono">{pctDraw.toLocaleString("fa-IR")}%</span>
+                      <span className="text-amber-505 font-black font-mono">{formatStatNumber(pctDraw)}%</span>
                     </div>
                     <div className="w-full h-2 bg-gray-950 rounded-full overflow-hidden border border-white/5">
                       <motion.div 
@@ -454,7 +454,7 @@ export default function FanPredictions({
                   <div>
                     <div className="flex justify-between text-[10px] mb-0.5">
                       <span className="text-gray-300 font-bold">برد {matchedStatsMatch.teamAway}</span>
-                      <span className="text-blue-400 font-black font-mono">{pctAway.toLocaleString("fa-IR")}%</span>
+                      <span className="text-blue-400 font-black font-mono">{formatStatNumber(pctAway)}%</span>
                     </div>
                     <div className="w-full h-2 bg-gray-950 rounded-full overflow-hidden border border-white/5">
                       <motion.div 
@@ -480,7 +480,7 @@ export default function FanPredictions({
                       return (
                         <div key={sc} className="py-1 px-2.5 rounded bg-gray-950/85 border border-white/5 flex items-center justify-between text-[10px]">
                           <span className="font-mono bg-gray-900 border border-white/5 px-1 rounded text-gray-300 font-black">{sc}</span>
-                          <span className="text-emerald-400 font-bold font-mono">{sharePct.toLocaleString("fa-IR")}%</span>
+                          <span className="text-emerald-400 font-bold font-mono">{formatStatNumber(sharePct)}%</span>
                         </div>
                       );
                     })}

@@ -1,6 +1,7 @@
 import React from "react";
 import { Cpu, MemoryStick, HardDrive, Network, Activity, TriangleAlert } from "lucide-react";
-import { Card, Stat, ProgressBar, formatBytes, toPersian } from "./ui";
+import { Card, Stat, ProgressBar, formatBytes } from "./ui";
+import { formatStatNumber } from "../../utils";
 
 export default function VpsSection({ diag }: { diag: any }) {
   const s = diag?.system || {};
@@ -33,13 +34,13 @@ export default function VpsSection({ diag }: { diag: any }) {
         <Card title="پردازنده (CPU)" icon={<Cpu className="h-4 w-4 text-cyan-400" />}>
           <div className="space-y-3">
             <Stat label="مدل" value={s.cpuModel || "—"} color="text-slate-300" />
-            <Stat label="تعداد هسته‌ها" value={toPersian(s.cpuCores || 0)} color="text-slate-200" />
+            <Stat label="تعداد هسته‌ها" value={formatStatNumber(s.cpuCores || 0)} color="text-slate-200" />
             <div className="p-2.5 rounded-xl bg-black/20 space-y-2">
               <div className="grid grid-cols-3 gap-2 text-center">
                 {[
-                  { label: "۱ دقیقه", v: load["1min"] },
-                  { label: "۵ دقیقه", v: load["5min"] },
-                  { label: "۱۵ دقیقه", v: load["15min"] }
+                  { label: "1 دقیقه", v: load["1min"] },
+                  { label: "5 دقیقه", v: load["5min"] },
+                  { label: "15 دقیقه", v: load["15min"] }
                 ].map(it => (
                   <div key={it.label} className="bg-black/20 rounded-lg py-2">
                     <div className="text-[9px] text-slate-500">{it.label}</div>
@@ -129,8 +130,8 @@ export default function VpsSection({ diag }: { diag: any }) {
           <div className="space-y-3">
             {inode ? (
               <>
-                <Stat label="ایندود کل" value={toPersian(inode.total)} color="text-slate-200" />
-                <Stat label="ایندود مصرفی" value={toPersian(inode.used)} color="text-amber-400" />
+                <Stat label="ایندود کل" value={formatStatNumber(inode.total)} color="text-slate-200" />
+                <Stat label="ایندود مصرفی" value={formatStatNumber(inode.used)} color="text-amber-400" />
                 <ProgressBar
                   percent={inode.total ? Math.round((inode.used / inode.total) * 100) : 0}
                   colorClass="from-amber-500 to-amber-400"

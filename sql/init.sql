@@ -96,7 +96,6 @@ CREATE TABLE public.players (
   nationality varchar(100),
   foot varchar(10),
   height integer,
-  shirt_number integer,
   average_rating numeric(3,1),
   base_matches integer DEFAULT 0,
   base_goals integer DEFAULT 0,

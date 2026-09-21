@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Database, GitCommitHorizontal, Activity, HardDriveDownload, Download, Trash2, Sparkles } from "lucide-react";
-import { Card, Stat, ProgressBar, formatBytes, toPersian, EmptyState, formatDateTime } from "./ui";
+import { Card, Stat, ProgressBar, formatBytes, EmptyState, formatDateTime } from "./ui";
+import { formatStatNumber } from "../../utils";
 
 export default function DatabaseSection({ diag, onBackup, onVacuum, busy }: {
   diag: any;
@@ -42,7 +43,7 @@ export default function DatabaseSection({ diag, onBackup, onVacuum, busy }: {
           className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-800 hover:bg-slate-700 active:scale-95 text-xs font-bold rounded-xl border border-white/5 transition cursor-pointer"
         >
           <Download className="h-4 w-4 text-cyan-400" />
-          <span>بکاپ‌ها ({toPersian(backups.length)})</span>
+          <span>بکاپ‌ها ({formatStatNumber(backups.length)})</span>
         </button>
       </div>
 
@@ -50,7 +51,7 @@ export default function DatabaseSection({ diag, onBackup, onVacuum, busy }: {
         <div className="p-4 rounded-2xl bg-[#18181c]/90 border border-white/5 space-y-2">
           <h3 className="font-bold text-sm text-slate-200 border-b border-white/5 pb-2 flex items-center gap-2">
             <HardDriveDownload className="h-4 w-4 text-emerald-400" />
-            <span>فایل‌های پشتیبان ({toPersian(backups.length)})</span>
+            <span>فایل‌های پشتیبان ({formatStatNumber(backups.length)})</span>
           </h3>
           {backups.length === 0 ? (
             <EmptyState message="هنوز بکاپی ساخته نشده است." />
@@ -75,7 +76,7 @@ export default function DatabaseSection({ diag, onBackup, onVacuum, busy }: {
                   </div>
                 </div>
               ))}
-              <div className="text-[9px] text-slate-500">فقط ۳۰ بکاپ اخیر نگهداری می‌شود.</div>
+              <div className="text-[9px] text-slate-500">فقط 30 بکاپ اخیر نگهداری می‌شود.</div>
             </div>
           )}
         </div>
@@ -85,16 +86,16 @@ export default function DatabaseSection({ diag, onBackup, onVacuum, busy }: {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card title="سلامت دیتابیس" icon={<Activity className="h-4 w-4 text-emerald-400" />}>
           <div className="space-y-3">
-            <Stat label="اتصال‌های فعال" value={toPersian(pg.activeConnections || 0)} color="text-cyan-400" sub={<span className="text-[9px] text-slate-500">از {pg.maxConnections || "—"}</span>} />
+            <Stat label="اتصال‌های فعال" value={formatStatNumber(pg.activeConnections || 0)} color="text-cyan-400" sub={<span className="text-[9px] text-slate-500">از {pg.maxConnections || "—"}</span>} />
             <Stat label="Cache Hit Ratio" value={`${dbStats.cacheHitPercent ?? "—"}٪`} color={dbStats.cacheHitPercent < 90 ? "text-amber-400" : "text-emerald-400"} />
-            <Stat label="تراکنش‌ها" value={toPersian(dbStats.transactions || 0)} color="text-slate-200" />
-            <Stat label="Deadlocks" value={toPersian(dbStats.deadlocks || 0)} color={dbStats.deadlocks > 0 ? "text-red-400" : "text-emerald-400"} />
+            <Stat label="تراکنش‌ها" value={formatStatNumber(dbStats.transactions || 0)} color="text-slate-200" />
+            <Stat label="Deadlocks" value={formatStatNumber(dbStats.deadlocks || 0)} color={dbStats.deadlocks > 0 ? "text-red-400" : "text-emerald-400"} />
             <Stat label="نرخ Rollback" value={`${dbStats.rollbackPercent ?? 0}٪`} color="text-slate-300" />
           </div>
         </Card>
 
         {/* Long running queries */}
-        <Card title="کوئری‌های طولانی (>۵ ثانیه)" icon={<GitCommitHorizontal className="h-4 w-4 text-amber-400" />} className="lg:col-span-2">
+        <Card title="کوئری‌های طولانی (>5 ثانیه)" icon={<GitCommitHorizontal className="h-4 w-4 text-amber-400" />} className="lg:col-span-2">
           {longRunning.length === 0 ? (
             <EmptyState message="کوئری طولانی فعالی وجود ندارد." height="h-28" />
           ) : (
@@ -137,7 +138,7 @@ export default function DatabaseSection({ diag, onBackup, onVacuum, busy }: {
                   return (
                     <tr key={t.table} className="border-b border-white/[0.02]">
                       <td className="py-1.5 pr-1 text-slate-300 font-bold font-mono">{t.table}</td>
-                      <td className="py-1.5 px-2 font-mono text-slate-400">{toPersian(t.liveRows)}</td>
+                      <td className="py-1.5 px-2 font-mono text-slate-400">{formatStatNumber(t.liveRows)}</td>
                       <td className="py-1.5 px-2 font-mono text-slate-400">{formatBytes(t.dataBytes)}</td>
                       <td className="py-1.5 px-2 font-mono text-amber-400">{formatBytes(t.indexBytes)}</td>
                       <td className="py-1.5 px-2 font-mono text-emerald-400 font-bold">{formatBytes(t.totalBytes)}</td>
@@ -175,7 +176,7 @@ export default function DatabaseSection({ diag, onBackup, onVacuum, busy }: {
                 {vacuum.map((v: any) => (
                   <tr key={v.table} className="border-b border-white/[0.02]">
                     <td className="py-1.5 pr-1 text-slate-300 font-bold font-mono">{v.table}</td>
-                    <td className="py-1.5 px-2 font-mono text-amber-400">{toPersian(v.deadRows)}</td>
+                    <td className="py-1.5 px-2 font-mono text-amber-400">{formatStatNumber(v.deadRows)}</td>
                     <td className="py-1.5 px-2 text-[10px] text-slate-400">{formatDateTime(v.lastVacuum)}</td>
                     <td className="py-1.5 px-2 text-[10px] text-slate-400">{formatDateTime(v.lastAutovacuum)}</td>
                     <td className="py-1.5 px-2 text-[10px] text-slate-400">{formatDateTime(v.lastAnalyze)}</td>

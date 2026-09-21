@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { formatStatNumber } from "../utils";
 
 interface PollOption {
   text: string;
@@ -105,7 +106,7 @@ export default function WeeklySportsPoll({ pollConfig = DEFAULT_POLL_CONFIG }: W
                   {isSelected && <span className="rounded bg-red-500/10 px-1.5 py-0.2 text-[8px] text-red-400 font-extrabold">رای شما</span>}
                 </span>
                 {hasChosen && (
-                  <span className="font-mono font-black text-xs text-left">%{Math.min(100, pct).toLocaleString("fa-IR")}</span>
+                  <span className="font-mono font-black text-xs text-left">%{formatStatNumber(Math.min(100, pct))}</span>
                 )}
               </div>
             </button>
@@ -114,7 +115,7 @@ export default function WeeklySportsPoll({ pollConfig = DEFAULT_POLL_CONFIG }: W
       </div>
 
       <div className="text-[9px] text-gray-500 flex justify-between items-center pt-1.5 border-t border-gray-850/60 font-bold">
-        <span>مشارکت: {tv.toLocaleString("fa-IR")} هوادار</span>
+        <span>مشارکت: {formatStatNumber(tv)} هوادار</span>
         <span className="font-bold text-red-500 font-sans">موتور آرا هوشمند</span>
       </div>
     </div>

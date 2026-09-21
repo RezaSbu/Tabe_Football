@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { SelectedCombination, PlayerItem, TeamItem } from "../types";
-import { toPersianDigits, getSafeImageUrl } from "../utils";
+import { formatStatNumber, getSafeImageUrl } from "../utils";
 import { Award, Plus, Trash2, Edit2, Search, Check, X, Shield, Star, Save, LayoutGrid, LayoutList } from "lucide-react";
 
 interface AdminSelectedCombinationsProps {
@@ -214,7 +214,7 @@ export default function AdminSelectedCombinations({
                 <Award className="h-5 w-5 text-amber-500 animate-pulse" />
                 <span>مدیریت ترکیب‌های منتخب هفته</span>
               </h2>
-              <p className="text-[10px] text-gray-400 mt-0.5">ترکیب‌های ۳-۵-۲ هفته‌های مختلف را برای هر سه رده لیگ‌ها در این ترمینال ایجاد و پیرایش کنید.</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">ترکیب‌های 3-5-2 هفته‌های مختلف را برای هر سه رده لیگ‌ها در این ترمینال ایجاد و پیرایش کنید.</p>
             </div>
             
             <button
@@ -240,16 +240,16 @@ export default function AdminSelectedCombinations({
                   <div className="flex items-center gap-3">
                     <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 font-mono text-center min-w-[50px]">
                       <span className="block text-[9px] font-bold text-gray-400 leading-none">هفته</span>
-                      <span className="block text-base font-black mt-1 leading-none">{toPersianDigits(item.week)}</span>
+                      <span className="block text-base font-black mt-1 leading-none">{formatStatNumber(item.week)}</span>
                     </div>
                     <div>
                       <div className="text-xs font-black text-white">
                         {leagues.find(l => l.key === item.leagueKey)?.label || item.leagueKey}
                       </div>
                       <div className="text-[10px] text-gray-400 flex items-center gap-2 mt-1">
-                        <span>مشتمل بر ۱۱ بازیکن منتخب هفته</span>
+                        <span>مشتمل بر 11 بازیکن منتخب هفته</span>
                         <span>•</span>
-                        <span className="text-amber-500 font-bold">فرمت ۳-۵-۲ استراتژیک</span>
+                        <span className="text-amber-500 font-bold">فرمت 3-5-2 استراتژیک</span>
                       </div>
                     </div>
                   </div>
@@ -360,7 +360,7 @@ export default function AdminSelectedCombinations({
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <h3 className="text-xs font-black text-amber-400">تنظیم ارنج بازیکنان ترکیب هفته منتخب</h3>
-              <span className="text-[10px] text-gray-450 bg-gray-950 px-2 py-1 rounded border border-white/5">فرمت استراتژیک ۳-۵-۲</span>
+              <span className="text-[10px] text-gray-450 bg-gray-950 px-2 py-1 rounded border border-white/5">فرمت استراتژیک 3-5-2</span>
             </div>
 
             {viewMode === "pitch" ? (

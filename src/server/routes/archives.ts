@@ -213,7 +213,7 @@ export function registerArchiveRoutes(app: Express) {
           const keepers = sameTypeArchives.slice(0, 5);
           const keeperIds = new Set(keepers.map((k: any) => k.id));
           currentDB.archives = currentDB.archives.filter((a: any) => a.type !== arcType || keeperIds.has(a.id));
-          logMessage("info", "database", `بیش از ۵ آرشیو برای نوع ${arcType} یافت شد. قدیمی‌ترین آرشیو حذف گردید.`);
+          logMessage("info", "database", `بیش از 5 آرشیو برای نوع ${arcType} یافت شد. قدیمی‌ترین آرشیو حذف گردید.`);
         }
       };
 

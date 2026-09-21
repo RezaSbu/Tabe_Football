@@ -1,15 +1,15 @@
 import React from "react";
 import { Trophy, Calendar, Sparkles, Medal, ArrowDown, ArrowUp, Crown, Tv, Activity, Eye } from "lucide-react";
 import { TeamItem, MatchItem } from "../types";
-import { isTeamInDb, convertGregorianToShamsi, toPersianDigits } from "../utils";
+import { isTeamInDb, convertGregorianToShamsi, formatStatNumber } from "../utils";
 import TeamLogo from "./TeamLogo";
 
 const formatSeasonRange = (s?: string): string => {
-  if (!s) return "۱۴۰۴";
+  if (!s) return "1404";
   const en = String(s).replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
   const m = en.match(/\d{4}/);
   if (!m) return String(s);
-  return `${toPersianDigits(m[0])}-${toPersianDigits(String(parseInt(m[0], 10) + 1))}`;
+  return `${formatStatNumber(m[0])}-${formatStatNumber(String(parseInt(m[0], 10) + 1))}`;
 };
 
 interface HazfiCupBracketProps {
@@ -281,7 +281,7 @@ export default function HazfiCupBracket({ bracket, onSelectTeam, onSelectMatch, 
             </div>
             <div>
               {topSf.length > 0 && topSf[0] ? (
-                renderMatchCard(topSf[0], topSf[0].status === "finished", "نیمه‌نهایی ۱", "down")
+                renderMatchCard(topSf[0], topSf[0].status === "finished", "نیمه‌نهایی 1", "down")
               ) : (
                 <div className="p-8 border border-dashed border-white/5 bg-slate-900/10 rounded-2xl text-center text-xs text-slate-600">
                   منتظر صعود فینالیست اول بالا
@@ -372,7 +372,7 @@ export default function HazfiCupBracket({ bracket, onSelectTeam, onSelectMatch, 
             </div>
             <div>
               {bottomSf.length > 0 && bottomSf[0] ? (
-                renderMatchCard(bottomSf[0], bottomSf[0].status === "finished", "نیمه‌نهایی ۲", "up")
+                renderMatchCard(bottomSf[0], bottomSf[0].status === "finished", "نیمه‌نهایی 2", "up")
               ) : (
                 <div className="p-8 border border-dashed border-white/5 bg-slate-900/10 rounded-2xl text-center text-xs text-slate-600">
                   منتظر صعود فینالیست دوم پایین

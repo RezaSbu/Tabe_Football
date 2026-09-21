@@ -44,7 +44,7 @@ const CoachDetailPage = React.lazy(() => import("./pages/CoachDetailPage"));
 const LegionnaireDetailPage = React.lazy(() => import("./pages/LegionnaireDetailPage"));
 const TransferDetailPage = React.lazy(() => import("./pages/TransferDetailPage"));
 
-import { getSafeImageUrl, getRelativeDateLabel, convertGregorianToShamsi, toPersianDigits } from "./utils";
+import { getSafeImageUrl, getRelativeDateLabel, convertGregorianToShamsi, formatStatNumber } from "./utils";
 import { trackPageView } from "./utils/visitor";
 
 const PATH_TO_TAB: Record<string, string> = {
@@ -138,7 +138,7 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
             <HomePage matches={d.matches} news={d.news} transfers={d.transfers} heroSlides={d.heroSlides} legionnaires={d.legionnaires} stats={d.stats}
               liveGoals={d.liveGoals} setSelectedMatch={(m: any) => navigate(`/match/${m.id}`)} setActiveArticle={(a: any) => navigate(`/news/${a.id}`)}
               handleTabChangeSubmit={d.handleTabChangeSubmit} getRelativeDateLabel={getRelativeDateLabel}
-              convertGregorianToShamsi={convertGregorianToShamsi} toPersianDigits={toPersianDigits}
+              convertGregorianToShamsi={convertGregorianToShamsi} formatStatNumber={formatStatNumber}
               getSafeImageUrl={getSafeImageUrl} currentSeason={d.currentSeason}
               selectedLeagueFilterOnStats={d.selectedLeagueFilterOnStats}
               setSelectedLeagueFilterOnStats={d.setSelectedLeagueFilterOnStats} archives={d.archives}
@@ -155,7 +155,7 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
               livescoreFilter={d.livescoreFilter} setLivescoreFilter={d.setLivescoreFilter}
               setSelectedMatch={(m: any) => navigate(`/match/${m.id}`)}
               getRelativeDateLabel={getRelativeDateLabel} convertGregorianToShamsi={convertGregorianToShamsi}
-              toPersianDigits={toPersianDigits} />
+              formatStatNumber={formatStatNumber} />
           </>
         )}
 
@@ -205,7 +205,7 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
         {d.activeTab === "news" && (
           <>
             <SEO title="آخرین اخبار فوتبال ایران" description="آخرین اخبار فوتبال ایران، لیگ برتر، نقل و انتقالات و اخبار ورزشی" url="/news" />
-            <NewsPage news={d.news} newsCategoryFilter={d.newsCategoryFilter}
+            <NewsPage newsCategoryFilter={d.newsCategoryFilter}
               setNewsCategoryFilter={d.setNewsCategoryFilter} newsSearch={d.newsSearch}
               setNewsSearch={d.setNewsSearch} setActiveArticle={(a: any) => navigate(`/news/${a.id}`)} />
           </>
@@ -249,7 +249,7 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
             <StatsPage stats={d.stats} archives={d.archives} statsSeason={d.statsSeason}
               setStatsSeason={d.setStatsSeason} selectedLeagueFilterOnStats={d.selectedLeagueFilterOnStats}
               setSelectedLeagueFilterOnStats={d.setSelectedLeagueFilterOnStats}
-              currentSeason={d.currentSeason} toPersianDigits={toPersianDigits} />
+              currentSeason={d.currentSeason} formatStatNumber={formatStatNumber} />
           </>
         )}
 
@@ -267,7 +267,7 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
               onCentralSync={d.handleCentralSync} onLogout={d.handleAdminLogout}
               isAdminLoggedIn={d.isAdminLoggedIn} onLogin={d.handleAdminLogin}
               adminUser={d.adminUser}
-              onRefreshData={d.adminRefreshData} />
+              onRefreshData={d.adminRefreshData} onPatchMatches={d.patchMatches} />
           </div>
         )}
       </div>
@@ -338,7 +338,7 @@ export default function App() {
             onSaveAds={d.setAds} onCentralSync={d.handleCentralSync}
             isAdminLoggedIn={d.isAdminLoggedIn} onLogin={d.handleAdminLogin}
             adminUser={d.adminUser}
-            onRefreshData={d.adminRefreshData} onLogout={d.handleAdminLogout} />
+            onRefreshData={d.adminRefreshData} onPatchMatches={d.patchMatches} onLogout={d.handleAdminLogout} />
         </div>
       </div>
     );

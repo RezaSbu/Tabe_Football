@@ -22,7 +22,7 @@ interface LiveScoresPageProps {
   setSelectedMatch: React.Dispatch<React.SetStateAction<any | null>>;
   getRelativeDateLabel: (date: string) => string;
   convertGregorianToShamsi: (date: string) => string;
-  toPersianDigits: (input: string | number) => string;
+  formatStatNumber: (input: string | number) => string;
 }
 
 export default function LiveScoresPage({
@@ -34,7 +34,7 @@ export default function LiveScoresPage({
   setSelectedMatch,
   getRelativeDateLabel,
   convertGregorianToShamsi,
-  toPersianDigits,
+  formatStatNumber,
 }: LiveScoresPageProps) {
   return (
     <div className="space-y-6 animate-in fade-in" dir="rtl">
@@ -148,7 +148,7 @@ export default function LiveScoresPage({
                         </span>
                         <span className="font-mono text-gray-400 flex items-center gap-1.5">
                           <span className="bg-white/10 text-amber-400 font-bold px-1.5 py-0.5 rounded border border-white/5">{getRelativeDateLabel(m.date)}</span>
-                          <span>{convertGregorianToShamsi(m.date)} | ساعت {toPersianDigits(m.time)}</span>
+                          <span>{convertGregorianToShamsi(m.date)} | ساعت {formatStatNumber(m.time)}</span>
                         </span>
                       </div>
 
@@ -166,7 +166,7 @@ export default function LiveScoresPage({
                                 {m.scoreHome} - {m.scoreAway}
                               </span>
                               <span className="block text-[9px] text-emerald-400 font-extrabold">
-                                {m.period === "HT" ? "بین دو نیمه" : `دقیقه زنده ${m.minutes || "۹۰"}’`}
+                                {m.period === "HT" ? "بین دو نیمه" : `دقیقه زنده ${m.minutes || "90"}’`}
                               </span>
                             </div>
                           ) : m.status === "finished" ? (

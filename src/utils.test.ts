@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   toEnglishDigits,
-  toPersianDigits,
+  formatStatNumber,
   normalizePersianString,
   getSafeImageUrl,
   convertGregorianToShamsi,
@@ -32,17 +32,26 @@ describe('toEnglishDigits', () => {
   });
 });
 
-describe('toPersianDigits', () => {
-  it('converts number to Persian digits', () => {
-    expect(toPersianDigits(123)).toBe('۱۲۳');
+describe('formatStatNumber', () => {
+  it('keeps Latin digits unchanged', () => {
+    expect(formatStatNumber(123)).toBe('123');
   });
 
-  it('converts string number to Persian digits', () => {
-    expect(toPersianDigits('456')).toBe('۴۵۶');
+  it('keeps string numbers unchanged', () => {
+    expect(formatStatNumber('456')).toBe('456');
   });
 
   it('handles zero', () => {
-    expect(toPersianDigits(0)).toBe('۰');
+    expect(formatStatNumber(0)).toBe('0');
+  });
+
+  it('normalizes Persian digits to Latin for display', () => {
+    expect(formatStatNumber('۱۲۳')).toBe('123');
+  });
+
+  it('returns empty string for nullish input', () => {
+    expect(formatStatNumber(null)).toBe('');
+    expect(formatStatNumber(undefined)).toBe('');
   });
 });
 

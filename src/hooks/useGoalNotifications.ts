@@ -37,14 +37,14 @@ export function useGoalNotifications({
       scorerName: "گلزن",
       scoreHome: 1,
       scoreAway: 0,
-      minute: "۷۷'",
+      minute: "77'",
       timestamp: Date.now(),
     };
     setActiveGoalEvent(mockGoal);
     playGoalSound();
     showSystemNotification(
       `⚽ گل طلایی برای ${teamHome}!`,
-      `یک گل تماشایی در دقیقه ۷۷ وارد دروازه شد! ${teamHome} ۱ - ۰ ${teamAway}`
+      `یک گل تماشایی در دقیقه 77 وارد دروازه شد! ${teamHome} 1 - 0 ${teamAway}`
     );
   };
 
