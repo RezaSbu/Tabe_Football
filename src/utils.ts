@@ -26,7 +26,7 @@ export const getSafeImageUrl = (url: string): string => {
  * Returns loaded database coaches from window global
  */
 
-const APP_DATA_TTL_MS = 30_000;
+const APP_DATA_TTL_MS = 120_000;
 let appDataCache: { data: any; ts: number } | null = null;
 let appDataInFlight: Promise<any> | null = null;
 
@@ -107,6 +107,15 @@ export const isPlayerInDb = (playerIdentifier: string): boolean => {
     (p.name && playerIdentifier && playerIdentifier.includes(p.name))
   );
 };
+
+// Display helper for numeric/statistical values: always Latin digits.
+// Persian surrounding text stays Persian; only the digit glyphs are normalized.
+// Use this for every number rendered in the UI (scores, ratings, minutes,
+// counts, standings, pagination, admin figures) instead of formatStatNumber.
+export function formatStatNumber(value: number | string | null | undefined): string {
+  if (value === null || value === undefined) return "";
+  return toEnglishDigits(String(value));
+}
 
 // Convert Persian and Arabic numbers to normal English numbers
 export function toEnglishDigits(str: string): string {
@@ -570,12 +579,12 @@ export function getRelativeDateLabel(dateStr: string): string {
 
     if (diffDays === 0) return "امروز";
     if (diffDays === 1) return "فردا";
-    if (diffDays === 2) return "۲ روز بعد";
+    if (diffDays === 2) return "2 روز بعد";
     if (diffDays === -1) return "دیروز";
-    if (diffDays === -2) return "۲ روز قبل";
+    if (diffDays === -2) return "2 روز قبل";
     
-    if (diffDays > 2 && diffDays <= 7) return `${toPersianDigits(diffDays)} روز بعد`;
-    if (diffDays < -2 && diffDays >= -7) return `${toPersianDigits(Math.abs(diffDays))} روز قبل`;
+    if (diffDays > 2 && diffDays <= 7) return `${formatStatNumber(diffDays)} روز بعد`;
+    if (diffDays < -2 && diffDays >= -7) return `${formatStatNumber(Math.abs(diffDays))} روز قبل`;
     if (diffDays > 7) return "پیش‌رو";
     return "بایگانی گذشته";
   } catch (err) {
@@ -584,16 +593,8 @@ export function getRelativeDateLabel(dateStr: string): string {
 }
 
 /**
- * Converts a standard English number (or string representation) to Persian digits.
- */
-export function toPersianDigits(num: number | string): string {
-  const numStr = String(num);
-  const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
-  return numStr.replace(/[0-9]/g, (w) => persianDigits[parseInt(w, 10)]);
-}
-
-/**
- * Returns a Persian relative time label (e.g. "۳۴ دقیقه پیش", "۲ روز پیش") for an ISO timestamp.
+ * Returns a Persian relative time label (e.g. "34 دقیقه پیش", "2 روز پیش") for an ISO timestamp.
+ * Numbers are Latin digits; surrounding words stay Persian.
  */
 export function getTimeAgoPersian(iso?: string | null): string {
   if (!iso) return "";
@@ -602,20 +603,20 @@ export function getTimeAgoPersian(iso?: string | null): string {
   const diff = Date.now() - ts;
   if (diff < 60 * 1000) return "لحظاتی پیش";
   const mins = Math.floor(diff / (60 * 1000));
-  if (mins < 60) return `${toPersianDigits(mins)} دقیقه پیش`;
+  if (mins < 60) return `${formatStatNumber(mins)} دقیقه پیش`;
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${toPersianDigits(hours)} ساعت پیش`;
+  if (hours < 24) return `${formatStatNumber(hours)} ساعت پیش`;
   const days = Math.floor(hours / 24);
   if (days === 1) return "دیروز";
-  if (days < 30) return `${toPersianDigits(days)} روز پیش`;
+  if (days < 30) return `${formatStatNumber(days)} روز پیش`;
   const months = Math.floor(days / 30);
-  if (months < 12) return `${toPersianDigits(months)} ماه پیش`;
-  return `${toPersianDigits(Math.floor(months / 12))} سال پیش`;
+  if (months < 12) return `${formatStatNumber(months)} ماه پیش`;
+  return `${formatStatNumber(Math.floor(months / 12))} سال پیش`;
 }
 
 /**
  * Converts a Gregorian date string (YYYY-MM-DD) into Jalali / Shamsi format.
- * E.g., "2026-06-06" -> "۱۶ خرداد ۱۴۰۵"
+ * E.g., "2026-06-06" -> "16 خرداد 1405"
  */
 export function convertGregorianToShamsi(dateStr: string): string {
   if (!dateStr) return "";
@@ -628,7 +629,7 @@ export function convertGregorianToShamsi(dateStr: string): string {
 
     const dateObj = new Date(gy, gm, gd);
     // Use native JavaScript Intl with Jalali (persian) calendar for 100% accurate conversion
-    const shamsiStr = new Intl.DateTimeFormat("fa-IR-u-ca-persian", {
+    const shamsiStr = new Intl.DateTimeFormat("fa-IR-u-ca-persian-nu-latn", {
       day: "numeric",
       month: "long",
       year: "numeric"

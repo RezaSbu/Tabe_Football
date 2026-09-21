@@ -9,8 +9,6 @@ export default function MatchDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [match, setMatch] = useState<any>(null);
-  const [players, setPlayers] = useState<any[]>([]);
-  const [teams, setTeams] = useState<any[]>([]);
   const [allMatches, setAllMatches] = useState<any[]>([]);
   const [standings, setStandings] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(true);
@@ -32,14 +30,12 @@ export default function MatchDetailPage() {
             hasData = true;
             const processed = computeDynamicAppletStats(
               [data.data.match],
-              data.data.teams || [],
-              data.data.players || [],
+              [],
+              [],
               {},
               {}
             );
             setMatch(processed.processedMatches[0]);
-            setPlayers(data.data.players || []);
-            setTeams(data.data.teams || []);
           } else if (!hasData) {
             setError(true);
           }
@@ -114,8 +110,6 @@ export default function MatchDetailPage() {
       <MatchDetailView
         match={match}
         allMatches={allMatches}
-        allTeams={teams}
-        players={players}
         standings={standings}
         onBack={() => navigate(-1)}
         onSelectPlayer={(pid: string) => navigate(`/player/${pid}`)}

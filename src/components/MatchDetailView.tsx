@@ -4,7 +4,7 @@ import {
   AlertCircle, Sparkles, Trophy, TrendingUp, ListOrdered, Shirt, GitCompareArrows, RefreshCw 
 } from "lucide-react";
 import { StandingRow } from "../types";
-import { convertGregorianToShamsi, toPersianDigits, normalizePersianString } from "../utils";
+import { convertGregorianToShamsi, formatStatNumber, normalizePersianString } from "../utils";
 import { minuteSortKey } from "../shared/matchMinute";
 import TeamLogo from "./TeamLogo";
 
@@ -188,12 +188,17 @@ export default function MatchDetailView({
   const awaySubs = defaultLineups.awaySubs || [];
 
   // --- 3b. Extract events per player from match.events (single source of truth) ---
+  // Identity-first: an event carrying a playerId only ever belongs to that
+  // id. Bare names are used solely for legacy events without any ids, so two
+  // same-name players can never share one event.
   const getPlayerEvents = (playerId: string, playerName: string) => {
     const events = match.events || [];
-    return events.filter((ev: any) => 
-      ev && (ev.playerId === playerId || ev.playerName === playerName ||
-             ev.player2Id === playerId || ev.player2Name === playerName)
-    );
+    return events.filter((ev: any) => {
+      if (!ev) return false;
+      if (ev.playerId === playerId || ev.player2Id === playerId) return true;
+      if (ev.playerId != null || ev.player2Id != null) return false;
+      return ev.playerName === playerName || ev.player2Name === playerName;
+    });
   };
 
   // --- 4. HEAD TO HEAD ---
@@ -249,12 +254,12 @@ export default function MatchDetailView({
     // First check if scorer has a team in the event
     const goalEvent = (match.events || []).find((ev: any) => 
       (ev.type === "goal" || ev.type === "penalty") && 
-      (ev.playerName === name || ev.playerId === sc.scorerId)
+      (ev.playerId === sc.scorerId || ((ev.playerId == null) && ev.playerName === name))
     );
     if (goalEvent?.team) return goalEvent.team;
-    // Fallback: check lineup
-    if (homeLineup.some((p: any) => p.name === name || String(p.id) === String(sc.scorerId))) return "home";
-    if (awayLineup.some((p: any) => p.name === name || String(p.id) === String(sc.scorerId))) return "away";
+    // Fallback: check lineup (id first, bare name only when the row has no id)
+    if (homeLineup.some((p: any) => String(p.id) === String(sc.scorerId) || (p.id == null && p.name === name))) return "home";
+    if (awayLineup.some((p: any) => String(p.id) === String(sc.scorerId) || (p.id == null && p.name === name))) return "away";
     return null;
   };
 
@@ -268,9 +273,11 @@ export default function MatchDetailView({
 
   const renderLineupColumn = (players: any[], subs: any[], teamName: string, accent: "emerald" | "cyan") => {
     const sorted = [...players].sort(
-      (a, b) => positionOrder(a.position || "") - positionOrder(b.position || "") || (Number(a.number) || 99) - (Number(b.number) || 99)
+      (a, b) => positionOrder(a.position || "") - positionOrder(b.position || "") || String(a.name || "").localeCompare(String(b.name || ""))
     );
-    const sortedSubs = [...subs].sort((a, b) => (Number(a.number) || 99) - (Number(b.number) || 99));
+    const sortedSubs = [...subs].sort(
+      (a, b) => positionOrder(a.position || "") - positionOrder(b.position || "") || String(a.name || "").localeCompare(String(b.name || ""))
+    );
 
     const renderRow = (p: any) => {
       const rating = typeof p.rating === "number" ? p.rating : (p.rating ? parseFloat(p.rating) : undefined);
@@ -290,29 +297,26 @@ export default function MatchDetailView({
           className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 hover:bg-white/[0.04] transition cursor-pointer text-right"
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            <span className="h-7 w-7 rounded-lg bg-black/30 border border-white/10 flex items-center justify-center font-mono text-[10px] font-black text-slate-200 shrink-0">
-              {toPersianDigits(p.number || "—")}
-            </span>
             <div className="min-w-0">
               <span className="block text-xs font-bold text-white truncate">{p.name}</span>
               <span className="block text-[10px] text-slate-500">{p.position || "بازیکن"}</span>
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
-            {goals > 0 && <span className="text-[10px] font-black text-emerald-400">⚽{toPersianDigits(goals)}</span>}
-            {assists > 0 && <span className="text-[10px] font-black text-cyan-400">👟{toPersianDigits(assists)}</span>}
+            {goals > 0 && <span className="text-[10px] font-black text-emerald-400">⚽{formatStatNumber(goals)}</span>}
+            {assists > 0 && <span className="text-[10px] font-black text-cyan-400">👟{formatStatNumber(assists)}</span>}
             {yellowCards > 0 && <span className="text-[10px]">🟨</span>}
             {redCards > 0 && <span className="text-[10px]">🟥</span>}
             {substitution && (
               <span className="text-[10px] font-black text-amber-400" title={`خروج ${substitution.playerName} / ورود ${substitution.player2Name || ""}`}>
-                🔄{substitution.minute && <span className="font-mono">{toPersianDigits(substitution.minute)}'</span>}
+                🔄{substitution.minute && <span className="font-mono">{formatStatNumber(substitution.minute)}'</span>}
               </span>
             )}
             {rating != null && rating > 0 && (
               <span className={`font-mono text-[10px] font-black px-1.5 py-0.5 rounded ${
                 rating >= 7.5 ? "bg-emerald-500/10 text-emerald-400" : rating >= 6.5 ? "bg-amber-500/10 text-amber-400" : "bg-white/5 text-slate-400"
               }`}>
-                {toPersianDigits(rating.toFixed(1))}
+                {formatStatNumber(rating.toFixed(1))}
               </span>
             )}
           </div>
@@ -325,7 +329,7 @@ export default function MatchDetailView({
         <div className={`px-4 py-3 border-b border-white/5 flex items-center justify-between gap-2 bg-gradient-to-l ${accent === "emerald" ? "from-emerald-500/10" : "from-cyan-500/10"}`}>
           <span className="text-xs font-black text-white truncate">{teamName}</span>
           <span className={`text-[10px] font-bold shrink-0 ${accent === "emerald" ? "text-emerald-400" : "text-cyan-400"}`}>
-            {toPersianDigits(sorted.length)} بازیکن
+            {formatStatNumber(sorted.length)} بازیکن
           </span>
         </div>
 
@@ -347,8 +351,8 @@ export default function MatchDetailView({
   const extraResult = match.halfTimeScore || match.halftime || match.ht;
   const infoChips: { icon: React.ReactNode; text: string }[] = [
     { icon: <Trophy className="h-3.5 w-3.5" />, text: leagueName },
-    ...(match.week ? [{ icon: <ListOrdered className="h-3.5 w-3.5" />, text: `هفته ${toPersianDigits(match.week)}` }] : []),
-    { icon: <Calendar className="h-3.5 w-3.5" />, text: `${convertGregorianToShamsi(match.date)} | ساعت ${toPersianDigits(match.time)}` },
+    ...(match.week ? [{ icon: <ListOrdered className="h-3.5 w-3.5" />, text: `هفته ${formatStatNumber(match.week)}` }] : []),
+    { icon: <Calendar className="h-3.5 w-3.5" />, text: `${convertGregorianToShamsi(match.date)} | ساعت ${formatStatNumber(match.time)}` },
     ...(match.venue ? [{ icon: <MapPin className="h-3.5 w-3.5" />, text: `ورزشگاه: ${match.venue}` }] : []),
     ...(match.referee ? [{ icon: <Shield className="h-3.5 w-3.5" />, text: `داور: ${match.referee}` }] : []),
   ];
@@ -404,7 +408,7 @@ export default function MatchDetailView({
                 <h4 className="font-black text-white text-sm sm:text-lg leading-tight max-w-[120px] sm:max-w-[180px] truncate">{match.teamHome}</h4>
                 {homeRank && (
                   <span className="inline-block text-[10px] rounded-full bg-white/10 border border-white/15 px-2 py-0.5 text-slate-200 font-bold">
-                    رتبه {toPersianDigits(homeRank.rank)} جدول
+                    رتبه {formatStatNumber(homeRank.rank)} جدول
                   </span>
                 )}
               </div>
@@ -421,7 +425,7 @@ export default function MatchDetailView({
                 ) : (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-red-500/90 text-white px-3 py-1 text-[10px] font-black animate-pulse shadow-lg">
                     <span className="h-1.5 w-1.5 rounded-full bg-white" />
-                    زنده · دقیقه {toPersianDigits(match.minutes || "۶۵")}'
+                    زنده · دقیقه {formatStatNumber(match.minutes || "65")}'
                   </span>
                 )
               ) : match.status === "finished" ? (
@@ -436,9 +440,9 @@ export default function MatchDetailView({
 
               {isPlayed ? (
                 <div className="text-4xl sm:text-6xl font-mono font-black text-white tracking-widest drop-shadow-lg flex items-center gap-2 sm:gap-3">
-                  <span className="text-emerald-400">{toPersianDigits(match.scoreHome)}</span>
+                  <span className="text-emerald-400">{formatStatNumber(match.scoreHome)}</span>
                   <span className="text-slate-300/60">-</span>
-                  <span className="text-cyan-400">{toPersianDigits(match.scoreAway)}</span>
+                  <span className="text-cyan-400">{formatStatNumber(match.scoreAway)}</span>
                 </div>
               ) : (
                 <div className="text-3xl sm:text-5xl font-black text-white/80 tracking-widest select-none">VS</div>
@@ -446,7 +450,7 @@ export default function MatchDetailView({
 
               {extraResult && (
                 <span className="text-[10px] text-slate-300 bg-white/10 border border-white/10 rounded-full px-2.5 py-0.5 font-bold">
-                  نیمه اول: {toPersianDigits(extraResult)}
+                  نیمه اول: {formatStatNumber(extraResult)}
                 </span>
               )}
 
@@ -467,7 +471,7 @@ export default function MatchDetailView({
                 <h4 className="font-black text-white text-sm sm:text-lg leading-tight max-w-[120px] sm:max-w-[180px] truncate">{match.teamAway}</h4>
                 {awayRank && (
                   <span className="inline-block text-[10px] rounded-full bg-white/10 border border-white/15 px-2 py-0.5 text-slate-200 font-bold">
-                    رتبه {toPersianDigits(awayRank.rank)} جدول
+                    رتبه {formatStatNumber(awayRank.rank)} جدول
                   </span>
                 )}
               </div>
@@ -534,7 +538,7 @@ export default function MatchDetailView({
                             : "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
                         }`}>
                           ⚽ {name}
-                          {sc.minute && <span className="font-mono text-[10px] opacity-80">{toPersianDigits(sc.minute)}'</span>}
+                          {sc.minute && <span className="font-mono text-[10px] opacity-80">{formatStatNumber(sc.minute)}'</span>}
                         </span>
                       );
                     })}
@@ -571,7 +575,7 @@ export default function MatchDetailView({
                               ? "bg-red-500/90 border-red-400/40 text-white"
                               : "bg-[#1c1c21] border-white/10 text-slate-200"
                           }`}>
-                            {toPersianDigits(item.minute)}'
+                            {formatStatNumber(item.minute)}'
                           </span>
                         </div>
                       );
@@ -666,11 +670,11 @@ export default function MatchDetailView({
                       <div key={idx} className="px-4 py-4 space-y-2">
                         <div className="flex justify-between items-center text-xs sm:text-sm gap-3">
                           <span className={`font-extrabold font-mono ${homeLead ? "text-emerald-400" : "text-slate-400"}`}>
-                            {toPersianDigits(stat.homeValue)}
+                            {formatStatNumber(stat.homeValue)}
                           </span>
                           <span className="text-slate-400 font-bold">{stat.label}</span>
                           <span className={`font-extrabold font-mono ${awayLead ? "text-cyan-400" : "text-slate-400"}`}>
-                            {toPersianDigits(stat.awayValue)}
+                            {formatStatNumber(stat.awayValue)}
                           </span>
                         </div>
 
@@ -693,7 +697,7 @@ export default function MatchDetailView({
         {/* ===== TAB 3: LINEUPS ===== */}
         {activeTab === "lineups" && (
           <div className="space-y-5 animate-in fade-in duration-200">
-            {homeLineup.length === 0 && awayLineup.length === 0 ? (
+            {homeLineup.length === 0 && awayLineup.length === 0 && homeSubs.length === 0 && awaySubs.length === 0 ? (
               <div className="p-8 text-center text-slate-400 bg-black/15 border border-white/5 border-dashed rounded-2xl max-w-md mx-auto space-y-3">
                 <Shirt className="h-10 w-10 text-slate-500 mx-auto" />
                 <h4 className="font-extrabold text-sm text-white">ترکیب دو تیم ثبت نشده است</h4>
@@ -716,19 +720,19 @@ export default function MatchDetailView({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
                 <span className="text-[10px] text-slate-500 font-bold block truncate">بردهای {match.teamHome}</span>
-                <span className="text-2xl font-mono font-black text-emerald-400">{toPersianDigits(homeWins)} برد</span>
+                <span className="text-2xl font-mono font-black text-emerald-400">{formatStatNumber(homeWins)} برد</span>
                 <span className="text-[9px] text-slate-500 block">در بازی‌های پیشین</span>
               </div>
 
               <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
                 <span className="text-[10px] text-slate-500 font-bold block">تساوی‌ها</span>
-                <span className="text-2xl font-mono font-black text-slate-100">{toPersianDigits(draws)} مساوی</span>
+                <span className="text-2xl font-mono font-black text-slate-100">{formatStatNumber(draws)} مساوی</span>
                 <span className="text-[9px] text-slate-500 block">رقابت پایاپای</span>
               </div>
 
               <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
                 <span className="text-[10px] text-slate-500 font-bold block truncate">بردهای {match.teamAway}</span>
-                <span className="text-2xl font-mono font-black text-cyan-400">{toPersianDigits(awayWins)} برد</span>
+                <span className="text-2xl font-mono font-black text-cyan-400">{formatStatNumber(awayWins)} برد</span>
                 <span className="text-[9px] text-slate-500 block">در بازی‌های پیشین</span>
               </div>
             </div>
@@ -736,22 +740,22 @@ export default function MatchDetailView({
             <div className="grid grid-cols-3 gap-4">
               <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1 text-center">
                 <span className="text-[10px] text-slate-500 font-bold block">کل رویارویی‌ها</span>
-                <span className="text-2xl font-mono font-black text-white">{toPersianDigits(totalEncounters)}</span>
+                <span className="text-2xl font-mono font-black text-white">{formatStatNumber(totalEncounters)}</span>
               </div>
               <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1 text-center">
                 <span className="text-[10px] text-slate-500 font-bold block">گل‌های ردوبدل‌شده</span>
-                <span className="text-2xl font-mono font-black text-amber-400">{toPersianDigits(totalGoals)}</span>
+                <span className="text-2xl font-mono font-black text-amber-400">{formatStatNumber(totalGoals)}</span>
               </div>
               <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1 text-center">
                 <span className="text-[10px] text-slate-500 font-bold block">میانگین گل هر بازی</span>
-                <span className="text-2xl font-mono font-black text-cyan-300">{toPersianDigits(totalEncounters ? (totalGoals / totalEncounters).toFixed(1) : "—")}</span>
+                <span className="text-2xl font-mono font-black text-cyan-300">{formatStatNumber(totalEncounters ? (totalGoals / totalEncounters).toFixed(1) : "—")}</span>
               </div>
             </div>
 
             <div className="space-y-4">
               <h4 className="font-bold text-sm text-slate-300 flex items-center gap-1.5 pt-2">
                 <Trophy className="h-4 w-4 text-amber-500" />
-                <span>فهرست رقابت‌های رودرروی ثبت‌شده اخیراً ({toPersianDigits(totalEncounters)} مسابقه)</span>
+                <span>فهرست رقابت‌های رودرروی ثبت‌شده اخیراً ({formatStatNumber(totalEncounters)} مسابقه)</span>
               </h4>
 
               {h2hMatches.length > 0 ? (
@@ -770,12 +774,12 @@ export default function MatchDetailView({
                             <span>{m.teamAway}</span>
                           </span>
                         <span className="font-mono text-[9px] text-slate-500 block">
-                          {convertGregorianToShamsi(m.date)} | ساعت {toPersianDigits(m.time)}
+                          {convertGregorianToShamsi(m.date)} | ساعت {formatStatNumber(m.time)}
                         </span>
                       </div>
 
                       <span className="font-mono font-black text-xs bg-black/30 px-3 py-1 rounded-lg border border-white/5 text-slate-50 select-none">
-                        {toPersianDigits(m.scoreHome)} - {toPersianDigits(m.scoreAway)}
+                        {formatStatNumber(m.scoreHome)} - {formatStatNumber(m.scoreAway)}
                       </span>
                     </div>
                   ))}

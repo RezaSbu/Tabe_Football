@@ -1,7 +1,10 @@
 import React, { useState } from "react";
 import { PlayerItem, TeamItem } from "../types";
-import { toPersianDigits, getSafeImageUrl } from "../utils";
+import { formatStatNumber, getSafeImageUrl } from "../utils";
 import { Users, Plus, Trash2, Edit2, Search, X, Check, Save } from "lucide-react";
+import AdminPager from "./AdminPager";
+
+const ADMIN_LIST_PAGE_SIZE = 24;
 
 const PLAYER_POSITIONS = [
   "دروازه‌بان",
@@ -35,6 +38,7 @@ export default function AdminPlayerProfiles({
   const [isEditing, setIsEditing] = useState(false);
   const [editingItem, setEditingItem] = useState<Partial<PlayerItem> | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
 
   const recalculateStats = (list: any[]) => {
     const sum = { matches: 0, goals: 0, assists: 0, cleanSheets: 0 };
@@ -51,7 +55,6 @@ export default function AdminPlayerProfiles({
     setEditingItem({
       id: "",
       name: "",
-      number: "10",
       position: "هافبک",
       age: "24",
       nationality: "ایرانی",
@@ -112,6 +115,10 @@ export default function AdminPlayerProfiles({
       editingItem.teamName = "بازیکن آزاد";
     }
 
+    // Shirt numbers were removed from the data model: never send legacy keys.
+    delete (editingItem as any).number;
+    delete (editingItem as any).shirt_number;
+
     try {
       const res = await fetch(url, {
         method,
@@ -143,6 +150,10 @@ export default function AdminPlayerProfiles({
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     p.teamName.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  // Phase-3 perf: render one page only instead of all ~839 cards.
+  const playerTotalPages = Math.max(1, Math.ceil(filteredPlayers.length / ADMIN_LIST_PAGE_SIZE));
+  const safePlayerPage = Math.min(page, playerTotalPages);
+  const pagedPlayers = filteredPlayers.slice((safePlayerPage - 1) * ADMIN_LIST_PAGE_SIZE, safePlayerPage * ADMIN_LIST_PAGE_SIZE);
 
   return (
     <div className="bg-[#0b0b0f] border border-white/5 rounded-3xl p-6 space-y-6" dir="rtl">
@@ -174,7 +185,7 @@ export default function AdminPlayerProfiles({
               type="text"
               placeholder="جستجوی سریع بازیکن بر اساس نام یا نام تیم..."
               value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
+              onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
               className="w-full bg-gray-950 border border-white/5 rounded-xl pr-9 pl-4 py-2.5 text-xs text-white focus:outline-none focus:border-red-655"
             />
             <Search className="absolute right-3 top-3.5 h-4 w-4 text-gray-500" />
@@ -185,8 +196,9 @@ export default function AdminPlayerProfiles({
               <p className="text-xs text-gray-500">هیچ بازیکنی یافت نشد.</p>
             </div>
           ) : (
+            <>
             <div className="grid gap-3 max-h-[60vh] overflow-y-auto pr-1">
-              {filteredPlayers.map(p => (
+              {pagedPlayers.map(p => (
                 <div 
                   key={p.id} 
                   className="flex items-center justify-between p-3.5 rounded-xl bg-gray-950/40 border border-white/5 hover:border-red-550/20 transition"
@@ -204,8 +216,6 @@ export default function AdminPlayerProfiles({
                         <span className="font-bold text-red-400">{p.position}</span>
                         <span>•</span>
                         <span>{p.teamName}</span>
-                        <span>•</span>
-                        <span>پیراهن: {toPersianDigits(p.number || "0")}</span>
                       </div>
                     </div>
                   </div>
@@ -229,6 +239,8 @@ export default function AdminPlayerProfiles({
                 </div>
               ))}
             </div>
+            <AdminPager page={safePlayerPage} totalPages={playerTotalPages} total={filteredPlayers.length} unitLabel="بازیکن" onPage={setPage} />
+            </>
           )}
         </div>
       ) : (
@@ -303,17 +315,6 @@ export default function AdminPlayerProfiles({
                   <option key={pos} value={pos}>{pos}</option>
                 ))}
               </select>
-            </div>
-
-            <div>
-              <label className="block text-[11px] text-gray-400 font-bold mb-1.5">شماره پیراهن</label>
-              <input
-                type="text"
-                value={editingItem?.number || ""}
-                onChange={e => setEditingItem({ ...editingItem, number: e.target.value, shirt_number: e.target.value })}
-                className="w-full bg-slate-950 border border-white/5 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-red-655 font-mono"
-                placeholder="10"
-              />
             </div>
 
             <div>
@@ -445,15 +446,15 @@ export default function AdminPlayerProfiles({
                     <div className="flex flex-wrap gap-3 text-gray-300">
                       <span className="text-white">{st.teamName}</span>
                       <span>•</span>
-                      <span>{toPersianDigits(st.matches)} بازی</span>
+                      <span>{formatStatNumber(st.matches)} بازی</span>
                       <span>•</span>
-                      <span className="text-emerald-400">{toPersianDigits(st.goals)} گل</span>
+                      <span className="text-emerald-400">{formatStatNumber(st.goals)} گل</span>
                       <span>•</span>
-                      <span className="text-cyan-400">{toPersianDigits(st.assists)} پاس گل</span>
+                      <span className="text-cyan-400">{formatStatNumber(st.assists)} پاس گل</span>
                       {st.cleanSheets !== undefined && (
                         <>
                           <span>•</span>
-                          <span className="text-amber-500">{toPersianDigits(st.cleanSheets)} کلین‌شیت</span>
+                          <span className="text-amber-500">{formatStatNumber(st.cleanSheets)} کلین‌شیت</span>
                         </>
                       )}
                     </div>

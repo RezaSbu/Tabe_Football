@@ -1,7 +1,10 @@
 import React, { useState } from "react";
 import { TeamItem } from "../types";
-import { toPersianDigits, getSafeImageUrl } from "../utils";
+import { formatStatNumber, getSafeImageUrl } from "../utils";
 import { Shield, Plus, Trash2, Edit2, Search, X, Check, Save } from "lucide-react";
+import AdminPager from "./AdminPager";
+
+const ADMIN_LIST_PAGE_SIZE = 24;
 
 interface AdminTeamProfilesProps {
   teams: TeamItem[];
@@ -28,6 +31,7 @@ export default function AdminTeamProfiles({
   const [isEditing, setIsEditing] = useState(false);
   const [editingItem, setEditingItem] = useState<Partial<TeamItem> | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
 
   const handleCreateNew = () => {
     setEditingItem({
@@ -116,6 +120,9 @@ export default function AdminTeamProfiles({
     t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     t.city?.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  const teamTotalPages = Math.max(1, Math.ceil(filteredTeams.length / ADMIN_LIST_PAGE_SIZE));
+  const safeTeamPage = Math.min(page, teamTotalPages);
+  const pagedTeams = filteredTeams.slice((safeTeamPage - 1) * ADMIN_LIST_PAGE_SIZE, safeTeamPage * ADMIN_LIST_PAGE_SIZE);
 
   return (
     <div className="bg-[#0b0b0f] border border-white/5 rounded-3xl p-6 space-y-6" dir="rtl">
@@ -147,7 +154,7 @@ export default function AdminTeamProfiles({
               type="text"
               placeholder="جستجوی سریع تیم بر اساس نام باشگاه یا شهر..."
               value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
+              onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
               className="w-full bg-gray-950 border border-white/5 rounded-xl pr-9 pl-4 py-2.5 text-xs text-white focus:outline-none focus:border-red-655"
             />
             <Search className="absolute right-3 top-3.5 h-4 w-4 text-gray-500" />
@@ -158,8 +165,9 @@ export default function AdminTeamProfiles({
               <p className="text-xs text-gray-500">هیچ تیمی یافت نشد.</p>
             </div>
           ) : (
+            <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[60vh] overflow-y-auto pr-1">
-              {filteredTeams.map(t => (
+              {pagedTeams.map(t => (
                 <div 
                   key={t.id} 
                   className="flex items-center justify-between p-3.5 rounded-xl bg-gray-950/40 border border-white/5 hover:border-red-550/20 transition"
@@ -210,6 +218,8 @@ export default function AdminTeamProfiles({
                 </div>
               ))}
             </div>
+            <AdminPager page={safeTeamPage} totalPages={teamTotalPages} total={filteredTeams.length} unitLabel="تیم" onPage={setPage} />
+            </>
           )}
         </div>
       ) : (

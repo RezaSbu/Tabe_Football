@@ -26,77 +26,69 @@ export default function TransfersList({ transfers, teamTransfersList = [], teams
     if (initialTransferTag) setSearchQuery(initialTransferTag);
   }, [initialTransferTag]);
 
-  // Map teams to their logos for dynamic retrieval
-  const teamLogosMap: Record<string, string> = {};
-  teams.forEach((t: any) => {
-    if (t.name) {
-      teamLogosMap[t.name] = t.logo || "🛡️";
-    }
-  });
+  // Phase-4: memoize heavy per-render computations
+  const teamLogosMap = React.useMemo(() => {
+    const map: Record<string, string> = {};
+    teams.forEach((t: any) => { if (t.name) map[t.name] = t.logo || "🛡️"; });
+    return map;
+  }, [teams]);
 
-  // Extract unique team lists for team-based grouping (excluding free agent/dummy values)
-  const uniqueTeamNames = new Set<string>();
-  transfers.forEach((t) => {
-    if (t.fromTeam && t.fromTeam !== "آزاد" && t.fromTeam !== "دیگر" && t.fromTeam !== "نامشخص") {
-      uniqueTeamNames.add(t.fromTeam);
-    }
-    if (t.toTeam && t.toTeam !== "آزاد" && t.toTeam !== "دیگر" && t.toTeam !== "نامشخص") {
-      uniqueTeamNames.add(t.toTeam);
-    }
-  });
+  const uniqueTeamNames = React.useMemo(() => {
+    const names = new Set<string>();
+    transfers.forEach((t) => {
+      if (t.fromTeam && t.fromTeam !== "آزاد" && t.fromTeam !== "دیگر" && t.fromTeam !== "نامشخص") names.add(t.fromTeam);
+      if (t.toTeam && t.toTeam !== "آزاد" && t.toTeam !== "دیگر" && t.toTeam !== "نامشخص") names.add(t.toTeam);
+    });
+    return names;
+  }, [transfers]);
 
-  // Build the dictionary of incomings and outgoings for each team
-  const allTeamsMap = new Map<string, { incomings: TransferItem[]; outgoings: TransferItem[] }>();
-  uniqueTeamNames.forEach((teamName) => {
-    allTeamsMap.set(teamName, { incomings: [], outgoings: [] });
-  });
+  const allTeamsMap = React.useMemo(() => {
+    const map = new Map<string, { incomings: TransferItem[]; outgoings: TransferItem[] }>();
+    uniqueTeamNames.forEach((n) => map.set(n, { incomings: [], outgoings: [] }));
+    transfers.forEach((t) => {
+      if (t.toTeam && map.has(t.toTeam)) map.get(t.toTeam)!.incomings.push(t);
+      if (t.fromTeam && map.has(t.fromTeam)) map.get(t.fromTeam)!.outgoings.push(t);
+    });
+    return map;
+  }, [uniqueTeamNames, transfers]);
 
-  transfers.forEach((t) => {
-    if (t.toTeam && allTeamsMap.has(t.toTeam)) {
-      allTeamsMap.get(t.toTeam)!.incomings.push(t);
-    }
-    if (t.fromTeam && allTeamsMap.has(t.fromTeam)) {
-      allTeamsMap.get(t.fromTeam)!.outgoings.push(t);
-    }
-  });
+  const filteredTransfers = React.useMemo(() => {
+    if (!searchQuery) return transfers;
+    const q = searchQuery.toLowerCase();
+    return transfers.filter((t) =>
+      (t.playerName || "").toLowerCase().includes(q) ||
+      (t.fromTeam || "").toLowerCase().includes(q) ||
+      (t.toTeam || "").toLowerCase().includes(q) ||
+      (t.position || "").toLowerCase().includes(q) ||
+      (t.tags || []).some((tag: string) => tag.toLowerCase().includes(q))
+    );
+  }, [transfers, searchQuery]);
 
-  // Filter transfers for PLAYER-CENTRIC view
-  const filteredTransfers = transfers.filter(
-    (t) => {
+  const filteredTeams = React.useMemo(() => {
+    const arr = Array.from(uniqueTeamNames);
+    if (!searchQuery) return arr;
+    const q = searchQuery.toLowerCase();
+    return arr.filter((teamName) => {
+      const incomings = allTeamsMap.get(teamName)?.incomings || [];
+      const outgoings = allTeamsMap.get(teamName)?.outgoings || [];
+      return teamName.toLowerCase().includes(q) ||
+        incomings.some((t) => (t.playerName || "").toLowerCase().includes(q) || (t.tags || []).some((tag: string) => tag.toLowerCase().includes(q))) ||
+        outgoings.some((t) => (t.playerName || "").toLowerCase().includes(q) || (t.tags || []).some((tag: string) => tag.toLowerCase().includes(q)));
+    });
+  }, [uniqueTeamNames, allTeamsMap, searchQuery]);
+
+  const filteredTeamTransfers = React.useMemo(() => {
+    return teamTransfersList.filter((item) => {
+      if (!item) return false;
+      if (leagueFilter !== "all" && (item.league || "pro-league") !== leagueFilter) return false;
       if (!searchQuery) return true;
       const q = searchQuery.toLowerCase();
-      return (t.playerName || "").toLowerCase().includes(q) ||
-             (t.fromTeam || "").toLowerCase().includes(q) ||
-             (t.toTeam || "").toLowerCase().includes(q) ||
-             (t.position || "").toLowerCase().includes(q) ||
-             (t.tags || []).some((tag: string) => tag.toLowerCase().includes(q));
-    }
-  );
-
-  // Filter unique teams for TEAM-CENTRIC view based on search query
-  const filteredTeams = Array.from(uniqueTeamNames).filter((teamName) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    const incomings = allTeamsMap.get(teamName)?.incomings || [];
-    const outgoings = allTeamsMap.get(teamName)?.outgoings || [];
-    return (
-      teamName.toLowerCase().includes(q) ||
-      incomings.some((t) => (t.playerName || "").toLowerCase().includes(q) || (t.tags || []).some((tag: string) => tag.toLowerCase().includes(q))) ||
-      outgoings.some((t) => (t.playerName || "").toLowerCase().includes(q) || (t.tags || []).some((tag: string) => tag.toLowerCase().includes(q)))
-    );
-  });
-
-  // Filter team-centric persistent list
-  const filteredTeamTransfers = teamTransfersList.filter((item) => {
-    if (!item) return false;
-    if (leagueFilter !== "all" && (item.league || "pro-league") !== leagueFilter) return false;
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    const nameMatches = item.teamName ? item.teamName.toLowerCase().includes(q) : false;
-    const incMatches = item.incomings ? item.incomings.some((p: any) => p.playerName && p.playerName.toLowerCase().includes(q)) : false;
-    const outMatches = item.outgoings ? item.outgoings.some((p: any) => p.playerName && p.playerName.toLowerCase().includes(q)) : false;
-    return nameMatches || incMatches || outMatches;
-  });
+      const nameMatches = item.teamName ? item.teamName.toLowerCase().includes(q) : false;
+      const incMatches = item.incomings ? item.incomings.some((p: any) => p.playerName && p.playerName.toLowerCase().includes(q)) : false;
+      const outMatches = item.outgoings ? item.outgoings.some((p: any) => p.playerName && p.playerName.toLowerCase().includes(q)) : false;
+      return nameMatches || incMatches || outMatches;
+    });
+  }, [teamTransfersList, leagueFilter, searchQuery]);
 
   const getLeagueLabel = (league: string) => {
     if (league === "league-1") return "لیگ یک";
