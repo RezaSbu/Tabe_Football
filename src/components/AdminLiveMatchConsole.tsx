@@ -18,7 +18,7 @@ import {
   RotateCcw,
   Save
 } from "lucide-react";
-import { toPersianDigits, normalizePersianString } from "../utils";
+import { formatStatNumber, normalizePersianString } from "../utils";
 import { parseMatchMinute } from "../shared/matchMinute";
 
 interface MatchEvent {
@@ -109,14 +109,22 @@ export default function AdminLiveMatchConsole({
   // MVP explicit selection
   const [mvpPlayerId, setMvpPlayerId] = useState<string>(() => {
     if (!match.mvpId) return "";
-    const found = (players || []).find(p => p.id === match.mvpId || p.name === match.mvpId);
+    const found = (players || []).find(p => String(p.id) === String(match.mvpId));
     return found ? found.id : "";
   });
 
-  const resolvePlayerId = (nameOrId: string): string => {
-    if (!nameOrId) return "";
-    const found = (players || []).find(p => p.id === nameOrId || p.name === nameOrId);
-    return found ? found.id : "";
+  const resolvePlayerCandidates = (nameOrId: string, scope?: any[]): any[] => {
+    if (!nameOrId) return [];
+    const pool = scope && scope.length > 0 ? scope : (players || []);
+    const byId = pool.filter((p: any) => String(p.id) === String(nameOrId));
+    if (byId.length > 0) return byId;
+    const norm = normalizePersianString(nameOrId);
+    return pool.filter((p: any) => normalizePersianString(p.name || "") === norm);
+  };
+
+  const resolvePlayerId = (nameOrId: string, scope?: any[]): string => {
+    const found = resolvePlayerCandidates(nameOrId, scope);
+    return found.length === 1 ? found[0].id : "";
   };
 
   // Suggestions states
@@ -158,19 +166,16 @@ export default function AdminLiveMatchConsole({
   const [unknownPassAccuracy, setUnknownPassAccuracy] = useState<boolean>(!hasExistingStats || isValUnknown(match.teamStats?.passAccuracy?.home));
   const [unknownSaves, setUnknownSaves] = useState<boolean>(!hasExistingStats || isValUnknown(match.teamStats?.saves?.home));
 
-  // Local starting lineups management
-  const [localLineups, setLocalLineups] = useState<{ home: any[]; away: any[] }>({
+  // Local starting lineups + substitutes management.
+  // home/away = starters; homeSubs/awaySubs = bench. A rating on a bench
+  // entry only counts if that substitute actually entered the pitch.
+  const [localLineups, setLocalLineups] = useState<{ home: any[]; away: any[]; homeSubs: any[]; awaySubs: any[] }>({
     home: (match as any).lineups?.home || [],
-    away: (match as any).lineups?.away || []
+    away: (match as any).lineups?.away || [],
+    homeSubs: (match as any).lineups?.homeSubs || [],
+    awaySubs: (match as any).lineups?.awaySubs || []
   });
   const [showLineupMgmt, setShowLineupMgmt] = useState<boolean>(false);
-
-  // Helper helper digits converter
-  const toPersianDigits = (num: number | string): string => {
-    const numStr = String(num);
-    const persianDigits = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
-    return numStr.replace(/[0-9]/g, (w) => persianDigits[parseInt(w, 10)]);
-  };
 
   // Real clock: the minute is derived from how many real 60s intervals have
   // elapsed since the play/resume moment, anchored to the minute the admin had
@@ -231,15 +236,46 @@ export default function AdminLiveMatchConsole({
       return;
     }
 
+    // Stats-bearing events must resolve to exactly one player of the event's
+    // team. Same-name players on other teams (or free text) are rejected so
+    // stats can never bleed across identities.
+    const needsIdentity = !["var", "other", "injury"].includes(eventType);
+    let player1Id: string | undefined;
+    let player2Id: string | undefined;
+    if (needsIdentity && eventPlayer) {
+      const c1 = resolvePlayerCandidates(eventPlayer, roster);
+      if (c1.length === 0) {
+        alert("این بازیکن در لیست این تیم پیدا نشد. اول بازیکن را در پروفایل بازیکنان بسازید، بعد رویداد ثبت کنید.");
+        return;
+      }
+      if (c1.length > 1) {
+        alert("چند بازیکن هم‌نام در این تیم/سیستم هست. لطفا شناسه یکتای بازیکن را وارد کنید.");
+        return;
+      }
+      player1Id = c1[0].id;
+    }
+    if (needsIdentity && eventPlayer2 && (eventType === "substitution" || eventType === "assist" || eventType === "goal")) {
+      const c2 = resolvePlayerCandidates(eventPlayer2, roster);
+      if (c2.length === 0) {
+        alert("بازیکن دوم در لیست این تیم پیدا نشد. اول بازیکن را در پروفایل بازیکنان بسازید.");
+        return;
+      }
+      if (c2.length > 1) {
+        alert("چند بازیکن هم‌نام برای بازیکن دوم هست. لطفا شناسه یکتای بازیکن را وارد کنید.");
+        return;
+      }
+      player2Id = c2[0].id;
+    }
+
     const newEvent: MatchEvent = {
       id: `ev-${Date.now()}`,
       type: eventType,
       minute: eventMin || String(minutes),
       team: eventTeam,
       playerName: eventPlayer,
-      playerId: resolvePlayerId(eventPlayer) || undefined,
+      playerId: player1Id || resolvePlayerId(eventPlayer) || undefined,
       player2Name: eventPlayer2 || undefined,
-      player2Id: resolvePlayerId(eventPlayer2) || undefined,
+      player2Id: player2Id || resolvePlayerId(eventPlayer2) || undefined,
       details: eventDetails || undefined
     };
 
@@ -324,16 +360,36 @@ export default function AdminLiveMatchConsole({
     };
 
     if (status === "finished") {
+      // A bench rating counts only for substitutes who entered the pitch.
+      // Warn about rated subs without a matching substitution entry event.
+      const enteredIds = new Set(
+        events
+          .filter(e => e && e.type === "substitution")
+          .flatMap(e => [e.playerId, e.player2Id].filter(Boolean).map((v: any) => String(v)))
+      );
+      const unenteredRatedSubs = [...localLineups.homeSubs, ...localLineups.awaySubs].filter(
+        s => s && s.rating != null && !enteredIds.has(String(s.id))
+      );
+      if (unenteredRatedSubs.length > 0) {
+        const ok = window.confirm(
+          `نمره این ذخیره‌ها محاسبه نمی‌شود چون ورودشان با رویداد تعویض ثبت نشده است:\n` +
+          unenteredRatedSubs.map(s => `- ${s.name}`).join("\n") +
+          `\nادامه می‌دهید؟`
+        );
+        if (!ok) return;
+      }
+
       // Automatic data extraction expects scorersList & MVP
+      const matchRoster = [...homeRoster, ...awayRoster];
       const scorersList = events
         .filter(e => e.type === "goal" || e.type === "penalty")
         .map(e => ({
-          scorerId: e.playerId || resolvePlayerId(e.playerName),
+          scorerId: e.playerId || resolvePlayerId(e.playerName, matchRoster),
           scorerName: e.playerName,
           name: e.playerName,
           goals: 1,
           assistName: e.player2Name || "",
-          assistId: e.player2Id || resolvePlayerId(e.player2Name || ""),
+          assistId: e.player2Id || resolvePlayerId(e.player2Name || "", matchRoster),
           minute: e.minute
         }));
 
@@ -438,7 +494,7 @@ export default function AdminLiveMatchConsole({
           <div className="text-right">
             <h3 className="text-xs font-extrabold text-white">مدیریت ترکیب آغازین تیم‌ها (Starters Lineup)</h3>
             <p className="text-[9px] text-slate-400 mt-0.5">
-              ترکیب اصلی {match.teamHome} ({toPersianDigits(localLineups.home.length)} نفر) | ترکیب اصلی {match.teamAway} ({toPersianDigits(localLineups.away.length)} نفر)
+              ترکیب اصلی {match.teamHome} ({formatStatNumber(localLineups.home.length)} نفر) | ترکیب اصلی {match.teamAway} ({formatStatNumber(localLineups.away.length)} نفر)
             </p>
           </div>
         </div>
@@ -451,7 +507,7 @@ export default function AdminLiveMatchConsole({
               : "bg-white/5 hover:bg-white/10 text-slate-200"
           }`}
         >
-          {showLineupMgmt ? "بستن پنل ترکیب" : "تنظیم ترکیب اصلی (۱۱ بازیکن آغازین)"}
+          {showLineupMgmt ? "بستن پنل ترکیب" : "تنظیم ترکیب اصلی (11 بازیکن آغازین)"}
         </button>
       </div>
 
@@ -460,7 +516,7 @@ export default function AdminLiveMatchConsole({
           {/* Home Team Lineup Config */}
           <div className="bg-[#0b0b0f] border border-white/5 p-4 rounded-xl space-y-3">
             <div className="flex justify-between items-center border-b border-white/5 pb-2">
-              <span className="font-extrabold text-xs text-emerald-400">📋 ترکیب اصلی {match.teamHome} ({toPersianDigits(localLineups.home.length)} بازیکن)</span>
+              <span className="font-extrabold text-xs text-emerald-400">📋 ترکیب اصلی {match.teamHome} ({formatStatNumber(localLineups.home.length)} بازیکن)</span>
               <button
                 type="button"
                 onClick={() => {
@@ -468,9 +524,9 @@ export default function AdminLiveMatchConsole({
                   const selected = homeRoster.slice(0, limit).map(p => ({
                     id: p.id,
                     name: p.name,
-                    number: p.number || 10,
                     position: p.position || "مدافع",
-                    rating: null
+                    rating: null,
+                    role: "starter"
                   }));
                   setLocalLineups(prev => ({ ...prev, home: selected }));
                 }}
@@ -481,8 +537,7 @@ export default function AdminLiveMatchConsole({
             </div>
             <div className="grid grid-cols-2 gap-1.5 max-h-60 overflow-y-auto pr-1">
               {homeRoster.map((p) => {
-                const isChecked = localLineups.home.some(x => x.id === p.id || x.name === p.name);
-                return (
+                const isChecked = localLineups.home.some(x => String(x.id) === String(p.id));                return (
                   <button
                     key={p.id}
                     type="button"
@@ -490,19 +545,20 @@ export default function AdminLiveMatchConsole({
                       if (isChecked) {
                         setLocalLineups(prev => ({
                           ...prev,
-                          home: prev.home.filter(x => x.id !== p.id && x.name !== p.name)
+                          home: prev.home.filter(x => String(x.id) !== String(p.id))
                         }));
                       } else {
                         const item = {
                           id: p.id,
                           name: p.name,
-                          number: p.number || 10,
                           position: p.position || "مدافع",
-                          rating: null
+                          rating: null,
+                          role: "starter"
                         };
                         setLocalLineups(prev => ({
                           ...prev,
-                          home: [...prev.home, item]
+                          home: [...prev.home, item],
+                          homeSubs: prev.homeSubs.filter(x => String(x.id) !== String(p.id))
                         }));
                       }
                     }}
@@ -536,17 +592,83 @@ export default function AdminLiveMatchConsole({
                         </div>
                       )}
                     </div>
-                    <span className="font-mono bg-zinc-800 px-1 rounded text-[9px]">#{p.number || 10}</span>
+                    <span className="font-mono bg-zinc-800 px-1 rounded text-[9px]">{p.position || "مدافع"}</span>
                   </button>
                 );
               })}
+            </div>
+
+            {/* Home substitutes: bench players. A bench rating only counts
+                once the substitute enters via a substitution event. */}
+            <div className="border-t border-white/5 pt-3 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="font-extrabold text-[11px] text-emerald-400/80">ذخیره‌ها {match.teamHome} ({formatStatNumber(localLineups.homeSubs.length)} بازیکن)</span>
+              </div>
+              <p className="text-[9px] text-slate-500">نمره ذخیره فقط وقتی محاسبه می‌شود که با رویداد تعویض وارد زمین شده باشد.</p>
+              <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
+                {homeRoster.map((p) => {
+                  const isSub = localLineups.homeSubs.some(x => String(x.id) === String(p.id));
+                  const isStarter = localLineups.home.some(x => String(x.id) === String(p.id));
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        if (isSub) {
+                          setLocalLineups(prev => ({
+                            ...prev,
+                            homeSubs: prev.homeSubs.filter(x => String(x.id) !== String(p.id))
+                          }));
+                        } else {
+                          setLocalLineups(prev => ({
+                            ...prev,
+                            homeSubs: [...prev.homeSubs, { id: p.id, name: p.name, position: p.position || "مدافع", rating: null, role: "substitute" }],
+                            home: prev.home.filter(x => String(x.id) !== String(p.id))
+                          }));
+                        }
+                      }}
+                      className={`flex items-center justify-between p-2 rounded text-right transition border text-[10px] font-semibold ${
+                        isSub
+                          ? "bg-amber-950/40 text-amber-400 border-amber-500/40 font-bold"
+                          : "bg-black/30 text-slate-400 border-white/5 hover:border-white/10"
+                      } ${isStarter ? "opacity-50" : ""}`}
+                    >
+                      <div className="truncate pl-1">
+                        <div>{p.name}{isStarter ? " (فیکس)" : ""}</div>
+                        <span className="text-[8px] opacity-60 font-mono tracking-wider">{p.position || "مدافع"}</span>
+                        {isSub && (
+                          <div className="flex items-center gap-1 mt-1" onClick={(e) => e.stopPropagation()}>
+                            <span className="text-[7px] text-slate-500">نمره:</span>
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="1"
+                              max="10"
+                              value={localLineups.homeSubs.find(x => x.id === p.id)?.rating ?? ""}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                setLocalLineups(prev => ({
+                                  ...prev,
+                                  homeSubs: prev.homeSubs.map(x => x.id === p.id ? { ...x, rating: isNaN(val) ? null : val } : x)
+                                }));
+                              }}
+                              className="w-12 text-[9px] bg-zinc-800 border border-white/10 rounded px-1 py-0.5 text-center text-amber-400 font-mono focus:border-amber-500/50 focus:outline-none"
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <span className="font-mono bg-zinc-800 px-1 rounded text-[9px]">ذخیره</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
           {/* Away Team Lineup Config */}
           <div className="bg-[#0b0b0f] border border-white/5 p-4 rounded-xl space-y-3">
             <div className="flex justify-between items-center border-b border-white/5 pb-2">
-              <span className="font-extrabold text-xs text-[#38bdf8]">📋 ترکیب اصلی {match.teamAway} ({toPersianDigits(localLineups.away.length)} بازیکن)</span>
+              <span className="font-extrabold text-xs text-[#38bdf8]">📋 ترکیب اصلی {match.teamAway} ({formatStatNumber(localLineups.away.length)} بازیکن)</span>
               <button
                 type="button"
                 onClick={() => {
@@ -554,9 +676,9 @@ export default function AdminLiveMatchConsole({
                   const selected = awayRoster.slice(0, limit).map(p => ({
                     id: p.id,
                     name: p.name,
-                    number: p.number || 10,
                     position: p.position || "مدافع",
-                    rating: null
+                    rating: null,
+                    role: "starter"
                   }));
                   setLocalLineups(prev => ({ ...prev, away: selected }));
                 }}
@@ -567,7 +689,7 @@ export default function AdminLiveMatchConsole({
             </div>
             <div className="grid grid-cols-2 gap-1.5 max-h-60 overflow-y-auto pr-1">
               {awayRoster.map((p) => {
-                const isChecked = localLineups.away.some(x => x.id === p.id || x.name === p.name);
+                const isChecked = localLineups.away.some(x => String(x.id) === String(p.id));
                 return (
                   <button
                     key={p.id}
@@ -576,19 +698,20 @@ export default function AdminLiveMatchConsole({
                       if (isChecked) {
                         setLocalLineups(prev => ({
                           ...prev,
-                          away: prev.away.filter(x => x.id !== p.id && x.name !== p.name)
+                          away: prev.away.filter(x => String(x.id) !== String(p.id))
                         }));
                       } else {
                         const item = {
                           id: p.id,
                           name: p.name,
-                          number: p.number || 10,
                           position: p.position || "مدافع",
-                          rating: null
+                          rating: null,
+                          role: "starter"
                         };
                         setLocalLineups(prev => ({
                           ...prev,
-                          away: [...prev.away, item]
+                          away: [...prev.away, item],
+                          awaySubs: prev.awaySubs.filter(x => String(x.id) !== String(p.id))
                         }));
                       }
                     }}
@@ -622,10 +745,76 @@ export default function AdminLiveMatchConsole({
                         </div>
                       )}
                     </div>
-                    <span className="font-mono bg-zinc-800 px-1 rounded text-[9px]">#{p.number || 10}</span>
+                    <span className="font-mono bg-zinc-800 px-1 rounded text-[9px]">{p.position || "مدافع"}</span>
                   </button>
                 );
               })}
+            </div>
+
+            {/* Away substitutes: bench players. A bench rating only counts
+                once the substitute enters via a substitution event. */}
+            <div className="border-t border-white/5 pt-3 space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="font-extrabold text-[11px] text-[#38bdf8]/80">ذخیره‌ها {match.teamAway} ({formatStatNumber(localLineups.awaySubs.length)} بازیکن)</span>
+              </div>
+              <p className="text-[9px] text-slate-500">نمره ذخیره فقط وقتی محاسبه می‌شود که با رویداد تعویض وارد زمین شده باشد.</p>
+              <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto pr-1">
+                {awayRoster.map((p) => {
+                  const isSub = localLineups.awaySubs.some(x => String(x.id) === String(p.id));
+                  const isStarter = localLineups.away.some(x => String(x.id) === String(p.id));
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        if (isSub) {
+                          setLocalLineups(prev => ({
+                            ...prev,
+                            awaySubs: prev.awaySubs.filter(x => String(x.id) !== String(p.id))
+                          }));
+                        } else {
+                          setLocalLineups(prev => ({
+                            ...prev,
+                            awaySubs: [...prev.awaySubs, { id: p.id, name: p.name, position: p.position || "مدافع", rating: null, role: "substitute" }],
+                            away: prev.away.filter(x => String(x.id) !== String(p.id))
+                          }));
+                        }
+                      }}
+                      className={`flex items-center justify-between p-2 rounded text-right transition border text-[10px] font-semibold ${
+                        isSub
+                          ? "bg-amber-950/40 text-amber-400 border-amber-500/40 font-bold"
+                          : "bg-black/30 text-slate-400 border-white/5 hover:border-white/10"
+                      } ${isStarter ? "opacity-50" : ""}`}
+                    >
+                      <div className="truncate pl-1">
+                        <div>{p.name}{isStarter ? " (فیکس)" : ""}</div>
+                        <span className="text-[8px] opacity-60 font-mono tracking-wider">{p.position || "مدافع"}</span>
+                        {isSub && (
+                          <div className="flex items-center gap-1 mt-1" onClick={(e) => e.stopPropagation()}>
+                            <span className="text-[7px] text-slate-500">نمره:</span>
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="1"
+                              max="10"
+                              value={localLineups.awaySubs.find(x => x.id === p.id)?.rating ?? ""}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                setLocalLineups(prev => ({
+                                  ...prev,
+                                  awaySubs: prev.awaySubs.map(x => x.id === p.id ? { ...x, rating: isNaN(val) ? null : val } : x)
+                                }));
+                              }}
+                              className="w-12 text-[9px] bg-zinc-800 border border-white/10 rounded px-1 py-0.5 text-center text-amber-400 font-mono focus:border-amber-500/50 focus:outline-none"
+                            />
+                          </div>
+                        )}
+                      </div>
+                      <span className="font-mono bg-zinc-800 px-1 rounded text-[9px]">ذخیره</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
@@ -665,13 +854,13 @@ export default function AdminLiveMatchConsole({
                 onClick={() => reseedClock(Math.max(1, minutes - 1))}
                 className="p-1 px-2.5 text-xs font-bold rounded bg-white/5 hover:bg-white/10 text-slate-300 transition"
               >
-                -۱
+                -1
               </button>
               <button 
                 onClick={() => reseedClock(Math.min(maxMin, minutes + 1))}
                 className="p-1 px-2.5 text-xs font-bold rounded bg-white/5 hover:bg-white/10 text-slate-300 transition"
               >
-                +۱
+                +1
               </button>
               
               <button 
@@ -783,7 +972,7 @@ export default function AdminLiveMatchConsole({
                   : "bg-white/5 text-slate-600 cursor-not-allowed"
               }`}
             >
-              شروع نیمه دوم (دقیقه {toPersianDigits(isFutsal ? 21 : 46)})
+              شروع نیمه دوم (دقیقه {formatStatNumber(isFutsal ? 21 : 46)})
             </button>
           </div>
             </>
@@ -904,7 +1093,7 @@ export default function AdminLiveMatchConsole({
                 {showPlayerSuggestions1 && roster.length > 0 && (
                   <div className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-lg border border-white/10 bg-[#0c0c10] p-1 shadow-2xl divide-y divide-white/[0.03]" id="event-player-1-suggestions">
                     {roster
-                      .filter(p => !eventPlayer || p.name.includes(eventPlayer) || (p.number && String(p.number).includes(eventPlayer)))
+                      .filter(p => !eventPlayer || p.name.includes(eventPlayer) || (p.position && p.position.includes(eventPlayer)))
                       .map(p => (
                         <button
                           key={p.id}
@@ -916,10 +1105,10 @@ export default function AdminLiveMatchConsole({
                           className="w-full text-right text-xs p-2 hover:bg-emerald-500 hover:text-black rounded-md transition flex items-center justify-between text-slate-200 cursor-pointer font-semibold"
                         >
                           <span>{p.name}</span>
-                          <span className="text-[9px] opacity-75 font-mono">#{p.number} - {p.position}</span>
+                          <span className="text-[9px] opacity-75 font-mono">{p.position}</span>
                         </button>
                       ))}
-                    {roster.filter(p => p.name.includes(eventPlayer) || (p.number && String(p.number).includes(eventPlayer))).length === 0 && (
+                    {roster.filter(p => p.name.includes(eventPlayer) || (p.position && p.position.includes(eventPlayer))).length === 0 && (
                       <div className="text-[10px] text-slate-500 p-2 text-center italic">بازیکنی از این تیم یافت نشد. می‌توانید دلخواه بنویسید.</div>
                     )}
                   </div>
@@ -951,7 +1140,7 @@ export default function AdminLiveMatchConsole({
                 {showPlayerSuggestions2 && roster.length > 0 && (
                   <div className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-lg border border-white/10 bg-[#0c0c10] p-1 shadow-2xl divide-y divide-white/[0.03]" id="event-player-2-suggestions">
                     {roster
-                      .filter(p => !eventPlayer2 || p.name.includes(eventPlayer2) || (p.number && String(p.number).includes(eventPlayer2)))
+                      .filter(p => !eventPlayer2 || p.name.includes(eventPlayer2) || (p.position && p.position.includes(eventPlayer2)))
                       .map(p => (
                         <button
                           key={p.id}
@@ -963,10 +1152,10 @@ export default function AdminLiveMatchConsole({
                           className="w-full text-right text-xs p-2 hover:bg-emerald-500 hover:text-black rounded-md transition flex items-center justify-between text-slate-200 cursor-pointer font-semibold"
                         >
                           <span>{p.name}</span>
-                          <span className="text-[9px] opacity-75 font-mono">#{p.number} - {p.position}</span>
+                          <span className="text-[9px] opacity-75 font-mono">{p.position}</span>
                         </button>
                       ))}
-                    {roster.filter(p => p.name.includes(eventPlayer2) || (p.number && String(p.number).includes(eventPlayer2))).length === 0 && (
+                    {roster.filter(p => p.name.includes(eventPlayer2) || (p.position && p.position.includes(eventPlayer2))).length === 0 && (
                       <div className="text-[10px] text-slate-500 p-2 text-center italic">بازیکنی از این تیم یافت نشد. می‌توانید دلخواه بنویسید.</div>
                     )}
                   </div>
@@ -992,8 +1181,8 @@ export default function AdminLiveMatchConsole({
                   return (
                     <p className="text-[9px] text-slate-500 mt-1 leading-relaxed">
                       {parsed.isStoppage
-                        ? `${toPersianDigits(parsed.base)} + ${toPersianDigits(parsed.added)} → دقیقه ${toPersianDigits(parsed.total)} (${halfLabel}، وقت اضافه)`
-                        : `دقیقه ${toPersianDigits(parsed.total)} (${halfLabel})`}
+                        ? `${formatStatNumber(parsed.base)} + ${formatStatNumber(parsed.added)} → دقیقه ${formatStatNumber(parsed.total)} (${halfLabel}، وقت اضافه)`
+                        : `دقیقه ${formatStatNumber(parsed.total)} (${halfLabel})`}
                     </p>
                   );
                 })()}

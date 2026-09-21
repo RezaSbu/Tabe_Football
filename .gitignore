@@ -34,3 +34,5 @@ backups/
 
 logo.png
 pg_log.txt
+
+backup_*.sql

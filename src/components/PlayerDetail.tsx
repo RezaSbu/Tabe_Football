@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { 
-  ArrowLeft, Award, Calendar, Zap, Heart, ShieldCheck, 
+  ArrowLeft, Award, Calendar, Zap, Heart, 
   Star, Activity, Trophy, Clock, UserRound, Sparkles, Newspaper
 } from "lucide-react";
-import { getSafeImageUrl, isTeamInDb, convertGregorianToShamsi, toPersianDigits, normalizePersianString } from "../utils";
+import { getSafeImageUrl, isTeamInDb, convertGregorianToShamsi, formatStatNumber, normalizePersianString } from "../utils";
 import { resolveTeam } from "../shared/teamMatch";
 import { realMinute } from "../shared/matchMinute";
+import { buildPlayerIdentityIndex, findMatchLineupPlacement, isSamePlayer } from "../shared/playerIdentity";
 
 interface PlayerDetailProps {
   player: any;
   allMatches?: any[];
   allTeams?: any[];
+  allPlayers?: any[];
   news?: any[];
   onBack: () => void;
   onSelectTeam?: (name: string) => void;
@@ -22,6 +24,7 @@ export default function PlayerDetail({
   player, 
   allMatches = [], 
   allTeams = [], 
+  allPlayers = [],
   news = [],
   onBack, 
   onSelectTeam,
@@ -66,48 +69,31 @@ export default function PlayerDetail({
                          player.teamId?.includes("futsal") || 
                          (player.teamName || "").includes("فوتسال");
 
+  const identityIndex = buildPlayerIdentityIndex(allPlayers && allPlayers.length > 0 ? allPlayers : [player]);
+
   const getPlayerMinutesAndPlayed = (m: any, p: any) => {
     const isFutsal = m.sport === "futsal" || m.league === "futsal";
     const fullDuration = isFutsal ? 40 : 90;
 
-    const normalize = (str: string) => {
-      if (!str) return "";
-      return String(str)
-        .trim()
-        .replace(/[\u200B-\u200D\uFEFF]/g, "")
-        .replace(/[\s\t]+/g, " ")
-        .replace(/ي/g, "ی")
-        .replace(/ك/g, "ک")
-        .replace(/[۰-۹]/g, d => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
-        .replace(/[٠-٩]/g, d => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
-        .toLowerCase();
-    };
-
-    const normPName = normalize(p.name || "");
-    const normPId = String(p.id || "");
-
-    const checkMatch = (key?: any) => {
-      if (!key) return false;
-      const normKey = normalize(String(key));
-      return normKey === normPName || normKey === normPId;
-    };
+    const sameInMatch = (ref: { id?: any; name?: any }, side: "home" | "away" | null) =>
+      isSamePlayer({ ...ref, side }, p, m, identityIndex, []);
 
     const lineups = m.lineups || { home: [], away: [] };
     const homeLineup = lineups.home || [];
     const awayLineup = lineups.away || [];
 
-    const inHome = homeLineup.find((x: any) => checkMatch(x.id) || checkMatch(x.name));
-    const inAway = awayLineup.find((x: any) => checkMatch(x.id) || checkMatch(x.name));
+    const inHome = homeLineup.find((x: any) => sameInMatch({ id: x.id, name: x.name }, "home"));
+    const inAway = awayLineup.find((x: any) => sameInMatch({ id: x.id, name: x.name }, "away"));
     const lp = inHome || inAway;
 
     const events = m.events || [];
 
-    const subInEvent = events.find((ev: any) => ev && ev.type === "substitution" && checkMatch(ev.player2Name));
-    const subOutEvent = events.find((ev: any) => ev && ev.type === "substitution" && checkMatch(ev.playerName));
-    const redCardEvent = events.find((ev: any) => ev && ev.type === "red-card" && checkMatch(ev.playerName));
+    const subInEvent = events.find((ev: any) => ev && ev.type === "substitution" && sameInMatch({ id: ev.player2Id, name: ev.player2Name }, ev.team));
+    const subOutEvent = events.find((ev: any) => ev && ev.type === "substitution" && sameInMatch({ id: ev.playerId, name: ev.playerName }, ev.team));
+    const redCardEvent = events.find((ev: any) => ev && ev.type === "red-card" && sameInMatch({ id: ev.playerId, name: ev.playerName }, ev.team));
 
-    const hasOtherEvent = events.some((ev: any) => ev && ev.type !== "substitution" && (checkMatch(ev.playerName) || checkMatch(ev.player2Name)));
-    const inScorersList = (m.scorersList || []).some((sc: any) => sc && (checkMatch(sc.scorerName) || checkMatch(sc.scorerId) || checkMatch(sc.name) || checkMatch(sc.assist)));
+    const hasOtherEvent = events.some((ev: any) => ev && ev.type !== "substitution" && (sameInMatch({ id: ev.playerId, name: ev.playerName }, ev.team) || sameInMatch({ id: ev.player2Id, name: ev.player2Name }, ev.team)));
+    const inScorersList = (m.scorersList || []).some((sc: any) => sc && (sameInMatch({ id: sc.scorerId, name: sc.scorerName || sc.name }, null) || sameInMatch({ id: sc.assistId, name: sc.assistName || sc.assist }, null)));
 
     const started = !!lp;
     const played = started || !!subInEvent || hasOtherEvent || inScorersList;
@@ -157,72 +143,55 @@ export default function PlayerDetail({
     const { played: playedThisMatch, minutes: calculatedMins } = getPlayerMinutesAndPlayed(match, player);
     if (!playedThisMatch) return;
 
-    const lineups = match.lineups || { home: [], away: [] };
-    const homeLineup = lineups.home || [];
-    const awayLineup = lineups.away || [];
+    const sameLog = (ref: { id?: any; name?: any }, side: "home" | "away" | null) =>
+      isSamePlayer({ ...ref, side }, player, match, identityIndex, []);
 
-    const normalize = (str: string) => {
-      if (!str) return "";
-      return String(str)
-        .trim()
-        .replace(/[\u200B-\u200D\uFEFF]/g, "")
-        .replace(/[\s\t]+/g, " ")
-        .replace(/ي/g, "ی")
-        .replace(/ك/g, "ک")
-        .replace(/[۰-۹]/g, d => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
-        .replace(/[٠-٩]/g, d => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
-        .toLowerCase();
-    };
-
-    const isMatch = (pl: any) => {
-      return pl && (normalize(pl.id) === normalize(player.id) || normalize(pl.name) === normalize(player.name));
-    };
-
-    const lpHome = homeLineup.find(isMatch);
-    const lpAway = awayLineup.find(isMatch);
+    const placement = findMatchLineupPlacement(player, match, identityIndex, []);
+    const lpHome = placement.role === "starter" && placement.side === "home" ? placement.entry : null;
+    const lpAway = placement.role === "starter" && placement.side === "away" ? placement.entry : null;
+    // A substitute rating counts only when the sub actually entered the pitch.
+    const subEntry = placement.role === "substitute" && playedThisMatch ? placement.entry : null;
+    const lpForStats = lpHome || lpAway || subEntry;
 
     let playerGoals = 0;
     let playerAssists = 0;
     let playerYellow = 0;
     let playerRed = 0;
-    const playerRating = lpHome?.rating ?? lpAway?.rating ?? null;
+    const playerRating = lpForStats?.rating ?? null;
 
     // Sum from events:
     const matchEvents = match.events || [];
     matchEvents.forEach((ev: any) => {
       if (!ev) return;
-      if (normalize(ev.playerName) === normalize(player.name) || normalize(ev.playerName) === normalize(player.id)) {
+      if (sameLog({ id: ev.playerId, name: ev.playerName }, ev.team)) {
         if (ev.type === "goal" || ev.type === "penalty") playerGoals += 1;
         else if (ev.type === "yellow-card") playerYellow += 1;
         else if (ev.type === "red-card") playerRed += 1;
       }
-      if (normalize(ev.player2Name) === normalize(player.name) || normalize(ev.player2Name) === normalize(player.id)) {
+      if (sameLog({ id: ev.player2Id, name: ev.player2Name }, ev.team)) {
         if (ev.type === "assist" || ev.type === "goal") playerAssists += 1;
       }
     });
 
-    if (lpHome) {
-      playerGoals = Math.max(playerGoals, parseInt(lpHome.goals) || 0);
-      playerAssists = Math.max(playerAssists, parseInt(lpHome.assists) || 0);
-    }
-    if (lpAway) {
-      playerGoals = Math.max(playerGoals, parseInt(lpAway.goals) || 0);
-      playerAssists = Math.max(playerAssists, parseInt(lpAway.assists) || 0);
+    if (lpForStats) {
+      playerGoals = Math.max(playerGoals, parseInt(lpForStats.goals) || 0);
+      playerAssists = Math.max(playerAssists, parseInt(lpForStats.assists) || 0);
     }
 
-    let inHome = lpHome;
-    let inAway = lpAway;
+    let inHome = placement.side === "home" ? lpForStats : null;
+    let inAway = placement.side === "away" ? lpForStats : null;
 
     if (!inHome && !inAway) {
-      const sameTeam = (a?: string, b?: string) => !!a && !!b && normalize(a) === normalize(b);
-      const isHomeTeam = sameTeam(player.teamName, match.teamHome);
-      const isAwayTeam = sameTeam(player.teamName, match.teamAway);
+      const isHomeTeam = player.teamName && match.teamHome &&
+        normalizePersianString(player.teamName) === normalizePersianString(match.teamHome);
+      const isAwayTeam = player.teamName && match.teamAway &&
+        normalizePersianString(player.teamName) === normalizePersianString(match.teamAway);
 
       let assumedTeam: "home" | "away" | null = null;
       if (isHomeTeam) assumedTeam = "home";
       else if (isAwayTeam) assumedTeam = "away";
       else {
-        const matchingEv = matchEvents.find((ev: any) => ev && ev.team && (normalize(ev.playerName) === normalize(player.name) || normalize(ev.playerName) === normalize(player.id)));
+        const matchingEv = matchEvents.find((ev: any) => ev && ev.team && sameLog({ id: ev.playerId, name: ev.playerName }, ev.team));
         if (matchingEv) {
           assumedTeam = matchingEv.team;
         }
@@ -260,8 +229,8 @@ export default function PlayerDetail({
       const matchEvents = match.events || [];
       matchEvents.forEach((ev: any) => {
         if (!ev) return;
-        const isPlayer1 = ev.playerName === player.name || ev.playerName === player.id || (ev.playerName && player.name && normalizePersianString(ev.playerName) === normalizePersianString(player.name));
-        const isPlayer2 = ev.player2Name === player.name || ev.player2Name === player.id || (ev.player2Name && player.name && normalizePersianString(ev.player2Name) === normalizePersianString(player.name));
+        const isPlayer1 = sameLog({ id: ev.playerId, name: ev.playerName }, ev.team);
+        const isPlayer2 = sameLog({ id: ev.player2Id, name: ev.player2Name }, ev.team);
 
         if (isPlayer1) {
           if (ev.type === "yellow-card") playerYellow += 1;
@@ -306,7 +275,7 @@ export default function PlayerDetail({
           result: computeResult(true),
           rating: inHome.rating ?? null,
           minutesPlayed: calculatedMins || inHome.minutesPlayed || 90,
-          isMvp: match.mvpId === player.id || match.mvpId === player.name,
+          isMvp: isSamePlayer({ id: match.mvpId }, player, match, identityIndex, []),
           scoreHome: match.scoreHome,
           scoreAway: match.scoreAway,
           isHome: true
@@ -331,7 +300,7 @@ export default function PlayerDetail({
           result: computeResult(false),
           rating: inAway.rating ?? null,
           minutesPlayed: calculatedMins || inAway.minutesPlayed || 90,
-          isMvp: match.mvpId === player.id || match.mvpId === player.name,
+          isMvp: isSamePlayer({ id: match.mvpId }, player, match, identityIndex, []),
           scoreHome: match.scoreHome,
           scoreAway: match.scoreAway,
           isHome: false
@@ -486,8 +455,6 @@ export default function PlayerDetail({
                 ) : (
                   <span className="text-slate-450">{player.teamName || "بدون باشگاه"}</span>
                 )}
-                
-                <span className="font-mono text-slate-450">#{toPersianDigits(player.number || "۱۰")}</span>
               </div>
             </div>
           </div>
@@ -497,17 +464,17 @@ export default function PlayerDetail({
             
             <div className="p-3.5 rounded-2xl bg-black/35 border border-white/5 text-center">
               <span className="block text-[9px] text-[#808092] font-black mb-1">سن بازیکن</span>
-              <span className="text-sm font-black text-slate-100 font-mono">{toPersianDigits(player.age || "۲۴")} سال</span>
+              <span className="text-sm font-black text-slate-100 font-mono">{formatStatNumber(player.age || "24")} سال</span>
             </div>
 
             <div className="p-3.5 rounded-2xl bg-black/35 border border-white/5 text-center">
               <span className="block text-[9px] text-[#808092] font-black mb-1">قد</span>
-              <span className="text-sm font-black text-slate-100 font-mono">{toPersianDigits(player.height || "۱۸۰")} cm</span>
+              <span className="text-sm font-black text-slate-100 font-mono">{formatStatNumber(player.height || "180")} cm</span>
             </div>
 
             <div className="p-3.5 rounded-2xl bg-black/35 border border-white/5 text-center">
               <span className="block text-[9px] text-[#808092] font-black mb-1">وزن</span>
-              <span className="text-sm font-black text-slate-100 font-mono">{toPersianDigits(player.weight || "۷۵")} kg</span>
+              <span className="text-sm font-black text-slate-100 font-mono">{formatStatNumber(player.weight || "75")} kg</span>
             </div>
 
             <div className="p-3.5 rounded-2xl bg-black/35 border border-white/5 text-center">
@@ -536,7 +503,7 @@ export default function PlayerDetail({
             activeTab === "matches" ? "bg-emerald-500 text-black shadow font-black" : "text-slate-400 hover:text-white"
           }`}
         >
-          ریز نمایه بازی‌ها ({toPersianDigits(playerMatches.length)})
+          ریز نمایه بازی‌ها ({formatStatNumber(playerMatches.length)})
         </button>
         <button
           onClick={() => setActiveTab("career")}
@@ -657,20 +624,9 @@ export default function PlayerDetail({
                 <div className="p-4.5 rounded-2xl bg-[#131317] border border-white/5 flex items-center justify-between">
                   <div>
                     <span className="block text-[10px] text-gray-400 font-bold mb-1">
-                      شماره پیراهن رسمی
-                    </span>
-                    <span className="text-2xl font-mono font-black text-emerald-400"># {toPersianDigits(player.number || "۱۰")}</span>
-                    <span className="block text-[9px] text-slate-500 mt-1 font-medium">پیراهن اول باشگاه</span>
-                  </div>
-                  <ShieldCheck className="h-9 w-9 text-emerald-400 bg-emerald-500/10 p-2 rounded-full shrink-0" />
-                </div>
-
-                <div className="p-4.5 rounded-2xl bg-[#131317] border border-white/5 flex items-center justify-between">
-                  <div>
-                    <span className="block text-[10px] text-gray-400 font-bold mb-1">
                       {selectedCompet === "all" ? "مجموع بهترین بازیکن زمین" : selectedCompet === "league" ? (isFutsalPlayer ? "بهترین بازیکن زمین در لیگ فوتسال" : "بهترین بازیکن زمین در لیگ") : "بهترین بازیکن زمین در جام حذفی"}
                     </span>
-                    <span className="text-2xl font-mono font-black text-red-500">{toPersianDigits(activeMvps)} بار</span>
+                    <span className="text-2xl font-mono font-black text-red-500">{formatStatNumber(activeMvps)} بار</span>
                     <span className="block text-[9px] text-slate-500 mt-1 font-medium">افتخار بهترین عملکرد زمین (MVP)</span>
                   </div>
                   <Award className="h-9 w-9 text-red-400 bg-red-500/10 p-2 rounded-full shrink-0" />
@@ -682,7 +638,7 @@ export default function PlayerDetail({
                       {selectedCompet === "all" ? "کل دقایق بازی در فصل" : selectedCompet === "league" ? (isFutsalPlayer ? "دقایق بازی در لیگ فوتسال" : "دقایق بازی در لیگ برتر") : "دقایق بازی در جام حذفی"}
                     </span>
                     <span className="text-xl font-mono font-black text-slate-200">
-                      {toPersianDigits(activeMinutes)}'
+                      {formatStatNumber(activeMinutes)}'
                     </span>
                     <span className="block text-[9px] text-slate-500 mt-1 font-medium">زمان مفید حضور در میدان</span>
                   </div>
@@ -698,7 +654,7 @@ export default function PlayerDetail({
                       <span className={`text-2xl font-mono font-black ${
                         activeAvgRating >= 7.5 ? "text-emerald-400" : activeAvgRating >= 6.5 ? "text-amber-400" : "text-slate-400"
                       }`}>
-                        {toPersianDigits(Number(activeAvgRating).toFixed(1))}
+                        {formatStatNumber(Number(activeAvgRating).toFixed(1))}
                       </span>
                     ) : (
                       <span className="text-lg font-bold text-slate-600">—</span>
@@ -734,11 +690,11 @@ export default function PlayerDetail({
                           <span>{isFutsalPlayer ? "لیگ برتر فوتسال" : "مسابقات لیگ برتر"}</span>
                           {selectedCompet === "league" && <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1 py-0.5 rounded font-black">فعال</span>}
                         </td>
-                        <td className="p-3 text-center font-mono text-slate-300">{toPersianDigits(leagueMatches)}</td>
-                        <td className="p-3 text-center font-mono text-emerald-400">{toPersianDigits(leagueGoals)}</td>
-                        <td className="p-3 text-center font-mono text-cyan-400">{toPersianDigits(leagueAssists)}</td>
+                        <td className="p-3 text-center font-mono text-slate-300">{formatStatNumber(leagueMatches)}</td>
+                        <td className="p-3 text-center font-mono text-emerald-400">{formatStatNumber(leagueGoals)}</td>
+                        <td className="p-3 text-center font-mono text-cyan-400">{formatStatNumber(leagueAssists)}</td>
                         {typeof player.position === "string" && player.position.includes("دروازه") && (
-                          <td className="p-3 text-center font-mono text-amber-500">{toPersianDigits(leagueClean)}</td>
+                          <td className="p-3 text-center font-mono text-amber-500">{formatStatNumber(leagueClean)}</td>
                         )}
                       </tr>
                       {!isFutsalPlayer && (
@@ -748,11 +704,11 @@ export default function PlayerDetail({
                               <span>جام حذفی کشور</span>
                               {selectedCompet === "cup" && <span className="text-[9px] bg-emerald-500/20 text-[#10b981] px-1 py-0.5 rounded font-black">فعال</span>}
                             </td>
-                            <td className="p-3 text-center font-mono text-slate-300">{toPersianDigits(cupMatches)}</td>
-                            <td className="p-3 text-center font-mono text-emerald-400">{toPersianDigits(cupGoals)}</td>
-                            <td className="p-3 text-center font-mono text-cyan-400">{toPersianDigits(cupAssists)}</td>
+                            <td className="p-3 text-center font-mono text-slate-300">{formatStatNumber(cupMatches)}</td>
+                            <td className="p-3 text-center font-mono text-emerald-400">{formatStatNumber(cupGoals)}</td>
+                            <td className="p-3 text-center font-mono text-cyan-400">{formatStatNumber(cupAssists)}</td>
                             {typeof player.position === "string" && player.position.includes("دروازه") && (
-                              <td className="p-3 text-center font-mono text-amber-500">{toPersianDigits(cupClean)}</td>
+                              <td className="p-3 text-center font-mono text-amber-500">{formatStatNumber(cupClean)}</td>
                             )}
                           </tr>
                           <tr className={`bg-emerald-500/5 text-emerald-500 font-extrabold ${selectedCompet === "all" ? "bg-emerald-500/10" : ""}`}>
@@ -760,11 +716,11 @@ export default function PlayerDetail({
                               <span>جمع کل کارنامه</span>
                               {selectedCompet === "all" && <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1 py-0.5 rounded font-black">فعال</span>}
                             </td>
-                            <td className="p-3 text-center font-mono text-white">{toPersianDigits(displayedMatches)}</td>
-                            <td className="p-3 text-center font-mono text-emerald-300">{toPersianDigits(displayedGoals)}</td>
-                            <td className="p-3 text-center font-mono text-cyan-300">{toPersianDigits(displayedAssists)}</td>
+                            <td className="p-3 text-center font-mono text-white">{formatStatNumber(displayedMatches)}</td>
+                            <td className="p-3 text-center font-mono text-emerald-300">{formatStatNumber(displayedGoals)}</td>
+                            <td className="p-3 text-center font-mono text-cyan-300">{formatStatNumber(displayedAssists)}</td>
                             {typeof player.position === "string" && player.position.includes("دروازه") && (
-                              <td className="p-3 text-center font-mono text-amber-400">{toPersianDigits(displayedClean)}</td>
+                              <td className="p-3 text-center font-mono text-amber-400">{formatStatNumber(displayedClean)}</td>
                             )}
                           </tr>
                         </>
@@ -779,13 +735,13 @@ export default function PlayerDetail({
                     <span className="text-[#a0a0ab] text-[10px]">
                       {selectedCompet === "all" ? "کارت زرد کل فصل:" : selectedCompet === "league" ? (isFutsalPlayer ? "کارت زرد در لیگ فوتسال:" : "کارت زرد در لیگ:") : "کارت زرد در حذفی:"}
                     </span>
-                    <span className="font-mono text-amber-400 font-black text-sm">{toPersianDigits(activeYellow)}</span>
+                    <span className="font-mono text-amber-400 font-black text-sm">{formatStatNumber(activeYellow)}</span>
                   </div>
                   <div className="flex items-center gap-1.5 bg-red-500/5 border border-red-500/10 px-3 py-1.5 rounded-xl">
                     <span className="text-[#a0a0ab] text-[10px]">
                       {selectedCompet === "all" ? "کارت قرمز کل فصل:" : selectedCompet === "league" ? (isFutsalPlayer ? "کارت قرمز در لیگ فوتسال:" : "کارت قرمز در لیگ:") : "کارت قرمز در حذفی:"}
                     </span>
-                    <span className="font-mono text-red-500 font-black text-sm">{toPersianDigits(activeRed)}</span>
+                    <span className="font-mono text-red-500 font-black text-sm">{formatStatNumber(activeRed)}</span>
                   </div>
                 </div>
 
@@ -799,21 +755,21 @@ export default function PlayerDetail({
                           <div className="flex justify-between items-center">
                             <span className="font-extrabold text-xs text-white">{st.teamName}</span>
                             <span className="text-[10px] bg-emerald-500/10 text-emerald-400 font-bold px-2 py-0.5 rounded">
-                              {toPersianDigits(st.matches || 0)} بازی
+                              {formatStatNumber(st.matches || 0)} بازی
                             </span>
                           </div>
                           <div className="grid grid-cols-3 gap-2 text-center text-[11px] font-mono font-bold">
                             <div className="p-1 rounded bg-black/20 text-emerald-400">
                               <span className="block text-[8px] text-slate-500 font-sans font-normal mb-0.5">گل زده</span>
-                              {toPersianDigits(st.goals || 0)}
+                              {formatStatNumber(st.goals || 0)}
                             </div>
                             <div className="p-1 rounded bg-black/20 text-cyan-400">
                               <span className="block text-[8px] text-slate-500 font-sans font-normal mb-0.5">پاس گل</span>
-                              {toPersianDigits(st.assists || 0)}
+                              {formatStatNumber(st.assists || 0)}
                             </div>
                             <div className="p-1 rounded bg-black/20 text-amber-500">
                               <span className="block text-[8px] text-slate-500 font-sans font-normal mb-0.5">کلین‌شیت</span>
-                              {toPersianDigits(st.cleanSheets || 0)}
+                              {formatStatNumber(st.cleanSheets || 0)}
                             </div>
                           </div>
                         </div>
@@ -870,7 +826,7 @@ export default function PlayerDetail({
                     <div className="text-center sm:text-right">
                       <span className="text-[10px] text-slate-500 block mb-0.5">نتیجه کلی مسابقه</span>
                       <strong className="font-mono text-slate-200 font-bold bg-black/40 px-2 py-1 rounded">
-                        {toPersianDigits(m.scoreHome)} - {toPersianDigits(m.scoreAway)}
+                        {formatStatNumber(m.scoreHome)} - {formatStatNumber(m.scoreAway)}
                       </strong>
                     </div>
 
@@ -878,17 +834,17 @@ export default function PlayerDetail({
                     <div className="flex flex-wrap items-center gap-2.5">
                       {m.goals > 0 && (
                         <span className="bg-emerald-950 text-emerald-400 px-2 py-1 rounded text-[10px] font-black border border-emerald-900/30">
-                          ⚽ {toPersianDigits(m.goals)} گل زده
+                          ⚽ {formatStatNumber(m.goals)} گل زده
                         </span>
                       )}
                       {m.assists > 0 && (
                         <span className="bg-cyan-950 text-cyan-400 px-2 py-1 rounded text-[10px] font-black border border-cyan-900/30">
-                          🎯 {toPersianDigits(m.assists)} پاس گل
+                          🎯 {formatStatNumber(m.assists)} پاس گل
                         </span>
                       )}
                       {m.penalties > 0 && (
                         <span className="bg-purple-500/10 border border-purple-500/20 text-purple-400 px-2 py-1 rounded text-[10px] font-black">
-                          ⚽ پنالتی {toPersianDigits(m.penalties)}
+                          ⚽ پنالتی {formatStatNumber(m.penalties)}
                         </span>
                       )}
                       {m.ownGoals > 0 && (
@@ -898,12 +854,12 @@ export default function PlayerDetail({
                       )}
                       {m.yellowCards > 0 && (
                         <span className="bg-amber-500/10 border border-amber-500/20 text-amber-400 px-2 py-1 rounded text-[10px] font-black">
-                          🟨 {toPersianDigits(m.yellowCards)} اخطار
+                          🟨 {formatStatNumber(m.yellowCards)} اخطار
                         </span>
                       )}
                       {m.redCards > 0 && (
                         <span className="bg-red-500/10 border border-red-500/20 text-red-400 px-2 py-1 rounded text-[10px] font-black">
-                          🟥 {toPersianDigits(m.redCards)} اخراج
+                          🟥 {formatStatNumber(m.redCards)} اخراج
                         </span>
                       )}
                       {m.subbedIn && (
@@ -918,13 +874,13 @@ export default function PlayerDetail({
                       )}
 
                       <span className="text-slate-500 font-mono">
-                        {toPersianDigits(m.minutesPlayed)}' بازی
+                        {formatStatNumber(m.minutesPlayed)}' بازی
                       </span>
                       {m.rating > 0 && (
                         <span className={`font-mono px-1.5 py-0.5 rounded text-[10px] font-black ${
                           m.rating >= 7.5 ? "bg-emerald-500/10 text-emerald-400" : m.rating >= 6.5 ? "bg-amber-500/10 text-amber-400" : "bg-white/5 text-slate-400"
                         }`}>
-                          {toPersianDigits(Number(m.rating).toFixed(1))}
+                          {formatStatNumber(Number(m.rating).toFixed(1))}
                         </span>
                       )}
                     </div>
@@ -971,14 +927,14 @@ export default function PlayerDetail({
                   <tbody>
                     {player.careerHistory.map((history: any, idx: number) => (
                       <tr key={idx} className="border-b border-white/[0.02] last:border-0 hover:bg-white/[0.01]">
-                        <td className="py-3 px-2 font-mono font-bold text-slate-300">{toPersianDigits(history.season)}</td>
+                        <td className="py-3 px-2 font-mono font-bold text-slate-300">{formatStatNumber(history.season)}</td>
                         <td className="py-3 px-2 font-semibold text-white">{history.club}</td>
-                        <td className="py-3 px-2 text-center font-mono text-slate-400">{toPersianDigits(history.apps || 0)} بازی</td>
-                        <td className="py-3 px-2 text-center font-mono font-bold text-emerald-400">{toPersianDigits(history.goals || 0)} گل</td>
-                        <td className="py-3 px-2 text-center font-mono text-cyan-400 font-bold">{toPersianDigits(history.assists || 0)} پاس</td>
-                        <td className="py-3 px-2 text-center font-mono text-indigo-400 font-bold">{toPersianDigits(history.cleanSheets || 0)} کلین</td>
+                        <td className="py-3 px-2 text-center font-mono text-slate-400">{formatStatNumber(history.apps || 0)} بازی</td>
+                        <td className="py-3 px-2 text-center font-mono font-bold text-emerald-400">{formatStatNumber(history.goals || 0)} گل</td>
+                        <td className="py-3 px-2 text-center font-mono text-cyan-400 font-bold">{formatStatNumber(history.assists || 0)} پاس</td>
+                        <td className="py-3 px-2 text-center font-mono text-indigo-400 font-bold">{formatStatNumber(history.cleanSheets || 0)} کلین</td>
                         <td className="py-3 px-2 text-center font-mono text-amber-400 font-bold">
-                          {history.averageRating ? toPersianDigits(parseFloat(history.averageRating).toFixed(1)) : "—"}
+                          {history.averageRating ? formatStatNumber(parseFloat(history.averageRating).toFixed(1)) : "—"}
                         </td>
                       </tr>
                     ))}

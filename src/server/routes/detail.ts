@@ -2,6 +2,11 @@ import express, { Express, Request, Response } from "express";
 import { loadDB } from "../state";
 import { markViewDirty, VIEW_BOT_RE } from "../services/viewTracker";
 import { normalizePersianString } from "../utils/persian";
+import {
+  buildPlayerIdentityIndex,
+  isDuplicatePlayerName,
+  isSamePlayer,
+} from "../../shared/playerIdentity";
 import { VIEW_MULTIPLIER } from "../config";
 
 export function registerDetailRoutes(app: Express) {
@@ -131,9 +136,11 @@ export function registerDetailRoutes(app: Express) {
     const db = loadDB();
     const item = (db.players || []).find((p: any) => String(p.id) === String(req.params.id));
     if (item) {
-      const normName = normalizePersianString(item.name || "");
-      const sameName = (a?: string) => !!a && !!item.name && normalizePersianString(a) === normName;
-      const sameId = (a?: any) => !!a && String(a) === String(item.id);
+      const index = buildPlayerIdentityIndex(db.players || []);
+      const memberships = db.teamMemberships || [];
+      const duplicateName = isDuplicatePlayerName(item.name, index);
+      const same = (ref: { id?: any; name?: any }, side: "home" | "away" | null, match: any) =>
+        isSamePlayer({ ...ref, side }, item, match, index, memberships);
 
       const playerMatches = (db.matches || []).filter((m: any) => {
         const normTeamName = normalizePersianString(item.teamName || "");
@@ -143,23 +150,30 @@ export function registerDetailRoutes(app: Express) {
             normalizePersianString(m.teamHome || "") === normTeamName ||
             normalizePersianString(m.teamAway || "") === normTeamName
           ));
-        if (teamMatch) return true;
+        // Duplicate names share nothing by default: only personal evidence counts.
+        if (!duplicateName && teamMatch) return true;
 
         const lineups = m.lineups || { home: [], away: [] };
-        const inLineup = [...(lineups.home || []), ...(lineups.away || [])].some(
-          (lp: any) => lp && (sameId(lp.id) || sameName(lp.name))
+        const inLineup = (lineups.home || []).some(
+          (lp: any) => lp && same({ id: lp.id, name: lp.name }, "home", m)
+        ) || (lineups.away || []).some(
+          (lp: any) => lp && same({ id: lp.id, name: lp.name }, "away", m)
+        ) || (lineups.homeSubs || []).some(
+          (lp: any) => lp && same({ id: lp.id, name: lp.name }, "home", m)
+        ) || (lineups.awaySubs || []).some(
+          (lp: any) => lp && same({ id: lp.id, name: lp.name }, "away", m)
         );
         if (inLineup) return true;
 
         const events = m.events || [];
         const inEvents = events.some(
-          (ev: any) => ev && (sameName(ev.playerName) || sameName(ev.player2Name))
+          (ev: any) => ev && (same({ id: ev.playerId, name: ev.playerName }, ev.team, m) || same({ id: ev.player2Id, name: ev.player2Name }, ev.team, m))
         );
         if (inEvents) return true;
 
         const scorers = m.scorersList || [];
         return scorers.some(
-          (sc: any) => sc && (sameId(sc.scorerId) || sameName(sc.scorerName) || sameName(sc.name) || sameName(sc.assistName) || sameName(sc.assist))
+          (sc: any) => sc && (same({ id: sc.scorerId, name: sc.scorerName || sc.name }, null, m) || same({ id: sc.assistId, name: sc.assistName || sc.assist }, null, m))
         );
       });
 
@@ -190,12 +204,43 @@ export function registerDetailRoutes(app: Express) {
     }
 
     if (match) {
-      const players = db.players || [];
-      const teams = db.teams || [];
-      res.json({ success: true, data: { match, players, teams } });
+      // Phase-2 perf: match view needs only this match; the 1.2MB
+      // players+teams tables are resolved via the dedicated lookup below.
+      res.json({ success: true, data: { match } });
     } else {
       res.status(404).json({ success: false, message: "مسابقه یافت نشد." });
     }
+  });
+
+  // Phase-2 perf: lightweight player/team lookup for a match's lineup ids,
+  // replacing the old full-table embeds in GET /api/detail/match/:id.
+  app.get("/api/detail/match/:id/participants", (req: Request, res: Response) => {
+    const db = loadDB();
+    const wanted = new Set(
+      String(req.query.ids || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .slice(0, 60)
+    );
+    if (wanted.size === 0) return res.json({ success: true, data: { players: [], teams: [] } });
+    const players = (db.players || [])
+      .filter((p: any) => wanted.has(String(p.id)))
+      .map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        teamId: p.teamId,
+        teamName: p.teamName,
+        position: p.position,
+        image: p.image,
+        seasonStats: p.seasonStats,
+      }));
+    const teamIds = new Set<string>();
+    players.forEach((p: any) => { if (p.teamId) teamIds.add(String(p.teamId)); });
+    const teams = (db.teams || [])
+      .filter((t: any) => teamIds.has(String(t.id)))
+      .map((t: any) => ({ id: t.id, name: t.name, logo: t.logo }));
+    res.json({ success: true, data: { players, teams } });
   });
 
   app.get("/api/detail/coach/:id", (req: Request, res: Response) => {
@@ -271,6 +316,11 @@ export function registerDetailRoutes(app: Express) {
 
     const normName = normalizePersianString(entityName);
     const normTeamName = entityTeamName ? normalizePersianString(entityTeamName) : "";
+    const nameIsDuplicate = (type === "player" || type === "coach") &&
+      isDuplicatePlayerName(
+        entityName,
+        buildPlayerIdentityIndex([...(db.players || []), ...(db.coaches || [])])
+      );
 
     const matchedNews = (db.news || [])
       .filter((n: any) => {
@@ -278,13 +328,18 @@ export function registerDetailRoutes(app: Express) {
         
         // Check name in title + summary + content
         const haystack = normalizePersianString(`${n.title || ""} ${n.summary || ""} ${n.content || ""}`);
-        if (haystack.includes(normName)) return true;
-        if (normTeamName && haystack.includes(normTeamName)) return true;
+        const nameHit = normName && haystack.includes(normName);
+        const teamHit = normTeamName && haystack.includes(normTeamName);
+        // A duplicated name alone proves nothing: require the team to be mentioned too.
+        if (nameHit && (!nameIsDuplicate || teamHit)) return true;
+        if (!nameIsDuplicate && teamHit) return true;
         
         // Check name in tags
         const tags = (n.tags || []).map((t: string) => normalizePersianString(t).replace(/^#/, "").replace(/_/g, " "));
-        if (tags.some((t: string) => t && (t === normName || t.includes(normName) || normName.includes(t)))) return true;
-        if (normTeamName && tags.some((t: string) => t && (t === normTeamName || t.includes(normTeamName) || normTeamName.includes(t)))) return true;
+        const tagNameHit = tags.some((t: string) => t && (t === normName || t.includes(normName) || normName.includes(t)));
+        const tagTeamHit = normTeamName && tags.some((t: string) => t && (t === normTeamName || t.includes(normTeamName) || normTeamName.includes(t)));
+        if (tagNameHit && (!nameIsDuplicate || tagTeamHit)) return true;
+        if (!nameIsDuplicate && tagTeamHit) return true;
         
         return false;
       })
