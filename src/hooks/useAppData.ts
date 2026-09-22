@@ -10,7 +10,6 @@ import {
   StatsData,
   TeamTransferItem,
   AdItem,
-  ArchiveItem,
   TeamItem,
   PlayerItem,
   CoachItem,
@@ -38,7 +37,6 @@ export function useAppData() {
   const [coaches, setCoaches] = useState<CoachItem[]>([]);
   const [bracket, setBracket] = useState<Record<string, any> | null>(null);
   const [selectedCombinations, setSelectedCombinations] = useState<SelectedCombination[]>([]);
-  const [archives, setArchives] = useState<ArchiveItem[]>([]);
   const [heroSlides, setHeroSlides] = useState<HeroSlideItem[]>([]);
 
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
@@ -63,8 +61,7 @@ export function useAppData() {
   const [adminUser, setAdminUser] = useState<{ username: string; role: string; label: string; permissions: string[] } | null>(null);
   const [isScraping, setIsScraping] = useState(false);
   const [selectedLeagueFilterOnStats, setSelectedLeagueFilterOnStats] = useState("pro-league");
-  const [currentSeason, setCurrentSeason] = useState<string>("1404");
-  const [statsSeason, setStatsSeason] = useState<string>("1404");
+  const [currentSeason, setCurrentSeason] = useState<string>("1405");
   const [sidebarLeagueTab, setSidebarLeagueTab] = useState("pro-league");
 
   const [newsSearch, setNewsSearch] = useState("");
@@ -128,12 +125,8 @@ export function useAppData() {
     setBracket(data.bracket || null);
     setSelectedCombinations(data.selectedCombinations || []);
     setHeroSlides(data.heroSlides || []);
-    setArchives(data.archives || []);
     if (data.currentSeason) {
       setCurrentSeason(data.currentSeason);
-      if (statsSeason === "1404") {
-        setStatsSeason(data.currentSeason);
-      }
     }
     setAds(data.ads || []);
     setSubmissions(data.submissions || []);
@@ -502,14 +495,6 @@ export function useAppData() {
     let found = players.find(p => String(p.id) === String(id));
     if (found) return found;
 
-    if (statsSeason !== currentSeason) {
-      const playerArchive = archives?.find((a: any) => a.type === "players" && a.season_tag === statsSeason);
-      if (playerArchive && Array.isArray(playerArchive.data)) {
-        found = playerArchive.data.find((p: any) => String(p.id) === String(id) || String(p.name) === String(id));
-        if (found) return found;
-      }
-    }
-
     for (const c of selectedCombinations) {
       if (c && c.players) {
         for (const [posKey, player] of Object.entries(c.players)) {
@@ -564,16 +549,9 @@ export function useAppData() {
 
   const findCoachById = (id: string | null) => {
     if (!id) return null;
-    let found = coaches.find(c => String(c.id) === String(id));
+    const found = coaches.find(c => String(c.id) === String(id));
     if (found) return found;
 
-    if (statsSeason !== currentSeason) {
-      const coachArchive = archives?.find((a: any) => a.type === "coaches" && a.season_tag === statsSeason);
-      if (coachArchive && Array.isArray(coachArchive.data)) {
-        found = coachArchive.data.find((c: any) => String(c.id) === String(id) || String(c.name) === String(id));
-        if (found) return found;
-      }
-    }
     return null;
   };
 
@@ -581,7 +559,7 @@ export function useAppData() {
     activeTab, setActiveTab,
     news, matches, standings, transfers, teamTransfersList,
     legionnaires, images, stats, submissions, lastScraped,
-    teams, players, coaches, bracket, selectedCombinations, heroSlides, setHeroSlides, archives, setArchives,
+    teams, players, coaches, bracket, selectedCombinations, heroSlides, setHeroSlides,
     selectedTeamId, setSelectedTeamId,
     selectedPlayerId, setSelectedPlayerId,
     selectedCoachId, setSelectedCoachId,
@@ -595,7 +573,6 @@ export function useAppData() {
     isScraping, setIsScraping,
     selectedLeagueFilterOnStats, setSelectedLeagueFilterOnStats,
     currentSeason, setCurrentSeason,
-    statsSeason, setStatsSeason,
     sidebarLeagueTab, setSidebarLeagueTab,
     newsSearch, setNewsSearch,
     transfersSearch, setTransfersSearch,

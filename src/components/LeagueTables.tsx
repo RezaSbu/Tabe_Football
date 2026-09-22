@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { StandingRow, NewsItem, MatchItem, TeamItem, PlayerItem, StatsData } from "../types";
 import { Trophy, Award, Newspaper, Calendar, BarChart3, List, ChevronLeft, Star, Flame, Zap, Target, Search, X } from "lucide-react";
@@ -20,8 +20,6 @@ interface LeagueTablesProps {
   onSelectPlayer?: (playerId: string) => void;
   onSelectMatch?: (match: MatchItem) => void;
   bracket?: any;
-  historicalData?: any;
-  archives?: any[];
   currentSeason?: string;
 }
 
@@ -131,52 +129,15 @@ export default function LeagueTables({
   onSelectPlayer,
   onSelectMatch,
   bracket,
-  historicalData,
-  archives = [],
-  currentSeason = "1404"
+  currentSeason = "1405"
 }: LeagueTablesProps) {
   const [subTab, setSubTab] = useState<"standings" | "matches" | "stats" | "news">("standings");
-  const [selectedSeason, setSelectedSeason] = useState<string>(currentSeason);
   const [activeL2Group, setActiveL2Group] = useState<"league-2-group-a" | "league-2-group-b">("league-2-group-a");
   const [matchSearch, setMatchSearch] = useState<string>("");
   const [weekFilter, setWeekFilter] = useState<number | null>(null);
 
-  useEffect(() => {
-    if (currentSeason) {
-      setSelectedSeason(currentSeason);
-    }
-  }, [currentSeason]);
-
-  const getAvailableArchiveSeasons = (): string[] => {
-    if (!archives || !Array.isArray(archives)) return [];
-    let filtered: any[] = [];
-    if (subTab === "standings" || subTab === "matches") {
-      if (leagueKey === "hazfi-cup") {
-        filtered = archives.filter(a => a.type === "bracket");
-      } else {
-        filtered = archives.filter(a => a.type === "standings");
-      }
-    } else if (subTab === "stats") {
-      filtered = archives.filter(a => a.type === "stats");
-    }
-    const tags = filtered.map(a => a.season_tag);
-    return Array.from(new Set(tags));
-  };
-
-  const getDeduplicatedSeasons = (): string[] => {
-    const dynamicTags = getAvailableArchiveSeasons();
-    const staticTags = Object.keys((historicalData as any)?.[getHistoryLeagueKey()] || {}).filter(s => s !== currentSeason);
-    return Array.from(new Set([...dynamicTags, ...staticTags])).sort((a, b) => b.localeCompare(a));
-  };
-
+  // Current-season only: no archived seasons anymore.
   const getActiveBracket = () => {
-    if (selectedSeason === currentSeason) {
-      return bracket;
-    }
-    const bracketArchive = archives?.find(a => a.type === "bracket" && a.season_tag === selectedSeason);
-    if (bracketArchive && bracketArchive.data) {
-      return bracketArchive.data;
-    }
     return bracket;
   };
 
@@ -250,16 +211,6 @@ export default function LeagueTables({
 
   const config = getLeagueConfig();
 
-  // Get active lookup key for historical standings
-  const getHistoryLeagueKey = () => {
-    if (leagueKey === "pro-league") return "pro-league";
-    if (leagueKey === "league-1") return "league-1";
-    if (leagueKey === "league-2") {
-      return activeL2Group === "league-2-group-a" ? "league-2-group-a" : "league-2-group-b";
-    }
-    return "pro-league";
-  };
-
   const getStandingsKey = () => {
     if (leagueKey === "league-2") {
       return activeL2Group;
@@ -267,69 +218,19 @@ export default function LeagueTables({
     return leagueKey;
   };
 
-  // Standings computer
-  const isCurrentSeason = selectedSeason === currentSeason;
+  // Standings computer (current season only)
   const rawCurrentStandings = standings[getStandingsKey()] || [];
 
   const getActiveStandings = (): StandingRow[] => {
-    if (isCurrentSeason) {
-      if (leagueKey === "hazfi-cup") return [];
-      return rawCurrentStandings;
-    }
-    // Try to fetch from dynamic archives first
-    const standingArchive = archives?.find(a => a.type === "standings" && a.season_tag === selectedSeason);
-    if (standingArchive && standingArchive.data && standingArchive.data[getStandingsKey()]) {
-      return standingArchive.data[getStandingsKey()];
-    }
-    // Fallback to historical data passed from server database
-    const leagueKeyHistory = getHistoryLeagueKey();
-    const historicalSource = (historicalData as any)?.[leagueKeyHistory] || {};
-    return historicalSource[selectedSeason] || [];
+    if (leagueKey === "hazfi-cup") return [];
+    return rawCurrentStandings;
   };
 
   const currentStandings = getActiveStandings();
 
-  // Match items filtering
+  // Match items filtering (current season only)
   const getActiveMatches = (): MatchItem[] => {
-    if (isCurrentSeason) {
-      return matches.filter(m => m.league === leagueKey && m.status !== "archived");
-    }
-    const seasonArchives = archives?.filter(a => a.season_tag === selectedSeason) || [];
-    const allMatches: MatchItem[] = [];
-    const seenIds = new Set<string>();
-
-    // 1. Try to fetch from dedicated matches archive first!
-    const dedicatedMatchesArc = seasonArchives.find(a => a.type === "matches");
-    if (dedicatedMatchesArc && dedicatedMatchesArc.data && Array.isArray(dedicatedMatchesArc.data)) {
-      const matchesInArc = dedicatedMatchesArc.data.filter((m: any) => m.league === leagueKey);
-      for (const m of matchesInArc) {
-        if (!seenIds.has(m.id)) {
-          seenIds.add(m.id);
-          allMatches.push(m);
-        }
-      }
-    }
-
-    // 2. Fallback: Search nested matches inside standings/bracket archives for legacy support
-    const preferredType = leagueKey === "hazfi-cup" ? "bracket" : "standings";
-    const sortedArchives = [...seasonArchives].sort((a, b) => {
-      if (a.type === preferredType && b.type !== preferredType) return -1;
-      if (a.type !== preferredType && b.type === preferredType) return 1;
-      return 0;
-    });
-
-    for (const arc of sortedArchives) {
-      if (arc.data && arc.data.matches && Array.isArray(arc.data.matches)) {
-        const matchesInArc = arc.data.matches.filter((m: any) => m.league === leagueKey);
-        for (const m of matchesInArc) {
-          if (!seenIds.has(m.id)) {
-            seenIds.add(m.id);
-            allMatches.push(m);
-          }
-        }
-      }
-    }
-    return allMatches;
+    return matches.filter(m => m.league === leagueKey && m.status !== "archived");
   };
 
   const getMatchWeekNumber = (w?: string): number | null => {
@@ -386,27 +287,7 @@ export default function LeagueTables({
 
   const getActiveStats = (): StatsData => {
     const defaultStats = { scorers: [], assists: [], cleansheets: [], ratings: [] };
-    if (isCurrentSeason) {
-      return stats[leagueKey] || defaultStats;
-    }
-    const seasonArchives = archives?.filter(a => a.season_tag === selectedSeason) || [];
-    for (const arc of seasonArchives) {
-      // 1. Direct leagueKey match (from dedicated stats archive)
-      if (arc.data && arc.data[leagueKey]) {
-        const d = arc.data[leagueKey];
-        if (d.scorers || d.assists || d.cleansheets || d.ratings) {
-          return d;
-        }
-      }
-      // 2. Hazfi cup fallback (stats bundled inside bracket archive)
-      if (leagueKey === "hazfi-cup" && arc.data && arc.data.stats) {
-        const d = arc.data.stats;
-        if (d.scorers || d.assists || d.cleansheets || d.ratings) {
-          return d;
-        }
-      }
-    }
-    return defaultStats;
+    return stats[leagueKey] || defaultStats;
   };
 
   const leagueStats = getActiveStats();
@@ -428,12 +309,10 @@ export default function LeagueTables({
             averageRating: p.rating !== undefined ? p.rating : p.averageRating
           };
         })
-    : isCurrentSeason
-      ? [...leaguePlayers]
-          .filter(p => p.averageRating != null && p.averageRating > 0)
-          .sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0))
-          .slice(0, 5)
-      : [];
+    : [...leaguePlayers]
+        .filter(p => p.averageRating != null && p.averageRating > 0)
+        .sort((a, b) => (b.averageRating || 0) - (a.averageRating || 0))
+        .slice(0, 5);
 
   return (
     <div className="space-y-6 animate-in fade-in" dir="rtl" id={`league-page-${leagueKey}`}>
@@ -457,22 +336,13 @@ export default function LeagueTables({
               {config.desc}
             </p>
 
-            {/* Season Selector */}
+            {/* Season label (current season only) */}
             {(subTab === "standings" || subTab === "stats" || subTab === "matches") && (
               <div className="flex items-center gap-2 mt-3 bg-slate-950/50 border border-white/5 rounded-xl px-3 py-1.5 w-fit text-xs text-slate-300">
                 <span className="text-gray-405 font-bold">فصل رقابت‌ها:</span>
-                <select
-                  value={selectedSeason}
-                  onChange={(e) => setSelectedSeason(e.target.value)}
-                  className="bg-transparent focus:outline-none text-white font-extrabold cursor-pointer pr-1"
-                >
-                  <option value={currentSeason} className="bg-slate-900 text-white">فصل جاری ({formatStatNumber(currentSeason)})</option>
-                  {getDeduplicatedSeasons().map((season) => (
-                    <option key={season} value={season} className="bg-slate-900 text-white">
-                      فصل {formatStatNumber(season)}
-                    </option>
-                  ))}
-                </select>
+                <span className="text-white font-extrabold">
+                  فصل جاری ({formatStatNumber(currentSeason)})
+                </span>
               </div>
             )}
           </div>
@@ -547,8 +417,8 @@ export default function LeagueTables({
                 onSelectTeam={onSelectTeam} 
                 onSelectMatch={onSelectMatch} 
                 teams={teams}
-                matches={isCurrentSeason ? matches : filteredMatches}
-                currentSeason={selectedSeason}
+                matches={matches}
+                currentSeason={currentSeason}
               />
             </div>
           </div>
@@ -586,7 +456,7 @@ export default function LeagueTables({
                 <div className="flex items-center gap-1.5 border-b border-white/5 pb-3">
                   <Trophy className={`h-5 w-5 ${config.textAccent}`} />
                   <h3 className="font-black text-sm text-white">
-                    جدول رده‌بندی {config.title} ({selectedSeason}-{parseInt(selectedSeason)+1})
+                    جدول رده‌بندی {config.title} ({currentSeason}-{parseInt(currentSeason)+1})
                   </h3>
                 </div>
 
