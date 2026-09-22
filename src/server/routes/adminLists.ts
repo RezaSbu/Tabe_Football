@@ -2,6 +2,7 @@ import express, { Express, Request, Response } from "express";
 import { loadDB } from "../state";
 import { normalizePersianString } from "../utils/persian";
 import { requirePermission } from "../middleware/auth";
+import { getEffectiveStatus } from "../../shared/matchStatus";
 
 // Phase-3 perf: server-side paginated + filtered admin list endpoints.
 // The admin UI previously downloaded the whole 9.5MB /api/data payload and
@@ -44,12 +45,16 @@ function paginate<T>(rows: T[], page: number, limit: number) {
 }
 
 // Slim match row for admin lists: no lineups/events/scorers payloads.
-function slimMatch(m: any) {
+// `status` is the stored value (explicit admin workflow is preserved);
+// `effectiveStatus` is the wall-clock derivation, identical to what the
+// public site shows (see src/shared/matchStatus.ts).
+function slimMatch(m: any, nowMs: number) {
   return {
     id: m.id,
     sport: m.sport,
     stage: m.stage,
     status: m.status,
+    effectiveStatus: getEffectiveStatus(m, nowMs),
     league: m.league,
     season: m.season,
     week: m.week,
@@ -87,11 +92,15 @@ export function registerAdminListRoutes(app: Express) {
 
     const norm = (s: any) => normalizePersianString(String(s || ""));
     const thisWeek = thisWeekBucket();
+    const nowMs = Date.now();
 
     const rows = (db.matches || []).filter((m: any) => {
       if (!m) return false;
       if (sport !== "all" && String(m.sport) !== sport) return false;
-      if (status !== "all" && String(m.status) !== status) return false;
+      // Tabs follow the wall-clock status (same as the public site), not the
+      // stored value: a future match past kickoff lists under "live" without
+      // any write. Stored `status` is untouched (explicit start preserved).
+      if (status !== "all" && getEffectiveStatus(m, nowMs) !== status) return false;
       if (league !== "all" && String(m.league) !== league) return false;
       if (season !== "all" && String(m.season) !== season) return false;
       if (team && !(norm(m.teamHomeId) === team || norm(m.teamAwayId) === team ||
@@ -115,7 +124,7 @@ export function registerAdminListRoutes(app: Express) {
       return (dbb + tb).localeCompare(da + ta) || String(b.id).localeCompare(String(a.id));
     });
 
-    const result = paginate(rows.map(slimMatch), page, limit);
+    const result = paginate(rows.map((m: any) => slimMatch(m, nowMs)), page, limit);
     res.setHeader("Cache-Control", "no-cache");
     res.json({ success: true, ...result, weekBucket: thisWeek });
   });

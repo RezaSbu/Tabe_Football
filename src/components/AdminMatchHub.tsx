@@ -116,6 +116,27 @@ export default function AdminMatchHub({
 
   const refreshList = () => setRefreshTick(t => t + 1);
 
+  // Keep the list fresh so rows move tabs as kickoff times pass.
+  // Cheap: 20 slim rows per fetch. Paused when the tab is hidden.
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return;
+      refreshList();
+    }, 30000);
+    const onVisible = () => {
+      if (typeof document !== "undefined" && !document.hidden) refreshList();
+    };
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", onVisible);
+    }
+    return () => {
+      clearInterval(id);
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", onVisible);
+      }
+    };
+  }, []);
+
   // Create or edit toggles
   const [showForm, setShowForm] = useState<boolean>(false);
   const [editingMatch, setEditingMatch] = useState<MatchItem | null>(null);
@@ -130,6 +151,11 @@ export default function AdminMatchHub({
   // Filter list
   // Phase-3: filtering happens server-side; this keeps the current page rows.
   const getFilteredMatches = () => listItems;
+
+  // Display status follows the wall clock (same as the public site).
+  // Action buttons below intentionally keep the STORED status so the
+  // explicit "start live" workflow is preserved.
+  const effStatus = (m: any): string => (m as any).effectiveStatus || m.status;
 
   // 1. DELETE Match
   const handleDeleteMatch = async (match: MatchItem) => {
@@ -245,7 +271,22 @@ export default function AdminMatchHub({
     }
   };
 
-  const startLiveConsole = (match: MatchItem) => {
+  const startLiveConsole = async (match: MatchItem) => {
+    // List rows are slim (no events/lineups): load the full match first so
+    // the console never starts from (and saves over) empty data.
+    try {
+      const res = await fetch(`/api/detail/match/${match.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.success && data?.data?.match) {
+          setActiveLiveMatch(data.data.match);
+          setShowLiveConsole(true);
+          return;
+        }
+      }
+    } catch {
+      // Fall through to the slim row below on any fetch failure.
+    }
     setActiveLiveMatch(match);
     setShowLiveConsole(true);
   };
@@ -395,14 +436,14 @@ export default function AdminMatchHub({
                   </div>
 
                   <div className="w-2/12 flex flex-col items-center justify-center font-black">
-                    {m.status === "not-started" ? (
+                    {effStatus(m) === "not-started" ? (
                       <span className="text-[10px] text-gray-500 font-bold bg-slate-950/60 px-2 py-0.5 rounded border border-white/5">VS</span>
                     ) : (
                       <span className="text-base text-red-500 font-mono tracking-widest bg-black px-2.5 py-0.5 rounded-lg border border-white/5">
                         {m.scoreHome} - {m.scoreAway}
                       </span>
                     )}
-                    {m.status === "live" && (
+                    {effStatus(m) === "live" && (
                       <span className="text-[9px] text-red-400 mt-1 animate-pulse font-bold">{m.period === "HT" ? "بین دو نیمه" : `${m.minutes || "0"}'`}</span>
                     )}
                   </div>
