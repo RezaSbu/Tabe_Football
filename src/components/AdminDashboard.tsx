@@ -50,7 +50,7 @@ export default function AdminDashboard({
   coaches = [],
   submissions = [],
   newsCount = 0,
-  currentSeason = "1404",
+  currentSeason = "1405",
   onUpdateStandings,
   onUpdateTeam,
   onUpdatePlayer,

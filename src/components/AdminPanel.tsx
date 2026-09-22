@@ -31,7 +31,7 @@ import AdminTeamProfiles from "./AdminTeamProfiles";
 import AdminCoachProfiles from "./AdminCoachProfiles";
 import AdminBracketManager from "./AdminBracketManager";
 import AdminMediaFiles from "./AdminMediaFiles";
-import { AdminArchiveManager } from "./AdminArchiveManager";
+import AdminSeasonCard from "./AdminSeasonCard";
 import AdminHeroSlides from "./AdminHeroSlides";
 
 interface AdminPanelProps {
@@ -51,9 +51,7 @@ interface AdminPanelProps {
   bracket: any;
   selectedCombinations?: any[];
   ads: any[];
-  archives?: any[];
   currentSeason?: string;
-  onUpdateArchives?: (newArchives: any[]) => void;
   onUpdateStandings: (leagueKey: string, rows: StandingRow[]) => Promise<boolean>;
   onUpdateStats: (leagueKey: string, statsData: any) => Promise<boolean>;
   onSaveAds: (ads: any[]) => void;
@@ -83,9 +81,7 @@ export default function AdminPanel({
   bracket,
   selectedCombinations = [],
   ads = [],
-  archives = [],
-  currentSeason = "1404",
-  onUpdateArchives,
+  currentSeason = "1405",
   onUpdateStandings,
   onUpdateStats,
   onSaveAds,
@@ -104,7 +100,7 @@ export default function AdminPanel({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Active Main Tab State
-  const [activeMainTab, setActiveMainTab] = useState<"dashboard" | "matches" | "overrides" | "diagnostics" | "portal" | "selected-combination" | "players" | "coaches" | "teams" | "bracket" | "media" | "archive" | "hero-slides">("dashboard");
+  const [activeMainTab, setActiveMainTab] = useState<"dashboard" | "matches" | "overrides" | "diagnostics" | "portal" | "selected-combination" | "players" | "coaches" | "teams" | "bracket" | "media" | "hero-slides">("dashboard");
   const [successMessage, setSuccessMessage] = useState("");
   const [lockedWarning, setLockedWarning] = useState("");
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -139,8 +135,7 @@ export default function AdminPanel({
     "selected-combination": "selectedCombos",
     players: "players",
     coaches: "coaches",
-    teams: "teams",
-    archive: "archive"
+    teams: "teams"
   };
   const activeTabForRender = hasPerm(TAB_PERMISSION[activeMainTab] ?? "") ? activeMainTab : "dashboard";
 
@@ -410,15 +405,6 @@ export default function AdminPanel({
             <span>تعریف و مدیریت تیم‌ها</span>
             {!hasPerm("teams") && <Lock className="h-3.5 w-3.5 text-amber-500 mr-auto" />}
           </button>
-
-          <button
-            onClick={() => handleTabClick("archive", !hasPerm("archive"))}
-            className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "archive" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
-          >
-            <Database className="h-4 w-4 text-rose-450" />
-            <span>بایگانی و شروع فصل جدید</span>
-            {!hasPerm("archive") && <Lock className="h-3.5 w-3.5 text-amber-500 mr-auto" />}
-          </button>
         </div>
 
         {/* Global synchronization / Force save to db.json endpoint button */}
@@ -458,6 +444,11 @@ export default function AdminPanel({
             <ShieldCheck className="h-4.5 w-4.5 text-emerald-450" />
             <span>{successMessage}</span>
           </div>
+        )}
+
+        {/* Current season card (always visible; only season control left) */}
+        {hasPerm("matches") && (
+          <AdminSeasonCard currentSeason={currentSeason} onSeasonChanged={onRefreshData} />
         )}
 
         {/* Locked tab access warning block */}
@@ -610,21 +601,6 @@ export default function AdminPanel({
           />
         )}
 
-        {/* Tab 11: Archive and Season resets */}
-        {activeTabForRender === "archive" && (
-          <AdminArchiveManager
-            archives={archives}
-            currentSeason={currentSeason}
-            onArchiveCreated={(newArcs) => {
-              if (onUpdateArchives) onUpdateArchives(newArcs);
-              onRefreshData();
-            }}
-            onArchiveDeleted={(newArcs) => {
-              if (onUpdateArchives) onUpdateArchives(newArcs);
-              onRefreshData();
-            }}
-          />
-        )}
       </div>
       </div>
     </div>
