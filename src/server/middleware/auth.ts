@@ -57,7 +57,6 @@ export const ALL_PERMISSIONS = [
   "coaches",
   "teams",
   "media",
-  "archive",
   "heroSlides",
   "centralSync"
 ];

@@ -1,10 +1,9 @@
 export const VIEW_MULTIPLIER = 21;
 
 export const INITIAL_DATABASE = {
-  currentSeason: "1404",
+  currentSeason: "1405",
   news: [],
   matches: [],
-  archives: [],
   football_Feature_Games: [],
   football_Now_Games: [],
   football_Finished_Games: [],

@@ -340,15 +340,6 @@ CREATE TABLE public.media_files (
   CONSTRAINT media_files_pkey PRIMARY KEY (id)
 );
 
-CREATE TABLE public.archive (
-  id varchar(50) NOT NULL,
-  season_tag varchar(50) NOT NULL,
-  type varchar(50) NOT NULL,
-  data jsonb NOT NULL DEFAULT '{}'::jsonb,
-  created_at timestamptz DEFAULT now(),
-  CONSTRAINT archive_pkey PRIMARY KEY (id)
-);
-
 -- ============================================
 -- Indexes
 -- ============================================
@@ -394,11 +385,6 @@ CREATE INDEX idx_hero_slides_sort ON public.hero_slides(sort_order);
 -- media_files
 CREATE INDEX idx_media_files_category ON public.media_files(category);
 
--- archive
-CREATE INDEX idx_archive_type ON public.archive(type);
-CREATE INDEX idx_archive_season ON public.archive(season_tag);
-CREATE INDEX idx_archive_created_at ON public.archive(created_at DESC);
-
 -- bracket_slots
 CREATE INDEX idx_bracket_slots_stage ON public.bracket_slots(stage);
 CREATE INDEX idx_bracket_slots_match_id ON public.bracket_slots(match_id);
@@ -419,6 +405,6 @@ INSERT INTO public.ads (id, type, name, placement) VALUES ('banner-main', 'banne
 ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.system_info (key, value) VALUES
-  ('currentSeason', '1404'),
+  ('currentSeason', '1405'),
   ('lastScraped', '')
 ON CONFLICT (key) DO NOTHING;

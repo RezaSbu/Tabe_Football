@@ -15,7 +15,7 @@ export type DirtyTable =
   | "news" | "teams" | "players" | "coaches" | "matches" | "transfers"
   | "legionnaires" | "images" | "standings" | "stats" | "teamTransfersList"
   | "ads" | "bracket" | "heroSlides" | "selectedCombinations" | "systemInfo"
-  | "submissions" | "mediaFiles" | "archives";
+  | "submissions" | "mediaFiles";
 
 const dirtyTables = new Set<DirtyTable | "all">(["all"]);
 
@@ -220,14 +220,29 @@ export async function migrateDropShirtNumberColumn(): Promise<void> {
   }
 }
 
+export async function migrateDropArchiveTable(): Promise<void> {
+  // The multi-season archive system was removed; there is exactly one active
+  // season. Drops public.archive for real (it has no foreign keys). Runs once
+  // via guard. The 2 legacy rows (matches:1404, stats:1404) exist in backups.
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, applied_at TIMESTAMPTZ DEFAULT NOW())`);
+    const { rows } = await pool.query(`SELECT 1 FROM schema_migrations WHERE name = 'drop_archive_table_v1'`);
+    if (rows.length > 0) return;
+    await pool.query(`DROP TABLE IF EXISTS public.archive`);
+    await pool.query(`INSERT INTO schema_migrations (name) VALUES ('drop_archive_table_v1')`);
+    logMessage("info", "database", "جدول archive حذف شد (سیستم چندفصله حذف گردید).");
+  } catch (err: any) {
+    logMessage("warn", "database", "خطا در حذف جدول archive:", err.message || err);
+  }
+}
+
 // Phase-4 perf: add missing indexes for common query patterns.
 export async function migrateMissingIndexes(): Promise<void> {
   try {
     const { pool } = await import("../db");
     // visits page-based analytics queries
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_visits_page ON public.visits(page) WHERE page IS NOT NULL AND page <> ''`);
-    // archive composite lookup (type + season_tag)
-    await pool.query(`CREATE INDEX IF NOT EXISTS idx_archive_type_season ON public.archive(type, season_tag)`);
     // submissions chronological listing in admin
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_submissions_created_at ON public.submissions(created_at DESC)`);
     // media_files ordering
@@ -396,8 +411,7 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
       { data: dbHeroSlides, error: errHero },
       { data: dbSelectedCombinations, error: errSC },
       dbTeamTransfersList,
-      dbMediaFiles,
-      dbArchives
+      dbMediaFiles
     ] = await Promise.all([
       Promise.resolve(pgDb.from('ads').select('*')).catch(err => ({ data: null, error: err })),
       pgDb.from('system_info').select('*'),
@@ -416,8 +430,7 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
       pgDb.from('hero_slides').select('*'),
       pgDb.from('selected_combinations').select('*'),
       Promise.resolve(pgDb.from('team_transfers_list').select('*')).catch(err => ({ data: null, error: err })),
-      Promise.resolve(pgDb.from('media_files').select('*')).catch(err => ({ data: null, error: err })),
-      Promise.resolve(pgDb.from('archive').select('*').order('created_at', { ascending: false })).catch(err => ({ data: null, error: err }))
+      Promise.resolve(pgDb.from('media_files').select('*')).catch(err => ({ data: null, error: err }))
     ]);
 
     if (errNews) logMessage("warn", "database", "خطا در دریافت جدول اخبار", errNews);
@@ -437,7 +450,7 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
       if (row) parsed.lastScraped = row.value || "";
 
       const rowSeason = dbSystemInfo.find((r: any) => r.key === 'currentSeason');
-      if (rowSeason) parsed.currentSeason = rowSeason.value || "1404";
+      if (rowSeason) parsed.currentSeason = rowSeason.value || "1405";
     }
 
     if (dbBracket && dbBracket.data) {
@@ -823,18 +836,6 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
       }));
     } else {
       parsed.media_files = [];
-    }
-
-    if (dbArchives && dbArchives.data) {
-      parsed.archives = dbArchives.data.map((a: any) => ({
-        id: a.id,
-        season_tag: a.season_tag,
-        type: a.type,
-        data: a.data,
-        createdAt: a.created_at
-      }));
-    } else {
-      parsed.archives = [];
     }
 
     const migResult = runDatabaseMigrationsAndTransitions(parsed);
@@ -1413,39 +1414,6 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
             .delete()
             .neq('id', '')
         ).catch(e => null)
-      );
-    }
-
-    if (need("archives") && data.archives && data.archives.length > 0) {
-      const formattedArchives = data.archives.map((a: any) => ({
-        id: a.id,
-        season_tag: a.season_tag,
-        type: a.type,
-        data: a.data,
-        created_at: a.createdAt || new Date().toISOString()
-      }));
-      promises.push(
-        Promise.resolve(
-          pgDb.from('archive')
-            .upsert(formattedArchives)
-        ).catch(e => ({ error: e }))
-      );
-
-      const archiveIds = data.archives.map((x: any) => x.id);
-      promises.push(
-        Promise.resolve(
-          pgDb.from('archive')
-            .delete()
-            .not('id', 'in', `(${archiveIds.join(',')})`)
-        ).catch(e => ({ error: e }))
-      );
-    } else if (need("archives") && data.archives) {
-      promises.push(
-        Promise.resolve(
-          pgDb.from('archive')
-            .delete()
-            .neq('id', '')
-        ).catch(e => ({ error: e }))
       );
     }
 
