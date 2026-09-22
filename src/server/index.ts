@@ -13,19 +13,19 @@ import { recordHttpRequest, cleanupOldVisits, cleanupOldAuditLogs } from "./serv
 import { loadDB, setDb } from "./state";
 import { dbLock } from "./utils/concurrency";
 import { logMessage } from "./utils/logger";
-import { fetchAndPopulateMemoryDB, saveDB, migrateConstraints, migrateSummaryColumn, migrateHeroSlidesColumns, migrateAdsSchema, migrateNewsGalleryColumns, migrateNewsArchiveIndexes, migrateDropShirtNumberColumn, migrateReadMoreContent2, migrateMonitoringTables, migrateRatingDefaults, migrateMissingIndexes } from "./services/database";
+import { fetchAndPopulateMemoryDB, saveDB, migrateConstraints, migrateSummaryColumn, migrateHeroSlidesColumns, migrateAdsSchema, migrateNewsGalleryColumns, migrateNewsArchiveIndexes, migrateDropShirtNumberColumn, migrateDropArchiveTable, migrateReadMoreContent2, migrateMonitoringTables, migrateRatingDefaults, migrateMissingIndexes } from "./services/database";
 import { recalculateAndSyncDatabase } from "./services/stats";
 import { getUploadsDir } from "./db";
 
 import { registerSystemRoutes } from "./routes/system";
 import { registerDiagnosticsRoutes } from "./routes/diagnostics";
-import { registerArchiveRoutes } from "./routes/archives";
 import { registerTeamRoutes } from "./routes/teams";
 import { registerMatchRoutes } from "./routes/matches";
 import { registerStandingsRoutes } from "./routes/standings";
 import { registerMediaRoutes } from "./routes/media";
 import { registerMiscRoutes } from "./routes/misc";
 import { registerDetailRoutes } from "./routes/detail";
+import { registerSeasonRoutes } from "./routes/season";
 import { registerAdminListRoutes } from "./routes/adminLists";
 
 logMessage("info", "general", "پورتال فوتبال 360 در حال راه‌اندازی است...");
@@ -49,7 +49,7 @@ app.use(centralAuthGuard);
 
 registerSystemRoutes(app);
 registerDiagnosticsRoutes(app);
-registerArchiveRoutes(app);
+registerSeasonRoutes(app);
 registerTeamRoutes(app);
 registerMatchRoutes(app);
 registerStandingsRoutes(app);
@@ -71,6 +71,7 @@ async function startServer() {
   await migrateNewsGalleryColumns();
   await migrateNewsArchiveIndexes();
   await migrateDropShirtNumberColumn();
+  await migrateDropArchiveTable();
   await migrateReadMoreContent2();
   await migrateMonitoringTables();
   await migrateRatingDefaults();

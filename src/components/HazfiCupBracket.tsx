@@ -5,7 +5,7 @@ import { isTeamInDb, convertGregorianToShamsi, formatStatNumber } from "../utils
 import TeamLogo from "./TeamLogo";
 
 const formatSeasonRange = (s?: string): string => {
-  if (!s) return "1404";
+  if (!s) return "1405";
   const en = String(s).replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
   const m = en.match(/\d{4}/);
   if (!m) return String(s);

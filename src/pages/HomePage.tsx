@@ -27,10 +27,8 @@ interface HomePageProps {
   convertGregorianToShamsi: (d: string) => string;
   formatStatNumber: (n: any) => string;
   getSafeImageUrl: (url: string) => string;
-  currentSeason: string;
   selectedLeagueFilterOnStats: string;
   setSelectedLeagueFilterOnStats: (v: string) => void;
-  archives: any[];
   standings: Record<string, any[]>;
   players: any[];
   selectedCombinations: any[];

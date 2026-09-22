@@ -5,9 +5,6 @@ import { StatsData } from "../types";
 
 interface StatsPageProps {
   stats: Record<string, StatsData>;
-  archives: any[];
-  statsSeason: string;
-  setStatsSeason: (s: string) => void;
   selectedLeagueFilterOnStats: string;
   setSelectedLeagueFilterOnStats: (s: string) => void;
   currentSeason: string;
@@ -138,40 +135,15 @@ function StatColumn({
 
 export default function StatsPage({
   stats,
-  archives,
-  statsSeason,
-  setStatsSeason,
   selectedLeagueFilterOnStats,
   setSelectedLeagueFilterOnStats,
   currentSeason,
   formatStatNumber,
 }: StatsPageProps) {
   const navigate = useNavigate();
-  const availableSeasons = (archives || [])
-    .filter((a: any) => a.type === "stats")
-    .map((a: any) => a.season_tag);
-  const uniqueSeasons = (Array.from(new Set(availableSeasons)) as string[]).sort(
-    (a, b) => b.localeCompare(a)
-  );
 
-  const getActiveStatsData = () => {
-    if (statsSeason === currentSeason) {
-      return stats[selectedLeagueFilterOnStats];
-    }
-    const statsArchive = archives?.find(
-      (a: any) => a.type === "stats" && a.season_tag === statsSeason
-    );
-    if (
-      statsArchive &&
-      statsArchive.data &&
-      statsArchive.data[selectedLeagueFilterOnStats]
-    ) {
-      return statsArchive.data[selectedLeagueFilterOnStats];
-    }
-    return null;
-  };
-
-  const activeStatsData = getActiveStatsData();
+  // Current-season only: no archived seasons anymore.
+  const activeStatsData = stats[selectedLeagueFilterOnStats] || null;
 
   return (
     <div
@@ -191,24 +163,9 @@ export default function StatsPage({
 
         <div className="flex items-center gap-2 bg-slate-950/50 border border-white/5 rounded-xl px-3 py-1.5 w-fit text-xs text-slate-300">
           <span className="text-gray-400 font-bold">فصل رقابت‌ها:</span>
-          <select
-            value={statsSeason}
-            onChange={(e) => setStatsSeason(e.target.value)}
-            className="bg-transparent focus:outline-none text-white font-extrabold cursor-pointer pr-1"
-          >
-            <option value={currentSeason} className="bg-slate-900 text-white">
-              فصل جاری ({formatStatNumber(currentSeason)})
-            </option>
-            {uniqueSeasons.map((season) => (
-              <option
-                key={season}
-                value={season}
-                className="bg-slate-900 text-white"
-              >
-                فصل {formatStatNumber(season)}
-              </option>
-            ))}
-          </select>
+          <span className="text-white font-extrabold">
+            فصل جاری ({formatStatNumber(currentSeason)})
+          </span>
         </div>
       </div>
 

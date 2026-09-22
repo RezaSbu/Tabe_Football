@@ -407,10 +407,3 @@ export interface LiveGoal {
   teamAway: string;
 }
 
-export interface ArchiveItem {
-  id: string;
-  season: string;
-  data: any;
-  created_at?: string;
-}
-

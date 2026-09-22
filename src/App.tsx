@@ -100,8 +100,6 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
       teams={d.teams}
       players={d.players}
       stats={d.stats}
-      historicalData={d.historicalData}
-      archives={d.archives}
       currentSeason={d.currentSeason}
       onSelectNews={(art: NewsItem) => navigate(`/news/${art.id}`)}
       onSelectTeam={(nameOrId: string) => {
@@ -139,9 +137,9 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
               liveGoals={d.liveGoals} setSelectedMatch={(m: any) => navigate(`/match/${m.id}`)} setActiveArticle={(a: any) => navigate(`/news/${a.id}`)}
               handleTabChangeSubmit={d.handleTabChangeSubmit} getRelativeDateLabel={getRelativeDateLabel}
               convertGregorianToShamsi={convertGregorianToShamsi} formatStatNumber={formatStatNumber}
-              getSafeImageUrl={getSafeImageUrl} currentSeason={d.currentSeason}
+              getSafeImageUrl={getSafeImageUrl}
               selectedLeagueFilterOnStats={d.selectedLeagueFilterOnStats}
-              setSelectedLeagueFilterOnStats={d.setSelectedLeagueFilterOnStats} archives={d.archives}
+              setSelectedLeagueFilterOnStats={d.setSelectedLeagueFilterOnStats}
               standings={d.standings} players={d.players} selectedCombinations={d.selectedCombinations}
               setSelectedPlayerId={(id: string | null) => id && navigate(`/player/${id}`)} setSelectedTeamId={(id: string | null) => id && navigate(`/team/${id}`)}
               ads={d.ads} onSelectTransfer={(id: string) => navigate(`/transfer/${id}`)} />
@@ -246,8 +244,7 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
         {d.activeTab === "stats" && (
           <>
             <SEO title="آمار بازیکنان فوتبال ایران" description="آمار پیشرفته بازیکنان فوتبال ایران، گلزنان، پاسورها و بهترین بازیکنان فصل" url="/stats" />
-            <StatsPage stats={d.stats} archives={d.archives} statsSeason={d.statsSeason}
-              setStatsSeason={d.setStatsSeason} selectedLeagueFilterOnStats={d.selectedLeagueFilterOnStats}
+            <StatsPage stats={d.stats} selectedLeagueFilterOnStats={d.selectedLeagueFilterOnStats}
               setSelectedLeagueFilterOnStats={d.setSelectedLeagueFilterOnStats}
               currentSeason={d.currentSeason} formatStatNumber={formatStatNumber} />
           </>
@@ -261,8 +258,8 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
               submissions={d.submissions} heroSlides={d.heroSlides} legionnaires={d.legionnaires} stats={d.stats}
               teams={d.teams} players={d.players} bracket={d.bracket}
               selectedCombinations={d.selectedCombinations} ads={d.ads}
-              archives={d.archives} currentSeason={d.currentSeason}
-              onUpdateArchives={d.setArchives} onUpdateStandings={d.handleUpdateStandings}
+              currentSeason={d.currentSeason}
+              onUpdateStandings={d.handleUpdateStandings}
               onUpdateStats={d.handleUpdateStats} onSaveAds={d.setAds}
               onCentralSync={d.handleCentralSync} onLogout={d.handleAdminLogout}
               isAdminLoggedIn={d.isAdminLoggedIn} onLogin={d.handleAdminLogin}
@@ -333,7 +330,7 @@ export default function App() {
             teamTransfersList={d.teamTransfersList} images={d.images} submissions={d.submissions}
             heroSlides={d.heroSlides} legionnaires={d.legionnaires} stats={d.stats} teams={d.teams} players={d.players} coaches={d.coaches}
             bracket={d.bracket} selectedCombinations={d.selectedCombinations} ads={d.ads}
-            archives={d.archives} currentSeason={d.currentSeason}
+            currentSeason={d.currentSeason}
             onUpdateStandings={d.handleUpdateStandings} onUpdateStats={d.handleUpdateStats}
             onSaveAds={d.setAds} onCentralSync={d.handleCentralSync}
             isAdminLoggedIn={d.isAdminLoggedIn} onLogin={d.handleAdminLogin}

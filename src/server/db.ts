@@ -235,7 +235,6 @@ class QueryBuilder {
       bracket_slots: ["id"],
       team_transfers_list: ["id"],
       media_files: ["id"],
-      archive: ["id"],
     };
     return pkMap[this.table] || ["id"];
   }
