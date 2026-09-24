@@ -1,11 +1,13 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { StandingRow, NewsItem, MatchItem, TeamItem, PlayerItem, StatsData } from "../types";
 import { Trophy, Award, Newspaper, Calendar, BarChart3, List, ChevronLeft, Star, Flame, Zap, Target, Search, X } from "lucide-react";
 import { isTeamInDb, convertGregorianToShamsi, formatStatNumber } from "../utils";
-import { resolveTeam } from "../shared/teamMatch";
+import { resolveTeam, resolveTeamLeagueWithFallback, normalizeLeagueKey } from "../shared/teamMatch";
 import HazfiCupBracket from "./HazfiCupBracket";
 import TeamLogo from "./TeamLogo";
+import SeasonSwitcher, { defaultSeasonValue } from "./SeasonSwitcher";
+import { useSeasons, useSeasonData } from "../hooks/useSeasonData";
 
 interface LeagueTablesProps {
   leagueKey?: "pro-league" | "league-1" | "league-2" | "hazfi-cup";
@@ -135,6 +137,15 @@ export default function LeagueTables({
   const [activeL2Group, setActiveL2Group] = useState<"league-2-group-a" | "league-2-group-b">("league-2-group-a");
   const [matchSearch, setMatchSearch] = useState<string>("");
   const [weekFilter, setWeekFilter] = useState<number | null>(null);
+  // Phase 5: per-season standings + leaders, derived from the season tables.
+  // Matches/news stay as-is (matches carry their own season; news is global).
+  const seasons = useSeasons();
+  const [seasonId, setSeasonId] = useState("");
+  useEffect(() => {
+    if (!seasonId && seasons.length > 0) setSeasonId(defaultSeasonValue(seasons, false));
+  }, [seasons, seasonId]);
+  const { teamRows, playerRows, loading: seasonLoading } = useSeasonData(seasonId);
+  const seasonReady = !!seasonId && !seasonLoading;
 
   // Current-season only: no archived seasons anymore.
   const getActiveBracket = () => {
@@ -226,11 +237,60 @@ export default function LeagueTables({
     return rawCurrentStandings;
   };
 
-  const currentStandings = getActiveStandings();
+  // Phase 5: season standings rebuilt from team-season rows, mirroring the
+  // server sort (points, goal difference, goals). Teams without a row count
+  // as zeros, so a fresh season truthfully shows an empty table.
+  const buildSeasonStandings = (): StandingRow[] => {
+    if (leagueKey === "hazfi-cup") return [];
+    const key = getStandingsKey();
+    const rowByTeam = new Map<string, any>();
+    for (const r of teamRows) {
+      if (r && r.teamId != null && !rowByTeam.has(String(r.teamId))) rowByTeam.set(String(r.teamId), r);
+    }
+    const leagueTeams = (teams || []).filter((t: any) => {
+      const l = resolveTeamLeagueWithFallback(teams, t.id, t.name);
+      if (leagueKey === "league-2") return l === "league-2" && key === "league-2-group-a";
+      return l === leagueKey;
+    });
+    const list: StandingRow[] = leagueTeams.map((t: any) => {
+      const r = rowByTeam.get(String(t.id));
+      const gf = Number(r?.goalsFor) || 0;
+      const ga = Number(r?.goalsAgainst) || 0;
+      return {
+        rank: 0,
+        id: t.id,
+        team: t.name,
+        played: Number(r?.played) || 0,
+        won: Number(r?.won) || 0,
+        drawn: Number(r?.drawn) || 0,
+        lost: Number(r?.lost) || 0,
+        goalsFor: gf,
+        goalsAgainst: ga,
+        goalDifference: gf - ga,
+        points: Number(r?.points) || 0,
+      } as StandingRow;
+    });
+    list.sort((a: any, b: any) => {
+      if (b.points !== a.points) return b.points - a.points;
+      if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
+      return b.goalsFor - a.goalsFor;
+    });
+    list.forEach((row: any, idx: number) => { row.rank = idx + 1; });
+    return list;
+  };
+
+  const currentStandings = seasonReady ? buildSeasonStandings() : getActiveStandings();
 
   // Match items filtering (current season only)
   const getActiveMatches = (): MatchItem[] => {
-    return matches.filter(m => m.league === leagueKey && m.status !== "archived");
+    return matches.filter(m => m.league === leagueKey && m.status !== "archived" && matchInSeason(m));
+  };
+
+  const seasonTagForMatches = seasons.find((s: any) => String(s.id) === String(seasonId))?.name;
+  const matchInSeason = (m: any): boolean => {
+    if (!seasonId) return true;
+    return String((m as any).seasonId) === String(seasonId) ||
+      (seasonTagForMatches != null && (String((m as any).season) === String(seasonTagForMatches) || String((m as any).seasonId) === `season-${seasonTagForMatches}`));
   };
 
   const getMatchWeekNumber = (w?: string): number | null => {
@@ -290,7 +350,85 @@ export default function LeagueTables({
     return stats[leagueKey] || defaultStats;
   };
 
-  const leagueStats = getActiveStats();
+  // Phase 5: per-season leaders. Convention mirrors the server leaderboards
+  // EXACTLY: eligibility AND display club are the player's CURRENT club;
+  // only the NUMBERS are season-scoped (summed across every club row).
+  // (An earlier revision labeled the most-played club and disagreed with
+  // the server tables after mid-season transfers.)
+  const buildSeasonLeaders = (): StatsData => {
+    const useCup = leagueKey === "hazfi-cup";
+    const split = useCup ? "cupStats" : "leagueStats";
+    const wantLeague = useCup ? null : normalizeLeagueKey(leagueKey);
+    const pById = new Map<string, any>();
+    for (const p of players || []) {
+      if (p && p.id != null && !pById.has(String(p.id))) pById.set(String(p.id), p);
+    }
+    const currentClubOf = (pid: string): any | null => {
+      const p = pById.get(String(pid));
+      if (!p) return null;
+      if (!p.teamId && !p.teamName) return null;
+      const nm = String(p.teamName || "");
+      if (!nm || nm === "بازیکن آزاد" || nm === "بدون باشگاه") return null;
+      return resolveTeam(teams, p.teamId || p.teamName) || null;
+    };
+    const byId = new Map<string, any>();
+    for (const r of playerRows) {
+      if (!r || r.playerId == null) continue;
+      const s = r[split] || {};
+      const g = Number(s.goals) || 0, a = Number(s.assists) || 0, cs = Number(s.cleanSheets) || 0;
+      const rs = Number(s.ratingSum) || 0, rc = Number(s.ratingCount) || 0;
+      if (!useCup && g === 0 && a === 0 && cs === 0 && rc === 0) continue;
+      if (useCup && g === 0 && a === 0 && cs === 0) continue;
+      let agg = byId.get(String(r.playerId));
+      if (!agg) {
+        agg = { id: String(r.playerId), goals: 0, assists: 0, cleanSheets: 0, ratingSum: 0, ratingCount: 0 };
+        byId.set(String(r.playerId), agg);
+      }
+      agg.goals += g;
+      agg.assists += a;
+      agg.cleanSheets += cs;
+      agg.ratingSum += rs;
+      agg.ratingCount += rc;
+    }
+    const all: any[] = [];
+    for (const agg of byId.values()) {
+      const club = currentClubOf(agg.id);
+      if (useCup) {
+        if (agg.goals === 0 && agg.assists === 0 && agg.cleanSheets === 0) continue;
+      } else {
+        if (!club) continue;
+        if (normalizeLeagueKey(resolveTeamLeagueWithFallback(teams, club.id, club.name)) !== wantLeague) continue;
+        if (agg.goals === 0 && agg.assists === 0 && agg.cleanSheets === 0 && agg.ratingCount === 0) continue;
+      }
+      const p = pById.get(agg.id);
+      all.push({ ...agg, name: p?.name || "", team: club ? club.name : (p?.teamName || "") });
+    }
+    const posById = new Map<string, string>();
+    for (const p of players || []) {
+      if (p && p.id != null && !posById.has(String(p.id))) posById.set(String(p.id), p.position || "");
+    }
+    const withRank = (arr: any[], key: string, extra?: (a: any) => any) =>
+      arr
+        .filter((a: any) => Number(a[key]) > 0)
+        .sort((x: any, y: any) => Number(y[key]) - Number(x[key]))
+        .map((a: any, idx: number) => ({ rank: idx + 1, name: a.name, team: a.team, ...(extra ? extra(a) : {}) }));
+    const scorers = withRank(all, "goals", (a) => ({ goals: a.goals, penalties: 0 }));
+    const assists = withRank(all, "assists", (a) => ({ assists: a.assists }));
+    const cleansheets = withRank(
+      all.filter((a: any) => String(posById.get(a.id) || "").includes("دروازه")),
+      "cleanSheets",
+      (a) => ({ cleanSheets: a.cleanSheets })
+    );
+    const ratings = all
+      .filter((a: any) => a.ratingCount > 0)
+      .map((a: any) => ({ ...a, rating: parseFloat((a.ratingSum / a.ratingCount).toFixed(1)) }))
+      .filter((a: any) => a.rating > 0)
+      .sort((a: any, b: any) => b.rating - a.rating)
+      .map((a: any, idx: number) => ({ rank: idx + 1, name: a.name, team: a.team, rating: a.rating }));
+    return { scorers, assists, cleansheets, ratings } as StatsData;
+  };
+
+  const leagueStats = seasonReady ? buildSeasonLeaders() : getActiveStats();
 
   // Top players by average Sofascore rating - preferentially read from stats database table
   const topSofaPlayers = leagueStats.ratings && leagueStats.ratings.length > 0
@@ -336,13 +474,10 @@ export default function LeagueTables({
               {config.desc}
             </p>
 
-            {/* Season label (current season only) */}
-            {(subTab === "standings" || subTab === "stats" || subTab === "matches") && (
+            {/* Season scope: standings + leaders follow it; matches carry their own season, news stays global */}
+            {(subTab === "standings" || subTab === "stats" || subTab === "matches") && seasons.length > 0 && (
               <div className="flex items-center gap-2 mt-3 bg-slate-950/50 border border-white/5 rounded-xl px-3 py-1.5 w-fit text-xs text-slate-300">
-                <span className="text-gray-405 font-bold">فصل رقابت‌ها:</span>
-                <span className="text-white font-extrabold">
-                  فصل جاری ({formatStatNumber(currentSeason)})
-                </span>
+                <SeasonSwitcher seasons={seasons} value={seasonId} onChange={setSeasonId} allowCareer={false} />
               </div>
             )}
           </div>

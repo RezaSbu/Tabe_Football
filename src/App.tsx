@@ -246,7 +246,7 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
             <SEO title="آمار بازیکنان فوتبال ایران" description="آمار پیشرفته بازیکنان فوتبال ایران، گلزنان، پاسورها و بهترین بازیکنان فصل" url="/stats" />
             <StatsPage stats={d.stats} selectedLeagueFilterOnStats={d.selectedLeagueFilterOnStats}
               setSelectedLeagueFilterOnStats={d.setSelectedLeagueFilterOnStats}
-              currentSeason={d.currentSeason} formatStatNumber={formatStatNumber} />
+              currentSeason={d.currentSeason} formatStatNumber={formatStatNumber} teams={d.teams} players={d.players} />
           </>
         )}
 
