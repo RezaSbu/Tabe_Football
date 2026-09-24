@@ -117,6 +117,20 @@ export function formatStatNumber(value: number | string | null | undefined): str
   return toEnglishDigits(String(value));
 }
 
+// Presentation-layer Jalali date: standard Gregorian storage in, "1405/07/01"
+// with Latin digits out (matches the site-wide numeric convention).
+// Safe fallback: empty/bad input renders the original string, never throws.
+export function formatJalaliDate(value: string | null | undefined): string {
+  if (value === null || value === undefined) return "";
+  const raw = String(value).trim();
+  if (!raw) return "";
+  const firstToken = raw.split(/[T ]/)[0];
+  if (!/^\d{4}-\d{1,2}-\d{1,2}$/.test(firstToken)) return raw;
+  const out = convertGregorianToShamsiNumeric(firstToken);
+  if (!out || out === firstToken || !/^\d{4}\/\d{2}\/\d{2}$/.test(out)) return raw;
+  return out;
+}
+
 // Convert Persian and Arabic numbers to normal English numbers
 export function toEnglishDigits(str: string): string {
   if (!str) return "";

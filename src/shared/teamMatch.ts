@@ -79,3 +79,35 @@ export const normalizeLeagueKey = (key?: string | null): string => {
   if (key === "league-2-group-a" || key === "league-2-group-b") return "league-2";
   return key || "";
 };
+
+/**
+ * Single source of truth for team -> league resolution (server recalc AND
+ * client season tables). First honors the team record's divisionKey, then
+ * falls back to the legacy id/name keyword lists, defaulting to pro-league.
+ * Extracted verbatim from the server recalc so both sides can never drift.
+ */
+export function resolveTeamLeagueWithFallback<T extends TeamLike>(
+  teams: T[],
+  teamId?: string | number | null,
+  teamName?: string | null
+): string {
+  const resolved = resolveTeamLeague(teams, teamId, teamName);
+  if (resolved) return resolved;
+
+  const id = String(teamId || "").toLowerCase();
+  const name = String(teamName || "").toLowerCase();
+  if (id.includes("sungun") || id.includes("giti") || name.includes("فوتسال") || name.includes("سونگون") || name.includes("گیتی")) {
+    return "futsal";
+  }
+  if (id.includes("mesrafsanjan") || id.includes("nassaji") || id.includes("zobahan") || name.includes("نساجی") || name.includes("رفسنجان") || name.includes("ذوب") || id.includes("golgohar") || name.includes("گل‌گهر") || name.includes("گل گهر")) {
+    return "league-1";
+  }
+  const league2Keywords = [
+    "foolad", "فولاد", "نوشهر", "کویر مقوا", "نیروی زمینی", "بعثت", "پاس همدان", "سپیدرود", "چوکا",
+    "داماش", "شاهین بوشهر", "شهرداری بم", "مس نوین", "اترک", "اسپاد", "آریو بهمن", "بابلسر"
+  ];
+  if (league2Keywords.some((keyword) => id.includes(keyword) || name.includes(keyword))) {
+    return "league-2";
+  }
+  return "pro-league";
+};
