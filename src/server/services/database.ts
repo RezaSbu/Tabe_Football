@@ -15,7 +15,9 @@ export type DirtyTable =
   | "news" | "teams" | "players" | "coaches" | "matches" | "transfers"
   | "legionnaires" | "images" | "standings" | "stats" | "teamTransfersList"
   | "ads" | "bracket" | "heroSlides" | "selectedCombinations" | "systemInfo"
-  | "submissions" | "mediaFiles";
+  | "submissions" | "mediaFiles" | "playerMovements" | "coachMovements"
+  | "playerSeasonStats" | "coachSeasonStats" | "teamSeasonStats"
+  | "lifecycleEvents" | "coachAppointments" | "lifecycleReasons";
 
 const dirtyTables = new Set<DirtyTable | "all">(["all"]);
 
@@ -46,6 +48,28 @@ export function matchTouchesFinishedStats(before: any, after: any): boolean {
   if ((b.archived_stats || a.archived_stats) && (b.status === "finished" || a.status === "finished")) return true;
   const keys = ["scoreHome", "scoreAway", "scorersList", "events", "lineups", "league", "teamHomeId", "teamAwayId", "teamHome", "teamAway", "date", "isAutoFinished"];
   return keys.some((k) => JSON.stringify(b[k]) !== JSON.stringify(a[k]));
+}
+
+// Season rows use id='season-<name>' (e.g. id='season-1405' for name='1405').
+// Derives the FK value from a legacy season tag; returns null when the tag
+// is empty or already an id (the caller then keeps the explicit seasonId).
+export function seasonIdFromTag(tag: string | null | undefined): string | null {
+  const clean = String(tag || "").trim();
+  if (!clean) return null;
+  if (clean.startsWith("season-")) return clean;
+  return `season-${clean}`;
+}
+
+// Canonical 4-digit season tag. The admin form historically defaults to range
+// labels like "1405-1406" while stored rows (and the seasons table) use plain
+// tags like "1405" — writing the range form into season_id violates
+// fk_matches_season and broke match creation. Returns the leading 4-digit
+// group (the start year names the season), or null when there is none.
+export function normalizeSeasonTag(tag: string | null | undefined): string | null {
+  const clean = String(tag || "").trim();
+  if (!clean) return null;
+  const m = clean.match(/\d{4}/);
+  return m ? m[0] : null;
 }
 
 // Shirt numbers were removed from the data model: strip the legacy `number`
@@ -236,6 +260,465 @@ export async function migrateDropArchiveTable(): Promise<void> {
     logMessage("warn", "database", "خطا در حذف جدول archive:", err.message || err);
   }
 }
+export async function migrateSeasonsFull(): Promise<void> {
+  // Adopts the existing live seasons table (do NOT recreate it): ensures the
+  // season FK column + single-current invariant + season query indexes exist.
+  // Guard name is v2 because seasons_full_v1 was claimed on 2026-09-19 by the
+  // old season-centric migration code that has since been deleted from the repo.
+  // Runs once via guard. Never deletes or rewrites season rows.
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, applied_at TIMESTAMPTZ DEFAULT NOW())`);
+    const { rows } = await pool.query(`SELECT 1 FROM schema_migrations WHERE name = 'seasons_full_v2'`);
+    if (rows.length > 0) return;
+    await pool.query(`CREATE TABLE IF NOT EXISTS public.seasons (
+      id varchar(50) NOT NULL,
+      name varchar(50) NOT NULL,
+      label varchar(50),
+      start_date date,
+      end_date date,
+      is_active boolean DEFAULT false,
+      is_archived boolean DEFAULT false,
+      created_at timestamptz DEFAULT now(),
+      updated_at timestamptz DEFAULT now(),
+      status varchar(20) NOT NULL DEFAULT 'upcoming',
+      CONSTRAINT seasons_pkey PRIMARY KEY (id)
+    )`);
+    await pool.query(`ALTER TABLE public.seasons ADD COLUMN IF NOT EXISTS status varchar(20) NOT NULL DEFAULT 'upcoming'`);
+    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS season varchar(50)`);
+    await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS season_id varchar(50)`);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_seasons_name ON public.seasons(name)`);
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_seasons_single_current ON public.seasons (is_active) WHERE is_active IS TRUE`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_matches_season_id ON public.matches(season_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_matches_season_status_league ON public.matches(season_id, status, league)`);
+    // Enforce the season FK (NOT VALID first so pre-existing rows never block;
+    // backfill above already covers them, validation is explicit and safe).
+    await pool.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_matches_season') THEN
+        ALTER TABLE matches ADD CONSTRAINT fk_matches_season FOREIGN KEY (season_id) REFERENCES public.seasons(id) ON DELETE RESTRICT NOT VALID;
+      END IF;
+    END $$`);
+    await pool.query(`ALTER TABLE matches VALIDATE CONSTRAINT fk_matches_season`);
+    // Backfill season_id from legacy season tags where missing (idempotent).
+    await pool.query(`UPDATE matches SET season_id = 'season-' || season WHERE season_id IS NULL AND season IS NOT NULL AND season <> ''`);
+    // Ensure a current-season row exists (matches system_info.currentSeason).
+    const { rows: currentSeasonRow } = await pool.query(`SELECT value FROM system_info WHERE key = 'currentSeason'`);
+    const currentSeason = currentSeasonRow[0]?.value || '1405';
+    // The 3 season-less Tehran derbies (2026-09-21, real matches) belong to
+    // the current season. Assign them explicitly; do NOT touch anything else.
+    await pool.query(
+      `UPDATE matches SET season = $1, season_id = $2
+       WHERE (season IS NULL OR season = '') AND (season_id IS NULL OR season_id = '')`,
+      [currentSeason, `season-${currentSeason}`]
+    );
+    await pool.query(
+      `INSERT INTO seasons (id, name, label, is_active, is_archived, status) VALUES ($1, $2, $3, true, false, 'current')
+       ON CONFLICT (id) DO NOTHING`,
+      [`season-${currentSeason}`, currentSeason, `${currentSeason}-${String(Number(currentSeason) + 1)}`]
+    );
+    await pool.query(`INSERT INTO schema_migrations (name) VALUES ('seasons_full_v2')`);
+    logMessage("info", "database", "مهاجرت یکبار اجرا: جدول seasons و ستون‌های season/season_id در matches اعمال شد.");
+  } catch (err: any) {
+    logMessage("warn", "database", "خطا در مهاجرت seasons_full_v2:", err.message || err);
+  }
+}
+
+export async function migrateClubMovements(): Promise<void> {
+  // Real club-movement ledger (player_club_movements + coach_club_movements).
+  // Transfer News (`transfers`) is untouched. Runs once via guard.
+  // Never deletes or rewrites rows; CREATE TABLE / ADD CONSTRAINT IF NOT EXISTS only.
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, applied_at TIMESTAMPTZ DEFAULT NOW())`);
+    const { rows } = await pool.query(`SELECT 1 FROM schema_migrations WHERE name = 'club_movements_v1'`);
+    if (rows.length > 0) return;
+    await pool.query(`CREATE TABLE IF NOT EXISTS public.player_club_movements (
+      id varchar(50) NOT NULL,
+      player_id varchar(50) NOT NULL,
+      from_team_id varchar(50),
+      to_team_id varchar(50),
+      season_id varchar(50),
+      movement_date varchar(20),
+      note text,
+      created_at timestamptz DEFAULT now(),
+      updated_at timestamptz DEFAULT now(),
+      CONSTRAINT player_club_movements_pkey PRIMARY KEY (id)
+    )`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS public.coach_club_movements (
+      id varchar(50) NOT NULL,
+      coach_id varchar(50) NOT NULL,
+      from_team_id varchar(50),
+      to_team_id varchar(50),
+      season_id varchar(50),
+      movement_date varchar(20),
+      note text,
+      created_at timestamptz DEFAULT now(),
+      updated_at timestamptz DEFAULT now(),
+      CONSTRAINT coach_club_movements_pkey PRIMARY KEY (id)
+    )`);
+    await pool.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_pcm_player') THEN
+        ALTER TABLE player_club_movements ADD CONSTRAINT fk_pcm_player FOREIGN KEY (player_id) REFERENCES public.players(id) ON DELETE CASCADE;
+      END IF;
+    END $$`);
+    await pool.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_pcm_from_team') THEN
+        ALTER TABLE player_club_movements ADD CONSTRAINT fk_pcm_from_team FOREIGN KEY (from_team_id) REFERENCES public.teams(id) ON DELETE SET NULL;
+      END IF;
+    END $$`);
+    await pool.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_pcm_to_team') THEN
+        ALTER TABLE player_club_movements ADD CONSTRAINT fk_pcm_to_team FOREIGN KEY (to_team_id) REFERENCES public.teams(id) ON DELETE SET NULL;
+      END IF;
+    END $$`);
+    await pool.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_pcm_season') THEN
+        ALTER TABLE player_club_movements ADD CONSTRAINT fk_pcm_season FOREIGN KEY (season_id) REFERENCES public.seasons(id) ON DELETE RESTRICT;
+      END IF;
+    END $$`);
+    await pool.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_pcm_player_from_to_date') THEN
+        ALTER TABLE player_club_movements ADD CONSTRAINT uq_pcm_player_from_to_date UNIQUE (player_id, from_team_id, to_team_id, movement_date);
+      END IF;
+    END $$`);
+    await pool.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_ccm_coach') THEN
+        ALTER TABLE coach_club_movements ADD CONSTRAINT fk_ccm_coach FOREIGN KEY (coach_id) REFERENCES public.coaches(id) ON DELETE CASCADE;
+      END IF;
+    END $$`);
+    await pool.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_ccm_from_team') THEN
+        ALTER TABLE coach_club_movements ADD CONSTRAINT fk_ccm_from_team FOREIGN KEY (from_team_id) REFERENCES public.teams(id) ON DELETE SET NULL;
+      END IF;
+    END $$`);
+    await pool.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_ccm_to_team') THEN
+        ALTER TABLE coach_club_movements ADD CONSTRAINT fk_ccm_to_team FOREIGN KEY (to_team_id) REFERENCES public.teams(id) ON DELETE SET NULL;
+      END IF;
+    END $$`);
+    await pool.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_ccm_season') THEN
+        ALTER TABLE coach_club_movements ADD CONSTRAINT fk_ccm_season FOREIGN KEY (season_id) REFERENCES public.seasons(id) ON DELETE RESTRICT;
+      END IF;
+    END $$`);
+    await pool.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_ccm_coach_from_to_date') THEN
+        ALTER TABLE coach_club_movements ADD CONSTRAINT uq_ccm_coach_from_to_date UNIQUE (coach_id, from_team_id, to_team_id, movement_date);
+      END IF;
+    END $$`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_pcm_player_season ON public.player_club_movements(player_id, season_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_pcm_season ON public.player_club_movements(season_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_pcm_to_team ON public.player_club_movements(to_team_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_ccm_coach_season ON public.coach_club_movements(coach_id, season_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_ccm_season ON public.coach_club_movements(season_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_ccm_to_team ON public.coach_club_movements(to_team_id)`);
+    await pool.query(`INSERT INTO schema_migrations (name) VALUES ('club_movements_v1')`);
+    logMessage("info", "database", "مهاجرت یکبار اجرا: جدول‌های player/coach_club_movements اعمال شد.");
+  } catch (err: any) {
+    logMessage("warn", "database", "خطا در مهاجرت club_movements_v1:", err.message || err);
+  }
+}
+
+export async function migrateSeasonStatsTables(): Promise<void> {
+  // Brings the three legacy per-season aggregate tables under repo control.
+  // Live DB already has them (PK-only, player/coach tables empty, team table
+  // holds 47 all-zero placeholder rows from a deleted system — backed up to
+  // backups/season-history/legacy-season-stats.sql, then cleared here).
+  // Adds the canonical season_id FK + entity/team FKs + uniqueness guards.
+  // Rows themselves are derived data, rewritten by recalc on every save.
+  // Runs once via guard.
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, applied_at TIMESTAMPTZ DEFAULT NOW())`);
+    const { rows } = await pool.query(`SELECT 1 FROM schema_migrations WHERE name = 'season_stats_tables_v1'`);
+    if (rows.length > 0) return;
+    for (const t of ["player_season_stats", "coach_season_stats", "team_season_stats"]) {
+      await pool.query(`CREATE TABLE IF NOT EXISTS public.${t} (id varchar(100) NOT NULL, CONSTRAINT ${t}_pkey PRIMARY KEY (id))`);
+      // Legacy tables were created with id varchar(50); derived row ids are
+      // composite (entity~season~club) and need the wider type.
+      await pool.query(`ALTER TABLE public.${t} ALTER COLUMN id TYPE varchar(100)`);
+      await pool.query(`ALTER TABLE public.${t} ADD COLUMN IF NOT EXISTS season varchar(50)`);
+      await pool.query(`ALTER TABLE public.${t} ADD COLUMN IF NOT EXISTS season_id varchar(50)`);
+      await pool.query(`ALTER TABLE public.${t} ADD COLUMN IF NOT EXISTS team_id varchar(50)`);
+      await pool.query(`ALTER TABLE public.${t} ADD COLUMN IF NOT EXISTS team_name varchar(200)`);
+      await pool.query(`ALTER TABLE public.${t} ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now()`);
+    }
+    await pool.query(`ALTER TABLE public.player_season_stats ADD COLUMN IF NOT EXISTS player_id varchar(50)`);
+    await pool.query(`ALTER TABLE public.player_season_stats ADD COLUMN IF NOT EXISTS matches integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE public.player_season_stats ADD COLUMN IF NOT EXISTS goals integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE public.player_season_stats ADD COLUMN IF NOT EXISTS assists integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE public.player_season_stats ADD COLUMN IF NOT EXISTS clean_sheets integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE public.player_season_stats ADD COLUMN IF NOT EXISTS yellow_cards integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE public.player_season_stats ADD COLUMN IF NOT EXISTS red_cards integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE public.player_season_stats ADD COLUMN IF NOT EXISTS minutes integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE public.player_season_stats ADD COLUMN IF NOT EXISTS avg_rating numeric`);
+    await pool.query(`ALTER TABLE public.player_season_stats ADD COLUMN IF NOT EXISTS ratings jsonb`);
+    await pool.query(`ALTER TABLE public.player_season_stats ADD COLUMN IF NOT EXISTS league_stats jsonb`);
+    await pool.query(`ALTER TABLE public.player_season_stats ADD COLUMN IF NOT EXISTS cup_stats jsonb`);
+    await pool.query(`ALTER TABLE public.coach_season_stats ADD COLUMN IF NOT EXISTS coach_id varchar(50)`);
+    await pool.query(`ALTER TABLE public.coach_season_stats ADD COLUMN IF NOT EXISTS matches integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE public.coach_season_stats ADD COLUMN IF NOT EXISTS wins integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE public.coach_season_stats ADD COLUMN IF NOT EXISTS draws integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE public.coach_season_stats ADD COLUMN IF NOT EXISTS losses integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE public.coach_season_stats ADD COLUMN IF NOT EXISTS goals_for integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE public.coach_season_stats ADD COLUMN IF NOT EXISTS goals_against integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE public.coach_season_stats ADD COLUMN IF NOT EXISTS win_rate numeric`);
+    await pool.query(`ALTER TABLE public.team_season_stats ADD COLUMN IF NOT EXISTS played integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE public.team_season_stats ADD COLUMN IF NOT EXISTS won integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE public.team_season_stats ADD COLUMN IF NOT EXISTS drawn integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE public.team_season_stats ADD COLUMN IF NOT EXISTS lost integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE public.team_season_stats ADD COLUMN IF NOT EXISTS goals_for integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE public.team_season_stats ADD COLUMN IF NOT EXISTS goals_against integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE public.team_season_stats ADD COLUMN IF NOT EXISTS points integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE public.team_season_stats ADD COLUMN IF NOT EXISTS rank integer`);
+    // Legacy numeric(3,1) caps at 9.9 — a 100% win rate or a 10.0 rating
+    // overflows it. Widen once (idempotent; no-op where already widened).
+    await pool.query(`ALTER TABLE public.player_season_stats ALTER COLUMN avg_rating TYPE numeric(5,1)`);
+    await pool.query(`ALTER TABLE public.coach_season_stats ALTER COLUMN win_rate TYPE numeric(5,1)`);
+    // Clear the all-zero legacy placeholders (verified: zero rows with any
+    // nonzero stat; backup in backups/season-history/legacy-season-stats.sql).
+    await pool.query(`DELETE FROM public.team_season_stats WHERE COALESCE(played,0)=0 AND COALESCE(won,0)=0 AND COALESCE(drawn,0)=0 AND COALESCE(lost,0)=0 AND COALESCE(goals_for,0)=0 AND COALESCE(goals_against,0)=0 AND COALESCE(points,0)=0`);
+    await pool.query(`DELETE FROM public.player_season_stats WHERE COALESCE(matches,0)=0 AND COALESCE(goals,0)=0 AND COALESCE(assists,0)=0`);
+    await pool.query(`DELETE FROM public.coach_season_stats WHERE COALESCE(matches,0)=0 AND COALESCE(wins,0)=0 AND COALESCE(draws,0)=0 AND COALESCE(losses,0)=0`);
+    const fk = async (conname: string, ddl: string) => {
+      await pool.query(`DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = '${conname}') THEN
+          ALTER TABLE ${ddl};
+        END IF;
+      END $$`);
+    };
+    await fk("fk_pss_player", "public.player_season_stats ADD CONSTRAINT fk_pss_player FOREIGN KEY (player_id) REFERENCES public.players(id) ON DELETE CASCADE");
+    await fk("fk_pss_team", "public.player_season_stats ADD CONSTRAINT fk_pss_team FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE SET NULL");
+    await fk("fk_pss_season", "public.player_season_stats ADD CONSTRAINT fk_pss_season FOREIGN KEY (season_id) REFERENCES public.seasons(id) ON DELETE RESTRICT");
+    await fk("uq_pss_player_season_team", "public.player_season_stats ADD CONSTRAINT uq_pss_player_season_team UNIQUE (player_id, season_id, team_id)");
+    await fk("fk_css_coach", "public.coach_season_stats ADD CONSTRAINT fk_css_coach FOREIGN KEY (coach_id) REFERENCES public.coaches(id) ON DELETE CASCADE");
+    await fk("fk_css_team", "public.coach_season_stats ADD CONSTRAINT fk_css_team FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE SET NULL");
+    await fk("fk_css_season", "public.coach_season_stats ADD CONSTRAINT fk_css_season FOREIGN KEY (season_id) REFERENCES public.seasons(id) ON DELETE RESTRICT");
+    await fk("uq_css_coach_season_team", "public.coach_season_stats ADD CONSTRAINT uq_css_coach_season_team UNIQUE (coach_id, season_id, team_id)");
+    await fk("fk_tss_team", "public.team_season_stats ADD CONSTRAINT fk_tss_team FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE SET NULL");
+    await fk("fk_tss_season", "public.team_season_stats ADD CONSTRAINT fk_tss_season FOREIGN KEY (season_id) REFERENCES public.seasons(id) ON DELETE RESTRICT");
+    await fk("uq_tss_team_season", "public.team_season_stats ADD CONSTRAINT uq_tss_team_season UNIQUE (team_id, season_id)");
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_pss_player_season ON public.player_season_stats(player_id, season_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_pss_season ON public.player_season_stats(season_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_css_coach_season ON public.coach_season_stats(coach_id, season_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_css_season ON public.coach_season_stats(season_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_tss_season ON public.team_season_stats(season_id)`);
+    await pool.query(`INSERT INTO schema_migrations (name) VALUES ('season_stats_tables_v1')`);
+    logMessage("info", "database", "مهاجرت یکبار اجرا: جدول‌های player/coach/team_season_stats تحت کنترل درآمدند.");
+  } catch (err: any) {
+    logMessage("warn", "database", "خطا در مهاجرت season_stats_tables_v1:", err.message || err);
+  }
+}
+
+export async function migrateCoachMatchColumns(): Promise<void> {
+  // Match-embedded coach ids: the durable end of transfer-proof attribution.
+  // Columns are additive; backfill is deliberately NULL (unknown is honest —
+  // the movement-aware fallback in recalc resolves history instead).
+  // Runs once via guard.
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, applied_at TIMESTAMPTZ DEFAULT NOW())`);
+    const { rows } = await pool.query(`SELECT 1 FROM schema_migrations WHERE name = 'coach_match_columns_v1'`);
+    if (rows.length > 0) return;
+    await pool.query(`ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS coach_home_id varchar(50)`);
+    await pool.query(`ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS coach_away_id varchar(50)`);
+    await pool.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_matches_coach_home') THEN
+        ALTER TABLE public.matches ADD CONSTRAINT fk_matches_coach_home FOREIGN KEY (coach_home_id) REFERENCES public.coaches(id) ON DELETE SET NULL;
+      END IF;
+    END $$`);
+    await pool.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_matches_coach_away') THEN
+        ALTER TABLE public.matches ADD CONSTRAINT fk_matches_coach_away FOREIGN KEY (coach_away_id) REFERENCES public.coaches(id) ON DELETE SET NULL;
+      END IF;
+    END $$`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_matches_coach_home ON public.matches(coach_home_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_matches_coach_away ON public.matches(coach_away_id)`);
+    await pool.query(`INSERT INTO schema_migrations (name) VALUES ('coach_match_columns_v1')`);
+    logMessage("info", "database", "مهاجرت یکبار اجرا: ستون‌های coach_home_id/coach_away_id به matches اضافه شد.");
+  } catch (err: any) {
+    logMessage("warn", "database", "خطا در مهاجرت coach_match_columns_v1:", err.message || err);
+  }
+}
+
+export async function migrateCoachUniqueTeam(): Promise<void> {
+  // One head coach per team, enforced at DB level (free agents exempt via
+  // partial index). Fails loudly while a duplicate exists — guard is recorded
+  // ONLY on success, so boot retries until the duplicate is triaged.
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, applied_at TIMESTAMPTZ DEFAULT NOW())`);
+    const { rows } = await pool.query(`SELECT 1 FROM schema_migrations WHERE name = 'coach_unique_team_v1'`);
+    if (rows.length > 0) return;
+    await pool.query(`CREATE UNIQUE INDEX uq_coaches_one_per_team ON public.coaches(team_id) WHERE team_id IS NOT NULL`);
+    await pool.query(`INSERT INTO schema_migrations (name) VALUES ('coach_unique_team_v1')`);
+    logMessage("info", "database", "مهاجرت یکبار اجرا: یکتایی مربی هر تیم enforced شد.");
+  } catch (err: any) {
+    logMessage("warn", "database", "ایندکس یکتایی مربی ثبت نشد (احتمالاً رکورد تکراری) — در بوت بعدی retry می‌شود:", err.message || err);
+  }
+}
+
+export async function migrateLifecycleSchema(): Promise<void> {
+  // Employment/Appointment lifecycle (P1): additive only, zero destructive.
+  // New tables: lifecycle_reasons (seeded vocab), lifecycle_events
+  // (append-only facts), coach_appointments (interval projection).
+  // is_retired flags gate the terminal RETIRED state. Backfills NOTHING —
+  // existing rows keep exact values; P2 projects intervals from them.
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, applied_at TIMESTAMPTZ DEFAULT NOW())`);
+    const { rows } = await pool.query(`SELECT 1 FROM schema_migrations WHERE name = 'lifecycle_schema_v1'`);
+    if (rows.length > 0) return;
+    await pool.query(`CREATE EXTENSION IF NOT EXISTS btree_gist`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS public.lifecycle_reasons (
+      category varchar(30) NOT NULL,
+      code varchar(50) NOT NULL,
+      label_fa varchar(200) NOT NULL,
+      sort_order integer NOT NULL DEFAULT 0,
+      CONSTRAINT lifecycle_reasons_pkey PRIMARY KEY (category, code)
+    )`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS public.lifecycle_events (
+      id varchar(50) NOT NULL,
+      person_kind varchar(10) NOT NULL,
+      person_id varchar(50) NOT NULL,
+      event_kind varchar(30) NOT NULL,
+      team_id varchar(50),
+      season_id varchar(50),
+      event_date date NOT NULL,
+      sequence integer NOT NULL DEFAULT 0,
+      reason_category varchar(30),
+      reason_code varchar(50),
+      appointment_id varchar(60),
+      correction_of varchar(50),
+      note text,
+      actor varchar(100),
+      created_at timestamptz DEFAULT now(),
+      CONSTRAINT lifecycle_events_pkey PRIMARY KEY (id),
+      CONSTRAINT chk_lifecycle_person_kind CHECK (person_kind IN ('player', 'coach')),
+      CONSTRAINT chk_lifecycle_event_kind CHECK (event_kind IN (
+        'TRANSFER', 'RELEASE', 'SIGNING', 'RETIREMENT', 'CONTRACT_END', 'OTHER',
+        'APPOINTMENT', 'DISMISSAL', 'RESIGNATION', 'MUTUAL_TERMINATION', 'RETIRED'
+      ))
+    )`);
+    await pool.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_lifecycle_team') THEN
+        ALTER TABLE public.lifecycle_events ADD CONSTRAINT fk_lifecycle_team FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE SET NULL;
+      END IF;
+    END $$`);
+    await pool.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_lifecycle_season') THEN
+        ALTER TABLE public.lifecycle_events ADD CONSTRAINT fk_lifecycle_season FOREIGN KEY (season_id) REFERENCES public.seasons(id) ON DELETE RESTRICT;
+      END IF;
+    END $$`);
+    await pool.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_lifecycle_reason') THEN
+        ALTER TABLE public.lifecycle_events ADD CONSTRAINT fk_lifecycle_reason FOREIGN KEY (reason_category, reason_code) REFERENCES public.lifecycle_reasons(category, code) ON DELETE RESTRICT;
+      END IF;
+    END $$`);
+    await pool.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_lifecycle_correction') THEN
+        ALTER TABLE public.lifecycle_events ADD CONSTRAINT fk_lifecycle_correction FOREIGN KEY (correction_of) REFERENCES public.lifecycle_events(id) ON DELETE RESTRICT;
+      END IF;
+    END $$`);
+    // v1 shipped the kind CHECK without RETIRED; widen idempotently.
+    await pool.query(`DO $$ BEGIN
+      IF EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'chk_lifecycle_event_kind'
+          AND pg_get_constraintdef(oid) NOT LIKE '%RETIRED%'
+      ) THEN
+        ALTER TABLE public.lifecycle_events DROP CONSTRAINT chk_lifecycle_event_kind;
+        ALTER TABLE public.lifecycle_events ADD CONSTRAINT chk_lifecycle_event_kind CHECK (event_kind IN (
+          'TRANSFER','RELEASE','SIGNING','RETIREMENT','CONTRACT_END','OTHER',
+          'APPOINTMENT','DISMISSAL','RESIGNATION','MUTUAL_TERMINATION','RETIRED'
+        ));
+      END IF;
+    END $$`);
+    await pool.query(`CREATE TABLE IF NOT EXISTS public.coach_appointments (
+      id varchar(60) NOT NULL,
+      coach_id varchar(50) NOT NULL,
+      team_id varchar(50) NOT NULL,
+      role varchar(20) NOT NULL DEFAULT 'HEAD_COACH',
+      start_date date,
+      end_date date,
+      status varchar(10) NOT NULL DEFAULT 'ACTIVE',
+      appointment_reason varchar(50),
+      departure_reason varchar(50),
+      start_event_id varchar(50),
+      end_event_id varchar(50),
+      created_at timestamptz DEFAULT now(),
+      updated_at timestamptz DEFAULT now(),
+      CONSTRAINT coach_appointments_pkey PRIMARY KEY (id),
+      CONSTRAINT chk_appointment_status CHECK (status IN ('ACTIVE', 'SCHEDULED', 'ENDED')),
+      CONSTRAINT chk_appointment_dates CHECK (end_date IS NULL OR start_date IS NULL OR end_date >= start_date)
+    )`);
+    await pool.query(`ALTER TABLE public.coach_appointments ADD COLUMN IF NOT EXISTS role varchar(20) NOT NULL DEFAULT 'HEAD_COACH'`);
+    await pool.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_appt_coach') THEN
+        ALTER TABLE public.coach_appointments ADD CONSTRAINT fk_appt_coach FOREIGN KEY (coach_id) REFERENCES public.coaches(id) ON DELETE CASCADE;
+      END IF;
+    END $$`);
+    await pool.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_appt_team') THEN
+        ALTER TABLE public.coach_appointments ADD CONSTRAINT fk_appt_team FOREIGN KEY (team_id) REFERENCES public.teams(id) ON DELETE SET NULL;
+      END IF;
+    END $$`);
+    await pool.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_appt_start_event') THEN
+        ALTER TABLE public.coach_appointments ADD CONSTRAINT fk_appt_start_event FOREIGN KEY (start_event_id) REFERENCES public.lifecycle_events(id) ON DELETE RESTRICT;
+      END IF;
+    END $$`);
+    await pool.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_appt_end_event') THEN
+        ALTER TABLE public.coach_appointments ADD CONSTRAINT fk_appt_end_event FOREIGN KEY (end_event_id) REFERENCES public.lifecycle_events(id) ON DELETE RESTRICT;
+      END IF;
+    END $$`);
+    // One open head-coach appointment per coach.
+    await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS uq_appt_one_open_per_coach
+      ON public.coach_appointments(coach_id) WHERE status = 'ACTIVE' AND end_date IS NULL`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_appt_coach_dates
+      ON public.coach_appointments(coach_id, start_date, end_date)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_appt_team_status
+      ON public.coach_appointments(team_id, status)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_lifecycle_person
+      ON public.lifecycle_events(person_kind, person_id, event_date, sequence)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_lifecycle_team
+      ON public.lifecycle_events(team_id, event_date)`);
+    await pool.query(`ALTER TABLE public.coaches ADD COLUMN IF NOT EXISTS is_retired boolean NOT NULL DEFAULT false`);
+    await pool.query(`ALTER TABLE public.players ADD COLUMN IF NOT EXISTS is_retired boolean NOT NULL DEFAULT false`);
+    const seeds: [string, string, string, number][] = [
+      ["player_appointment", "TRANSFER", "انتقال", 10],
+      ["player_appointment", "SIGNING", "پیوستن (بازیکن آزاد)", 20],
+      ["player_appointment", "PROMOTION", "ارتقا", 30],
+      ["player_appointment", "OTHER", "سایر", 90],
+      ["player_departure", "RELEASE", "فسخ/آزادسازی", 10],
+      ["player_departure", "CONTRACT_END", "پایان قرارداد", 20],
+      ["player_departure", "RETIREMENT", "بازنشستگی", 30],
+      ["player_departure", "OTHER", "سایر", 90],
+      ["coach_appointment", "NEW_APPOINTMENT", "انتصاب جدید", 10],
+      ["coach_appointment", "RETURNING_COACH", "بازگشت مربی", 20],
+      ["coach_appointment", "PROMOTION", "ارتقا", 30],
+      ["coach_appointment", "OTHER", "سایر", 90],
+      ["coach_departure", "DISMISSED", "اخراج", 10],
+      ["coach_departure", "RESIGNED", "استعفا", 20],
+      ["coach_departure", "MUTUAL_TERMINATION", "توافق دوطرفه", 30],
+      ["coach_departure", "CONTRACT_ENDED", "پایان قرارداد", 40],
+      ["coach_departure", "RETIRED", "بازنشستگی", 50],
+      ["coach_departure", "OTHER", "سایر", 90],
+    ];
+    for (const [cat, code, label, ord] of seeds) {
+      await pool.query(
+        `INSERT INTO public.lifecycle_reasons (category, code, label_fa, sort_order)
+         VALUES ($1,$2,$3,$4) ON CONFLICT (category, code) DO NOTHING`,
+        [cat, code, label, ord]
+      );
+    }
+    await pool.query(`INSERT INTO schema_migrations (name) VALUES ('lifecycle_schema_v1')`);
+    logMessage("info", "database", "مهاجرت یکبار اجرا: اسکیمای Employment/Appointment Lifecycle اعمال شد.");
+  } catch (err: any) {
+    logMessage("warn", "database", "خطا در مهاجرت lifecycle_schema_v1:", err.message || err);
+  }
+}
 
 // Phase-4 perf: add missing indexes for common query patterns.
 export async function migrateMissingIndexes(): Promise<void> {
@@ -396,6 +879,15 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
     const [
       { data: dbAds, error: errAds },
       { data: dbSystemInfo, error: errSys },
+      { data: dbSeasons, error: errSeasons },
+      { data: dbPlayerMovements, error: errPM },
+      { data: dbCoachMovements, error: errCM },
+      { data: dbLifecycleEvents, error: errLE },
+      { data: dbCoachAppointments, error: errCA },
+      { data: dbLifecycleReasons, error: errLR },
+      { data: dbPlayerSeasonStats, error: errPSS },
+      { data: dbCoachSeasonStats, error: errCSS },
+      { data: dbTeamSeasonStats, error: errTSS },
       { data: dbBracket, error: errBracket },
       { data: dbNews, error: errNews },
       { data: dbTeams, error: errTeams },
@@ -415,6 +907,15 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
     ] = await Promise.all([
       Promise.resolve(pgDb.from('ads').select('*')).catch(err => ({ data: null, error: err })),
       pgDb.from('system_info').select('*'),
+      Promise.resolve(pgDb.from('seasons').select('*')).catch(err => ({ data: null, error: err })),
+      Promise.resolve(pgDb.from('player_club_movements').select('*')).catch(err => ({ data: null, error: err })),
+      Promise.resolve(pgDb.from('coach_club_movements').select('*')).catch(err => ({ data: null, error: err })),
+      Promise.resolve(pgDb.from('lifecycle_events').select('*')).catch(err => ({ data: null, error: err })),
+      Promise.resolve(pgDb.from('coach_appointments').select('*')).catch(err => ({ data: null, error: err })),
+      Promise.resolve(pgDb.from('lifecycle_reasons').select('*')).catch(err => ({ data: null, error: err })),
+      Promise.resolve(pgDb.from('player_season_stats').select('*')).catch(err => ({ data: null, error: err })),
+      Promise.resolve(pgDb.from('coach_season_stats').select('*')).catch(err => ({ data: null, error: err })),
+      Promise.resolve(pgDb.from('team_season_stats').select('*')).catch(err => ({ data: null, error: err })),
       pgDb.from('bracket').select('*').eq('id', 'main').maybeSingle(),
       pgDb.from('news').select('*').order('created_at', { ascending: false }),
       pgDb.from('teams').select('*'),
@@ -451,6 +952,186 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
 
       const rowSeason = dbSystemInfo.find((r: any) => r.key === 'currentSeason');
       if (rowSeason) parsed.currentSeason = rowSeason.value || "1405";
+    }
+
+    if (dbSeasons && Array.isArray(dbSeasons)) {
+      parsed.seasons = dbSeasons.map((s: any) => ({
+        id: s.id,
+        name: s.name,
+        label: s.label,
+        startDate: s.start_date || null,
+        endDate: s.end_date || null,
+        isActive: s.is_active === true,
+        isArchived: s.is_archived === true,
+        status: s.status || (s.is_active ? 'current' : 'upcoming'),
+        createdAt: s.created_at,
+        updatedAt: s.updated_at
+      }));
+      // Cross-check: system_info.currentSeason must match the active seasons row.
+      const activeRow = parsed.seasons.find((s: any) => s.isActive || s.status === 'current');
+      if (activeRow && activeRow.name && activeRow.name !== parsed.currentSeason) {
+        logMessage("warn", "database", `ناهماهنگی فصل جاری: system_info=${parsed.currentSeason} ولی seasons فعال=${activeRow.name}. مقدار seasons معتبر است.`);
+        parsed.currentSeason = activeRow.name;
+      }
+      if (!activeRow && parsed.seasons.length > 0) {
+        logMessage("warn", "database", "هیچ فصل فعالی در جدول seasons یافت نشد.");
+      }
+    } else {
+      parsed.seasons = [];
+    }
+
+    if (dbPlayerMovements && Array.isArray(dbPlayerMovements)) {
+      parsed.playerMovements = dbPlayerMovements.map((m: any) => ({
+        id: m.id,
+        playerId: m.player_id,
+        fromTeamId: m.from_team_id || null,
+        toTeamId: m.to_team_id || null,
+        seasonId: m.season_id || null,
+        movementDate: m.movement_date || null,
+        note: m.note || null,
+        createdAt: m.created_at,
+        updatedAt: m.updated_at
+      }));
+    } else {
+      parsed.playerMovements = [];
+    }
+
+    if (dbCoachMovements && Array.isArray(dbCoachMovements)) {
+      parsed.coachMovements = dbCoachMovements.map((m: any) => ({
+        id: m.id,
+        coachId: m.coach_id,
+        fromTeamId: m.from_team_id || null,
+        toTeamId: m.to_team_id || null,
+        seasonId: m.season_id || null,
+        movementDate: m.movement_date || null,
+        note: m.note || null,
+        createdAt: m.created_at,
+        updatedAt: m.updated_at
+      }));
+    } else {
+      parsed.coachMovements = [];
+    }
+
+    // Lifecycle domain (P1): append-only events + appointment projection.
+    // Memory mirrors PG verbatim; service layer (P2+) writes both sides.
+    if (dbLifecycleEvents && Array.isArray(dbLifecycleEvents)) {
+      parsed.lifecycleEvents = dbLifecycleEvents.map((e: any) => ({
+        id: e.id,
+        personKind: e.person_kind,
+        personId: e.person_id,
+        eventKind: e.event_kind,
+        teamId: e.team_id || null,
+        seasonId: e.season_id || null,
+        eventDate: e.event_date instanceof Date ? e.event_date.toISOString().slice(0, 10) : (e.event_date || null),
+        sequence: e.sequence || 0,
+        reasonCategory: e.reason_category || null,
+        reasonCode: e.reason_code || null,
+        appointmentId: e.appointment_id || null,
+        correctionOf: e.correction_of || null,
+        note: e.note || null,
+        actor: e.actor || null,
+        createdAt: e.created_at
+      }));
+    } else {
+      parsed.lifecycleEvents = [];
+    }
+
+    if (dbCoachAppointments && Array.isArray(dbCoachAppointments)) {
+      parsed.coachAppointments = dbCoachAppointments.map((a: any) => ({
+        id: a.id,
+        coachId: a.coach_id,
+        teamId: a.team_id,
+        startDate: a.start_date instanceof Date ? a.start_date.toISOString().slice(0, 10) : (a.start_date || null),
+        endDate: a.end_date instanceof Date ? a.end_date.toISOString().slice(0, 10) : (a.end_date || null),
+        status: a.status || "ACTIVE",
+        appointmentReason: a.appointment_reason || null,
+        departureReason: a.departure_reason || null,
+        startEventId: a.start_event_id || null,
+        endEventId: a.end_event_id || null,
+        createdAt: a.created_at,
+        updatedAt: a.updated_at
+      }));
+    } else {
+      parsed.coachAppointments = [];
+    }
+
+    if (dbLifecycleReasons && Array.isArray(dbLifecycleReasons)) {
+      parsed.lifecycleReasons = dbLifecycleReasons.map((r: any) => ({
+        category: r.category,
+        code: r.code,
+        labelFa: r.label_fa,
+        sortOrder: r.sort_order || 0
+      }));
+    } else {
+      parsed.lifecycleReasons = [];
+    }
+
+    // Derived per-season aggregates (recomputed verbatim by recalc; the DB
+    // rows are the durable mirror, memory is authoritative for serving).
+    if (dbPlayerSeasonStats && Array.isArray(dbPlayerSeasonStats)) {
+      parsed.playerSeasonStats = dbPlayerSeasonStats.map((r: any) => ({
+        id: r.id,
+        playerId: r.player_id,
+        season: r.season || null,
+        seasonId: r.season_id || null,
+        teamId: r.team_id || null,
+        teamName: r.team_name || null,
+        matches: r.matches || 0,
+        goals: r.goals || 0,
+        assists: r.assists || 0,
+        cleanSheets: r.clean_sheets || 0,
+        yellowCards: r.yellow_cards || 0,
+        redCards: r.red_cards || 0,
+        minutes: r.minutes || 0,
+        avgRating: r.avg_rating != null ? parseFloat(String(r.avg_rating)) : null,
+        ratings: r.ratings || null,
+        leagueStats: r.league_stats || null,
+        cupStats: r.cup_stats || null,
+        createdAt: r.created_at
+      }));
+    } else {
+      parsed.playerSeasonStats = [];
+    }
+
+    if (dbCoachSeasonStats && Array.isArray(dbCoachSeasonStats)) {
+      parsed.coachSeasonStats = dbCoachSeasonStats.map((r: any) => ({
+        id: r.id,
+        coachId: r.coach_id,
+        season: r.season || null,
+        seasonId: r.season_id || null,
+        teamId: r.team_id || null,
+        teamName: r.team_name || null,
+        matches: r.matches || 0,
+        wins: r.wins || 0,
+        draws: r.draws || 0,
+        losses: r.losses || 0,
+        goalsFor: r.goals_for || 0,
+        goalsAgainst: r.goals_against || 0,
+        winRate: r.win_rate != null ? parseFloat(String(r.win_rate)) : 0,
+        createdAt: r.created_at
+      }));
+    } else {
+      parsed.coachSeasonStats = [];
+    }
+
+    if (dbTeamSeasonStats && Array.isArray(dbTeamSeasonStats)) {
+      parsed.teamSeasonStats = dbTeamSeasonStats.map((r: any) => ({
+        id: r.id,
+        teamId: r.team_id,
+        season: r.season || null,
+        seasonId: r.season_id || null,
+        played: r.played || 0,
+        won: r.won || 0,
+        drawn: r.drawn || 0,
+        lost: r.lost || 0,
+        goalsFor: r.goals_for || 0,
+        goalsAgainst: r.goals_against || 0,
+        points: r.points || 0,
+        rank: r.rank ?? null,
+        createdAt: r.created_at
+      }));
+    } else {
+      parsed.teamSeasonStats = [];
     }
 
     if (dbBracket && dbBracket.data) {
@@ -525,7 +1206,8 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
           age: p.age || null,
           nationality: p.nationality || null,
           foot: p.foot || null,
-          height: p.height || null
+          height: p.height || null,
+          isRetired: p.is_retired === true
         };
       });
     }
@@ -553,6 +1235,7 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
           coachingStyle: c.coaching_style || "",
           licenseLevel: c.license_level || "",
           experienceYears: c.experience_years || 0,
+          isRetired: c.is_retired === true,
           recentForm: c.recent_form || []
         };
       });
@@ -590,6 +1273,10 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
           sport: m.sport || 'football',
           stage: m.stage || 'Feature_Games',
           week: m.week,
+          season: m.season || null,
+          seasonId: m.season_id || null,
+          coachHomeId: m.coach_home_id || null,
+          coachAwayId: m.coach_away_id || null,
           tag: m.tag,
           isAutoFinished: m.is_auto_finished || false,
           lineups: m.lineups,
@@ -850,6 +1537,16 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
     logMessage("info", "database", "کل داده‌ها با موفقیت از PostgreSQL دریافت و همگام گردید.");
     setDb(parsed);
     markDataSync(true);
+    // Phase 3 backfill: the migration cleared the legacy zero-placeholders,
+    // so the first boot recomputes + persists the derived season tables once.
+    // Any empty table (e.g. after a partial write failure) self-heals here.
+    const seasonBackfillNeeded = (!dbPlayerSeasonStats || dbPlayerSeasonStats.length === 0)
+      || (!dbCoachSeasonStats || dbCoachSeasonStats.length === 0)
+      || (!dbTeamSeasonStats || dbTeamSeasonStats.length === 0);
+    if (seasonBackfillNeeded) {
+      logMessage("info", "database", "جدول‌های آمار فصلی خالی‌اند؛ بازمحاسبه و ذخیره اولیه انجام می‌شود...");
+      saveDB();
+    }
   } catch (err: any) {
     logMessage("error", "database", "خطا در بارگذاری اولیه اطلاعات از PostgreSQL", err.message || err);
     setDb(seedData);
@@ -894,10 +1591,15 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
     data.matches = Array.from(matchIdMap.values());
 
     runDatabaseMigrationsAndTransitions(data);
+    // Derived per-season aggregates only change inside recalc; skipRecalc
+    // paths must not rewrite them (memory rows would just be restated).
+    let recalcRan = false;
     if (options && options.skipRecalc) {
       logMessage("info", "database", "saveDB بدون بازمحاسبه آمار (تغییر غیر finished).");
     } else {
       recalculateAndSyncDatabase();
+      recalcRan = true;
+      markTablesDirty("playerSeasonStats", "coachSeasonStats", "teamSeasonStats");
     }
 
     const promises: any[] = [];
@@ -991,7 +1693,8 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
         age: p.age || null,
         nationality: p.nationality || null,
         foot: p.foot || null,
-        height: p.height || null
+        height: p.height || null,
+        is_retired: p.isRetired === true
       }));
       promises.push(pgDb.from('players').upsert(formattedPlayers));
 
@@ -1024,6 +1727,7 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
         coaching_style: c.coachingStyle || "",
         license_level: c.licenseLevel || "",
         experience_years: c.experienceYears || 0,
+        is_retired: c.isRetired === true,
         recent_form: c.recentForm || []
       }));
       promises.push(pgDb.from('coaches').upsert(formattedCoaches));
@@ -1035,6 +1739,7 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
     }
 
     if (need("matches") && data.matches && data.matches.length > 0) {
+      const coachIdSet = new Set<string>((data.coaches || []).map((c: any) => String(c.id)));
       const formattedMatches = data.matches.map((m: any) => {
         const isFutsal = m.league === "futsal" || m.sport === "futsal";
         const sport = m.sport || (isFutsal ? "futsal" : "football");
@@ -1045,6 +1750,8 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
           team_away: m.teamAway,
           team_home_id: m.teamHomeId && teamIdSet.has(m.teamHomeId) ? m.teamHomeId : null,
           team_away_id: m.teamAwayId && teamIdSet.has(m.teamAwayId) ? m.teamAwayId : null,
+          coach_home_id: m.coachHomeId && coachIdSet.has(String(m.coachHomeId)) ? String(m.coachHomeId) : null,
+          coach_away_id: m.coachAwayId && coachIdSet.has(String(m.coachAwayId)) ? String(m.coachAwayId) : null,
           team_home_logo: m.teamHomeLogo,
           team_away_logo: m.teamAwayLogo,
           score_home: m.scoreHome || 0,
@@ -1067,7 +1774,32 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
           scorers_list: m.scorersList,
           team_stats: m.teamStats,
           referee: m.referee || null,
-          week: m.week || null
+          week: m.week || null,
+          season: m.season || null,
+          season_id: (() => {
+            // Fail-safe: the FK rejects unknown season ids, so never write
+            // one. Prefer the explicit id, else derive from the canonical tag,
+            // else fall back to the current season, else NULL (always valid).
+            const known = new Set((data.seasons || []).map((s: any) => String(s.id)));
+            const raw = m.seasonId != null ? String(m.seasonId).trim() : "";
+            if (raw && known.has(raw)) return raw;
+            const derived = seasonIdFromTag(normalizeSeasonTag(m.season));
+            if (derived && known.has(derived)) {
+              if (raw && raw !== derived) {
+                logMessage("warn", "database", `season_id ناشناخته برای بازی ${m.id} اصلاح شد: ${raw} -> ${derived}`);
+              }
+              return derived;
+            }
+            const fallback = seasonIdFromTag(normalizeSeasonTag(data.currentSeason));
+            if (fallback && known.has(fallback)) {
+              logMessage("warn", "database", `season_id نامعتبر برای بازی ${m.id} به فصل جاری برگردانده شد.`);
+              return fallback;
+            }
+            if (raw || m.season) {
+              logMessage("warn", "database", `season_id بازی ${m.id} تهی شد (فصل ناشناخته، بدون فصل جاری معتبر).`);
+            }
+            return null;
+          })()
         };
       });
       promises.push(pgDb.from('matches').upsert(formattedMatches));
@@ -1157,6 +1889,169 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
       for (const [key, val] of Object.entries(data.stats)) {
         promises.push(pgDb.from('stats').upsert({ league_key: key, data: val }));
       }
+    }
+
+    // Movement ledger is append-only: upsert rows, never delete-not-in.
+    // History rows must survive even if a stale client omits them.
+    if (need("playerMovements") && Array.isArray(data.playerMovements) && data.playerMovements.length > 0) {
+      const formattedPM = data.playerMovements.map((m: any) => ({
+        id: m.id,
+        player_id: m.playerId,
+        from_team_id: m.fromTeamId || null,
+        to_team_id: m.toTeamId || null,
+        season_id: m.seasonId || null,
+        movement_date: m.movementDate || null,
+        note: m.note || null,
+        created_at: m.createdAt || new Date().toISOString(),
+        updated_at: m.updatedAt || new Date().toISOString()
+      }));
+      promises.push(pgDb.from('player_club_movements').upsert(formattedPM));
+    }
+
+    if (need("coachMovements") && Array.isArray(data.coachMovements) && data.coachMovements.length > 0) {
+      const formattedCM = data.coachMovements.map((m: any) => ({
+        id: m.id,
+        coach_id: m.coachId,
+        from_team_id: m.fromTeamId || null,
+        to_team_id: m.toTeamId || null,
+        season_id: m.seasonId || null,
+        movement_date: m.movementDate || null,
+        note: m.note || null,
+        created_at: m.createdAt || new Date().toISOString(),
+        updated_at: m.updatedAt || new Date().toISOString()
+      }));
+      promises.push(pgDb.from('coach_club_movements').upsert(formattedCM));
+    }
+
+    // Lifecycle domain (P1): events are append-only like the legacy ledgers;
+    // appointments are a full-rewrite projection, persisted only when the
+    // lifecycle service explicitly marked them dirty (never implicitly).
+    if (need("lifecycleEvents") && Array.isArray((data as any).lifecycleEvents) && (data as any).lifecycleEvents.length > 0) {
+      const formattedLE = (data as any).lifecycleEvents.map((e: any) => ({
+        id: e.id,
+        person_kind: e.personKind,
+        person_id: e.personId,
+        event_kind: e.eventKind,
+        team_id: e.teamId || null,
+        season_id: e.seasonId || null,
+        event_date: e.eventDate || null,
+        sequence: e.sequence || 0,
+        reason_category: e.reasonCategory || null,
+        reason_code: e.reasonCode || null,
+        appointment_id: e.appointmentId || null,
+        correction_of: e.correctionOf || null,
+        note: e.note || null,
+        actor: e.actor || null,
+        created_at: e.createdAt || new Date().toISOString()
+      }));
+      promises.push(pgDb.from('lifecycle_events').upsert(formattedLE));
+    }
+
+    if (need("coachAppointments") && Array.isArray((data as any).coachAppointments)) {
+      const rows = (data as any).coachAppointments.map((a: any) => ({
+        id: a.id,
+        coach_id: a.coachId,
+        team_id: a.teamId,
+        start_date: a.startDate || null,
+        end_date: a.endDate || null,
+        status: a.status || "ACTIVE",
+        appointment_reason: a.appointmentReason || null,
+        departure_reason: a.departureReason || null,
+        start_event_id: a.startEventId || null,
+        end_event_id: a.endEventId || null,
+        created_at: a.createdAt || new Date().toISOString(),
+        updated_at: a.updatedAt || new Date().toISOString()
+      }));
+      promises.push((async () => {
+        const del = await pgDb.from('coach_appointments').delete();
+        if (del.error) { logMessage("warn", "database", "خطا در پاک‌سازی انتصاب‌ها", del.error); return; }
+        if (rows.length === 0) return;
+        const res = await pgDb.from('coach_appointments').upsert(rows);
+        if (res.error) logMessage("warn", "database", "خطا در ذخیره انتصاب‌ها", res.error);
+      })());
+    }
+
+    // Derived per-season aggregates: full rewrite (recalc regenerates the
+    // whole set; delete-not-in would leave stale buckets behind).
+    if (recalcRan && Array.isArray(data.playerSeasonStats)) {
+      const rows = data.playerSeasonStats.map((r: any) => ({
+        id: r.id,
+        player_id: r.playerId,
+        season: r.season || null,
+        season_id: r.seasonId || null,
+        team_id: r.teamId || null,
+        team_name: r.teamName || null,
+        matches: r.matches || 0,
+        goals: r.goals || 0,
+        assists: r.assists || 0,
+        clean_sheets: r.cleanSheets || 0,
+        yellow_cards: r.yellowCards || 0,
+        red_cards: r.redCards || 0,
+        minutes: r.minutes || 0,
+        avg_rating: r.avgRating ?? null,
+        ratings: r.ratings || null,
+        league_stats: r.leagueStats || null,
+        cup_stats: r.cupStats || null,
+        created_at: r.createdAt || new Date().toISOString()
+      }));
+      promises.push((async () => {
+        const del = await pgDb.from('player_season_stats').delete();
+        if (del.error) { logMessage("warn", "database", "خطا در پاک‌سازی آمار فصلی بازیکنان", del.error); return; }
+        if (rows.length === 0) return;
+        const res = await pgDb.from('player_season_stats').upsert(rows);
+        if (res.error) logMessage("warn", "database", "خطا در ذخیره آمار فصلی بازیکنان", res.error);
+      })());
+    }
+
+    if (recalcRan && Array.isArray(data.coachSeasonStats)) {
+      const rows = data.coachSeasonStats.map((r: any) => ({
+        id: r.id,
+        coach_id: r.coachId,
+        season: r.season || null,
+        season_id: r.seasonId || null,
+        team_id: r.teamId || null,
+        team_name: r.teamName || null,
+        matches: r.matches || 0,
+        wins: r.wins || 0,
+        draws: r.draws || 0,
+        losses: r.losses || 0,
+        goals_for: r.goalsFor || 0,
+        goals_against: r.goalsAgainst || 0,
+        win_rate: r.winRate ?? 0,
+        created_at: r.createdAt || new Date().toISOString()
+      }));
+      promises.push((async () => {
+        const del = await pgDb.from('coach_season_stats').delete();
+        if (del.error) { logMessage("warn", "database", "خطا در پاک‌سازی آمار فصلی مربیان", del.error); return; }
+        if (rows.length === 0) return;
+        const res = await pgDb.from('coach_season_stats').upsert(rows);
+        if (res.error) logMessage("warn", "database", "خطا در ذخیره آمار فصلی مربیان", res.error);
+      })());
+    }
+
+    if (recalcRan && Array.isArray(data.teamSeasonStats)) {
+      const rows = data.teamSeasonStats.map((r: any) => ({
+        id: r.id,
+        team_id: r.teamId,
+        season: r.season || null,
+        season_id: r.seasonId || null,
+        played: r.played || 0,
+        won: r.won || 0,
+        drawn: r.drawn || 0,
+        lost: r.lost || 0,
+        goals_for: r.goalsFor || 0,
+        goals_against: r.goalsAgainst || 0,
+        points: r.points || 0,
+        rank: r.rank ?? null,
+        created_at: r.createdAt || new Date().toISOString()
+      }));
+      promises.push((async () => {
+        const del = await pgDb.from('team_season_stats').delete();
+        if (del.error) { logMessage("warn", "database", "خطا در پاک‌سازی آمار فصلی تیم‌ها", del.error); return; }
+        if (rows.length === 0) return;
+        const res = await pgDb.from('team_season_stats').upsert(rows);
+        if (res.error) logMessage("warn", "database", "خطا در ذخیره آمار فصلی تیم‌ها", res.error);
+      })());
     }
 
     if (need("teamTransfersList") && data.teamTransfersList && data.teamTransfersList.length > 0) {
@@ -1444,6 +2339,25 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
   });
 }
 
+// Fills missing match-embedded coach ids from the CURRENT mapping.
+// Never overwrites existing stamps: re-saving an old match after a transfer
+// must not rewrite its history. Used by POST creates and updateMatchInDb.
+export function stampMissingCoachIds(match: any, dbObj: any): void {
+  if (!match) return;
+  if (match.coachHomeId == null || String(match.coachHomeId).trim() === "") {
+    const homeCoach = (dbObj.coaches || []).find((c: any) =>
+      c.teamId && (c.teamId === match.teamHomeId || (match.teamHome && normalizePersianString(c.teamName || "") === normalizePersianString(match.teamHome)))
+    );
+    if (homeCoach) match.coachHomeId = homeCoach.id;
+  }
+  if (match.coachAwayId == null || String(match.coachAwayId).trim() === "") {
+    const awayCoach = (dbObj.coaches || []).find((c: any) =>
+      c.teamId && (c.teamId === match.teamAwayId || (match.teamAway && normalizePersianString(c.teamName || "") === normalizePersianString(match.teamAway)))
+    );
+    if (awayCoach) match.coachAwayId = awayCoach.id;
+  }
+}
+
 export function updateMatchInDb(matchId: string, updates: any): boolean {
   const dbObj = loadDB();
   const sports = ["football", "futsal"];
@@ -1478,22 +2392,26 @@ export function updateMatchInDb(matchId: string, updates: any): boolean {
   }
   
   const mergedMatch = { ...baseMatchObj, ...updates };
+
+  // Same canonical-season rule as POST /api/matches: range labels and stale
+  // ids must never reach the FK (the saveDB mapping re-validates anyway).
+  if (updates.season !== undefined || updates.seasonId !== undefined) {
+    const tag = normalizeSeasonTag(mergedMatch.season)
+      || normalizeSeasonTag(dbObj.currentSeason)
+      || "1405";
+    const rawSid = mergedMatch.seasonId != null ? String(mergedMatch.seasonId).trim() : "";
+    mergedMatch.season = tag;
+    mergedMatch.seasonId = /^season-\d{4}$/.test(rawSid) ? rawSid : `season-${tag}`;
+  }
   
   if (updates.status === "finished" || updates.scoreHome !== undefined || updates.scoreAway !== undefined || updates.scorersList || updates.events || updates.lineups) {
     delete mergedMatch.tag;
     delete mergedMatch.isAutoFinished;
   }
 
-  if (mergedMatch.status === "finished") {
-    const homeCoach = (dbObj.coaches || []).find((c: any) =>
-      c.teamId && (c.teamId === mergedMatch.teamHomeId || (mergedMatch.teamHome && normalizePersianString(c.teamName || "") === normalizePersianString(mergedMatch.teamHome)))
-    );
-    const awayCoach = (dbObj.coaches || []).find((c: any) =>
-      c.teamId && (c.teamId === mergedMatch.teamAwayId || (mergedMatch.teamAway && normalizePersianString(c.teamName || "") === normalizePersianString(mergedMatch.teamAway)))
-    );
-    if (homeCoach) mergedMatch.coachHomeId = homeCoach.id;
-    if (awayCoach) mergedMatch.coachAwayId = awayCoach.id;
-  }
+  // Stamp match-embedded coach ids, but NEVER overwrite existing stamps:
+  // re-saving an old match after a transfer must not rewrite its history.
+  stampMissingCoachIds(mergedMatch, dbObj);
   
   let targetStage = "Feature_Games";
   if (mergedMatch.status === "finished") {

@@ -235,6 +235,11 @@ class QueryBuilder {
       bracket_slots: ["id"],
       team_transfers_list: ["id"],
       media_files: ["id"],
+      player_club_movements: ["id"],
+      coach_club_movements: ["id"],
+      lifecycle_events: ["id"],
+      coach_appointments: ["id"],
+      lifecycle_reasons: ["category", "code"],
     };
     return pkMap[this.table] || ["id"];
   }

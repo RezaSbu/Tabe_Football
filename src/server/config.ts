@@ -2,6 +2,15 @@ export const VIEW_MULTIPLIER = 21;
 
 export const INITIAL_DATABASE = {
   currentSeason: "1405",
+  seasons: [],
+  playerMovements: [],
+  coachMovements: [],
+  lifecycleEvents: [],
+  coachAppointments: [],
+  lifecycleReasons: [],
+  playerSeasonStats: [],
+  coachSeasonStats: [],
+  teamSeasonStats: [],
   news: [],
   matches: [],
   football_Feature_Games: [],
