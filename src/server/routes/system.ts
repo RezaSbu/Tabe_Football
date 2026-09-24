@@ -68,7 +68,12 @@ export function registerSystemRoutes(app: Express) {
     // ولی بعد از هر ذخیره‌ی ادمین همیشه داده‌ی تازه دریافت می‌شود.
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Vary", "Accept-Encoding");
-    res.json({ status: "ok", ...loadDB() });
+    // Derived per-season aggregates have dedicated slim endpoints
+    // (/api/player|coach|team-season-stats); keep them out of the bulk
+    // payload to protect the /api/data perf budget.
+    const { playerSeasonStats: _pss, coachSeasonStats: _css, teamSeasonStats: _tss, ...bulk } = loadDB() as any;
+    void _pss; void _css; void _tss;
+    res.json({ status: "ok", ...bulk });
   });
 
   app.get("/api/logs", (req: Request, res: Response) => {
