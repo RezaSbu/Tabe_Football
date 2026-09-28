@@ -33,5 +33,10 @@ echo "[BACKUP] فایل: $FINAL_FILE ($FILE_SIZE)"
 # Keep only last 30 backups
 cd "$BACKUP_DIR"
 ls -t backup_*.sql.gz 2>/dev/null | tail -n +31 | xargs -r rm --
+# Pre-restore copies use a different glob: keep last 10, prune the rest.
+ls -t pre_restore_*.sql.gz 2>/dev/null | tail -n +11 | xargs -r rm --
+# One-off custom dumps (*.dump) older than 30 days are pruned too.
+find . -maxdepth 1 -name "*.dump" -mtime +30 -delete 2>/dev/null || true
+# One-off custom dumps (*.dump) older than 30 days are pruned too.
 REMAINING=$(ls backup_*.sql.gz 2>/dev/null | wc -l)
 echo "[BACKUP] تعداد بکاپ‌های موجود: $REMAINING"
