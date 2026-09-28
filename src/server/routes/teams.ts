@@ -372,7 +372,7 @@ export function registerTeamRoutes(app: Express) {
     if (Array.isArray(currentDB.playerMovements)) {
       currentDB.playerMovements = currentDB.playerMovements.filter((m: any) => String(m.playerId) !== String(req.params.id));
     }
-    markTablesDirty("players");
+    markTablesDirty("players", "playerMovements");
     await saveDB();
     res.json({ success: true });
   });
@@ -554,7 +554,7 @@ export function registerTeamRoutes(app: Express) {
 
       currentDB.coaches[index] = updatedCoach;
       try {
-        markTablesDirty("coaches");
+        markTablesDirty("coaches", "teams");
         await saveDB();
         res.json({ success: true });
       } catch (err: any) {
@@ -581,7 +581,7 @@ export function registerTeamRoutes(app: Express) {
     if (Array.isArray(currentDB.coachMovements)) {
       currentDB.coachMovements = currentDB.coachMovements.filter((m: any) => String(m.coachId) !== String(req.params.id));
     }
-    markTablesDirty("coaches");
+    markTablesDirty("coaches", "teams", "coachMovements");
     await saveDB();
     res.json({ success: true });
   });
