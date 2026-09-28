@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Search, ArrowLeftRight, Check } from "lucide-react";
+import { Search, Check } from "lucide-react";
 import { formatJalaliDate } from "../utils";
 
 interface SlimEntity {
@@ -13,7 +13,6 @@ interface SlimEntity {
 interface MovementRow {
   id: string;
   playerId?: string;
-  coachId?: string;
   fromTeamId?: string | null;
   toTeamId?: string | null;
   seasonId?: string | null;
@@ -23,8 +22,6 @@ interface MovementRow {
 
 interface AdminMovementCardProps {
   teams?: any[];
-  canPlayer?: boolean;
-  canCoach?: boolean;
   onChanged?: () => void;
 }
 
@@ -34,12 +31,11 @@ const todayLocal = () => {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 };
 
-// Records a REAL club change (player/coach team_id update + movement ledger
-// row, in one transaction). Transfer News is a separate domain and is never
-// touched here. Entity selection is always by id (search shows the current
-// club next to the name so same-name players are never confused).
-export default function AdminMovementCard({ teams = [], canPlayer = true, canCoach = true, onChanged }: AdminMovementCardProps) {
-  const [kind, setKind] = useState<"player" | "coach">(canPlayer ? "player" : "coach");
+// Player-only club moves (squads take many players, so no occupancy concept).
+// Coach flows live exclusively in CoachChangeWizard (single write path).
+// Entity selection is always by id (search shows the current club next to
+// the name so same-name players are never confused).
+export default function AdminMovementCard({ teams = [], onChanged }: AdminMovementCardProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SlimEntity[]>([]);
   const [searching, setSearching] = useState(false);
@@ -53,8 +49,6 @@ export default function AdminMovementCard({ teams = [], canPlayer = true, canCoa
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  // Occupied dugout: team already has a head coach (coaches only).
-  const [occupied, setOccupied] = useState<{ byId: string; byName: string; toTeamId: string } | null>(null);
   const RELEASE = "__RELEASE__";
 
   const teamNameById = useMemo(() => {
@@ -83,16 +77,6 @@ export default function AdminMovementCard({ teams = [], canPlayer = true, canCoa
   }, []);
 
   useEffect(() => {
-    setQuery("");
-    setResults([]);
-    setSelected(null);
-    setToTeamId("");
-    setHistory([]);
-    setError(null);
-    setSuccess(null);
-  }, [kind]);
-
-  useEffect(() => {
     if (query.trim().length < 2) {
       setResults([]);
       setSearching(false);
@@ -103,7 +87,7 @@ export default function AdminMovementCard({ teams = [], canPlayer = true, canCoa
     const t = setTimeout(async () => {
       try {
         const res = await fetch(
-          `/api/admin/${kind === "player" ? "players" : "coaches"}?q=${encodeURIComponent(query.trim())}&slim=1&limit=8`,
+          `/api/admin/players?q=${encodeURIComponent(query.trim())}&slim=1&limit=8`,
           { signal: ctrl.signal }
         );
         const data = await res.json();
@@ -130,12 +114,11 @@ export default function AdminMovementCard({ teams = [], canPlayer = true, canCoa
       clearTimeout(t);
       ctrl.abort();
     };
-  }, [query, kind]);
+  }, [query]);
 
   const fetchHistory = useCallback(async (entityId: string) => {
     try {
-      const param = kind === "player" ? "playerId" : "coachId";
-      const res = await fetch(`/api/${kind === "player" ? "player" : "coach"}-movements?${param}=${encodeURIComponent(entityId)}`);
+      const res = await fetch(`/api/player-movements?playerId=${encodeURIComponent(entityId)}`);
       const data = await res.json();
       // Movement endpoints return {movements:[...]}.
       const list = Array.isArray((data as any).movements)
@@ -149,45 +132,22 @@ export default function AdminMovementCard({ teams = [], canPlayer = true, canCoa
     } catch {
       // history is best-effort
     }
-  }, [kind]);
+  }, []);
 
   const pick = (e: SlimEntity) => {
     setSelected(e);
     setResults([]);
     setQuery(e.name);
     setToTeamId("");
-    setOccupied(null);
     setError(null);
     setSuccess(null);
     fetchHistory(e.id);
   };
 
-  const postMovement = async (body: any) => {
-    const response = await fetch(`/api/${kind === "player" ? "player" : "coach"}-movements`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const result = await response.json().catch(() => ({}));
-    return { response, result };
-  };
-
-  const finishSuccess = async (summary: string) => {
-    setSuccess(summary);
-    setToTeamId("");
-    setNote("");
-    setOccupied(null);
-    if (selected) {
-      setSelected({ ...selected, teamId: null, teamName: null });
-      await fetchHistory(selected.id);
-    }
-    if (onChanged) onChanged();
-  };
-
   const handleSubmit = async (ev: React.FormEvent) => {
     ev.preventDefault();
     if (!selected) {
-      setError("اول بازیکن/مربی را از نتایج جست‌وجو انتخاب کنید.");
+      setError("اول بازیکن را از نتایج جست‌وجو انتخاب کنید.");
       return;
     }
     const releasing = toTeamId === RELEASE;
@@ -200,7 +160,7 @@ export default function AdminMovementCard({ teams = [], canPlayer = true, canCoa
       return;
     }
     if (releasing && !selected.teamId) {
-      setError("این فرد هم‌اکنون بدون باشگاه است.");
+      setError("این بازیکن هم‌اکنون بدون باشگاه است.");
       return;
     }
     if (!date.trim() || !seasonId) {
@@ -210,114 +170,41 @@ export default function AdminMovementCard({ teams = [], canPlayer = true, canCoa
     setBusy(true);
     setError(null);
     setSuccess(null);
-    setOccupied(null);
     try {
-      const body: any = { movementDate: date.trim(), seasonId, note: note.trim() || undefined };
-      if (kind === "player") body.playerId = selected.id;
-      else body.coachId = selected.id;
+      const body: any = {
+        playerId: selected.id,
+        movementDate: date.trim(),
+        seasonId,
+        note: note.trim() || undefined,
+      };
       if (releasing) {
         body.toTeamId = null;
         body.release = true;
       } else {
         body.toTeamId = toTeamId;
       }
-      const { response, result } = await postMovement(body);
-      if (!response.ok) {
-        if (response.status === 409 && (result as any)?.occupied) {
-          setOccupied({
-            byId: (result as any).occupiedBy?.id || "",
-            byName: (result as any).occupiedBy?.name || "مربی فعلی",
-            toTeamId,
-          });
-          setError(null);
-          return;
-        }
-        throw new Error((result as any).message || "خطا در ثبت انتقال");
-      }
-      if (releasing) {
-        await finishSuccess(`«${selected.name}» آزاد شد (بدون باشگاه).`);
-      } else {
-        setSuccess(`انتقال «${selected.name}» از ${teamName(result.movement?.fromTeamId ?? selected.teamId)} به ${teamName(toTeamId)} ثبت شد.`);
-        setSelected({ ...selected, teamId: toTeamId, teamName: teamName(toTeamId) });
-        setToTeamId("");
-        setNote("");
-        setOccupied(null);
-        await fetchHistory(selected.id);
-        if (onChanged) onChanged();
-      }
-    } catch (err: any) {
-      setError(err.message || "خطایی در ثبت انتقال رخ داد.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  // Occupied dugout resolution: release the incumbent, then retry with force.
-  // Sequential is safe: the vacant intermediate state is valid (no unique
-  // violation), and each step is atomic on its own.
-  const handleReleaseAndRetry = async () => {
-    if (!selected || !occupied) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const base: any = { movementDate: date.trim(), seasonId, note: note.trim() || undefined };
-      const rel: any = { ...base, toTeamId: null, release: true };
-      if (kind === "player") rel.playerId = occupied.byId;
-      else rel.coachId = occupied.byId;
-      const r1 = await postMovement(rel);
-      if (!r1.response.ok) {
-        throw new Error((r1.result as any).message || "آزادسازی مربی فعلی ناموفق بود.");
-      }
-      const retry: any = { ...base, toTeamId: occupied.toTeamId, force: true };
-      if (kind === "player") retry.playerId = selected.id;
-      else retry.coachId = selected.id;
-      const r2 = await postMovement(retry);
-      if (!r2.response.ok) {
-        throw new Error((r2.result as any).message || "ثبت انتقال پس از آزادسازی ناموفق بود.");
-      }
-      setSuccess(`«${occupied.byName}» آزاد شد و «${selected.name}» به ${teamName(occupied.toTeamId)} منتقل شد.`);
-      setSelected({ ...selected, teamId: occupied.toTeamId, teamName: teamName(occupied.toTeamId) });
-      setToTeamId("");
-      setNote("");
-      setOccupied(null);
-      await fetchHistory(selected.id);
-      if (onChanged) onChanged();
-    } catch (err: any) {
-      setError(err.message || "خطایی رخ داد.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  // Atomic head-coach swap X <-> Y (coaches only).
-  const handleSwap = async () => {
-    if (!selected || !occupied || kind !== "coach") return;
-    setBusy(true);
-    setError(null);
-    try {
-      const response = await fetch("/api/coach-movements/swap", {
+      const response = await fetch("/api/player-movements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          coachIdX: selected.id,
-          coachIdY: occupied.byId,
-          seasonId,
-          movementDate: date.trim(),
-          note: note.trim() || undefined,
-        }),
+        body: JSON.stringify(body),
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error((result as any).message || "جابه‌جایی ناموفق بود.");
+        throw new Error((result as any).message || "خطا در ثبت انتقال");
       }
-      setSuccess(`جابه‌جایی ثبت شد: «${selected.name}» ↔ «${occupied.byName}».`);
+      if (releasing) {
+        setSuccess(`«${selected.name}» آزاد شد (بدون باشگاه).`);
+        setSelected({ ...selected, teamId: null, teamName: null });
+      } else {
+        setSuccess(`انتقال «${selected.name}» از ${teamName(result.movement?.fromTeamId ?? selected.teamId)} به ${teamName(toTeamId)} ثبت شد.`);
+        setSelected({ ...selected, teamId: toTeamId, teamName: teamName(toTeamId) });
+      }
       setToTeamId("");
       setNote("");
-      setOccupied(null);
       await fetchHistory(selected.id);
       if (onChanged) onChanged();
     } catch (err: any) {
-      setError(err.message || "خطایی رخ داد.");
+      setError(err.message || "خطایی در ثبت انتقال رخ داد.");
     } finally {
       setBusy(false);
     }
@@ -340,39 +227,19 @@ export default function AdminMovementCard({ teams = [], canPlayer = true, canCoa
 
       <div>
         <h3 className="text-sm font-black text-white flex items-center gap-1.5">
-          <ArrowLeftRight className="h-4 w-4 text-sky-400" />
-          ثبت انتقال باشگاهی
+          <span>ثبت انتقال بازیکن</span>
         </h3>
         <p className="text-[11px] text-slate-400 mt-1">
-          تغییر واقعی تیم (نه خبر). انتخاب همیشه با شناسه است؛ هم‌نام‌ها را از روی باشگاه فعلی تشخیص دهید.
+          تغییر واقعی تیم بازیکن (نه خبر). انتخاب همیشه با شناسه است؛ هم‌نام‌ها را از روی باشگاه فعلی تشخیص دهید.
         </p>
       </div>
-
-      {canPlayer && canCoach && (
-        <div className="mt-3 flex gap-2">
-          {(["player", "coach"] as const).map((k) => (
-            <button
-              key={k}
-              type="button"
-              onClick={() => setKind(k)}
-              className={`text-[11px] font-extrabold px-4 py-1.5 rounded-lg border transition cursor-pointer ${
-                kind === k
-                  ? "text-white bg-sky-600/20 border-sky-500/40"
-                  : "text-slate-400 border-white/10 hover:border-white/25"
-              }`}
-            >
-              {k === "player" ? "بازیکن" : "مربی"}
-            </button>
-          ))}
-        </div>
-      )}
 
       <form onSubmit={handleSubmit} className="mt-3 space-y-2.5">
         <div className="relative">
           <Search className="absolute right-3.5 top-3 h-4 w-4 text-slate-500" />
           <input
             type="text"
-            placeholder={`جست‌وجوی ${kind === "player" ? "بازیکن" : "مربی"} (حداقل ۲ حرف)...`}
+            placeholder="جست‌وجوی بازیکن (حداقل ۲ حرف)..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="w-full bg-slate-950 border border-white/5 rounded-xl pr-10 pl-4 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-sky-500 transition"
@@ -466,42 +333,6 @@ export default function AdminMovementCard({ teams = [], canPlayer = true, canCoa
           {busy ? "در حال ثبت..." : "ثبت انتقال"}
         </button>
       </form>
-
-      {occupied && selected && (
-        <div className="mt-3 p-3.5 rounded-xl bg-amber-950/30 border border-amber-700/40 space-y-2.5">
-          <p className="text-[11px] font-black text-amber-300">
-            «{teamName(occupied.toTeamId)}» هم‌اکنون مربی دارد: «{occupied.byName}». چه کار شود؟
-          </p>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <button
-              type="button"
-              onClick={() => setOccupied(null)}
-              disabled={busy}
-              className="flex-1 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] font-extrabold transition cursor-pointer disabled:opacity-50"
-            >
-              انصراف
-            </button>
-            <button
-              type="button"
-              onClick={handleReleaseAndRetry}
-              disabled={busy}
-              className="flex-1 py-2 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/30 text-amber-200 text-[11px] font-extrabold transition cursor-pointer disabled:opacity-50"
-            >
-              آزادسازی «{occupied.byName}» و انتقال «{selected.name}»
-            </button>
-            {kind === "coach" && (
-              <button
-                type="button"
-                onClick={handleSwap}
-                disabled={busy}
-                className="flex-1 py-2 rounded-xl bg-sky-600/20 hover:bg-sky-600/30 border border-sky-500/30 text-sky-200 text-[11px] font-extrabold transition cursor-pointer disabled:opacity-50"
-              >
-                جابه‌جایی «{selected.name}» ↔ «{occupied.byName}»
-              </button>
-            )}
-          </div>
-        </div>
-      )}
 
       {selected && history.length > 0 && (
         <div className="mt-4 pt-3 border-t border-white/5">

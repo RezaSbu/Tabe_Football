@@ -57,6 +57,8 @@ export default function CoachChangeWizard({ teams = [], onChanged }: WizardProps
   const [newName, setNewName] = useState("");
   const [appointDate, setAppointDate] = useState(todayLocal());
   const [appointReason, setAppointReason] = useState("");
+  const [incomingDepartDate, setIncomingDepartDate] = useState("");
+  const [incomingDepartReason, setIncomingDepartReason] = useState("");
   const [seasons, setSeasons] = useState<any[]>([]);
   const [seasonId, setSeasonId] = useState("");
   const [reasons, setReasons] = useState<Reason[]>([]);
@@ -153,6 +155,16 @@ export default function CoachChangeWizard({ teams = [], onChanged }: WizardProps
   const incomingOccupiedElsewhere =
     incoming && incoming.teamId != null && String(incoming.teamId) !== String(teamId);
 
+  const pickIncoming = (r: SlimCoach) => {
+    setIncoming(r);
+    setResults([]);
+    setQuery(r.name);
+    // Prefill the required departure fields; admin confirms explicitly.
+    if (r.teamId != null && String(r.teamId) !== String(teamId)) {
+      setIncomingDepartDate((d) => d || appointDate);
+    }
+  };
+
   const buildReview = () => {
     setError(null);
     if (!teamId) { setError("تیم را انتخاب کنید."); return; }
@@ -165,6 +177,14 @@ export default function CoachChangeWizard({ teams = [], onChanged }: WizardProps
       setError("تاریخ شروع نمی‌تواند قبل از پایان همکاری قبلی باشد.");
       return;
     }
+    if (needsAppoint && !createNew && incomingOccupiedElsewhere) {
+      if (!incomingDepartDate) { setError("تاریخ پایان همکاری مربی جدید در تیم فعلی‌اش الزامی است."); return; }
+      if (!incomingDepartReason) { setError("دلیل پایان همکاری مربی جدید الزامی است."); return; }
+      if (incomingDepartDate > appointDate) {
+        setError("پایان همکاری قبلی نمی‌تواند بعد از شروع جدید باشد.");
+        return;
+      }
+    }
     setReview({
       team: teamName(teamId),
       outgoing: needsEnd ? holder : null,
@@ -173,10 +193,52 @@ export default function CoachChangeWizard({ teams = [], onChanged }: WizardProps
       nextStatus: needsEnd ? nextStatus : null,
       incoming: needsAppoint ? (createNew ? { name: newName.trim(), isNew: true } : incoming) : null,
       incomingFrom: needsAppoint && !createNew && incomingOccupiedElsewhere ? teamName(incoming!.teamId) : null,
+      incomingDepartDate: needsAppoint && !createNew && incomingOccupiedElsewhere ? incomingDepartDate : null,
+      incomingDepartReason: needsAppoint && !createNew && incomingOccupiedElsewhere ? incomingDepartReason : null,
       appointDate: needsAppoint ? appointDate : null,
       appointReason: needsAppoint ? appointReason : null,
     });
     setStep("review");
+  };
+
+  const handleSwap = async () => {
+    if (!review || !review.incoming || (review.incoming as any).isNew || !holder) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/lifecycle/swap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          coachIdX: (review.incoming as any).id || incoming?.id,
+          coachIdY: holder.id,
+          seasonId: seasonId || undefined,
+          movementDate: review.appointDate,
+          note: `wizard swap at ${review.team}`,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error((result as any).message || "جابه‌جایی ناموفق بود.");
+      setSuccess(`جابه‌جایی ثبت شد: «${review.incoming.name}» ↔ «${holder.name}».`);
+      resetWizard();
+      if (onChanged) onChanged();
+    } catch (err: any) {
+      setError(err.message || "خطایی رخ داد.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const resetWizard = () => {
+    setStep("team");
+    setTeamId("");
+    setHolder(null);
+    setIncoming(null);
+    setCreateNew(false);
+    setNewName("");
+    setIncomingDepartDate("");
+    setIncomingDepartReason("");
+    setReview(null);
   };
 
   const commit = async () => {
@@ -219,8 +281,20 @@ export default function CoachChangeWizard({ teams = [], onChanged }: WizardProps
         });
         if (!e1.r.ok) throw new Error((e1.d as any).message || "پایان همکاری ناموفق بود.");
       }
-      // Steps 2-4: appoint incoming (conflict surfaces here if occupied).
+      // Steps 2-4: appoint incoming. Occupied elsewhere => end there first
+      // (explicit date+reason from review), then appoint. Atomicity per pair
+      // is server-side; a failed appoint after a successful end surfaces the
+      // exact error and the admin can retry (ledger stays truthful).
       if (needsAppoint && incomingId) {
+        if (!createNew && incomingOccupiedElsewhere && incoming) {
+          const e0 = await post({
+            personKind: "coach", personId: incomingId, eventKind: "DISMISSAL",
+            teamId: String(incoming.teamId), seasonId: seasonId || undefined,
+            eventDate: review.incomingDepartDate, reasonCode: review.incomingDepartReason || undefined,
+            note: `wizard: end ${incoming.name} at ${teamName(incoming.teamId)} before appoint`,
+          });
+          if (!e0.r.ok) throw new Error((e0.d as any).message || "پایان همکاری مربی جدید ناموفق بود.");
+        }
         const e2 = await post({
           personKind: "coach", personId: incomingId, eventKind: "APPOINTMENT",
           teamId, seasonId: seasonId || undefined, eventDate: appointDate,
@@ -234,13 +308,7 @@ export default function CoachChangeWizard({ teams = [], onChanged }: WizardProps
         }
       }
       setSuccess(`تغییر سرمربی «${teamName(teamId)}» ثبت شد.`);
-      setStep("team");
-      setTeamId("");
-      setHolder(null);
-      setIncoming(null);
-      setCreateNew(false);
-      setNewName("");
-      setReview(null);
+      resetWizard();
       if (onChanged) onChanged();
     } catch (err: any) {
       setError(err.message || "خطایی رخ داد.");
@@ -358,7 +426,7 @@ export default function CoachChangeWizard({ teams = [], onChanged }: WizardProps
                       <div className="absolute z-20 mt-1 w-full bg-slate-900 border border-white/10 rounded-xl overflow-hidden shadow-2xl max-h-48 overflow-y-auto">
                         {results.map((r) => (
                           <button key={r.id} type="button"
-                            onClick={() => { setIncoming(r); setResults([]); setQuery(r.name); }}
+                            onClick={() => pickIncoming(r)}
                             className="w-full text-right px-3 py-2 hover:bg-emerald-500/10 transition flex items-center justify-between gap-2 cursor-pointer">
                             <span className="text-[11px] font-bold text-white truncate">{r.name}</span>
                             <span className="text-[10px] text-slate-400 shrink-0">{r.teamName || "بدون باشگاه"}</span>
@@ -385,6 +453,26 @@ export default function CoachChangeWizard({ teams = [], onChanged }: WizardProps
                       className="w-full py-2 rounded-xl border border-dashed border-white/15 text-[11px] font-bold text-slate-300 hover:border-emerald-500/40 hover:text-emerald-300 transition cursor-pointer flex items-center justify-center gap-1.5">
                       <UserPlus className="h-3.5 w-3.5" /> مربی در لیست نیست؟ ساخت مربی جدید
                     </button>
+                  )}
+                  {incoming && incomingOccupiedElsewhere && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2.5 rounded-xl bg-amber-950/20 border border-amber-500/20">
+                      <p className="sm:col-span-2 text-[10px] font-bold text-amber-300">
+                        پایان همکاری «{incoming.name}» در «{teamName(incoming.teamId)}» (صریح و جدا):
+                      </p>
+                      <label className="text-[11px] text-slate-400 font-bold">تاریخ پایان
+                        <input type="date" value={incomingDepartDate} onChange={(e) => setIncomingDepartDate(e.target.value)}
+                          className="mt-1 w-full bg-slate-950 border border-white/5 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-emerald-500" disabled={busy} />
+                      </label>
+                      <label className="text-[11px] text-slate-400 font-bold">دلیل پایان
+                        <select value={incomingDepartReason} onChange={(e) => setIncomingDepartReason(e.target.value)}
+                          className="mt-1 w-full bg-slate-950 border border-white/5 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500" disabled={busy}>
+                          <option value="">انتخاب دلیل...</option>
+                          {reasonsFor("coach_departure").map((r) => (
+                            <option key={r.code} value={r.code}>{r.labelFa}</option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
                   )}
                 </>
               ) : (
@@ -443,7 +531,12 @@ export default function CoachChangeWizard({ teams = [], onChanged }: WizardProps
               {review.incoming && (
                 <p className="text-[11px] text-slate-300">
                   مربی جدید: <span className="font-black text-white">{review.incoming.name}</span>
-                  {review.incomingFrom && <span className="text-amber-300"> (پایان همکاری در «{review.incomingFrom}» لازم است)</span>}
+                  {review.incomingFrom && (
+                    <span className="text-amber-300">
+                      {" "}(پایان در «{review.incomingFrom}»: <span className="font-mono">{formatJalaliDate(review.incomingDepartDate)}</span>
+                      {review.incomingDepartReason && <> • {review.incomingDepartReason}</>})
+                    </span>
+                  )}
                   {" "}• شروع: <span className="font-mono">{formatJalaliDate(review.appointDate)}</span>
                   {review.appointReason && <> • {review.appointReason}</>}
                 </p>
@@ -453,6 +546,12 @@ export default function CoachChangeWizard({ teams = [], onChanged }: WizardProps
                   className="flex-1 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] font-extrabold transition cursor-pointer disabled:opacity-50">
                   بازگشت
                 </button>
+                {review.incomingFrom && holder && !review.incoming.isNew && (
+                  <button type="button" onClick={handleSwap} disabled={busy}
+                    className="flex-1 py-2 rounded-xl bg-sky-600/20 hover:bg-sky-600/30 border border-sky-500/30 text-sky-200 text-[11px] font-extrabold transition cursor-pointer disabled:opacity-50">
+                    جابه‌جایی «{review.incoming.name}» ↔ «{holder.name}»
+                  </button>
+                )}
                 <button type="button" onClick={commit} disabled={busy}
                   className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-extrabold transition cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5">
                   <CheckCircle2 className="h-3.5 w-3.5" /> {busy ? "در حال ثبت..." : "تأیید و ثبت"}

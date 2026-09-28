@@ -605,12 +605,12 @@ export default function AdminPanel({
             {hasPerm("coaches") && (
               <CoachChangeWizard teams={teams} onChanged={onRefreshData} />
             )}
-            <AdminMovementCard
-              teams={teams}
-              canPlayer={hasPerm("players")}
-              canCoach={hasPerm("coaches")}
-              onChanged={onRefreshData}
-            />
+            {hasPerm("players") && (
+              <AdminMovementCard
+                teams={teams}
+                onChanged={onRefreshData}
+              />
+            )}
           </div>
         )}
 
