@@ -321,19 +321,23 @@ export default function LeagueTables({
     return isCategory || isTagged;
   });
 
-  // Calculate league players and stats dynamically
+  // Calculate league players and stats dynamically.
+  // Membership comes from the team record's divisionKey (promotion-safe);
+  // the old hardcoded name allowlists went stale on every promotion.
   const isPlayerInLeague = (player: PlayerItem) => {
     if (leagueKey === "pro-league") {
-      return standings["pro-league"]?.some(row => row.team === player.teamName) || ["پرسپولیس", "استقلال", "سپاهان", "تراکتور", "ملوان", "ذوب آهن", "فولاد", "گل گهر", "نساجی"].includes(player.teamName);
+      return standings["pro-league"]?.some(row => row.team === player.teamName) ||
+        resolveTeamLeagueWithFallback(teams, (player as any).teamId, player.teamName) === "pro-league";
     }
     if (leagueKey === "league-1") {
-      return standings["league-1"]?.some(row => row.team === player.teamName) || ["خیبر خرم‌آباد", "سایپا", "چادرملو", "فجرسپاسی"].includes(player.teamName);
+      return standings["league-1"]?.some(row => row.team === player.teamName) ||
+        resolveTeamLeagueWithFallback(teams, (player as any).teamId, player.teamName) === "league-1";
     }
     if (leagueKey === "league-2") {
       return (
         standings["league-2-group-a"]?.some(row => row.team === player.teamName) ||
         standings["league-2-group-b"]?.some(row => row.team === player.teamName) ||
-        ["نیروی زمینی", "کویر مقوا", "شهرداری نوشهر", "بعثت کرمانشاه", "داماش گیلان"].includes(player.teamName)
+        normalizeLeagueKey(resolveTeamLeagueWithFallback(teams, (player as any).teamId, player.teamName)) === "league-2"
       );
     }
     if (leagueKey === "hazfi-cup") {
