@@ -1,7 +1,7 @@
 import express, { Express, Request, Response } from "express";
 import { loadDB } from "../state";
 import { requirePermission } from "../middleware/auth";
-import { recordLifecycleEvent, fetchLifecycleState } from "../services/lifecycle";
+import { recordLifecycleEvent, fetchLifecycleState, swapCoaches } from "../services/lifecycle";
 
 // Employment/Appointment Lifecycle API (P3). The event-sourced domain:
 // reasons are data-driven (GET /api/lifecycle/reasons), every mutation is
@@ -55,7 +55,7 @@ export function registerLifecycleRoutes(app: Express) {
         teamId: body.teamId != null && String(body.teamId).trim() !== "" ? String(body.teamId).trim() : null,
         seasonId: body.seasonId != null && String(body.seasonId).trim() !== "" ? String(body.seasonId).trim() : null,
         eventDate: String(body.eventDate || "").trim(),
-        sequence: Number(body.sequence) || 0,
+        sequence: body.sequence != null && body.sequence !== "" ? Number(body.sequence) : undefined,
         reasonCategory: body.reasonCategory || null,
         reasonCode: body.reasonCode || null,
         correctionOf: body.correctionOf || null,
@@ -63,6 +63,23 @@ export function registerLifecycleRoutes(app: Express) {
       },
       { actor: user.username || "admin", path: "/api/lifecycle/events" }
     );
+    res.status(result.status).json(result.payload);
+  });
+
+  // Atomic head-coach swap X(A) <-> Y(B) inside the lifecycle domain
+  // (the legacy coach-movements swap writes ledger-only rows invisible to
+  // tenure/appointments, so the wizard never calls it).
+  app.post("/api/lifecycle/swap", requirePermission("coaches"), async (req: Request, res: Response) => {
+    const body = req.body || {};
+    const user = (req as any).user || {};
+    const result = await swapCoaches({
+      coachIdX: String(body.coachIdX || "").trim(),
+      coachIdY: String(body.coachIdY || "").trim(),
+      seasonId: body.seasonId != null && String(body.seasonId).trim() !== "" ? String(body.seasonId).trim() : null,
+      movementDate: String(body.movementDate || body.eventDate || "").trim(),
+      note: body.note != null ? String(body.note) : null,
+      actor: user.username || "admin",
+    });
     res.status(result.status).json(result.payload);
   });
 
