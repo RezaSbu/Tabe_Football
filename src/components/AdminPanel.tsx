@@ -56,7 +56,7 @@ interface AdminPanelProps {
   selectedCombinations?: any[];
   ads: any[];
   currentSeason?: string;
-  onUpdateStandings: (leagueKey: string, rows: StandingRow[]) => Promise<boolean>;
+  onUpdateStandings: (leagueKey: string, rows: StandingRow[], heal?: { reason: string; findings: string[] }) => Promise<boolean>;
   onUpdateStats: (leagueKey: string, statsData: any) => Promise<boolean>;
   onSaveAds: (ads: any[]) => void;
   onCentralSync: () => Promise<boolean>;
@@ -192,12 +192,12 @@ export default function AdminPanel({
     }
   };
 
-  const handleUpdatePlayer = async (id: string, updatedFields: any) => {
+  const handleUpdatePlayer = async (id: string, updatedFields: any, heal?: { reason: string; findings: string[] }) => {
     try {
       const res = await fetch(`/api/players/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(updatedFields)
+        body: JSON.stringify({ ...updatedFields, _heal: heal ?? undefined })
       });
       return res.ok;
     } catch {

@@ -14,8 +14,19 @@ import {
   Search
 } from "lucide-react";
 import { MatchItem, StandingRow, PlayerItem, TeamItem } from "../types";
-import { normalizePersianString } from "../utils";
-import { buildPlayerIdentityIndex, isSamePlayer } from "../shared/playerIdentity";
+import { buildPlayerIdentityIndex } from "../shared/playerIdentity";
+import {
+  computeResolverFindings,
+  buildCorrectedStandingRows,
+  computePlayerTallies,
+  isHealEligible,
+  reasonFa,
+  severityFa,
+  resolveScope,
+  type ResolverFinding,
+  type ResolverSummary,
+  type HealContext,
+} from "../shared/syncResolver";
 
 interface AdminDashboardProps {
   matches: MatchItem[];
@@ -26,21 +37,13 @@ interface AdminDashboardProps {
   submissions: any[];
   newsCount: number;
   currentSeason?: string;
-  onUpdateStandings: (leagueKey: string, rows: StandingRow[]) => Promise<boolean>;
+  onUpdateStandings: (leagueKey: string, rows: StandingRow[], heal?: HealContext) => Promise<boolean>;
   onUpdateTeam: (id: string, data: any) => Promise<boolean>;
-  onUpdatePlayer: (id: string, data: any) => Promise<boolean>;
+  onUpdatePlayer: (id: string, data: any, heal?: HealContext) => Promise<boolean>;
   onRefreshData: () => void;
 }
 
-interface Discrepancy {
-  type: "standing" | "player" | "team";
-  id: string;
-  name: string;
-  field: string;
-  currentValue: any;
-  computedValue: any;
-  details: string;
-}
+type Discrepancy = ResolverFinding;
 
 export default function AdminDashboard({
   matches = [],
@@ -57,6 +60,9 @@ export default function AdminDashboard({
   onRefreshData
 }: AdminDashboardProps) {
   const [discrepancies, setDiscrepancies] = useState<Discrepancy[]>([]);
+  const [resolverSummary, setResolverSummary] = useState<ResolverSummary | null>(null);
+  const [confirmGlobal, setConfirmGlobal] = useState(false);
+  const [healingId, setHealingId] = useState<string | null>(null);
   const [isResolverRunning, setIsResolverRunning] = useState(false);
   const [healStatus, setHealStatus] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
@@ -67,391 +73,105 @@ export default function AdminDashboard({
   const upcomingGamesCount = matches.filter(m => m.status === "not-started").length;
 
   // Run the mismatch scanning scanner
+  // Run the mismatch scan — read-only, shared engine (same logic every heal path uses).
   const runSyncScanner = () => {
     setIsScanning(true);
-    const found: Discrepancy[] = [];
-    const identityIndex = buildPlayerIdentityIndex(players);
-
-    // 1. Standings Scanner
-    const leagues = ["pro-league", "league-1", "league-2-group-a", "league-2-group-b", "futsal"];
-    leagues.forEach(leagueKey => {
-      const activeStandings = standings[leagueKey] || [];
-      const leagueFinishedMatches = matches.filter(m => m.status === "finished" && m.league === leagueKey);
-
-      // Compute standings on the fly
-      const computed: Record<string, { played: number; won: number; drawn: number; lost: number; goalsFor: number; goalsAgainst: number; points: number }> = {};
-      
-      // Initialize computed stats with 0s for each team currently in the standing list
-      activeStandings.forEach(row => {
-        computed[row.team] = { played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 };
+    try {
+      const { findings, summary } = computeResolverFindings({
+        matches, players, standings, currentSeasonId: currentSeason,
       });
-
-      // Accumulate scores
-      leagueFinishedMatches.forEach(m => {
-        const homeName = m.teamHome;
-        const awayName = m.teamAway;
-        const sh = Number(m.scoreHome);
-        const sa = Number(m.scoreAway);
-
-        if (!computed[homeName]) computed[homeName] = { played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 };
-        if (!computed[awayName]) computed[awayName] = { played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 };
-
-        // Home Team accumulation
-        computed[homeName].played += 1;
-        computed[homeName].goalsFor += sh;
-        computed[homeName].goalsAgainst += sa;
-
-        // Away Team accumulation
-        computed[awayName].played += 1;
-        computed[awayName].goalsFor += sa;
-        computed[awayName].goalsAgainst += sh;
-
-        if (sh > sa) {
-          computed[homeName].won += 1;
-          computed[homeName].points += 3;
-          computed[awayName].lost += 1;
-        } else if (sh < sa) {
-          computed[awayName].won += 1;
-          computed[awayName].points += 3;
-          computed[homeName].lost += 1;
-        } else {
-          computed[homeName].drawn += 1;
-          computed[homeName].points += 1;
-          computed[awayName].drawn += 1;
-          computed[awayName].points += 1;
-        }
-      });
-
-      // Compare standing rows to computed values
-      activeStandings.forEach(row => {
-        const comp = computed[row.team];
-        if (comp) {
-          const lName = leagueKey === "pro-league" ? "لیگ برتر" : leagueKey === "futsal" ? "فوتسال" : leagueKey === "hazfi-cup" ? "جام حذفی" : leagueKey === "league-1" ? "لیگ یک" : leagueKey === "league-2-group-a" ? "لیگ دو - الف" : leagueKey === "league-2-group-b" ? "لیگ دو - ب" : "رقابت‌ها";
-          if (row.points !== comp.points) {
-            found.push({
-              type: "standing",
-              id: leagueKey,
-              name: `${lName} — ${row.team}`,
-              field: "امتیاز",
-              currentValue: row.points,
-              computedValue: comp.points,
-              details: `امتیاز ثبت‌شده بر اساس تاریخچه بازی‌ها همخوانی ندارد. جدول: ${row.points} | محاسبه: ${comp.points}`
-            });
-          }
-          if (row.played !== comp.played) {
-            found.push({
-              type: "standing",
-              id: leagueKey,
-              name: `${lName} — ${row.team}`,
-              field: "بازی‌ها",
-              currentValue: row.played,
-              computedValue: comp.played,
-              details: `تعداد کل بازی‌های تیمی ناهماهنگ است. جدول: ${row.played} | بازی‌های واقعی: ${comp.played}`
-            });
-          }
-          const gd = row.goalsFor - row.goalsAgainst;
-          const compGd = comp.goalsFor - comp.goalsAgainst;
-          if (row.goalsFor !== comp.goalsFor || row.goalsAgainst !== comp.goalsAgainst) {
-            found.push({
-              type: "standing",
-              id: leagueKey,
-              name: `${lName} — ${row.team}`,
-              field: "گل‌های زده/خورده",
-              currentValue: `${row.goalsFor}-${row.goalsAgainst}`,
-              computedValue: `${comp.goalsFor}-${comp.goalsAgainst}`,
-              details: `آمار تفاضل گل نیاز به بازسازی دارد. جدول: ${row.goalsFor}-${row.goalsAgainst} | محاسبه: ${comp.goalsFor}-${comp.goalsAgainst}`
-            });
-          }
-        }
-      });
-    });
-
-    // 2. Player Stats Scanner
-    players.forEach(p => {
-      let compGoals = 0;
-      let compAssists = 0;
-      let compCleanSheets = 0;
-      let compMatches = 0;
-
-      matches.filter(m => m.status === "finished").forEach(m => {
-        // Did the player play? Check if they belong to the team
-        const isHomePlayer = p.teamName === m.teamHome;
-        const isAwayPlayer = p.teamName === m.teamAway;
-
-        if (isHomePlayer || isAwayPlayer) {
-          compMatches += 1;
-          const conceded = isHomePlayer ? Number(m.scoreAway) : Number(m.scoreHome);
-          if (conceded === 0 && p.position === "دروازه‌بان") {
-            compCleanSheets += 1;
-          }
-        }
-
-        const diagSame = (ref: { id?: any; name?: any }, side: "home" | "away" | null) =>
-          isSamePlayer({ ...ref, side }, p, m, identityIndex, []);
-
-        // Count goals and assists from events or scorersList
-        if (m.events && m.events.length > 0) {
-          m.events.forEach((ev: any) => {
-            if (!ev) return;
-            if (ev.type === "goal" || ev.type === "penalty") {
-              if (diagSame({ id: ev.playerId, name: ev.playerName }, ev.team)) {
-                compGoals += 1;
-              }
-              if (diagSame({ id: ev.player2Id, name: ev.player2Name }, ev.team)) {
-                compAssists += 1;
-              }
-            } else if (ev.type === "assist") {
-              if (diagSame({ id: ev.playerId, name: ev.playerName }, ev.team) && !ev.player2Name) {
-                compAssists += 1;
-              }
-              if (diagSame({ id: ev.player2Id, name: ev.player2Name }, ev.team)) {
-                compAssists += 1;
-              }
-            }
-          });
-        }
-        
-        const scorers = m.scorersList || [];
-        scorers.forEach((sc: any) => {
-          if (!sc) return;
-          const isScorer = diagSame({ id: sc.scorerId, name: sc.scorerName || sc.name }, null);
-          const isAssistant = diagSame({ id: sc.assistId, name: sc.assistName || sc.assist }, null);
-
-          if (isScorer) {
-            const hasScoringEvent = m.events && m.events.some((ev: any) => ev && (ev.type === "goal" || ev.type === "penalty") && diagSame({ id: ev.playerId, name: ev.playerName }, ev.team));
-            if (!hasScoringEvent) {
-              compGoals += 1;
-            }
-          }
-          if (isAssistant) {
-            const hasAssistingEvent = m.events && m.events.some((ev: any) => ev && (ev.type === "goal" || ev.type === "assist") && (diagSame({ id: ev.player2Id, name: ev.player2Name }, ev.team) || diagSame({ id: ev.playerId, name: ev.playerName }, ev.team)));
-            if (!hasAssistingEvent) {
-              compAssists += 1;
-            }
-          }
-        });
-      });
-
-      const currentG = Number(p.goals || 0);
-      const currentA = Number(p.assists || 0);
-      const currentM = Number(p.matchesPlayed || p.seasonStats?.matches || 0);
-
-      if (currentG !== compGoals) {
-        found.push({
-          type: "player",
-          id: p.id,
-          name: `${p.name} (${p.teamName})`,
-          field: "گل‌های زده",
-          currentValue: currentG,
-          computedValue: compGoals,
-          details: `اختلاف در شمردن گل‌های ثبت شده. پروفایل: ${currentG} | تایم‌لاین واقعی بازی‌ها: ${compGoals}`
-        });
-      }
-      if (currentA !== compAssists && compAssists > 0) {
-        found.push({
-          type: "player",
-          id: p.id,
-          name: `${p.name} (${p.teamName})`,
-          field: "پاس گل",
-          currentValue: currentA,
-          computedValue: compAssists,
-          details: `اختلاف در پاس‌گل‌های ثبت شده. پروفایل: ${currentA} | محاسبه: ${compAssists}`
-        });
-      }
-    });
-
-    setDiscrepancies(found);
-    setIsScanning(false);
+      setDiscrepancies(findings);
+      setResolverSummary(summary);
+    } finally {
+      setIsScanning(false);
+    }
+    setConfirmGlobal(false);
   };
 
-  // Perform full database sync and heal based on calculated values
-  const handleHealDatabase = async () => {
-    if (discrepancies.length === 0) return;
-    setIsResolverRunning(true);
-    setHealStatus("در حال همگام‌سازی و بازگردانی هماهنگی جداول...");
+  const healContextFor = (items: ResolverFinding[]): HealContext => ({
+    reason: "sync-resolver",
+    findings: items.map((f) => `${f.type}:${f.id}:${f.field}`),
+  });
+
+  const healLeague = async (leagueKey: string, eligibleOnly: boolean) => {
+    const { scope } = resolveScope(matches, currentSeason);
+    const rows = buildCorrectedStandingRows(leagueKey, standings[leagueKey] || [], matches, scope);
+    const ctxItems = discrepancies.filter(
+      (d) => d.type === "standing" && d.id === leagueKey && (!eligibleOnly || isHealEligible(d))
+    );
+    return onUpdateStandings(leagueKey, rows as StandingRow[], healContextFor(ctxItems));
+  };
+
+  const healPlayer = async (playerId: string, onlyFields?: string[], eligibleOnly?: boolean) => {
+    const player: any = players.find((p) => p.id === playerId);
+    if (!player) return false;
+    const approved = discrepancies.filter(
+      (d) =>
+        d.type === "player" && d.id === playerId &&
+        (!onlyFields || onlyFields.includes(d.field)) &&
+        (!eligibleOnly || isHealEligible(d))
+    );
+    if (approved.length === 0) return false;
     const identityIndex = buildPlayerIdentityIndex(players);
+    const t = computePlayerTallies(player, matches, identityIndex);
+    const want = (fa: string) => approved.some((d) => d.field === fa);
+    // Flagged fields ONLY — never rewrite matches unless flagged.
+    const seasonStats = {
+      ...(player.seasonStats || {}),
+      ...(want("گل‌های زده") ? { goals: t.goals } : {}),
+      ...(want("پاس گل") ? { assists: t.assists } : {}),
+      ...(want("بازی‌ها") ? { matches: t.matches } : {}),
+    };
+    return onUpdatePlayer(playerId, { seasonStats, _heal: healContextFor(approved) });
+  };
 
+  const healFinding = async (disc: ResolverFinding) => {
+    const key = `${disc.type}:${disc.id}:${disc.field}`;
+    setHealingId(key);
+    setHealStatus("در حال اصلاح مورد تأییدشده...");
     try {
-      // Group standings updates by league
-      const leaguesToUpdate = Array.from(new Set(discrepancies.filter(d => d.type === "standing").map(d => d.id))) as string[];
-      
-      for (const leagueKey of leaguesToUpdate) {
-        const activeStandings = JSON.parse(JSON.stringify(standings[leagueKey] || [])) as StandingRow[];
-        const leagueFinishedMatches = matches.filter(m => m.status === "finished" && m.league === leagueKey);
-
-        const computed: Record<string, { played: number; won: number; drawn: number; lost: number; goalsFor: number; goalsAgainst: number; points: number }> = {};
-        activeStandings.forEach(row => {
-          computed[row.team] = { played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 };
-        });
-
-        leagueFinishedMatches.forEach(m => {
-          const homeName = m.teamHome;
-          const awayName = m.teamAway;
-          const sh = Number(m.scoreHome);
-          const sa = Number(m.scoreAway);
-
-          if (!computed[homeName]) computed[homeName] = { played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 };
-          if (!computed[awayName]) computed[awayName] = { played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 };
-
-          computed[homeName].played += 1;
-          computed[homeName].goalsFor += sh;
-          computed[homeName].goalsAgainst += sa;
-
-          computed[awayName].played += 1;
-          computed[awayName].goalsFor += sa;
-          computed[awayName].goalsAgainst += sh;
-
-          if (sh > sa) {
-            computed[homeName].won += 1;
-            computed[homeName].points += 3;
-            computed[awayName].lost += 1;
-          } else if (sh < sa) {
-            computed[awayName].won += 1;
-            computed[awayName].points += 3;
-            computed[homeName].lost += 1;
-          } else {
-            computed[homeName].drawn += 1;
-            computed[homeName].points += 1;
-            computed[awayName].drawn += 1;
-            computed[awayName].points += 1;
-          }
-        });
-
-        // Map corrected values back to standing rows
-        const correctedRows = activeStandings.map(row => {
-          const comp = computed[row.team];
-          if (comp) {
-            return {
-              ...row,
-              played: comp.played,
-              won: comp.won,
-              drawn: comp.drawn,
-              lost: comp.lost,
-              goalsFor: comp.goalsFor,
-              goalsAgainst: comp.goalsAgainst,
-              goalDifference: comp.goalsFor - comp.goalsAgainst,
-              points: comp.points
-            };
-          }
-          return row;
-        });
-
-        // Re-sort standings by points -> goal difference -> goals for
-        correctedRows.sort((a, b) => {
-          if (b.points !== a.points) return b.points - a.points;
-          const aGd = a.goalsFor - a.goalsAgainst;
-          const bGd = b.goalsFor - b.goalsAgainst;
-          if (bGd !== aGd) return bGd - aGd;
-          return b.goalsFor - a.goalsFor;
-        });
-
-        // Correct ranking indices
-        const finalRanked = correctedRows.map((r, index) => ({
-          ...r,
-          rank: index + 1
-        }));
-
-        await onUpdateStandings(leagueKey, finalRanked);
-      }
-
-      // Group player correctives
-      const playerDiscrepancies = discrepancies.filter(d => d.type === "player");
-      for (const disc of playerDiscrepancies) {
-        const player = players.find(p => p.id === disc.id);
-        if (player) {
-          const finishedMatches = matches.filter(m => m.status === "finished");
-          let calculatedGoals = 0;
-          let calculatedAssists = 0;
-          let calculatedMatches = 0;
-          let calculatedCleanSheets = 0;
-
-          finishedMatches.forEach(m => {
-            const isHomePlayer = player.teamName === m.teamHome;
-            const isAwayPlayer = player.teamName === m.teamAway;
-
-            if (isHomePlayer || isAwayPlayer) {
-              calculatedMatches += 1;
-              const conceded = isHomePlayer ? Number(m.scoreAway) : Number(m.scoreHome);
-              if (conceded === 0 && player.position === "دروازه‌بان") {
-                calculatedCleanSheets += 1;
-              }
-            }
-
-            const healSame = (ref: { id?: any; name?: any }, side: "home" | "away" | null) =>
-              isSamePlayer({ ...ref, side }, player, m, identityIndex, []);
-
-            // Count goals and assists from events or scorersList
-            if (m.events && m.events.length > 0) {
-              m.events.forEach((ev: any) => {
-                if (!ev) return;
-                if (ev.type === "goal" || ev.type === "penalty") {
-                  if (healSame({ id: ev.playerId, name: ev.playerName }, ev.team)) {
-                    calculatedGoals += 1;
-                  }
-                  if (healSame({ id: ev.player2Id, name: ev.player2Name }, ev.team)) {
-                    calculatedAssists += 1;
-                  }
-                } else if (ev.type === "assist") {
-                  if (healSame({ id: ev.playerId, name: ev.playerName }, ev.team) && !ev.player2Name) {
-                    calculatedAssists += 1;
-                  }
-                  if (healSame({ id: ev.player2Id, name: ev.player2Name }, ev.team)) {
-                    calculatedAssists += 1;
-                  }
-                }
-              });
-            }
-            
-            const scorers = m.scorersList || [];
-            scorers.forEach((sc: any) => {
-              if (!sc) return;
-              const isScorer = healSame({ id: sc.scorerId, name: sc.scorerName || sc.name }, null);
-              const isAssistant = healSame({ id: sc.assistId, name: sc.assistName || sc.assist }, null);
-
-              if (isScorer) {
-                const hasScoringEvent = m.events && m.events.some((ev: any) => ev && (ev.type === "goal" || ev.type === "penalty") && healSame({ id: ev.playerId, name: ev.playerName }, ev.team));
-                if (!hasScoringEvent) {
-                  calculatedGoals += 1;
-                }
-              }
-              if (isAssistant) {
-                const hasAssistingEvent = m.events && m.events.some((ev: any) => ev && (ev.type === "goal" || ev.type === "assist") && (healSame({ id: ev.player2Id, name: ev.player2Name }, ev.team) || healSame({ id: ev.playerId, name: ev.playerName }, ev.team)));
-                if (!hasAssistingEvent) {
-                  calculatedAssists += 1;
-                }
-              }
-            });
-          });
-
-          const payload = {
-            goals: calculatedGoals,
-            assists: calculatedAssists,
-            matchesPlayed: calculatedMatches,
-            seasonStats: {
-              ...player.seasonStats,
-              matches: calculatedMatches,
-              goals: calculatedGoals,
-              assists: calculatedAssists,
-              cleanSheets: player.position === "دروازه‌بان" ? calculatedCleanSheets : player.seasonStats?.cleanSheets
-            }
-          };
-          await onUpdatePlayer(player.id, payload);
-        }
-      }
-
-      setHealStatus("همگام‌سازی با موفقیت انجام شد! دیتابیس در تراز عالی قرار گرفت.");
-      setDiscrepancies([]);
-      setTimeout(() => {
-        setHealStatus(null);
-        onRefreshData();
-      }, 3000);
-    } catch (e) {
-      setHealStatus("خطا در تراز کردن اطلاعات.");
-      setTimeout(() => setHealStatus(null), 3000);
+      const ok = disc.type === "standing"
+        ? await healLeague(disc.id, false)
+        : await healPlayer(disc.id, [disc.field], false);
+      setHealStatus(ok ? "مورد تأییدشده اصلاح شد." : "اصلاح ناموفق بود.");
+      onRefreshData();
+    } catch {
+      setHealStatus("خطا در اصلاح مورد.");
     } finally {
-      setIsResolverRunning(false);
+      setHealingId(null);
+      setTimeout(() => setHealStatus(null), 3000);
     }
   };
+
+  // Global repair: eligible findings ONLY (STALE_TABLE / REAL_MISMATCH at
+  // high-medium severity). NAME_MISMATCH / MULTI_SEASON / low never auto-run.
+  const eligibleFindings = discrepancies.filter(isHealEligible);
+  const skippedFindings = discrepancies.length - eligibleFindings.length;
+
+  const handleHealDatabase = async () => {
+    if (!confirmGlobal) {
+      setConfirmGlobal(true); // first click = dry-run preview, nothing mutates
+      return;
+    }
+    setConfirmGlobal(false);
+    if (eligibleFindings.length === 0) return;
+    setIsResolverRunning(true);
+    setHealStatus("در حال اجرای ترمیم موارد واجد شرایط...");
+    try {
+      const leagues = Array.from(new Set(eligibleFindings.filter((d) => d.type === "standing").map((d) => d.id))) as string[];
+      for (const leagueKey of leagues) await healLeague(leagueKey, true);
+      const playerIds = Array.from(new Set(eligibleFindings.filter((d) => d.type === "player").map((d) => d.id)));
+      for (const pid of playerIds) await healPlayer(pid, undefined, true);
+      setHealStatus(`ترمیم سراسری انجام شد: ${eligibleFindings.length} مورد اصلاح، ${skippedFindings} مورد نیازمند بازبینی دستی ماند.`);
+      onRefreshData();
+    } catch {
+      setHealStatus("خطا در تراز کردن اطلاعات.");
+    } finally {
+      setIsResolverRunning(false);
+      setTimeout(() => setHealStatus(null), 4000);
+    }
+  };
+
 
   useEffect(() => {
     // Perform initial auto-scan
@@ -541,6 +261,7 @@ export default function AdminDashboard({
             </h3>
             <p className="text-[11px] text-gray-400 max-w-3xl leading-relaxed">
               این موتور هوشمند تاریخچه تمام مسابقات تمام‌شده را اسکن کرده، با آمارهای مستقیم جداول رده‌بندی، گلزنان و پروفایل شخصی تک‌تک بازیکنان و کادر تیم‌ها تطبیق می‌دهد. خطاکوچک‌ترین ناسازگاری ناشی از اشتباه ادمین‌ها در این جدول شناسایی و مرتفع می‌شود.
+              فوتسال به‌دلیل آرشیو شدن از فرانت‌اند، عیب‌یابی نمی‌شود.
             </p>
           </div>
 
@@ -581,21 +302,53 @@ export default function AdminDashboard({
                 <div className="flex items-start gap-3">
                   <AlertTriangle className="h-8 w-8 text-yellow-500 flex-shrink-0 mt-0.5" />
                   <div>
-                    <h4 className="font-extrabold text-sm text-yellow-400">تعداد {discrepancies.length} مورد عدم تطابق شناسایی شد!</h4>
+                    <h4 className="font-extrabold text-sm text-yellow-400">تعداد {discrepancies.length} مورد عدم تطابق شناسایی شد! ({eligibleFindings.length} مورد واجد ترمیم خودکار)</h4>
                     <p className="text-[10px] text-slate-400 mt-1">
                       برخی تغییرات ویرایشی به تیم‌ها یا بازیکنان به خوبی منعکس نشده‌اند یا ادمین‌ها یک بازی ثبت‌شده را اصلاح کرده‌اند که آمار رده‌بندی از آن پس افتاده است.
+                      موارد کم‌ریسک (اختلاف نام، چندفصلی) هرگز به‌صورت خودکار ترمیم نمی‌شوند.
                     </p>
+                    {resolverSummary && (resolverSummary.baselineExplained > 0 || resolverSummary.skippedAutoFinished > 0 || resolverSummary.autoExplained > 0) && (
+                      <p className="text-[10px] text-emerald-400/80 mt-1">
+                        {resolverSummary.baselineExplained > 0 && `${resolverSummary.baselineExplained} مورد با تاریخچه معتبر (baseline) توضیح داده و نادیده گرفته شد. `}
+                        {resolverSummary.skippedAutoFinished > 0 && `${resolverSummary.skippedAutoFinished} بازی auto-finished عمداً از محاسبه کنار گذاشته شد. `}
+                        {resolverSummary.autoExplained > 0 && `${resolverSummary.autoExplained} مجموع بازی بازیکنان که بازی auto-finished را شامل می‌شد توضیح داده شد.`}
+                      </p>
+                    )}
                   </div>
                 </div>
 
-                <button
-                  onClick={handleHealDatabase}
-                  disabled={isResolverRunning}
-                  className="bg-red-655 hover:bg-red-700 hover:shadow-lg hover:shadow-red-900/20 text-white font-black text-xs px-4.5 py-2.5 rounded-xl flex items-center gap-2 transition cursor-pointer"
-                >
-                  <Wrench className="h-4 w-4" />
-                  <span>اصلاح و تراز کردن آنی کل دیتابیس</span>
-                </button>
+                {!confirmGlobal ? (
+                  <button
+                    onClick={handleHealDatabase}
+                    disabled={isResolverRunning || eligibleFindings.length === 0}
+                    className="bg-red-655 hover:bg-red-700 hover:shadow-lg hover:shadow-red-900/20 text-white font-black text-xs px-4.5 py-2.5 rounded-xl flex items-center gap-2 transition cursor-pointer disabled:opacity-50"
+                  >
+                    <Wrench className="h-4 w-4" />
+                    <span>اصلاح و تراز کردن آنی کل دیتابیس ({eligibleFindings.length} مورد واجد شرایط)</span>
+                  </button>
+                ) : (
+                  <div className="flex flex-col gap-2 items-stretch">
+                    <p className="text-[11px] font-bold text-amber-300">
+                      پیش‌نمایش (dry-run): {eligibleFindings.length} مورد اصلاح می‌شود، {skippedFindings} مورد نیازمند بازبینی دستی می‌ماند. چیزی هنوز تغییر نکرده است.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleHealDatabase}
+                        disabled={isResolverRunning}
+                        className="flex-1 bg-red-700 hover:bg-red-600 text-white font-black text-xs px-4 py-2.5 rounded-xl transition cursor-pointer disabled:opacity-50"
+                      >
+                        تأیید اجرای سراسری
+                      </button>
+                      <button
+                        onClick={() => setConfirmGlobal(false)}
+                        disabled={isResolverRunning}
+                        className="px-4 py-2.5 rounded-xl border border-white/10 text-slate-300 text-xs font-bold hover:bg-white/5 transition cursor-pointer disabled:opacity-50"
+                      >
+                        انصراف
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Discrepancy Matrix table */}
@@ -609,6 +362,16 @@ export default function AdminDashboard({
                       <div className="space-y-0.5">
                         <span className="font-extrabold text-slate-200 block">{disc.name}</span>
                         <span className="text-slate-400">{disc.details}</span>
+                        <span className="flex flex-wrap gap-1.5 pt-1">
+                          <span className="text-[10px] px-2 py-0.5 rounded-full border border-sky-700/40 bg-sky-950/30 text-sky-300 font-bold">{reasonFa(disc.reason)}</span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full border font-bold ${disc.severity === "high" ? "border-red-700/40 bg-red-950/30 text-red-300" : disc.severity === "medium" ? "border-amber-700/40 bg-amber-950/30 text-amber-300" : "border-white/10 bg-white/5 text-slate-400"}`}>{severityFa(disc.severity)}</span>
+                          {disc.scope !== "all" && disc.scope !== "unseasoned" && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full border border-white/10 bg-white/5 text-slate-400 font-bold">فصل {disc.scope}</span>
+                          )}
+                          {!isHealEligible(disc) && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full border border-white/10 bg-white/5 text-slate-500 font-bold">فقط بازبینی دستی</span>
+                          )}
+                        </span>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <div className="text-[10px] bg-slate-950 border border-white/5 rounded px-2 py-0.5 font-mono text-center">
@@ -620,6 +383,13 @@ export default function AdminDashboard({
                           <span className="text-emerald-500 block">تراز محاسباتی</span>
                           <span className="text-emerald-400 font-bold">{disc.computedValue}</span>
                         </div>
+                        <button
+                          onClick={() => healFinding(disc)}
+                          disabled={isResolverRunning || healingId !== null}
+                          className="text-[10px] font-black px-3 py-1.5 rounded-lg border border-emerald-700/40 bg-emerald-950/30 text-emerald-300 hover:bg-emerald-900/40 transition cursor-pointer disabled:opacity-50"
+                        >
+                          {healingId === `${disc.type}:${disc.id}:${disc.field}` ? "..." : "تأیید و اصلاح"}
+                        </button>
                       </div>
                     </div>
                   ))}

@@ -333,12 +333,12 @@ export function useAppData() {
     localStorage.setItem("subscribed_team_preferences", JSON.stringify(updated));
   };
 
-  const handleUpdateStandings = async (leagueKey: string, rows: StandingRow[]) => {
+  const handleUpdateStandings = async (leagueKey: string, rows: StandingRow[], heal?: { reason: string; findings: string[] }) => {
     try {
       const response = await fetch(`/api/standings/${leagueKey}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rows })
+        body: JSON.stringify({ rows, _heal: heal ?? undefined })
       });
       if (response.ok) {
         invalidateAppDataCache();
