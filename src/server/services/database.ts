@@ -1854,7 +1854,7 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
 
       const matchIds = data.matches.map((x: any) => x.id);
       promises.push(pgDb.from('matches').delete().not('id', 'in', `(${matchIds.join(',')})`));
-    } else if (data.matches) {
+    } else if (need("matches") && data.matches) {
       promises.push(pgDb.from('matches').delete().neq('id', ''));
     }
 
