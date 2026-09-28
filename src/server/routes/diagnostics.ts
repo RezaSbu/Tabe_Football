@@ -34,6 +34,38 @@ function ensureBackupsDir(): void {
   fs.mkdirSync(BACKUPS_DIR, { recursive: true });
 }
 
+/**
+ * Pre-flight for one-click backups (VPS failures were opaque).
+ * Returns a precise, user-facing reason instead of a generic error:
+ * missing/unwritable directory, or a (nearly) full disk.
+ */
+function preflightBackupDir(): { ok: boolean; error?: string } {
+  try {
+    fs.mkdirSync(BACKUPS_DIR, { recursive: true });
+  } catch (err: any) {
+    return { ok: false, error: `ساخت پوشه بکاپ ناممکن است (${BACKUPS_DIR}): ${err?.message || err}` };
+  }
+  try {
+    const probe = path.join(BACKUPS_DIR, `.write-test-${Date.now()}.tmp`);
+    fs.writeFileSync(probe, "ok");
+    fs.unlinkSync(probe);
+  } catch (err: any) {
+    return { ok: false, error: `دسترسی نوشتن به پوشه بکاپ نیست (${BACKUPS_DIR}): ${err?.message || err}` };
+  }
+  try {
+    const st = (fs as any).statfsSync ? (fs as any).statfsSync(BACKUPS_DIR) : null;
+    if (st && typeof st.bavail === "number" && typeof st.bsize === "number") {
+      const freeBytes = Number(st.bavail) * Number(st.bsize);
+      if (freeBytes < 100 * 1024 * 1024) {
+        return { ok: false, error: `فضای دیسک برای بکاپ کافی نیست (مانده: ${Math.round(freeBytes / 1024 / 1024)}MB).` };
+      }
+    }
+  } catch {
+    // statfs unavailable on this platform — skip the space check
+  }
+  return { ok: true };
+}
+
 function listBackups(): { file: string; size: number; createdAt: string }[] {
   ensureBackupsDir();
   try {
@@ -80,14 +112,15 @@ function runPgDump(outputFile: string): Promise<{ ok: boolean; error?: string }>
     proc.stderr.on("data", (d: Buffer) => {
       errOutput += String(d);
     });
-    proc.on("error", (err: any) => settle(false, `pg_dump اجرا نشد: ${err.message}`));
+    proc.on("error", (err: any) => settle(false, `pg_dump اجرا نشد (باینری در دسترس نیست؟): ${err.message}`));
     proc.on("close", code => {
       out.close();
       if (code === 0) {
         settle(true);
       } else {
         fs.unlink(outputFile, () => {});
-        settle(false, errOutput.slice(0, 600));
+        const tail = errOutput.slice(-600);
+        settle(false, `pg_dump با کد ${code} خارج شد. ${tail}`);
       }
     });
   });
@@ -215,7 +248,11 @@ export function registerDiagnosticsRoutes(app: Express) {
   // ---------- ایجاد بکاپ ----------
   app.post("/api/diagnostics/backup", requirePermission("diagnostics"), async (req: Request, res: Response) => {
     try {
-      ensureBackupsDir();
+      const pre = preflightBackupDir();
+      if (!pre.ok) {
+        logMessage("error", "api", "پیش‌بررسی بکاپ ناموفق بود:", pre.error);
+        return res.status(500).json({ success: false, message: `خطا در پشتیبان‌گیری [filesystem]: ${pre.error}` });
+      }
       const user = (req as any).user;
       const ts = new Date().toISOString().replace(/[-:T.]/g, "").slice(0, 14);
       const rawFile = path.join(BACKUPS_DIR, `backup_${ts}.sql`);
@@ -224,15 +261,17 @@ export function registerDiagnosticsRoutes(app: Express) {
       auditLog({ username: user?.username || "unknown", role: user?.role, action: "backup", method: "POST", path: "/api/diagnostics/backup", ip: getClientIp(req) });
 
       let result = await runPgDump(rawFile);
+      let stage = "pg_dump";
       if (!result.ok) {
         // اگر pg_dump در دسترس نبود، از دامپ جایگزین استفاده کن
         logMessage("warn", "api", `pg_dump در دسترس نیست؛ استفاده از دامپ جایگزین. (${result.error})`);
         result = await fallbackSqlDump(rawFile);
+        stage = "fallback";
       }
 
       if (!result.ok) {
         logMessage("error", "api", "خطا در پشتیبان‌گیری", result.error);
-        return res.status(500).json({ success: false, message: `خطا در پشتیبان‌گیری: ${result.error}` });
+        return res.status(500).json({ success: false, message: `خطا در پشتیبان‌گیری [${stage}]: ${result.error}` });
       }
 
       const finalFile = gzipFile(rawFile);
