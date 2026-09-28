@@ -7,6 +7,9 @@ import { getSafeImageUrl, isTeamInDb, convertGregorianToShamsi, formatStatNumber
 import { resolveTeam } from "../shared/teamMatch";
 import { realMinute } from "../shared/matchMinute";
 import { buildPlayerIdentityIndex, findMatchLineupPlacement, isSamePlayer } from "../shared/playerIdentity";
+import SeasonSwitcher, { defaultSeasonValue } from "./SeasonSwitcher";
+import MovementTimeline from "./MovementTimeline";
+import CareerSection from "./CareerSection";
 
 interface PlayerDetailProps {
   player: any;
@@ -37,11 +40,16 @@ export default function PlayerDetail({
   const [selectedCompet, setSelectedCompet] = useState<"all" | "league" | "cup">("all");
   const [playerNews, setPlayerNews] = useState<any[]>([]);
   const [loadingNews, setLoadingNews] = useState(false);
+  // Phase 5: per-season view. "career" = all-time numbers (previous behavior,
+  // byte-identical). A season id scopes every stat below to that season's
+  // rows (embedded by /api/detail/player/:id), split by club when needed.
+  const [seasonId, setSeasonId] = useState<string>(() => defaultSeasonValue(player?.seasons, true));
 
   useEffect(() => {
     if (player) {
       const isFutsal = player.id?.startsWith("futsal-") || player.teamId?.startsWith("futsal-") || player.teamId?.includes("futsal") || (player.teamName || "").includes("فوتسال");
       setSelectedCompet(isFutsal ? "league" : "all");
+      setSeasonId(defaultSeasonValue(player.seasons, true));
       
       // Fetch related news from server
       setLoadingNews(true);
@@ -275,6 +283,8 @@ export default function PlayerDetail({
           result: computeResult(true),
           rating: inHome.rating ?? null,
           minutesPlayed: calculatedMins || inHome.minutesPlayed || 90,
+          seasonId: match.seasonId || null,
+          season: match.season || null,
           isMvp: isSamePlayer({ id: match.mvpId }, player, match, identityIndex, []),
           scoreHome: match.scoreHome,
           scoreAway: match.scoreAway,
@@ -300,6 +310,8 @@ export default function PlayerDetail({
           result: computeResult(false),
           rating: inAway.rating ?? null,
           minutesPlayed: calculatedMins || inAway.minutesPlayed || 90,
+          seasonId: match.seasonId || null,
+          season: match.season || null,
           isMvp: isSamePlayer({ id: match.mvpId }, player, match, identityIndex, []),
           scoreHome: match.scoreHome,
           scoreAway: match.scoreAway,
@@ -343,35 +355,65 @@ export default function PlayerDetail({
   });
 
   // Calculate dynamic average rating
-  const leagueMatches = player.leagueStats?.matches || 0;
-  const leagueGoals = player.leagueStats?.goals || 0;
-  const leagueAssists = player.leagueStats?.assists || 0;
-  const leagueClean = player.leagueStats?.cleanSheets || 0;
-  const leagueYellow = player.leagueStats?.yellowCards || 0;
-  const leagueRed = player.leagueStats?.redCards || 0;
-  const leagueMinutes = player.leagueStats?.minutes || (leagueMatches * 90);
-  const leagueMvps = player.leagueStats?.mvps || player.ratingsHistory?.filter((h: any) => !h.isCup && h.isMvp).length || 0;
-  const leagueAvgRating = player.leagueStats?.averageRating ?? null;
+  const isCareerView = seasonId === "career";
+  const seasonRows = !isCareerView ? ((player.seasonRows || []).filter((r: any) => String(r.seasonId) === String(seasonId))) : [];
+  const scopedHistory = isCareerView ? (player.ratingsHistory || []) : ((player.ratingsHistory || []).filter((h: any) => String(h.seasonId) === String(seasonId)));
+  const sumRows = (key: string) => seasonRows.reduce((a: number, r: any) => a + (Number(r[key]) || 0), 0);
+  const sumSplit = (split: "leagueStats" | "cupStats", key: string) => seasonRows.reduce((a: number, r: any) => a + (Number(r[split]?.[key]) || 0), 0);
+  const splitRating = (split: "leagueStats" | "cupStats"): number | null => {
+    const s = seasonRows.reduce((a: number, r: any) => a + (Number(r[split]?.ratingSum) || 0), 0);
+    const c = seasonRows.reduce((a: number, r: any) => a + (Number(r[split]?.ratingCount) || 0), 0);
+    return c > 0 ? parseFloat((s / c).toFixed(1)) : null;
+  };
+  const seasonAvgRating = (() => {
+    const s = seasonRows.reduce((a: number, r: any) => a + (Number(r.ratings?.sum) || 0), 0);
+    const c = seasonRows.reduce((a: number, r: any) => a + (Number(r.ratings?.count) || 0), 0);
+    return c > 0 ? parseFloat((s / c).toFixed(1)) : null;
+  })();
+  const seasonMvps = (cupOnly: boolean | null): number => {
+    if (cupOnly === null) return sumSplit("leagueStats", "mvps") + sumSplit("cupStats", "mvps");
+    const fromRows = cupOnly ? sumSplit("cupStats", "mvps") : sumSplit("leagueStats", "mvps");
+    if (fromRows > 0) return fromRows;
+    return scopedHistory.filter((h: any) => (cupOnly ? h.isCup : !h.isCup) && h.isMvp).length;
+  };
 
-  const cupMatches = player.cupStats?.matches || 0;
-  const cupGoals = player.cupStats?.goals || 0;
-  const cupAssists = player.cupStats?.assists || 0;
-  const cupClean = player.cupStats?.cleanSheets || 0;
-  const cupYellow = player.cupStats?.yellowCards || 0;
-  const cupRed = player.cupStats?.redCards || 0;
-  const cupMinutes = player.cupStats?.minutes || (cupMatches * 90);
-  const cupMvps = player.cupStats?.mvps || player.ratingsHistory?.filter((h: any) => h.isCup && h.isMvp).length || 0;
-  const cupAvgRating = player.cupStats?.averageRating ?? null;
+  const leagueMatches = isCareerView ? (player.leagueStats?.matches || 0) : sumSplit("leagueStats", "matches");
+  const leagueGoals = isCareerView ? (player.leagueStats?.goals || 0) : sumSplit("leagueStats", "goals");
+  const leagueAssists = isCareerView ? (player.leagueStats?.assists || 0) : sumSplit("leagueStats", "assists");
+  const leagueClean = isCareerView ? (player.leagueStats?.cleanSheets || 0) : sumSplit("leagueStats", "cleanSheets");
+  const leagueYellow = isCareerView ? (player.leagueStats?.yellowCards || 0) : sumSplit("leagueStats", "yellowCards");
+  const leagueRed = isCareerView ? (player.leagueStats?.redCards || 0) : sumSplit("leagueStats", "redCards");
+  const leagueMinutesRaw = isCareerView ? player.leagueStats?.minutes : sumSplit("leagueStats", "minutes");
+  const leagueMinutes = leagueMinutesRaw || (leagueMatches * 90);
+  const leagueMvps = isCareerView ? (player.leagueStats?.mvps || player.ratingsHistory?.filter((h: any) => !h.isCup && h.isMvp).length || 0) : seasonMvps(false);
+  const leagueAvgRating = isCareerView ? (player.leagueStats?.averageRating ?? null) : splitRating("leagueStats");
 
-  const displayedMatches = player.seasonStats?.matches || 0;
-  const displayedGoals = player.seasonStats?.goals || 0;
-  const displayedAssists = player.seasonStats?.assists || 0;
-  const displayedClean = player.seasonStats?.cleanSheets || 0;
-  const displayedYellow = player.seasonStats?.yellowCards || 0;
-  const displayedRed = player.seasonStats?.redCards || 0;
-  const displayedMinutes = player.seasonStats?.minutes || playerMatches.reduce((acc, m) => acc + m.minutesPlayed, 0) || (displayedMatches * 90);
-  const displayedMvps = player.seasonStats?.mvps || player.ratingsHistory?.filter((h: any) => h.isMvp).length || playerMatches.filter(m => m.isMvp).length || 0;
-  const displayedAvgRating = player.seasonStats?.averageRating ?? player.averageRating ?? null;
+  const cupMatches = isCareerView ? (player.cupStats?.matches || 0) : sumSplit("cupStats", "matches");
+  const cupGoals = isCareerView ? (player.cupStats?.goals || 0) : sumSplit("cupStats", "goals");
+  const cupAssists = isCareerView ? (player.cupStats?.assists || 0) : sumSplit("cupStats", "assists");
+  const cupClean = isCareerView ? (player.cupStats?.cleanSheets || 0) : sumSplit("cupStats", "cleanSheets");
+  const cupYellow = isCareerView ? (player.cupStats?.yellowCards || 0) : sumSplit("cupStats", "yellowCards");
+  const cupRed = isCareerView ? (player.cupStats?.redCards || 0) : sumSplit("cupStats", "redCards");
+  const cupMinutesRaw = isCareerView ? player.cupStats?.minutes : sumSplit("cupStats", "minutes");
+  const cupMinutes = cupMinutesRaw || (cupMatches * 90);
+  const cupMvps = isCareerView ? (player.cupStats?.mvps || player.ratingsHistory?.filter((h: any) => h.isCup && h.isMvp).length || 0) : seasonMvps(true);
+  const cupAvgRating = isCareerView ? (player.cupStats?.averageRating ?? null) : splitRating("cupStats");
+
+  const displayedMatches = isCareerView ? (player.seasonStats?.matches || 0) : sumRows("matches");
+  const displayedGoals = isCareerView ? (player.seasonStats?.goals || 0) : sumRows("goals");
+  const displayedAssists = isCareerView ? (player.seasonStats?.assists || 0) : sumRows("assists");
+  const displayedClean = isCareerView ? (player.seasonStats?.cleanSheets || 0) : sumRows("cleanSheets");
+  const displayedYellow = isCareerView ? (player.seasonStats?.yellowCards || 0) : sumRows("yellowCards");
+  const displayedRed = isCareerView ? (player.seasonStats?.redCards || 0) : sumRows("redCards");
+  const displayedMinutesRaw = isCareerView ? (player.seasonStats?.minutes || playerMatches.reduce((acc, m) => acc + m.minutesPlayed, 0)) : sumRows("minutes");
+  const displayedMinutes = displayedMinutesRaw || (displayedMatches * 90);
+  const displayedMvps = isCareerView ? (player.seasonStats?.mvps || player.ratingsHistory?.filter((h: any) => h.isMvp).length || playerMatches.filter(m => m.isMvp).length || 0) : (seasonMvps(null) || scopedHistory.filter((h: any) => h.isMvp).length || playerMatches.filter(m => m.isMvp).length || 0);
+  const displayedAvgRating = isCareerView ? (player.seasonStats?.averageRating ?? player.averageRating ?? null) : seasonAvgRating;
+  // Matches-tab scope: same season filter as the stats above.
+  const seasonTagForMatches = (player.seasons || []).find((s: any) => String(s.id) === String(seasonId))?.name;
+  const visiblePlayerMatches = isCareerView ? playerMatches : playerMatches.filter((m: any) =>
+    String(m.seasonId) === String(seasonId) ||
+    (seasonTagForMatches != null && (String(m.season) === String(seasonTagForMatches) || String(m.seasonId) === `season-${seasonTagForMatches}`)));
 
   // Active calculation variables depending on selectedCompet toggle
   const activeAvgRating = selectedCompet === "all" ? displayedAvgRating : (selectedCompet === "league" ? leagueAvgRating : cupAvgRating);
@@ -582,6 +624,32 @@ export default function PlayerDetail({
 
             {/* Right Column: Key Stats Bento Grid */}
             <div className="lg:col-span-8 space-y-6">
+
+              {/* Phase 5: season scope for every number below */}
+              {(player.seasons || []).length > 0 && (
+                <div className="flex items-center justify-between gap-3 p-3.5 bg-black/20 rounded-2xl border border-white/5 flex-wrap">
+                  <div className="text-right">
+                    <h4 className="font-black text-xs text-slate-200">فصل آمار</h4>
+                    <p className="text-[10px] text-slate-500 mt-0.5">کارنامه یعنی جمع همه فصل‌ها؛ هر فصل تفکیک باشگاهی دارد</p>
+                  </div>
+                  <SeasonSwitcher seasons={player.seasons} value={seasonId} onChange={setSeasonId} />
+                </div>
+              )}
+
+              {/* Mid-season transfer split: one row per club actually played for */}
+              {!isCareerView && seasonRows.length > 1 && (
+                <div className="p-3.5 bg-black/20 rounded-2xl border border-white/5 space-y-2">
+                  <h4 className="font-black text-[11px] text-slate-300">تفکیک باشگاهی این فصل</h4>
+                  {seasonRows.map((r: any) => (
+                    <div key={r.id} className="flex items-center justify-between gap-2 text-[11px] bg-white/[0.02] border border-white/5 rounded-lg px-3 py-1.5">
+                      <span className="font-bold text-white truncate">{r.teamName || "—"}</span>
+                      <span className="font-mono text-slate-400 shrink-0">
+                        {formatStatNumber(r.matches || 0)} بازی • {formatStatNumber(r.goals || 0)} گل • {formatStatNumber(r.assists || 0)} پاس
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Competition Selector Toggle for Overview Stats */}
               <div className="flex items-center justify-between gap-3 p-3.5 bg-black/20 rounded-2xl border border-white/5 flex-wrap">
@@ -801,11 +869,15 @@ export default function PlayerDetail({
         {/* TAB 2: DETAILED MATCH LOGS */}
         {activeTab === "matches" && (
           <div className="space-y-4 animate-in fade-in duration-200">
-            <h3 className="font-black text-base text-white border-r-4 border-emerald-500 pr-2">ریز کارنامه مسابقات حضور یافته بازیکن در فصل جاری</h3>
-            
-            {playerMatches.length > 0 ? (
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <h3 className="font-black text-base text-white border-r-4 border-emerald-500 pr-2">ریز کارنامه مسابقات حضور یافته بازیکن در فصل جاری</h3>
+              {(player.seasons || []).length > 0 && (
+                <SeasonSwitcher seasons={player.seasons} value={seasonId} onChange={setSeasonId} />
+              )}
+            </div>
+            {visiblePlayerMatches.length > 0 ? (
               <div className="grid gap-3">
-                {playerMatches.map((m, idx) => (
+                {visiblePlayerMatches.map((m, idx) => (
                   <div key={idx} onClick={() => onSelectMatch && onSelectMatch(m.matchId)} className="p-3 sm:p-4 rounded-xl bg-[#161619] border border-white/5 hover:border-emerald-500/30 hover:bg-white/[0.01] cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs transition">
                     
                     {/* Club match label / Opponent details */}
@@ -908,6 +980,18 @@ export default function PlayerDetail({
         {/* TAB 3: CAREER HISTORY */}
         {activeTab === "career" && (
           <div className="space-y-4 animate-in fade-in duration-200">
+            {/* Phase 6 spec order: [Transfer History] first, then [Career] */}
+            <MovementTimeline items={player.movements} title="سوابق ترانسفر باشگاهی" />
+
+            <CareerSection
+              kind="player"
+              seasonRows={player.seasonRows}
+              movements={player.movements}
+              seasons={player.seasons}
+              currentClubId={player.teamId}
+              currentClubName={player.teamName}
+            />
+
             <h3 className="font-black text-base text-white border-r-4 border-emerald-500 pr-2">تاریخچه سوابق ترنسفر باشگاهی و سوابق فعالیت بازیکن در فوتبال کشور</h3>
             
             {player.careerHistory && player.careerHistory.length > 0 ? (

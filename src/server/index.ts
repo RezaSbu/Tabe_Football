@@ -13,7 +13,7 @@ import { recordHttpRequest, cleanupOldVisits, cleanupOldAuditLogs } from "./serv
 import { loadDB, setDb } from "./state";
 import { dbLock } from "./utils/concurrency";
 import { logMessage } from "./utils/logger";
-import { fetchAndPopulateMemoryDB, saveDB, migrateConstraints, migrateSummaryColumn, migrateHeroSlidesColumns, migrateAdsSchema, migrateNewsGalleryColumns, migrateNewsArchiveIndexes, migrateDropShirtNumberColumn, migrateDropArchiveTable, migrateReadMoreContent2, migrateMonitoringTables, migrateRatingDefaults, migrateMissingIndexes } from "./services/database";
+import { fetchAndPopulateMemoryDB, saveDB, migrateConstraints, migrateSummaryColumn, migrateHeroSlidesColumns, migrateAdsSchema, migrateNewsGalleryColumns, migrateNewsArchiveIndexes, migrateDropShirtNumberColumn, migrateDropArchiveTable, migrateSeasonsFull, migrateClubMovements, migrateSeasonStatsTables, migrateCoachMatchColumns, migrateCoachUniqueTeam, migrateLifecycleSchema, migrateReadMoreContent2, migrateMonitoringTables, migrateRatingDefaults, migrateMissingIndexes } from "./services/database";
 import { recalculateAndSyncDatabase } from "./services/stats";
 import { getUploadsDir } from "./db";
 
@@ -27,6 +27,8 @@ import { registerMiscRoutes } from "./routes/misc";
 import { registerDetailRoutes } from "./routes/detail";
 import { registerSeasonRoutes } from "./routes/season";
 import { registerAdminListRoutes } from "./routes/adminLists";
+import { registerMovementRoutes } from "./routes/movements";
+import { registerLifecycleRoutes } from "./routes/lifecycle";
 
 logMessage("info", "general", "پورتال فوتبال 360 در حال راه‌اندازی است...");
 
@@ -57,6 +59,8 @@ registerMediaRoutes(app);
 registerMiscRoutes(app);
 registerDetailRoutes(app);
 registerAdminListRoutes(app);
+registerMovementRoutes(app);
+registerLifecycleRoutes(app);
 
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   logMessage("error", "general", "Unhandled route error:", err.message || err);
@@ -72,6 +76,12 @@ async function startServer() {
   await migrateNewsArchiveIndexes();
   await migrateDropShirtNumberColumn();
   await migrateDropArchiveTable();
+  await migrateSeasonsFull();
+  await migrateClubMovements();
+  await migrateSeasonStatsTables();
+  await migrateCoachMatchColumns();
+  await migrateCoachUniqueTeam();
+  await migrateLifecycleSchema();
   await migrateReadMoreContent2();
   await migrateMonitoringTables();
   await migrateRatingDefaults();

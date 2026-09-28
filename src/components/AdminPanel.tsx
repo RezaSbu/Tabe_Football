@@ -18,7 +18,9 @@ import {
   Tv,
   FileImage,
   Menu,
-  X
+  X,
+  Calendar,
+  ArrowLeftRight
 } from "lucide-react";
 import AdminDashboard from "./AdminDashboard";
 import AdminMatchHub from "./AdminMatchHub";
@@ -32,6 +34,8 @@ import AdminCoachProfiles from "./AdminCoachProfiles";
 import AdminBracketManager from "./AdminBracketManager";
 import AdminMediaFiles from "./AdminMediaFiles";
 import AdminSeasonCard from "./AdminSeasonCard";
+import AdminMovementCard from "./AdminMovementCard";
+import CoachChangeWizard from "./CoachChangeWizard";
 import AdminHeroSlides from "./AdminHeroSlides";
 
 interface AdminPanelProps {
@@ -100,7 +104,7 @@ export default function AdminPanel({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Active Main Tab State
-  const [activeMainTab, setActiveMainTab] = useState<"dashboard" | "matches" | "overrides" | "diagnostics" | "portal" | "selected-combination" | "players" | "coaches" | "teams" | "bracket" | "media" | "hero-slides">("dashboard");
+  const [activeMainTab, setActiveMainTab] = useState<"dashboard" | "matches" | "overrides" | "diagnostics" | "portal" | "selected-combination" | "players" | "coaches" | "teams" | "bracket" | "media" | "hero-slides" | "seasons" | "movements">("dashboard");
   const [successMessage, setSuccessMessage] = useState("");
   const [lockedWarning, setLockedWarning] = useState("");
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -135,9 +139,15 @@ export default function AdminPanel({
     "selected-combination": "selectedCombos",
     players: "players",
     coaches: "coaches",
-    teams: "teams"
+    teams: "teams",
+    seasons: "matches"
   };
-  const activeTabForRender = hasPerm(TAB_PERMISSION[activeMainTab] ?? "") ? activeMainTab : "dashboard";
+  // movements needs players OR coaches (single-perm map can't express it).
+  const canRenderTab = (tab: string): boolean => {
+    if (tab === "movements") return hasPerm("players") || hasPerm("coaches");
+    return hasPerm(TAB_PERMISSION[tab] ?? "");
+  };
+  const activeTabForRender = canRenderTab(activeMainTab) ? activeMainTab : "dashboard";
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -405,6 +415,24 @@ export default function AdminPanel({
             <span>تعریف و مدیریت تیم‌ها</span>
             {!hasPerm("teams") && <Lock className="h-3.5 w-3.5 text-amber-500 mr-auto" />}
           </button>
+
+          <button
+            onClick={() => handleTabClick("seasons", !hasPerm("matches"))}
+            className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "seasons" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
+          >
+            <Calendar className="h-4 w-4" />
+            <span>مدیریت فصل‌ها</span>
+            {!hasPerm("matches") && <Lock className="h-3.5 w-3.5 text-amber-500 mr-auto" />}
+          </button>
+
+          <button
+            onClick={() => handleTabClick("movements", !(hasPerm("players") || hasPerm("coaches")))}
+            className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "movements" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
+          >
+            <ArrowLeftRight className="h-4 w-4" />
+            <span>ثبت انتقال باشگاهی</span>
+            {!(hasPerm("players") || hasPerm("coaches")) && <Lock className="h-3.5 w-3.5 text-amber-500 mr-auto" />}
+          </button>
         </div>
 
         {/* Global synchronization / Force save to db.json endpoint button */}
@@ -444,11 +472,6 @@ export default function AdminPanel({
             <ShieldCheck className="h-4.5 w-4.5 text-emerald-450" />
             <span>{successMessage}</span>
           </div>
-        )}
-
-        {/* Current season card (always visible; only season control left) */}
-        {hasPerm("matches") && (
-          <AdminSeasonCard currentSeason={currentSeason} onSeasonChanged={onRefreshData} />
         )}
 
         {/* Locked tab access warning block */}
@@ -571,6 +594,24 @@ export default function AdminPanel({
             onRefreshData={onRefreshData}
             showShortSuccess={showShortSuccess}
           />
+        )}
+
+        {activeTabForRender === "seasons" && (
+          <AdminSeasonCard currentSeason={currentSeason} onSeasonChanged={onRefreshData} />
+        )}
+
+        {activeTabForRender === "movements" && (
+          <div className="space-y-6">
+            {hasPerm("coaches") && (
+              <CoachChangeWizard teams={teams} onChanged={onRefreshData} />
+            )}
+            <AdminMovementCard
+              teams={teams}
+              canPlayer={hasPerm("players")}
+              canCoach={hasPerm("coaches")}
+              onChanged={onRefreshData}
+            />
+          </div>
         )}
 
         {/* Tab 9: Manage Hazfi Cup Bracket */}

@@ -1,10 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { ArrowLeft, Trophy, Award, UserRound, TrendingUp, Target, BookOpen, BadgeCheck, Clock, Flag, Sparkles, Activity, Newspaper } from "lucide-react";
 import { getSafeImageUrl, formatStatNumber, normalizePersianString } from "../utils";
+import { coachOfTeamAt } from "../shared/coachTenure";
+import { resolveTeam } from "../shared/teamMatch";
+import SeasonSwitcher, { defaultSeasonValue } from "./SeasonSwitcher";
+import MovementTimeline from "./MovementTimeline";
+import CareerSection from "./CareerSection";
 
 interface CoachDetailProps {
   coach: any;
   allMatches?: any[];
+  allTeams?: any[];
   news?: any[];
   onBack: () => void;
   onSelectTeam?: (name: string) => void;
@@ -15,6 +21,7 @@ interface CoachDetailProps {
 export default function CoachDetail({
   coach,
   allMatches = [],
+  allTeams = [],
   news = [],
   onBack,
   onSelectTeam,
@@ -26,9 +33,12 @@ export default function CoachDetail({
   const [lastCoachId, setLastCoachId] = useState<string | undefined>(undefined);
   const [coachNews, setCoachNews] = useState<any[]>([]);
   const [loadingNews, setLoadingNews] = useState(false);
+  // Phase 5: per-season view ("career" = all-time, previous behavior).
+  const [seasonId, setSeasonId] = useState<string>(() => defaultSeasonValue(coach?.seasons, true));
 
   useEffect(() => {
     if (coach?.id) {
+      setSeasonId(defaultSeasonValue(coach.seasons, true));
       // Fetch related news from server
       setLoadingNews(true);
       fetch(`/api/related-news/coach/${coach.id}?limit=10`)
@@ -50,14 +60,19 @@ export default function CoachDetail({
     setLastCoachId(coach?.id);
   }
 
+  const isCareerView = seasonId === "career";
+  const seasonRows = !isCareerView ? ((coach.seasonRows || []).filter((r: any) => String(r.seasonId) === String(seasonId))) : [];
+  const sumRow = (key: string) => seasonRows.reduce((a: number, r: any) => a + (Number(r[key]) || 0), 0);
   const stats = coach.seasonStats || {};
-  const matches = stats.matches || 0;
-  const wins = stats.wins || 0;
-  const draws = stats.draws || 0;
-  const losses = stats.losses || 0;
-  const winRate = stats.winRate || (matches > 0 ? parseFloat(((wins / matches) * 100).toFixed(1)) : 0);
-  const goalsFor = stats.goalsFor || 0;
-  const goalsAgainst = stats.goalsAgainst || 0;
+  const matches = isCareerView ? (stats.matches || 0) : sumRow("matches");
+  const wins = isCareerView ? (stats.wins || 0) : sumRow("wins");
+  const draws = isCareerView ? (stats.draws || 0) : sumRow("draws");
+  const losses = isCareerView ? (stats.losses || 0) : sumRow("losses");
+  const winRate = isCareerView
+    ? (stats.winRate || (matches > 0 ? parseFloat(((wins / matches) * 100).toFixed(1)) : 0))
+    : (matches > 0 ? parseFloat(((wins / matches) * 100).toFixed(1)) : 0);
+  const goalsFor = isCareerView ? (stats.goalsFor || 0) : sumRow("goalsFor");
+  const goalsAgainst = isCareerView ? (stats.goalsAgainst || 0) : sumRow("goalsAgainst");
 
   const titles = coach.titles || [];
   const recentForm = coach.recentForm || [];
@@ -68,14 +83,33 @@ export default function CoachDetail({
     L: { label: "شکست", color: "bg-red-500" }
   };
 
-  const teamNorm = normalizePersianString(coach.teamName || "");
-
-  // Coach match records: every finished match this team took part in
+  // Coach match records: stamped match ids first, then movement-aware tenure
+  // (who held this team on this date). Never the live teamName alone — that
+  // rewrote history on every post-transfer render.
+  const tenureCoaches = [{ id: String(coach.id), teamId: coach.teamId != null ? String(coach.teamId) : null }];
+  const tenureMovements = (coach.movements || []).map((m: any) => ({
+    coachId: coach.id != null ? String(coach.id) : null,
+    fromTeamId: m.fromTeamId != null ? String(m.fromTeamId) : null,
+    toTeamId: m.toTeamId != null ? String(m.toTeamId) : null,
+    movementDate: m.movementDate || null,
+  }));
+  const teamIdOf = (id: any, name: any): string | null => {
+    if (id != null && String(id).trim() !== "") return String(id);
+    if (!name) return null;
+    const t = resolveTeam(allTeams, name);
+    return t && (t as any).id != null ? String((t as any).id) : null;
+  };
   const coachMatches: any[] = [];
   allMatches.forEach(match => {
     if (match.status !== "finished") return;
-    const isHome = teamNorm && normalizePersianString(match.teamHome || "") === teamNorm;
-    const isAway = teamNorm && normalizePersianString(match.teamAway || "") === teamNorm;
+    let isHome = !!(match.coachHomeId && String(match.coachHomeId) === String(coach.id));
+    let isAway = !isHome && !!(match.coachAwayId && String(match.coachAwayId) === String(coach.id));
+    if (!isHome && !isAway) {
+      const homeTid = teamIdOf(match.teamHomeId, match.teamHome);
+      const awayTid = teamIdOf(match.teamAwayId, match.teamAway);
+      isHome = !!homeTid && coachOfTeamAt(homeTid, match.date, tenureCoaches, tenureMovements) === String(coach.id);
+      isAway = !isHome && !!awayTid && coachOfTeamAt(awayTid, match.date, tenureCoaches, tenureMovements) === String(coach.id);
+    }
     if (!isHome && !isAway) return;
 
     const homeGoals = Number(match.scoreHome) || 0;
@@ -87,6 +121,8 @@ export default function CoachDetail({
       matchId: match.id,
       date: match.date,
       time: match.time,
+      seasonId: match.seasonId || null,
+      season: match.season || null,
       teamName: isHome ? match.teamHome : match.teamAway,
       teamLogo: isHome ? match.teamHomeLogo : match.teamAwayLogo,
       opponent: isHome ? match.teamAway : match.teamHome,
@@ -97,6 +133,11 @@ export default function CoachDetail({
     });
   });
   coachMatches.sort((a: any, b: any) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+  // Matches-tab scope: same season filter as the stats above.
+  const seasonTagForMatches = (coach.seasons || []).find((s: any) => String(s.id) === String(seasonId))?.name;
+  const visibleCoachMatches = isCareerView ? coachMatches : coachMatches.filter((m: any) =>
+    String(m.seasonId) === String(seasonId) ||
+    (seasonTagForMatches != null && (String(m.season) === String(seasonTagForMatches) || String(m.seasonId) === `season-${seasonTagForMatches}`)));
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -216,6 +257,30 @@ export default function CoachDetail({
 
       {activeTab === "overview" && (
         <div className="space-y-4">
+          {(coach.seasons || []).length > 0 && (
+            <div className="flex items-center justify-between gap-3 p-3.5 bg-[#131317] rounded-2xl border border-white/5 flex-wrap">
+              <div className="text-right">
+                <h4 className="font-black text-xs text-slate-200">فصل آمار</h4>
+                <p className="text-[10px] text-slate-500 mt-0.5">کارنامه یعنی جمع همه فصل‌ها؛ هر فصل تفکیک باشگاهی دارد</p>
+              </div>
+              <SeasonSwitcher seasons={coach.seasons} value={seasonId} onChange={setSeasonId} />
+            </div>
+          )}
+
+          {!isCareerView && seasonRows.length > 1 && (
+            <div className="p-4 rounded-2xl bg-[#131317] border border-white/5 space-y-2">
+              <h4 className="font-black text-[11px] text-slate-300">تفکیک باشگاهی این فصل</h4>
+              {seasonRows.map((r: any) => (
+                <div key={r.id} className="flex items-center justify-between gap-2 text-[11px] bg-white/[0.02] border border-white/5 rounded-lg px-3 py-1.5">
+                  <span className="font-bold text-white truncate">{r.teamName || "—"}</span>
+                  <span className="font-mono text-slate-400 shrink-0">
+                    {formatStatNumber(r.matches || 0)} بازی • {formatStatNumber(r.wins || 0)} برد • {formatStatNumber(r.draws || 0)} مساوی • {formatStatNumber(r.losses || 0)} باخت
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
           {coach.biography && (
             <div className="p-4 rounded-2xl bg-[#131317] border border-white/5">
               <h3 className="text-xs font-black text-slate-400 mb-3 flex items-center gap-1.5">
@@ -313,13 +378,18 @@ export default function CoachDetail({
 
       {activeTab === "matches" && (
         <div className="p-4 rounded-2xl bg-[#131317] border border-white/5">
-          <h3 className="font-black text-base text-white border-r-4 border-emerald-500 pr-2 mb-4">
-            ریز کارنامه مسابقات حضور یافته مربی در فصل جاری
-          </h3>
+          <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+            <h3 className="font-black text-base text-white border-r-4 border-emerald-500 pr-2">
+              ریز کارنامه مسابقات حضور یافته مربی در فصل جاری
+            </h3>
+            {(coach.seasons || []).length > 0 && (
+              <SeasonSwitcher seasons={coach.seasons} value={seasonId} onChange={setSeasonId} />
+            )}
+          </div>
 
-          {coachMatches.length > 0 ? (
+          {visibleCoachMatches.length > 0 ? (
             <div className="grid gap-3">
-              {coachMatches.map((m, idx) => (
+              {visibleCoachMatches.map((m, idx) => (
                 <div
                   key={idx}
                   onClick={() => onSelectMatch && onSelectMatch(m.matchId)}
@@ -404,6 +474,18 @@ export default function CoachDetail({
 
       {activeTab === "career" && (
         <div className="space-y-4">
+          {/* Phase 6 spec order: [Transfer History] first, then [Career] */}
+          <MovementTimeline items={coach.movements} title="سوابق ترانسفر باشگاهی" />
+
+          <CareerSection
+            kind="coach"
+            seasonRows={coach.seasonRows}
+            movements={coach.movements}
+            seasons={coach.seasons}
+            currentClubId={coach.teamId}
+            currentClubName={coach.teamName}
+          />
+
           {titles.length > 0 && (
             <div className="p-4 rounded-2xl bg-[#131317] border border-white/5">
               <h3 className="text-xs font-black text-slate-400 mb-3 flex items-center gap-1.5">

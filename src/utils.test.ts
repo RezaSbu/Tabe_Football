@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   toEnglishDigits,
   formatStatNumber,
+  formatJalaliDate,
   normalizePersianString,
   getSafeImageUrl,
   convertGregorianToShamsi,
@@ -183,5 +184,23 @@ describe('computeDynamicAppletStats — live minute persistence', () => {
   it('marks a live match with a stored minute as live', () => {
     const { processedMatches } = computeDynamicAppletStats([liveMatch(2, '46')], [], [], {}, {});
     expect(processedMatches[0].status).toBe('live');
+  });
+});
+
+describe('formatJalaliDate', () => {
+  it('converts the real live movement date 2026-09-23 to 1405/07/01', () => {
+    expect(formatJalaliDate('2026-09-23')).toBe('1405/07/01');
+  });
+
+  it('strips ISO timestamps before converting', () => {
+    expect(formatJalaliDate('2026-09-23T10:00:00.000Z')).toBe('1405/07/01');
+  });
+
+  it('falls back to the raw string for empty or non-date input', () => {
+    expect(formatJalaliDate('')).toBe('');
+    expect(formatJalaliDate(null)).toBe('');
+    expect(formatJalaliDate(undefined)).toBe('');
+    expect(formatJalaliDate('آینده')).toBe('آینده');
+    expect(formatJalaliDate('1405/07/01')).toBe('1405/07/01');
   });
 });

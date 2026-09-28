@@ -2,7 +2,7 @@ import express, { Express, Request, Response } from "express";
 import { db as pgDb } from "../db";
 import { loadDB } from "../state";
 import { logMessage } from "../utils/logger";
-import { saveDB, updateMatchInDb, matchTouchesFinishedStats } from "../services/database";
+import { saveDB, updateMatchInDb, matchTouchesFinishedStats, normalizeSeasonTag, stampMissingCoachIds } from "../services/database";
 import { detectConflict } from "../utils/versioning";
 import { requirePermission } from "../middleware/auth";
 
@@ -56,6 +56,7 @@ export function registerMatchRoutes(app: Express) {
       stage: finalStage,
       status: finalStatus
     };
+    stampMissingCoachIds(item, currentDB);
 
     currentDB[arrKey].unshift(item);
     
@@ -145,13 +146,26 @@ export function registerMatchRoutes(app: Express) {
     const isFutsal = req.body.league === "futsal" || req.body.sport === "futsal";
     const sport = isFutsal ? "futsal" : "football";
     const stage = req.body.status === "live" ? "Now_Games" : (req.body.status === "finished" ? "Finished_Games" : "Feature_Games");
-    
+
+    // Canonical season: the admin form defaults to range labels ("1405-1406")
+    // but stored rows and the seasons table use plain tags ("1405"). Writing
+    // the range form into season_id violates fk_matches_season, so normalize
+    // here (saveDB mapping re-validates as backstop).
+    const seasonTag = normalizeSeasonTag(req.body.season)
+      || normalizeSeasonTag(currentDB.currentSeason)
+      || "1405";
+    const rawSid = req.body.seasonId != null ? String(req.body.seasonId).trim() : "";
+    const seasonId = /^season-\d{4}$/.test(rawSid) ? rawSid : `season-${seasonTag}`;
+
     const item = {
       ...req.body,
+      season: seasonTag,
+      seasonId,
       id: `match-${Date.now()}`,
       sport,
       stage
     };
+    stampMissingCoachIds(item, currentDB);
 
     currentDB[`${sport}_${stage}`].unshift(item);
     await saveDB();

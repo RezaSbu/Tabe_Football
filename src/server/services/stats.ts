@@ -11,7 +11,8 @@ import {
 import type { PlayerIdentityIndex } from "../../shared/playerIdentity";
 import { logMessage } from "../utils/logger";
 import { realMinute } from "../../shared/matchMinute";
-import { resolveTeam, resolveTeamLeague, normalizeLeagueKey } from "../../shared/teamMatch";
+import { resolveTeam, resolveTeamLeague, normalizeLeagueKey, resolveTeamLeagueWithFallback } from "../../shared/teamMatch";
+import { coachOfTeamAt } from "../../shared/coachTenure";
 
 export function calculatePlayerMinutesAndPlayed(
   player: any,
@@ -217,12 +218,50 @@ export function getPlayerCalculatedStatsFromMatches(playerId: string, matches: a
   };
 }
 
-export function getCoachCalculatedStatsFromMatches(coach: any, matches: any[]): { matches: number; wins: number; draws: number; losses: number; goalsFor: number; goalsAgainst: number } {
+export function getCoachCalculatedStatsFromMatches(coach: any, matches: any[], ctx?: { coaches?: any[]; movements?: any[]; teams?: any[]; appointments?: any[] }): { matches: number; wins: number; draws: number; losses: number; goalsFor: number; goalsAgainst: number } {
   const result = { matches: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0 };
   if (!coach) return result;
   const coachId = String(coach.id || "");
-  const coachTeamId = coach.teamId;
-  const normTeamName = normalizePersianString(coach.teamName || "");
+  const tenureCoaches = ((ctx && ctx.coaches) || []).map((c: any) => ({
+    id: String(c.id),
+    teamId: c.teamId != null ? String(c.teamId) : null,
+  }));
+  const tenureMovements = ((ctx && ctx.movements) || []).map((m: any) => ({
+    coachId: m.coachId != null ? String(m.coachId) : null,
+    fromTeamId: m.fromTeamId != null ? String(m.fromTeamId) : null,
+    toTeamId: m.toTeamId != null ? String(m.toTeamId) : null,
+    movementDate: m.movementDate || null,
+  }));
+  const tenureAppointments = ((ctx && ctx.appointments) || []).map((a: any) => ({
+    coachId: a.coachId != null ? String(a.coachId) : null,
+    teamId: a.teamId != null ? String(a.teamId) : null,
+    startDate: a.startDate || null,
+    endDate: a.endDate || null,
+    status: a.status || null,
+  }));
+  const holderOf = (teamId: any, date: any): string | null => {
+    if (teamId == null || teamId === "") return null;
+    // No ledger context (legacy direct callers): keep the old live-mapping
+    // rule so behavior is unchanged outside the recalc.
+    if (tenureCoaches.length === 0) {
+      const coachTeamId = coach.teamId;
+      const normTeamName = normalizePersianString(coach.teamName || "");
+      void date;
+      return null;
+    }
+    return coachOfTeamAt(String(teamId), date, tenureCoaches, tenureMovements, tenureAppointments);
+  };
+
+  const CoachTeamMatchesSide = (teamId: any, teamName: any, date: any): boolean => {
+    let tid = teamId != null && String(teamId).trim() !== "" ? String(teamId) : null;
+    if (!tid && teamName && ctx && Array.isArray(ctx.teams)) {
+      const resolved = resolveTeam(ctx.teams, teamName);
+      if (resolved && resolved.id != null) tid = String(resolved.id);
+    }
+    const holder = holderOf(tid, date);
+    if (holder != null) return holder === coachId;
+    return false;
+  };
 
   (matches || []).forEach((m: any) => {
     if (!m || m.status !== "finished" || m.isAutoFinished || m.archived_stats) return;
@@ -231,10 +270,17 @@ export function getCoachCalculatedStatsFromMatches(coach: any, matches: any[]): 
     let isAway = m.coachAwayId && coachId && String(m.coachAwayId) === coachId;
 
     if (!isHome && !isAway) {
-      isHome = (coachTeamId && m.teamHomeId && String(m.teamHomeId) === String(coachTeamId)) ||
-        (normTeamName && m.teamHome && normalizePersianString(m.teamHome) === normTeamName);
-      isAway = (coachTeamId && m.teamAwayId && String(m.teamAwayId) === String(coachTeamId)) ||
-        (normTeamName && m.teamAway && normalizePersianString(m.teamAway) === normTeamName);
+      if (tenureCoaches.length > 0) {
+        isHome = CoachTeamMatchesSide(m.teamHomeId, m.teamHome, m.date);
+        isAway = !isHome && CoachTeamMatchesSide(m.teamAwayId, m.teamAway, m.date);
+      } else {
+        const coachTeamId = coach.teamId;
+        const normTeamName = normalizePersianString(coach.teamName || "");
+        isHome = (coachTeamId && m.teamHomeId && String(m.teamHomeId) === String(coachTeamId)) ||
+          (normTeamName && m.teamHome && normalizePersianString(m.teamHome) === normTeamName);
+        isAway = (coachTeamId && m.teamAwayId && String(m.teamAwayId) === String(coachTeamId)) ||
+          (normTeamName && m.teamAway && normalizePersianString(m.teamAway) === normTeamName);
+      }
     }
     if (!isHome && !isAway) return;
 
@@ -261,27 +307,9 @@ export function recalculateAndSyncDatabase(): void {
   if (!db.standings) db.standings = {};
 
   const getTeamLeague = (teamId: string, teamName?: string): string => {
-    const resolvedLeague = resolveTeamLeague(db.teams, teamId, teamName);
-    if (resolvedLeague) {
-      return resolvedLeague;
-    }
-
-    const id = (teamId || "").toLowerCase();
-    const name = (teamName || "").toLowerCase();
-    if (id.includes("sungun") || id.includes("giti") || name.includes("فوتسال") || name.includes("سونگون") || name.includes("گیتی")) {
-      return "futsal";
-    }
-    if (id.includes("mesrafsanjan") || id.includes("nassaji") || id.includes("zobahan") || name.includes("نساجی") || name.includes("رفسنجان") || name.includes("ذوب") || id.includes("golgohar") || name.includes("گل‌گهر") || name.includes("گل گهر")) {
-      return "league-1";
-    }
-    const league2Keywords = [
-      "foolad", "فولاد", "نوشهر", "کویر مقوا", "نیروی زمینی", "بعثت", "پاس همدان", "سپیدرود", "چوکا",
-      "داماش", "شاهین بوشهر", "شهرداری بم", "مس نوین", "اترک", "اسپاد", "آریو بهمن", "بابلسر"
-    ];
-    if (league2Keywords.some(keyword => id.includes(keyword) || name.includes(keyword))) {
-      return "league-2";
-    }
-    return "pro-league";
+    // Single source of truth lives in shared/teamMatch (divisionKey, then
+    // the legacy keyword lists, defaulting to pro-league).
+    return resolveTeamLeagueWithFallback(db.teams, teamId, teamName);
   };
 
   const hasActiveTeam = (p: any): boolean => {
@@ -292,6 +320,89 @@ export function recalculateAndSyncDatabase(): void {
   };
 
   logMessage("info", "database", "آغاز عملیات هماهنگ‌سازی بازگشتی آمار بازیکنان، تیم‌ها و لیدربردهای لیگ...");
+
+  // Phase 3 (season history): resolve the current season once. db.seasons is
+  // authoritative; db.currentSeason (system_info mirror) is the fallback.
+  // seasonIdOf normalizes inline (no import from services/database — that
+  // module imports this one, so importing back would be circular).
+  const activeSeasonRow = Array.isArray((db as any).seasons)
+    ? (db as any).seasons.find((s: any) => s && (s.isActive || s.status === "current"))
+    : null;
+  const currentSeasonId: string | null = (activeSeasonRow && activeSeasonRow.id)
+    || (db.currentSeason ? `season-${String(db.currentSeason).replace(/^season-/, "")}` : null);
+  const currentSeasonTag: string | null = (activeSeasonRow && activeSeasonRow.name)
+    || (db.currentSeason ? String(db.currentSeason).replace(/^season-/, "") : null);
+  // Red-team fix (Phase 6): the legacy base* baseline is pinned to the
+  // EARLIEST known season, never the floating current season. Otherwise the
+  // first recalc after a season switch would drain the old season's displayed
+  // numbers and fabricate base numbers into the fresh season — violating
+  // "new season = zero records". career == sum(seasons) still holds exactly
+  // (the base is counted once, in the earliest season).
+  const baseSeasonRow = (() => {
+    const all = Array.isArray((db as any).seasons) ? (db as any).seasons.filter((s: any) => s && s.id) : [];
+    if (all.length === 0) return null;
+    return [...all].sort((a: any, b: any) => String(a.name || a.id).localeCompare(String(b.name || b.id)))[0];
+  })();
+  const baseSeasonId: string | null = (baseSeasonRow && baseSeasonRow.id) || currentSeasonId;
+  const baseSeasonTag: string | null = (baseSeasonRow && baseSeasonRow.name) || currentSeasonTag;
+  const seasonIdOf = (m: any): string | null => {
+    if (!m) return currentSeasonId;
+    if (m.seasonId) return String(m.seasonId);
+    if (m.season_id) return String(m.season_id);
+    const tag = m.season != null ? String(m.season).trim() : "";
+    if (tag) return tag.startsWith("season-") ? tag : `season-${tag}`;
+    return currentSeasonId;
+  };
+  const seasonTagOf = (m: any): string | null => {
+    if (!m) return currentSeasonTag;
+    if (m.season != null && String(m.season).trim()) return String(m.season).trim().replace(/^season-/, "");
+    const sid = seasonIdOf(m);
+    if (sid) return sid.replace(/^season-/, "");
+    return currentSeasonTag;
+  };
+
+  // Per-(entity, season, club) aggregates, accumulated in the SAME pass and
+  // under the SAME gates as the all-time numbers, so season rows always
+  // reconcile with the displayed totals. Flattened to db.playerSeasonStats /
+  // db.coachSeasonStats / db.teamSeasonStats at the end of this function.
+  type SeasonSplit = { matches: number; goals: number; assists: number; cleanSheets: number; yellowCards: number; redCards: number; minutes: number; mvps: number; ratingSum: number; ratingCount: number; averageRating: number | null };
+  const newSeasonSplit = (): SeasonSplit => ({ matches: 0, goals: 0, assists: 0, cleanSheets: 0, yellowCards: 0, redCards: 0, minutes: 0, mvps: 0, ratingSum: 0, ratingCount: 0, averageRating: null });
+  const playerSeasonBuckets = new Map<string, { playerId: string; seasonId: string | null; seasonTag: string | null; clubId: string | null; clubName: string | null; league: SeasonSplit; cup: SeasonSplit }>();
+  const coachSeasonBuckets = new Map<string, { coachId: string; seasonId: string | null; seasonTag: string | null; teamId: string | null; teamName: string | null; matches: number; wins: number; draws: number; losses: number; goalsFor: number; goalsAgainst: number }>();
+  const teamSeasonBuckets = new Map<string, { teamId: string; teamName: string; seasonId: string | null; seasonTag: string | null; played: number; won: number; drawn: number; lost: number; goalsFor: number; goalsAgainst: number; points: number }>();
+  const bucketId = (prefix: string, a: string, s: string | null, c: string | null): string =>
+    `${prefix}-${a}~${s || "noseason"}~${c || "noclub"}`;
+  const bumpTeamSeasonBucket = (teamObj: any, sid: string | null, stag: string | null, scored: number, conceded: number): void => {
+    if (!teamObj || !teamObj.id) return;
+    const key = `${teamObj.id}~${sid || "noseason"}`;
+    let b = teamSeasonBuckets.get(key);
+    if (!b) {
+      b = { teamId: String(teamObj.id), teamName: teamObj.name || "", seasonId: sid, seasonTag: stag, played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 };
+      teamSeasonBuckets.set(key, b);
+    }
+    b.played += 1;
+    b.goalsFor += scored;
+    b.goalsAgainst += conceded;
+    if (scored > conceded) { b.won += 1; b.points += 3; }
+    else if (scored < conceded) { b.lost += 1; }
+    else { b.drawn += 1; b.points += 1; }
+  };
+  const bumpCoachSeasonBucket = (coach: any, teamObj: any, sid: string | null, stag: string | null, scored: number, conceded: number): void => {
+    if (!coach || !coach.id) return;
+    const tid = teamObj && teamObj.id ? String(teamObj.id) : (coach.teamId ? String(coach.teamId) : null);
+    const key = `${coach.id}~${sid || "noseason"}~${tid || "noclub"}`;
+    let b = coachSeasonBuckets.get(key);
+    if (!b) {
+      b = { coachId: String(coach.id), seasonId: sid, seasonTag: stag, teamId: tid, teamName: (teamObj && teamObj.name) || coach.teamName || null, matches: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0 };
+      coachSeasonBuckets.set(key, b);
+    }
+    b.matches += 1;
+    b.goalsFor += scored;
+    b.goalsAgainst += conceded;
+    if (scored > conceded) b.wins += 1;
+    else if (scored < conceded) b.losses += 1;
+    else b.draws += 1;
+  };
 
   // Hoisted: identical for every player (was rebuilt per player inside the loop).
   const nonCupMatchesForBase = (db.matches || []).filter((m: any) => m.league !== "hazfi-cup");
@@ -370,14 +481,52 @@ export function recalculateAndSyncDatabase(): void {
     p.ratingsHistory = [];
   });
 
+  // Team-side equivalent of the player base seeding below: what db.matches
+  // already explain under the SAME gates the loop uses (finished, non-auto,
+  // league only). Base = stored minus that (floored at 0), so matches present
+  // in db can never be counted twice. (The old formula seeded base = stored
+  // in full, which double-counted for any team whose stored stats already
+  // reflected db.matches — see Ario Eslamshahr, the only nonzero-base team.)
+  const calcTeamBase = (teamId: any, teamName: any): { played: number; won: number; drawn: number; lost: number; points: number; goalsFor: number; goalsAgainst: number } => {
+    const out = { played: 0, won: 0, drawn: 0, lost: 0, points: 0, goalsFor: 0, goalsAgainst: 0 };
+    const norm = normalizePersianString(String(teamName || ""));
+    for (const m of nonCupMatchesForBase) {
+      if (!m || m.status !== "finished" || m.isAutoFinished || (m as any).archived_standings) continue;
+      const isHome = (m.teamHomeId != null && String(m.teamHomeId) === String(teamId)) ||
+        (norm !== "" && normalizePersianString(m.teamHome || "") === norm);
+      const isAway = (m.teamAwayId != null && String(m.teamAwayId) === String(teamId)) ||
+        (norm !== "" && normalizePersianString(m.teamAway || "") === norm);
+      if (!isHome && !isAway) continue;
+      const hp = parseInt(String(m.scoreHome), 10) || 0;
+      const ap = parseInt(String(m.scoreAway), 10) || 0;
+      const scored = isHome ? hp : ap;
+      const conceded = isHome ? ap : hp;
+      out.played += 1;
+      out.goalsFor += scored;
+      out.goalsAgainst += conceded;
+      if (scored > conceded) { out.won += 1; out.points += 3; }
+      else if (scored < conceded) { out.lost += 1; }
+      else { out.drawn += 1; out.points += 1; }
+    }
+    return out;
+  };
+
   db.teams.forEach((t: any) => {
-    if (t.basePlayed === undefined) t.basePlayed = parseInt(t.stats?.played) || 0;
-    if (t.baseWon === undefined) t.baseWon = parseInt(t.stats?.won) || 0;
-    if (t.baseDrawn === undefined) t.baseDrawn = parseInt(t.stats?.drawn) || 0;
-    if (t.baseLost === undefined) t.baseLost = parseInt(t.stats?.lost) || 0;
-    if (t.basePoints === undefined) t.basePoints = parseInt(t.stats?.points) || 0;
-    if (t.baseGoalsFor === undefined) t.baseGoalsFor = parseInt(t.stats?.goalsFor) || 0;
-    if (t.baseGoalsAgainst === undefined) t.baseGoalsAgainst = parseInt(t.stats?.goalsAgainst) || 0;
+    const needsTeamBaseSeed =
+      t.basePlayed === undefined || t.baseWon === undefined ||
+      t.baseDrawn === undefined || t.baseLost === undefined ||
+      t.basePoints === undefined || t.baseGoalsFor === undefined ||
+      t.baseGoalsAgainst === undefined;
+    const teamCalc = needsTeamBaseSeed
+      ? calcTeamBase(t.id, t.name)
+      : { played: 0, won: 0, drawn: 0, lost: 0, points: 0, goalsFor: 0, goalsAgainst: 0 };
+    if (t.basePlayed === undefined) t.basePlayed = Math.max(0, (parseInt(t.stats?.played) || 0) - teamCalc.played);
+    if (t.baseWon === undefined) t.baseWon = Math.max(0, (parseInt(t.stats?.won) || 0) - teamCalc.won);
+    if (t.baseDrawn === undefined) t.baseDrawn = Math.max(0, (parseInt(t.stats?.drawn) || 0) - teamCalc.drawn);
+    if (t.baseLost === undefined) t.baseLost = Math.max(0, (parseInt(t.stats?.lost) || 0) - teamCalc.lost);
+    if (t.basePoints === undefined) t.basePoints = Math.max(0, (parseInt(t.stats?.points) || 0) - teamCalc.points);
+    if (t.baseGoalsFor === undefined) t.baseGoalsFor = Math.max(0, (parseInt(t.stats?.goalsFor) || 0) - teamCalc.goalsFor);
+    if (t.baseGoalsAgainst === undefined) t.baseGoalsAgainst = Math.max(0, (parseInt(t.stats?.goalsAgainst) || 0) - teamCalc.goalsAgainst);
 
     t.stats = {
       played: t.basePlayed,
@@ -494,18 +643,42 @@ export function recalculateAndSyncDatabase(): void {
     }
   });
 
-  const coachMapByTeamId: Record<string, any> = {};
   const coachById: Record<string, any> = {};
   db.coaches.forEach((c: any) => {
     coachById[c.id] = c;
-    if (c.teamId) {
-      coachMapByTeamId[c.teamId] = c;
-    }
   });
+
+  // Movement-aware tenure inputs: WHO coached team T on date D, resolved from
+  // the ledger — never from live assignments (a transfer must not rewrite
+  // history on the next recalc). Coaches without any movement rows keep their
+  // current team since -infinity, which degenerates EXACTLY to the old
+  // current-mapping behavior for the 99% untransferred case.
+  // P2: appointment intervals take precedence per team wherever they exist.
+  const tenureCoaches = (db.coaches || []).map((c: any) => ({
+    id: String(c.id),
+    teamId: c.teamId != null ? String(c.teamId) : null,
+  }));
+  const tenureMovements = (db.coachMovements || []).map((m: any) => ({
+    coachId: m.coachId != null ? String(m.coachId) : null,
+    fromTeamId: m.fromTeamId != null ? String(m.fromTeamId) : null,
+    toTeamId: m.toTeamId != null ? String(m.toTeamId) : null,
+    movementDate: m.movementDate || null,
+  }));
+  const tenureAppointments = (db.coachAppointments || []).map((a: any) => ({
+    coachId: a.coachId != null ? String(a.coachId) : null,
+    teamId: a.teamId != null ? String(a.teamId) : null,
+    startDate: a.startDate || null,
+    endDate: a.endDate || null,
+    status: a.status || null,
+  }));
 
   finishedGames.forEach((match: any) => {
     const hp = parseInt(String(match.scoreHome), 10) || 0;
     const ap = parseInt(String(match.scoreAway), 10) || 0;
+    // Canonical season for this match (Phase 1 guarantees season_id on all
+    // stored matches; current season is the defensive fallback only).
+    const sid = seasonIdOf(match);
+    const stag = seasonTagOf(match);
 
     const homeTeam = teamMap[match.teamHome] || teamMap[normalizePersianString(match.teamHome || "")] || teamMap[match.teamHomeId];
     const awayTeam = teamMap[match.teamAway] || teamMap[normalizePersianString(match.teamAway || "")] || teamMap[match.teamAwayId];
@@ -582,12 +755,27 @@ export function recalculateAndSyncDatabase(): void {
             awayTeam.recentForm.push("D");
           }
         }
+        // Season bucket mirrors the exact same gate (league, non-archived):
+        // one row per (team, season), so displayed standings stay the sum.
+        if (homeTeam) bumpTeamSeasonBucket(homeTeam, sid, stag, hp, ap);
+        if (awayTeam) bumpTeamSeasonBucket(awayTeam, sid, stag, ap, hp);
       }
 
-      const homeCoach = (match.coachHomeId && coachById[match.coachHomeId]) ||
-        (homeTeam ? coachMapByTeamId[homeTeam.id] : null) || null;
-      const awayCoach = (match.coachAwayId && coachById[match.coachAwayId]) ||
-        (awayTeam ? coachMapByTeamId[awayTeam.id] : null) || null;
+      // Coach identity: stamped match ids first, then movement-aware tenure
+      // (who held this team on this date). Deliberately NO live-mapping
+      // fallback: resolving via current assignments is what rewrote history
+      // on every post-transfer recalc.
+      const resolveSideCoach = (stampedId: any, teamObj: any): any | null => {
+        if (stampedId != null && String(stampedId).trim() !== "" && coachById[String(stampedId)]) {
+          return coachById[String(stampedId)];
+        }
+        const tid = teamObj && teamObj.id != null ? String(teamObj.id) : null;
+        if (!tid) return null;
+        const holderId = coachOfTeamAt(tid, match.date, tenureCoaches, tenureMovements, tenureAppointments);
+        return (holderId && coachById[holderId]) || null;
+      };
+      const homeCoach = resolveSideCoach(match.coachHomeId, homeTeam);
+      const awayCoach = resolveSideCoach(match.coachAwayId, awayTeam);
       if (!match.archived_stats && (homeCoach || awayCoach)) {
         [homeCoach, awayCoach].forEach((coach) => {
           if (coach) {
@@ -636,6 +824,11 @@ export function recalculateAndSyncDatabase(): void {
             awayCoach.recentForm.push("D");
           }
         }
+        // Season buckets mirror the exact same scope: structurally inside the
+        // standings gate AND the archived_stats gate, cups included — one row
+        // per (coach, season, team), reconciling with coach.seasonStats.
+        if (homeCoach) bumpCoachSeasonBucket(homeCoach, homeTeam, sid, stag, hp, ap);
+        if (awayCoach) bumpCoachSeasonBucket(awayCoach, awayTeam, sid, stag, ap, hp);
       }
     }
 
@@ -784,7 +977,7 @@ export function recalculateAndSyncDatabase(): void {
         const pObj = playerMap[pId];
         if (pObj) {
           const stats = playerStatsOnMatch[pId];
-          const isCup = match.league === "hazfi-cup";
+    const isCup = match.league === "hazfi-cup";
           const isGK = typeof pObj.position === "string" && pObj.position.includes("دروازه");
           const pMemberships = membershipsByPlayer.get(String(pObj.id)) || [];
 
@@ -855,14 +1048,42 @@ export function recalculateAndSyncDatabase(): void {
          pObj.seasonStats.redCards = (pObj.seasonStats.redCards || 0) + stats.red;
          pObj.seasonStats.cleanSheets = (pObj.seasonStats.cleanSheets || 0) + cleanSheetCount;
          pObj.seasonStats.minutes = (pObj.seasonStats.minutes || 0) + stats.minutes;
-         pObj.seasonStats.mvps = (pObj.seasonStats.mvps || 0) + (isMvp ? 1 : 0);
+          pObj.seasonStats.mvps = (pObj.seasonStats.mvps || 0) + (isMvp ? 1 : 0);
 
-         const oppTeam = isHome ? match.teamAway : match.teamHome;
+          // Season bucket: the club is the side actually played for in THIS
+          // match (not the player's current club), so mid-season transfers
+          // split correctly across clubs. League/cup split preserved.
+          const playedClub = isHome === true ? homeTeam : isHome === false ? awayTeam : null;
+          const playedClubId = playedClub && playedClub.id ? String(playedClub.id) : null;
+          const playedClubName = (playedClub && playedClub.name) || null;
+          const psKey = `${pObj.id}~${sid || "noseason"}~${playedClubId || "noclub"}`;
+          let psb = playerSeasonBuckets.get(psKey);
+          if (!psb) {
+            psb = { playerId: String(pObj.id), seasonId: sid, seasonTag: stag, clubId: playedClubId, clubName: playedClubName, league: newSeasonSplit(), cup: newSeasonSplit() };
+            playerSeasonBuckets.set(psKey, psb);
+          }
+          const psSplit = isCup ? psb.cup : psb.league;
+          psSplit.matches += 1;
+          psSplit.goals += stats.goals;
+          psSplit.assists += stats.assists;
+          psSplit.yellowCards += stats.yellow;
+          psSplit.redCards += stats.red;
+          psSplit.cleanSheets += cleanSheetCount;
+          psSplit.minutes += stats.minutes;
+          psSplit.mvps += isMvp ? 1 : 0;
+          if (ratingVal != null) {
+            psSplit.ratingSum += ratingVal;
+            psSplit.ratingCount += 1;
+            psSplit.averageRating = parseFloat((psSplit.ratingSum / psSplit.ratingCount).toFixed(1));
+          }
+
+          const oppTeam = isHome ? match.teamAway : match.teamHome;
 
           const alreadyIn = pObj.ratingsHistory.some((item: any) => item.matchId === match.id);
           if (!alreadyIn) {
             pObj.ratingsHistory.push({
               matchId: match.id,
+              seasonId: sid,
               matchOpponent: oppTeam,
               isCup: isCup,
               rating: ratingVal,
@@ -1097,6 +1318,120 @@ export function recalculateAndSyncDatabase(): void {
       }
     }
   });
+
+  // Legacy baseline attribution (Option B, pinned): base* values capture
+  // matches NOT present in db.matches. The baseline is pinned to the earliest
+  // known season (baseSeasonId) — the same attribution the displayed all-time
+  // numbers already use. This keeps the invariant career == sum(seasons) exact
+  // for every entity AND keeps fresh seasons at true zero.
+  if (baseSeasonId) {
+    db.players.forEach((p: any) => {
+      const bM = p.baseMatches || 0, bG = p.baseGoals || 0, bA = p.baseAssists || 0;
+      const bCS = p.baseCleanSheets || 0, bY = p.baseYellowCards || 0, bR = p.baseRedCards || 0;
+      if (!bM && !bG && !bA && !bCS && !bY && !bR) return;
+      const clubId = p.teamId ? String(p.teamId) : null;
+      const key = `${p.id}~${baseSeasonId}~${clubId || "noclub"}`;
+      let b = playerSeasonBuckets.get(key);
+      if (!b) {
+        b = { playerId: String(p.id), seasonId: baseSeasonId, seasonTag: baseSeasonTag, clubId, clubName: p.teamName || null, league: newSeasonSplit(), cup: newSeasonSplit() };
+        playerSeasonBuckets.set(key, b);
+      }
+      // Base was seeded against non-cup matches only -> league split.
+      b.league.matches += bM;
+      b.league.goals += bG;
+      b.league.assists += bA;
+      b.league.cleanSheets += bCS;
+      b.league.yellowCards += bY;
+      b.league.redCards += bR;
+      b.league.minutes += bM * 90;
+    });
+    db.teams.forEach((t: any) => {
+      const bP = t.basePlayed || 0, bW = t.baseWon || 0, bD = t.baseDrawn || 0;
+      const bL = t.baseLost || 0, bPts = t.basePoints || 0;
+      const bGF = t.baseGoalsFor || 0, bGA = t.baseGoalsAgainst || 0;
+      if (!bP && !bW && !bD && !bL && !bPts && !bGF && !bGA) return;
+      const key = `${t.id}~${baseSeasonId}`;
+      let b = teamSeasonBuckets.get(key);
+      if (!b) {
+        b = { teamId: String(t.id), teamName: t.name || "", seasonId: baseSeasonId, seasonTag: baseSeasonTag, played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 };
+        teamSeasonBuckets.set(key, b);
+      }
+      b.played += bP; b.won += bW; b.drawn += bD; b.lost += bL;
+      b.points += bPts; b.goalsFor += bGF; b.goalsAgainst += bGA;
+    });
+    db.coaches.forEach((c: any) => {
+      const bM = c.baseMatches || 0, bW = c.baseWins || 0, bD = c.baseDraws || 0, bL = c.baseLosses || 0;
+      if (!bM && !bW && !bD && !bL) return;
+      const tid = c.teamId ? String(c.teamId) : null;
+      const key = `${c.id}~${baseSeasonId}~${tid || "noclub"}`;
+      let b = coachSeasonBuckets.get(key);
+      if (!b) {
+        b = { coachId: String(c.id), seasonId: baseSeasonId, seasonTag: baseSeasonTag, teamId: tid, teamName: c.teamName || null, matches: 0, wins: 0, draws: 0, losses: 0, goalsFor: 0, goalsAgainst: 0 };
+        coachSeasonBuckets.set(key, b);
+      }
+      b.matches += bM; b.wins += bW; b.draws += bD; b.losses += bL;
+    });
+  }
+
+  // Flatten buckets to the durable memory arrays (persisted by saveDB).
+  const finSplit = (s: SeasonSplit) => ({ matches: s.matches, goals: s.goals, assists: s.assists, cleanSheets: s.cleanSheets, yellowCards: s.yellowCards, redCards: s.redCards, minutes: s.minutes, mvps: s.mvps, ratingSum: s.ratingSum, ratingCount: s.ratingCount, averageRating: s.averageRating });
+  const nowIso = new Date().toISOString();
+  db.playerSeasonStats = [...playerSeasonBuckets.values()].map((b) => {
+    const rSum = b.league.ratingSum + b.cup.ratingSum;
+    const rCount = b.league.ratingCount + b.cup.ratingCount;
+    return {
+      id: bucketId("pss", b.playerId, b.seasonId, b.clubId),
+      playerId: b.playerId,
+      season: b.seasonTag,
+      seasonId: b.seasonId,
+      teamId: b.clubId,
+      teamName: b.clubName,
+      matches: b.league.matches + b.cup.matches,
+      goals: b.league.goals + b.cup.goals,
+      assists: b.league.assists + b.cup.assists,
+      cleanSheets: b.league.cleanSheets + b.cup.cleanSheets,
+      yellowCards: b.league.yellowCards + b.cup.yellowCards,
+      redCards: b.league.redCards + b.cup.redCards,
+      minutes: b.league.minutes + b.cup.minutes,
+      avgRating: rCount > 0 ? parseFloat((rSum / rCount).toFixed(1)) : null,
+      ratings: { count: rCount, sum: parseFloat(rSum.toFixed(1)) },
+      leagueStats: finSplit(b.league),
+      cupStats: finSplit(b.cup),
+      createdAt: nowIso
+    };
+  });
+  db.coachSeasonStats = [...coachSeasonBuckets.values()].map((b) => ({
+    id: bucketId("css", b.coachId, b.seasonId, b.teamId),
+    coachId: b.coachId,
+    season: b.seasonTag,
+    seasonId: b.seasonId,
+    teamId: b.teamId,
+    teamName: b.teamName,
+    matches: b.matches,
+    wins: b.wins,
+    draws: b.draws,
+    losses: b.losses,
+    goalsFor: b.goalsFor,
+    goalsAgainst: b.goalsAgainst,
+    winRate: b.matches > 0 ? parseFloat(((b.wins / b.matches) * 100).toFixed(1)) : 0,
+    createdAt: nowIso
+  }));
+  db.teamSeasonStats = [...teamSeasonBuckets.values()].map((b) => ({
+    id: `tss-${b.teamId}~${b.seasonId || "noseason"}`,
+    teamId: b.teamId,
+    teamName: b.teamName,
+    season: b.seasonTag,
+    seasonId: b.seasonId,
+    played: b.played,
+    won: b.won,
+    drawn: b.drawn,
+    lost: b.lost,
+    goalsFor: b.goalsFor,
+    goalsAgainst: b.goalsAgainst,
+    points: b.points,
+    rank: null,
+    createdAt: nowIso
+  }));
 
   logMessage("info", "database", "هماهنگ‌سازی بازگشتی با موفقیت تمام شد و تمام جداول بروز شدند.");
 }

@@ -6,6 +6,7 @@ import {
 import { StandingRow } from "../types";
 import { getSafeImageUrl, convertGregorianToShamsi, formatStatNumber, normalizePersianString } from "../utils";
 import TeamLogo from "./TeamLogo";
+import SeasonSwitcher, { defaultSeasonValue } from "./SeasonSwitcher";
 
 interface TeamDetailProps {
   team: any;
@@ -36,6 +37,8 @@ export default function TeamDetail({
 }: TeamDetailProps) {
   const [activeSubTab, setActiveSubTab] = useState<"overview" | "fixtures" | "squad">("overview");
   const [statsCompet, setStatsCompet] = useState<"league" | "cup">("league");
+  // Phase 5: per-season view ("career" = all-time league/cup toggles).
+  const [seasonId, setSeasonId] = useState<string>(() => defaultSeasonValue(team?.seasons, true));
   const [fetchedTeamNews, setFetchedTeamNews] = useState<any[]>([]);
   const [loadingNews, setLoadingNews] = useState(false);
 
@@ -43,6 +46,7 @@ export default function TeamDetail({
     if (team && (team.sport === "futsal" || team.league === "futsal" || team.id?.startsWith("futsal-") || team.id?.includes("futsal") || (team.name || "").includes("فوتسال"))) {
       setStatsCompet("league");
     }
+    setSeasonId(defaultSeasonValue(team?.seasons, true));
     
     // Fetch related news from server
     if (team?.id) {
@@ -65,6 +69,14 @@ export default function TeamDetail({
   if (!team) return null;
 
   const teamName = team.name || "";
+  // Phase 5: one row per (team, season); career keeps the all-time toggles.
+  const isCareerView = seasonId === "career";
+  const seasonRow = !isCareerView ? ((team.seasonRows || []).find((r: any) => String(r.seasonId) === String(seasonId)) || null) : null;
+  const seasonTag = (team.seasons || []).find((s: any) => String(s.id) === String(seasonId))?.name;
+  const inSeason = (m: any) =>
+    isCareerView ||
+    String(m.seasonId) === String(seasonId) ||
+    (seasonTag != null && (String(m.season) === String(seasonTag) || String(m.seasonId) === `season-${seasonTag}`));
 
   // Resolve founded dynamically if missing
   let founded = team.founded || "";
@@ -166,7 +178,7 @@ export default function TeamDetail({
 
   // Group matches chronologically using robust dateTime calculation
   const finishedMatches = [...teamMatches]
-    .filter(m => m.status === "finished")
+    .filter(m => m.status === "finished" && inSeason(m))
     .sort((a, b) => {
       const tA = parseDateTimeRobust(a);
       const tB = parseDateTimeRobust(b);
@@ -175,7 +187,7 @@ export default function TeamDetail({
     });
 
   const upcomingMatches = [...teamMatches]
-    .filter(m => m.status !== "finished")
+    .filter(m => m.status !== "finished" && inSeason(m))
     .sort((a, b) => parseDateTimeRobust(a) - parseDateTimeRobust(b));
 
   // Dynamic MVP calculation from all finished matches
@@ -331,9 +343,12 @@ export default function TeamDetail({
 
               {/* Dynamic stats calculations overview */}
               {(() => {
-                const targetStats = statsCompet === "cup" 
-                  ? (team.cupStats || { played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 }) 
-                  : (team.stats || { played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 });
+                // Season buckets hold league data only; career keeps both toggles.
+                const targetStats = seasonRow
+                  ? { played: seasonRow.played, won: seasonRow.won, drawn: seasonRow.drawn, lost: seasonRow.lost, goalsFor: seasonRow.goalsFor, goalsAgainst: seasonRow.goalsAgainst, points: seasonRow.points }
+                  : (statsCompet === "cup"
+                    ? (team.cupStats || { played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 })
+                    : (team.stats || { played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 }));
                 
                 return (
                   <div className="space-y-4 pt-4">
@@ -342,7 +357,12 @@ export default function TeamDetail({
                         <Activity className="h-4.5 w-4.5 text-emerald-500" />
                         <span>عملکرد آماری و فنی در بازی‌ها</span>
                       </h3>
+
+                      {(team.seasons || []).length > 0 && (
+                        <SeasonSwitcher seasons={team.seasons} value={seasonId} onChange={setSeasonId} />
+                      )}
                       
+                      {isCareerView && (
                       <div className="flex gap-1.5 p-0.5 rounded-xl bg-black/40 border border-white/5 select-none text-[10px]">
                         <button
                           type="button"
@@ -361,6 +381,7 @@ export default function TeamDetail({
                           </button>
                         )}
                       </div>
+                      )}
                     </div>
                     
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
@@ -579,6 +600,14 @@ export default function TeamDetail({
                           }`}>
                             {outcome === "W" ? "برد" : outcome === "D" ? "تساوی" : "باخت"}
                           </span>
+                          {(m.tag === "اعمال نشده" || m.isAutoFinished) && (
+                            <span
+                              className="px-2 py-0.5 rounded text-[10px] font-black bg-slate-800 text-slate-400 border border-white/10"
+                              title="این بازی بدون ثبت نتیجه توسط سیستم بسته شده و در جدول و آمار محاسبه نمی‌شود"
+                            >
+                              اعمال نشده در جدول
+                            </span>
+                          )}
                           <span className="font-black text-white text-xs bg-black/45 px-2.5 py-1 rounded-lg border border-white/5">
                             {formatStatNumber(homeG)} - {formatStatNumber(awayG)}
                           </span>

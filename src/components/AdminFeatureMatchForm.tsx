@@ -13,12 +13,13 @@ const normalizeWeekLabel = (w?: string): string => {
 };
 
 const formatSeasonDefault = (currentSeason?: string): string => {
-  if (!currentSeason) return "1404-1405";
+  // Canonical plain tag ("1405"), matching stored rows and the seasons table.
+  // Range labels ("1405-1406") are still accepted anywhere (normalized
+  // server-side) but are no longer the default.
+  if (!currentSeason) return "1405";
   const en = currentSeason.replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
   const m = en.match(/\d{4}/);
-  if (!m) return currentSeason;
-  const start = parseInt(m[0], 10);
-  return `${formatStatNumber(String(start))}-${formatStatNumber(String(start + 1))}`;
+  return m ? m[0] : "1405";
 };
 
 interface AdminFeatureMatchFormProps {

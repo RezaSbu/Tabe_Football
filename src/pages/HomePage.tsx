@@ -11,6 +11,7 @@ import AdSlot, { isAdActive } from "../components/AdSlot";
 import AdBannerWidget from "../components/AdBannerWidget";
 import { AdItem } from "../types";
 import { formatStatNumber } from "../utils";
+import { sortNewsNewestFirst } from "../shared/newsSort";
 
 interface HomePageProps {
   matches: any[];
@@ -112,14 +113,16 @@ export default function HomePage({
   ];
 
   const mainCategories = ["pro-league", "league-1", "league-2", "hazfi-cup"];
-  const filteredNewsList = news.filter((art) => {
+  // Newest-first is THE rule for latest-news surfaces (single shared
+  // comparator with id tiebreak — the raw prop order is PG heap order).
+  const filteredNewsList = sortNewsNewestFirst(news.filter((art) => {
     const matchesSearch = art.title.toLowerCase().includes(newsSearch.toLowerCase()) ||
       art.summary.toLowerCase().includes(newsSearch.toLowerCase()) ||
       art.tags.some((t: string) => t.toLowerCase().includes(newsSearch.toLowerCase()));
     const matchesCat = newsCategoryFilter === "all" ||
       (newsCategoryFilter === "other" ? !mainCategories.includes(art.category) : art.category === newsCategoryFilter);
     return matchesSearch && matchesCat;
-  });
+  }));
 
   return (
     <div className="space-y-6" dir="rtl" id="home-dashboard-container">

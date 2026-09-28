@@ -246,6 +246,16 @@ export function registerTeamRoutes(app: Express) {
       }
       const updatedPlayer = { ...existingPlayer, ...req.body, updatedAt: new Date().toISOString() };
 
+      // Lifecycle guard: team changes must flow through the movement API
+      // (ledger + atomicity). Direct teamId edits would fork the ledger.
+      if (req.body.teamId !== undefined && String(req.body.teamId || "") !== String(existingPlayer.teamId || "")) {
+        return res.status(409).json({
+          success: false,
+          bypass: true,
+          message: "تغییر تیم باید از مسیر انتقال باشگاهی ثبت شود تا تاریخچه حفظ شود.",
+        });
+      }
+
       const matchesList = currentDB.matches || [];
       const matchStats = getPlayerCalculatedStatsFromMatches(String(updatedPlayer.id), matchesList, currentDB.players);
 
@@ -293,6 +303,11 @@ export function registerTeamRoutes(app: Express) {
   app.delete("/api/players/:id", requirePermission("players"), async (req: Request, res: Response) => {
     const currentDB = loadDB();
     currentDB.players = currentDB.players.filter((p: any) => p.id !== req.params.id);
+    // Mirror ON DELETE CASCADE: movement ledger is append-only in saveDB, so
+    // drop this player's rows from memory or the FK would reject the save.
+    if (Array.isArray(currentDB.playerMovements)) {
+      currentDB.playerMovements = currentDB.playerMovements.filter((m: any) => String(m.playerId) !== String(req.params.id));
+    }
     await saveDB();
     res.json({ success: true });
   });
@@ -355,12 +370,27 @@ export function registerTeamRoutes(app: Express) {
       }
       const updatedCoach = { ...currentDB.coaches[index], ...req.body, updatedAt: new Date().toISOString() };
 
+      // Lifecycle guard: team changes must flow through the movement API
+      // (ledger + atomicity + occupancy). Direct teamId edits would fork
+      // the ledger and bypass the unique-dugout rule.
+      if (req.body.teamId !== undefined && String(req.body.teamId || "") !== String(prevCoach.teamId || "")) {
+        return res.status(409).json({
+          success: false,
+          bypass: true,
+          message: "تغییر تیم مربی باید از مسیر انتقال/انتصاب ثبت شود تا تاریخچه حفظ شود.",
+        });
+      }
+
       const enteredMatches = parseInt(updatedCoach.seasonStats?.matches) || 0;
       const enteredWins = parseInt(updatedCoach.seasonStats?.wins) || 0;
       const enteredDraws = parseInt(updatedCoach.seasonStats?.draws) || 0;
       const enteredLosses = parseInt(updatedCoach.seasonStats?.losses) || 0;
 
-      const coachCalc = getCoachCalculatedStatsFromMatches(updatedCoach, currentDB.matches || []);
+      const coachCalc = getCoachCalculatedStatsFromMatches(updatedCoach, currentDB.matches || [], {
+        coaches: currentDB.coaches || [],
+        movements: currentDB.coachMovements || [],
+        teams: currentDB.teams || [],
+      });
       updatedCoach.baseMatches = Math.max(0, enteredMatches - coachCalc.matches);
       updatedCoach.baseWins = Math.max(0, enteredWins - coachCalc.wins);
       updatedCoach.baseDraws = Math.max(0, enteredDraws - coachCalc.draws);
@@ -427,6 +457,10 @@ export function registerTeamRoutes(app: Express) {
       }
     }
     currentDB.coaches = currentDB.coaches.filter((c: any) => c.id !== req.params.id);
+    // Mirror ON DELETE CASCADE (see player delete above).
+    if (Array.isArray(currentDB.coachMovements)) {
+      currentDB.coachMovements = currentDB.coachMovements.filter((m: any) => String(m.coachId) !== String(req.params.id));
+    }
     await saveDB();
     res.json({ success: true });
   });

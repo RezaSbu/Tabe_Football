@@ -2,6 +2,9 @@ import React, { useState, useRef, useEffect } from "react";
 import { Flame, Zap, Award, X, List, Star } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { StatsData } from "../types";
+import { resolveTeam, resolveTeamLeagueWithFallback, normalizeLeagueKey } from "../shared/teamMatch";
+import SeasonSwitcher, { defaultSeasonValue } from "../components/SeasonSwitcher";
+import { useSeasons, useSeasonData } from "../hooks/useSeasonData";
 
 interface StatsPageProps {
   stats: Record<string, StatsData>;
@@ -9,6 +12,8 @@ interface StatsPageProps {
   setSelectedLeagueFilterOnStats: (s: string) => void;
   currentSeason: string;
   formatStatNumber: (s: string) => string;
+  teams?: any[];
+  players?: any[];
 }
 
 const VISIBLE_DEFAULT = 10;
@@ -139,11 +144,101 @@ export default function StatsPage({
   setSelectedLeagueFilterOnStats,
   currentSeason,
   formatStatNumber,
+  teams = [],
+  players = [],
 }: StatsPageProps) {
   const navigate = useNavigate();
 
+  // Phase 5: per-season leaders from the season tables ("career" = the
+  // all-time leaderboards, previous behavior). Team scope uses the played-for
+  // club with the shared league mapping (single source of truth).
+  const seasons = useSeasons();
+  const [seasonId, setSeasonId] = useState("");
+  useEffect(() => {
+    if (!seasonId && seasons.length > 0) setSeasonId(defaultSeasonValue(seasons, true));
+  }, [seasons, seasonId]);
+  const isCareerView = seasonId === "career" || !seasonId;
+  const { playerRows, loading: seasonLoading } = useSeasonData(isCareerView ? null : seasonId);
+
+  const buildSeasonLeaders = (): StatsData | null => {
+    if (isCareerView || seasonLoading) return null;
+    const useCup = selectedLeagueFilterOnStats === "hazfi-cup";
+    const split = useCup ? "cupStats" : "leagueStats";
+    const wantLeague = useCup ? null : normalizeLeagueKey(selectedLeagueFilterOnStats);
+    // Same convention as the server leaderboards: eligibility AND display
+    // club are the player's CURRENT club; only numbers are season-scoped.
+    const pById = new Map<string, any>();
+    for (const p of players || []) {
+      if (p && p.id != null && !pById.has(String(p.id))) pById.set(String(p.id), p);
+    }
+    const currentClubOf = (pid: string): any | null => {
+      const p = pById.get(String(pid));
+      if (!p) return null;
+      if (!p.teamId && !p.teamName) return null;
+      const nm = String(p.teamName || "");
+      if (!nm || nm === "بازیکن آزاد" || nm === "بدون باشگاه") return null;
+      return resolveTeam(teams, p.teamId || p.teamName) || null;
+    };
+    const byId = new Map<string, any>();
+    for (const r of playerRows) {
+      if (!r || r.playerId == null) continue;
+      const s = r[split] || {};
+      const g = Number(s.goals) || 0, a = Number(s.assists) || 0, cs = Number(s.cleanSheets) || 0;
+      const rs = Number(s.ratingSum) || 0, rc = Number(s.ratingCount) || 0;
+      if (g === 0 && a === 0 && cs === 0 && rc === 0) continue;
+      let agg = byId.get(String(r.playerId));
+      if (!agg) {
+        agg = { id: String(r.playerId), goals: 0, assists: 0, cleanSheets: 0, ratingSum: 0, ratingCount: 0 };
+        byId.set(String(r.playerId), agg);
+      }
+      agg.goals += g;
+      agg.assists += a;
+      agg.cleanSheets += cs;
+      agg.ratingSum += rs;
+      agg.ratingCount += rc;
+    }
+    const all: any[] = [];
+    for (const agg of byId.values()) {
+      const club = currentClubOf(agg.id);
+      if (useCup) {
+        if (agg.goals === 0 && agg.assists === 0 && agg.cleanSheets === 0) continue;
+      } else {
+        if (!club) continue;
+        if (normalizeLeagueKey(resolveTeamLeagueWithFallback(teams, club.id, club.name)) !== wantLeague) continue;
+        if (agg.goals === 0 && agg.assists === 0 && agg.cleanSheets === 0 && agg.ratingCount === 0) continue;
+      }
+      const p = pById.get(agg.id);
+      all.push({ ...agg, name: p?.name || "", team: club ? club.name : (p?.teamName || "") });
+    }
+    const posById = new Map<string, string>();
+    for (const p of players || []) {
+      if (p && p.id != null && !posById.has(String(p.id))) posById.set(String(p.id), p.position || "");
+    }
+    const withRank = (arr: any[], key: string, extra: (a: any) => any) =>
+      arr
+        .filter((a: any) => Number(a[key]) > 0)
+        .sort((x: any, y: any) => Number(y[key]) - Number(x[key]))
+        .map((a: any, idx: number) => ({ rank: idx + 1, id: a.id, name: a.name, team: a.team, ...extra(a) }));
+    return {
+      scorers: withRank(all, "goals", (a) => ({ goals: a.goals, penalties: 0 })),
+      assists: withRank(all, "assists", (a) => ({ assists: a.assists })),
+      cleansheets: withRank(
+        all.filter((a: any) => String(posById.get(a.id) || "").includes("دروازه")),
+        "cleanSheets",
+        (a) => ({ cleanSheets: a.cleanSheets })
+      ),
+      ratings: all
+        .filter((a: any) => a.ratingCount > 0)
+        .map((a: any) => ({ ...a, rating: parseFloat((a.ratingSum / a.ratingCount).toFixed(1)) }))
+        .filter((a: any) => a.rating > 0)
+        .sort((a: any, b: any) => b.rating - a.rating)
+        .map((a: any, idx: number) => ({ rank: idx + 1, id: a.id, name: a.name, team: a.team, rating: a.rating })),
+    } as StatsData;
+  };
+
+  const seasonLeaders = buildSeasonLeaders();
   // Current-season only: no archived seasons anymore.
-  const activeStatsData = stats[selectedLeagueFilterOnStats] || null;
+  const activeStatsData = seasonLeaders || stats[selectedLeagueFilterOnStats] || null;
 
   return (
     <div
@@ -163,9 +258,13 @@ export default function StatsPage({
 
         <div className="flex items-center gap-2 bg-slate-950/50 border border-white/5 rounded-xl px-3 py-1.5 w-fit text-xs text-slate-300">
           <span className="text-gray-400 font-bold">فصل رقابت‌ها:</span>
-          <span className="text-white font-extrabold">
-            فصل جاری ({formatStatNumber(currentSeason)})
-          </span>
+          {seasons.length > 0 ? (
+            <SeasonSwitcher seasons={seasons} value={seasonId || "career"} onChange={setSeasonId} />
+          ) : (
+            <span className="text-white font-extrabold">
+              فصل جاری ({formatStatNumber(currentSeason)})
+            </span>
+          )}
         </div>
       </div>
 

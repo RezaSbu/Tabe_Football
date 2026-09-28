@@ -10,6 +10,37 @@ import {
 import { VIEW_MULTIPLIER } from "../config";
 
 export function registerDetailRoutes(app: Express) {
+  // Phase 5: slim season/history embeds for profile pages. All reads come
+  // from memory (populated by recalc + fetch); team/season names are resolved
+  // server-side so clients never need extra lookups.
+  const slimSeasons = (db: any) =>
+    (db.seasons || []).map((s: any) => ({ id: s.id, name: s.name, label: s.label || null, isActive: !!s.isActive, status: s.status || null }));
+  const teamNameOf = (db: any, id: any): string | null => {
+    if (id == null || id === "") return null;
+    const t = (db.teams || []).find((t: any) => String(t.id) === String(id));
+    return t ? t.name || null : null;
+  };
+  const seasonOf = (db: any, seasonId: any): { seasonName: string | null; seasonLabel: string | null } => {
+    if (!seasonId) return { seasonName: null, seasonLabel: null };
+    const s = (db.seasons || []).find((s: any) => String(s.id) === String(seasonId));
+    if (!s) return { seasonName: null, seasonLabel: null };
+    return { seasonName: s.name || null, seasonLabel: s.label || null };
+  };
+  const withNames = (db: any, m: any) => ({
+    ...m,
+    fromTeamName: teamNameOf(db, m.fromTeamId),
+    toTeamName: teamNameOf(db, m.toTeamId),
+    ...seasonOf(db, m.seasonId),
+  });
+  // Coach season rows enriched with the played-for club's same-season team
+  // record (points/rank for Championship context). In-memory only.
+  const coachSeasonWithTeam = (db: any, rows: any[]) =>
+    rows.map((r: any) => {
+      const t = (db.teamSeasonStats || []).find(
+        (x: any) => String(x.seasonId) === String(r.seasonId) && String(x.teamId) === String(r.teamId)
+      );
+      return t ? { ...r, teamPoints: t.points, teamRank: t.rank, teamPlayed: t.played } : r;
+    });
   app.post("/api/detail/:type/:id/view", async (req: Request, res: Response) => {
     if (VIEW_BOT_RE.test(req.headers["user-agent"] || "")) {
       return res.json({ success: true, skipped: true });
@@ -126,7 +157,7 @@ export function registerDetailRoutes(app: Express) {
         })
         .sort((a: any, b: any) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
         .slice(0, 3);
-      res.json({ success: true, data: { ...item, players: teamPlayers, coaches: teamCoaches, news: teamNews } });
+      res.json({ success: true, data: { ...item, players: teamPlayers, coaches: teamCoaches, news: teamNews, seasonRows: (db.teamSeasonStats || []).filter((r: any) => String(r.teamId) === String(req.params.id)), seasons: slimSeasons(db) } });
     } else {
       res.status(404).json({ success: false, message: "تیم یافت نشد." });
     }
@@ -178,7 +209,9 @@ export function registerDetailRoutes(app: Express) {
       });
 
       playerMatches.sort((a: any, b: any) => String(b.date || "").localeCompare(String(a.date || "")));
-      res.json({ success: true, data: { ...item, relatedMatches: playerMatches.slice(0, 20) } });
+      const seasonRows = (db.playerSeasonStats || []).filter((r: any) => String(r.playerId) === String(req.params.id));
+      const movements = (db.playerMovements || []).filter((m: any) => String(m.playerId) === String(req.params.id)).map((m: any) => withNames(db, m));
+      res.json({ success: true, data: { ...item, relatedMatches: playerMatches.slice(0, 20), seasonRows, movements, seasons: slimSeasons(db) } });
     } else {
       res.status(404).json({ success: false, message: "بازیکن یافت نشد." });
     }
@@ -247,7 +280,9 @@ export function registerDetailRoutes(app: Express) {
     const db = loadDB();
     const item = (db.coaches || []).find((c: any) => String(c.id) === String(req.params.id));
     if (item) {
-      res.json({ success: true, data: item });
+      const seasonRows = coachSeasonWithTeam(db, (db.coachSeasonStats || []).filter((r: any) => String(r.coachId) === String(req.params.id)));
+      const movements = (db.coachMovements || []).filter((m: any) => String(m.coachId) === String(req.params.id)).map((m: any) => withNames(db, m));
+      res.json({ success: true, data: { ...item, teamName: item.teamName || teamNameOf(db, item.teamId), seasonRows, movements, seasons: slimSeasons(db) } });
     } else {
       res.status(404).json({ success: false, message: "مربی یافت نشد." });
     }
