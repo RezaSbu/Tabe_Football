@@ -1150,7 +1150,10 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
         category: n.category,
         tags: Array.isArray(n.tags) ? n.tags.map((t: any) => fixMojibake(String(t))) : (typeof n.tags === 'string' ? n.tags.replace(/[{}]/g, '').split(',').map((x: any) => fixMojibake(x.trim())).filter(Boolean) : []),
         viewCount: n.view_count || 0,
-        createdAt: n.created_at
+        // Normalize to ISO strings: node-pg returns timestamptz as Date
+        // objects whose String() form ("Tue Sep 16...") does NOT sort
+        // chronologically. Uniform strings keep every newest-first sort exact.
+        createdAt: n.created_at instanceof Date ? n.created_at.toISOString() : (n.created_at || null)
       }));
     }
 

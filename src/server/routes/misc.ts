@@ -8,6 +8,7 @@ import { markViewDirty, VIEW_BOT_RE } from "../services/viewTracker";
 import { detectConflict } from "../utils/versioning";
 import { recordAuthEvent, auditLog } from "../utils/audit";
 import { VIEW_MULTIPLIER } from "../config";
+import { compareNewsNewestFirst } from "../../shared/newsSort";
 import {
   generateToken,
   verifyToken,
@@ -608,7 +609,7 @@ export function registerMiscRoutes(app: Express) {
     const limit = Math.min(parseInt(String(req.query.limit)) || 30, 50);
     const news = (currentDB.news || [])
       .filter((n: any) => n.id !== currentId)
-      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .sort(compareNewsNewestFirst)
       .slice(0, limit)
       .map((n: any) => ({ id: n.id, title: n.title, createdAt: n.createdAt }));
     res.json({ success: true, data: news });
@@ -637,7 +638,7 @@ export function registerMiscRoutes(app: Express) {
         (item.tags || []).some((t: any) => String(t || "").toLowerCase().includes(q));
     });
 
-    filtered.sort((a: any, b: any) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+    filtered.sort(compareNewsNewestFirst);
 
     const total = filtered.length;
     const totalPages = Math.max(1, Math.ceil(total / limit));
