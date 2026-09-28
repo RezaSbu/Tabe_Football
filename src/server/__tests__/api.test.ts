@@ -82,10 +82,9 @@ describe("API - Health & Data", () => {
     expect(Array.isArray(data)).toBe(true);
   });
 
-  it("GET /api/testdb returns connected: true", async () => {
-    const { status, data } = await apiGet("/api/testdb");
-    expect(status).toBe(200);
-    expect(data.connected).toBe(true);
+  it("GET /api/testdb requires diagnostics permission (401 unauthenticated)", async () => {
+    const { status } = await apiGet("/api/testdb");
+    expect(status).toBe(401);
   });
 });
 
@@ -411,9 +410,8 @@ describe("API - System", () => {
     expect(status).toBe(200);
   });
 
-  it("GET /api/logs returns logs array", async () => {
-    const { status, data } = await apiGet("/api/logs");
-    expect(status).toBe(200);
-    expect(data).toHaveProperty("logs");
+  it("GET /api/logs requires diagnostics permission (401 unauthenticated)", async () => {
+    const { status } = await apiGet("/api/logs");
+    expect(status).toBe(401);
   });
 });

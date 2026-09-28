@@ -177,12 +177,33 @@ export function hasPermission(role: AdminRole, permission: string): boolean {
 }
 
 export function generateToken(payload: { username: string; role: string }): string {
-  return jwt.sign(payload, JWT_SECRET_VALUE, { expiresIn: JWT_EXPIRES_IN });
+  return jwt.sign(payload, JWT_SECRET_VALUE, { expiresIn: JWT_EXPIRES_IN, jwtid: crypto.randomUUID() });
+}
+
+// Revoked token ids (logout). Single-instance memory store: entries carry
+// the token's own expiry and are swept on insert, so the set stays bounded.
+const revokedJti = new Map<string, number>();
+
+export function revokeToken(token: string): boolean {
+  try {
+    const decoded = jwt.decode(token) as { jti?: string; exp?: number } | null;
+    if (!decoded || !decoded.jti) return false;
+    const nowSec = Math.floor(Date.now() / 1000);
+    for (const [k, exp] of revokedJti) {
+      if (exp < nowSec) revokedJti.delete(k);
+    }
+    revokedJti.set(decoded.jti, decoded.exp || nowSec + JWT_EXPIRES_IN);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function verifyToken(token: string): { username: string; role: string } | null {
   try {
-    return jwt.verify(token, JWT_SECRET_VALUE) as { username: string; role: string };
+    const decoded = jwt.verify(token, JWT_SECRET_VALUE) as { username: string; role: string; jti?: string };
+    if (decoded && decoded.jti && revokedJti.has(decoded.jti)) return null;
+    return decoded;
   } catch {
     return null;
   }

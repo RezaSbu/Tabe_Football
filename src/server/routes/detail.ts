@@ -79,7 +79,11 @@ export function registerDetailRoutes(app: Express) {
 
     if (item) {
       item.viewCount = (item.viewCount || 0) + VIEW_MULTIPLIER;
-      markViewDirty();
+      const viewTableMap: Record<string, any> = {
+        news: "news", team: "teams", player: "players", match: "matches",
+        coach: "coaches", legionnaire: "legionnaires", transfer: "transfers", image: "images",
+      };
+      markViewDirty(viewTableMap[type] || "news");
       return res.json({ success: true, viewCount: item.viewCount });
     }
     return res.status(404).json({ success: false, message: "یافت نشد." });

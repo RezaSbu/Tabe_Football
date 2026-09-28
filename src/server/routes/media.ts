@@ -3,7 +3,7 @@ import path from "path";
 import { db as pgDb } from "../db";
 import { loadDB } from "../state";
 import { logMessage } from "../utils/logger";
-import { saveDB } from "../services/database";
+import { saveDB, markTablesDirty } from "../services/database";
 import { requirePermission } from "../middleware/auth";
 import { optimizeImageToWebp } from "../utils/image";
 
@@ -191,6 +191,7 @@ export function registerMediaRoutes(app: Express) {
       };
 
       currentDB.media_files.unshift(newRecord);
+      markTablesDirty("mediaFiles");
       await saveDB();
 
       res.json({ success: true, file: newRecord });
@@ -282,6 +283,7 @@ export function registerMediaRoutes(app: Express) {
       }
 
       if (uploadedFiles.length > 0) {
+        markTablesDirty("mediaFiles");
         await saveDB();
       }
 
@@ -316,6 +318,7 @@ export function registerMediaRoutes(app: Express) {
         updated_at: new Date().toISOString()
       };
 
+      markTablesDirty("mediaFiles");
       await saveDB();
       res.json({ success: true, file: currentDB.media_files[index] });
     } catch (error: any) {
@@ -346,6 +349,7 @@ export function registerMediaRoutes(app: Express) {
       }
 
       currentDB.media_files = currentDB.media_files.filter((item: any) => item.id !== id);
+      markTablesDirty("mediaFiles");
       await saveDB();
 
       res.json({ success: true, message: "فایل و رکورد با موفقیت حذف شدند." });
@@ -425,6 +429,7 @@ export function registerMediaRoutes(app: Express) {
         updated_at: new Date().toISOString()
       };
 
+      markTablesDirty("mediaFiles");
       await saveDB();
       res.json({ success: true, file: currentDB.media_files[index] });
     } catch (error: any) {
@@ -684,6 +689,7 @@ export function registerMediaRoutes(app: Express) {
       }
 
       if (successfulCount > 0) {
+        markTablesDirty("mediaFiles");
         await saveDB();
       }
 
@@ -712,24 +718,74 @@ export function registerMediaRoutes(app: Express) {
     if (!["http:", "https:"].includes(parsedUrl.protocol)) {
       return res.status(400).send("Only HTTP/HTTPS URLs are allowed");
     }
-    const blockedHosts = ["localhost", "127.0.0.1", "0.0.0.0", "169.254.169.254", "[::1]", "metadata.google.internal"];
+    const blockedHosts = ["localhost", "127.0.0.1", "0.0.0.0", "169.254.169.254", "169.254.169.253", "[::1]", "metadata.google.internal"];
     if (blockedHosts.includes(parsedUrl.hostname)) {
       return res.status(403).send("Access to internal/private addresses is forbidden");
     }
+    // Block private-range literals (10/8, 172.16/12, 192.168/16, 169.254/16,
+    // fc00::/7, fe80::/10) and decimal/octal/hex IP obfuscations.
+    const hostLower = parsedUrl.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    const numericIp = (() => {
+      if (/^[0-9]+$/.test(hostLower)) {
+        const n = Number(hostLower);
+        if (!Number.isSafeInteger(n) || n < 0 || n > 0xffffffff) return null;
+        return [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255];
+      }
+      const parts = hostLower.split(".");
+      if (parts.length === 4) {
+        const nums = parts.map((p) => {
+          if (/^0x[0-9a-f]+$/i.test(p)) return parseInt(p, 16);
+          if (/^0[0-9]+$/.test(p)) return parseInt(p, 8);
+          if (/^[0-9]+$/.test(p)) return parseInt(p, 10);
+          return NaN;
+        });
+        if (nums.every((x) => Number.isInteger(x) && x >= 0 && x <= 255)) return nums as number[];
+      }
+      return null;
+    })();
+    const isPrivateV4 = numericIp != null && (
+      numericIp[0] === 10 ||
+      numericIp[0] === 127 ||
+      (numericIp[0] === 172 && numericIp[1] >= 16 && numericIp[1] <= 31) ||
+      (numericIp[0] === 192 && numericIp[1] === 168) ||
+      (numericIp[0] === 169 && numericIp[1] === 254) ||
+      numericIp[0] === 0
+    );
+    const isPrivateV6 = hostLower.includes(":") && (
+      hostLower.startsWith("fc") || hostLower.startsWith("fd") || hostLower.startsWith("fe80")
+    );
+    if (isPrivateV4 || isPrivateV6) {
+      return res.status(403).send("Access to internal/private addresses is forbidden");
+    }
     try {
-      const fetchResponse = await fetch(parsedUrl.toString(), {
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-          "Referer": "https://www.varzesh3.com/"
-        }
-      });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+      let fetchResponse: Awaited<ReturnType<typeof fetch>>;
+      try {
+        fetchResponse = await fetch(parsedUrl.toString(), {
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Referer": "https://www.varzesh3.com/"
+          },
+          signal: controller.signal,
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
       if (!fetchResponse.ok) {
         return res.status(fetchResponse.status).send("Failed to retrieve image through proxy connection.");
       }
       const contentType = fetchResponse.headers.get("content-type") || "image/jpeg";
+      if (!contentType.toLowerCase().startsWith("image/")) {
+        return res.status(415).send("Only image content is allowed");
+      }
       res.setHeader("Content-Type", contentType);
       res.setHeader("Cache-Control", "public, max-age=86400");
       const arrayBuffer = await fetchResponse.arrayBuffer();
+      // 5MB cap: proxies are thumbnails, not file hosting.
+      if (arrayBuffer.byteLength > 5 * 1024 * 1024) {
+        return res.status(413).send("Image too large");
+      }
       const buffer = Buffer.from(arrayBuffer);
       res.send(buffer);
     } catch (err) {
