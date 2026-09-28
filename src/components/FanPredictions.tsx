@@ -17,6 +17,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { MatchItem } from "../types";
 import { getSafeImageUrl, formatStatNumber } from "../utils";
 import TeamLogo from "./TeamLogo";
+import { getLeagueLabel } from "../shared/leagueLabel";
 
 interface FanPredictionsProps {
   matches: MatchItem[];
@@ -249,7 +250,7 @@ export default function FanPredictions({
                 >
                   {predictMatches.map(m => (
                     <option key={m.id} value={m.id}>
-                      {m.teamHome} - {m.teamAway} ({m.league === "pro-league" ? "لیگ برتر" : "جام حذفی"})
+                      {m.teamHome} - {m.teamAway} ({getLeagueLabel(m.league)})
                     </option>
                   ))}
                 </select>

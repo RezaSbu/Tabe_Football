@@ -6,6 +6,7 @@ import {
 import { StandingRow } from "../types";
 import { getSafeImageUrl, convertGregorianToShamsi, formatStatNumber, normalizePersianString } from "../utils";
 import TeamLogo from "./TeamLogo";
+import { getLeagueLabel } from "../shared/leagueLabel";
 import SeasonSwitcher, { defaultSeasonValue } from "./SeasonSwitcher";
 
 interface TeamDetailProps {
@@ -640,7 +641,7 @@ export default function TeamDetail({
                     >
                       <div className="flex justify-between items-center text-xs">
                         <span className="font-bold text-slate-450 bg-[#151518] px-2 py-0.5 rounded border border-white/5">
-                          {m.league === "pro-league" ? "لیگ برتر خلیج فارس" : "جام حذفی"}
+                          {getLeagueLabel(m.league)}
                         </span>
                         <span className="text-[10px] text-cyan-400 font-bold font-mono">
                           {convertGregorianToShamsi(m.date)} | {formatStatNumber(m.time)}

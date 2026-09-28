@@ -3,6 +3,7 @@ import { MatchItem } from "../types";
 import { Calendar, MapPin, Clock, Vote } from "lucide-react";
 import { isTeamInDb, convertGregorianToShamsi, formatStatNumber } from "../utils";
 import TeamLogo from "./TeamLogo";
+import { getLeagueLabel } from "../shared/leagueLabel";
 
 interface MatchCardProps {
   key?: string | number;
@@ -30,11 +31,7 @@ export default function MatchCard({ match, predictions, onVote, onSelectTeam }: 
       {/* Top Banner Tag */}
       <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold">
         <span className="rounded bg-white/5 px-2 py-0.5 border border-white/5">
-          {match.league === "pro-league" 
-            ? "لیگ برتر خلیج فارس" 
-            : match.league === "hazfi-cup" 
-            ? "جام حذفی باشگاه‌ها" 
-            : "لیگ آزادگان"}
+          {getLeagueLabel(match.league)}
         </span>
         <div className="flex items-center gap-1.5 font-mono">
           <Clock className="h-3.5 w-3.5 text-slate-500" />

@@ -212,17 +212,21 @@ export async function recordLifecycleEvent(
 
   const nowIso = new Date().toISOString();
   const eventId = `le-${Date.now()}-${String(personId).slice(-6)}`;
-  const seq = input.sequence || 0;
+  // Sequence auto-assignment: when the caller omits it, take dayMax+1 inside
+  // the transaction (wizard flows never do seq math; explicit values still
+  // validated for ascending order).
+  const explicitSeq = input.sequence != null ? Number(input.sequence) : null;
   const actor = input.actor || opts?.actor || null;
 
-  // Same-day ordering: sequence must exceed the day's current max.
-  // PG DATE columns return JS Date objects; compare via the YYYY-MM-DD slice.
+  // Same-day ordering: explicit sequence must exceed the day's current max
+  // (auto-assigned below when omitted).
   const dayMax = (db.lifecycleEvents || [])
     .filter((e: any) => String(e.personId) === String(personId) && String(e.eventDate).slice(0, 10) === eventDate)
     .reduce((m: number, e: any) => Math.max(m, Number(e.sequence) || 0), -1);
-  if (seq <= dayMax) {
+  if (explicitSeq != null && explicitSeq <= dayMax) {
     return fail(409, "ترتیب عملیات هم‌روز نامعتبر است؛ sequence باید صعودی باشد.", { dayMax });
   }
+  const seq = explicitSeq != null ? explicitSeq : dayMax + 1;
   // Same-day chain guard: the day's last event must leave the person in a
   // state this event can start from (departure needs an open tenure,
   // appointment needs freedom). Prevents K-style collisions from passing
@@ -508,6 +512,192 @@ export function coachOfTeamAtAppointments(
     .filter((a: any) => String(a.startDate).slice(0, 10) <= day && (a.endDate == null || String(a.endDate).slice(0, 10) >= day))
     .sort((a: any, b: any) => String(b.startDate).localeCompare(String(a.startDate)));
   return rows.length > 0 ? String(rows[0].coachId) : null;
+}
+
+export interface CoachSwapInput {
+  coachIdX: string;
+  coachIdY: string;
+  seasonId?: string | null;
+  movementDate: string;
+  note?: string | null;
+  actor?: string | null;
+}
+
+// Atomic head-coach swap X(A) <-> Y(B): end both + appoint both crossed,
+// in ONE transaction with ascending per-person sequences. Replaces the
+// legacy coach-movements swap for all UI flows (which wrote ledger-only
+// rows invisible to tenure/appointments).
+export async function swapCoaches(
+  input: CoachSwapInput,
+  dbOverride?: any
+): Promise<LifecycleResult> {
+  const db = dbOverride || loadDB();
+  const xId = String(input.coachIdX || "").trim();
+  const yId = String(input.coachIdY || "").trim();
+  if (!xId || !yId || xId === yId) {
+    return fail(400, "شناسه هر دو مربی الزامی و متفاوت است.");
+  }
+  const norm = normalizeLifecycleDate(input.movementDate);
+  if (!norm.ok || !norm.value) {
+    return fail(400, `تاریخ نامعتبر است: ${input.movementDate || "—"}`);
+  }
+  const eventDate = norm.value;
+  if (input.seasonId) {
+    const season = (db.seasons || []).find((s: any) => String(s.id) === String(input.seasonId));
+    if (!season) return fail(404, "فصل یافت نشد.");
+  }
+  const x = (db.coaches || []).find((c: any) => String(c.id) === xId);
+  const y = (db.coaches || []).find((c: any) => String(c.id) === yId);
+  if (!x || !y) return fail(404, "مربی یافت نشد.");
+  if (isRetired(db, "coach", xId) || isRetired(db, "coach", yId)) {
+    return fail(409, "مربی بازنشسته در جابه‌جایی شرکت نمی‌کند.");
+  }
+  const teamA = x.teamId != null ? String(x.teamId) : null;
+  const teamB = y.teamId != null ? String(y.teamId) : null;
+  if (!teamA || !teamB || teamA === teamB) {
+    return fail(400, "جابه‌جایی به دو تیم متفاوت و دارای مربی نیاز دارد.");
+  }
+
+  const nowIso = new Date().toISOString();
+  const idx = Date.now();
+  const actor = input.actor || null;
+  const note = input.note != null ? String(input.note) : null;
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // Per-person same-day sequences, computed inside the transaction.
+    const daySeq = async (pid: string): Promise<number> => {
+      const r = await client.query(
+        `SELECT COALESCE(MAX(sequence), -1) AS m FROM lifecycle_events WHERE person_id = $1 AND event_date = $2`,
+        [pid, eventDate]
+      );
+      return Number(r.rows[0]?.m ?? -1) + 1;
+    };
+    const legs = [
+      { pid: xId, kind: "DISMISSAL", team: teamA, seq: await daySeq(xId), appt: null as string | null },
+      { pid: yId, kind: "DISMISSAL", team: teamB, seq: await daySeq(yId), appt: null as string | null },
+    ];
+    const eventIds: string[] = [];
+    for (const [i, leg] of legs.entries()) {
+      const eid = `le-${idx}-${i}`;
+      await client.query(
+        `INSERT INTO lifecycle_events (id, person_kind, person_id, event_kind, team_id, season_id, event_date, sequence, reason_category, reason_code, appointment_id, correction_of, note, actor, created_at)
+         VALUES ($1,'coach',$2,$3,$4,$5,$6,$7,'coach_departure','OTHER',NULL,NULL,$8,$9,$10)`,
+        [eid, leg.pid, leg.kind, leg.team, input.seasonId || null, eventDate, leg.seq, note, actor, nowIso]
+      );
+      eventIds.push(eid);
+    }
+    // Close both open appointments (whoever holds each dugout now).
+    await client.query(
+      `UPDATE coach_appointments SET end_date = $1, status = 'ENDED', departure_reason = 'OTHER', end_event_id = $2, updated_at = now()
+       WHERE status = 'ACTIVE' AND end_date IS NULL AND ((coach_id = $3 AND team_id = $4) OR (coach_id = $5 AND team_id = $6))`,
+      [eventDate, eventIds[0], xId, teamA, yId, teamB]
+    );
+    // Vacate-then-fill: NULLs are exempt from uq_coaches_one_per_team, so the
+    // unique index never observes a transient duplicate mid-transaction.
+    await client.query(`UPDATE coaches SET team_id = NULL, team_name = NULL, updated_at = now() WHERE id = $1`, [yId]);
+    await client.query(`UPDATE coaches SET team_id = $1, updated_at = now() WHERE id = $2`, [teamB, xId]);
+    await client.query(`UPDATE coaches SET team_id = $1, updated_at = now() WHERE id = $2`, [teamA, yId]);
+    const teamBName = (await client.query(`SELECT name FROM teams WHERE id = $1`, [teamB])).rows[0]?.name || null;
+    const teamAName = (await client.query(`SELECT name FROM teams WHERE id = $1`, [teamA])).rows[0]?.name || null;
+    await client.query(`UPDATE coaches SET team_name = $1 WHERE id = $2`, [teamBName, xId]);
+    await client.query(`UPDATE coaches SET team_name = $1 WHERE id = $2`, [teamAName, yId]);
+    const apptX = appointmentIdFor(teamB, eventDate, xId);
+    const apptY = appointmentIdFor(teamA, eventDate, yId);
+    const seqX = await daySeq(xId);
+    const seqY = await daySeq(yId);
+    const eidX = `le-${idx}-x`;
+    const eidY = `le-${idx}-y`;
+    await client.query(
+      `INSERT INTO lifecycle_events (id, person_kind, person_id, event_kind, team_id, season_id, event_date, sequence, reason_category, reason_code, appointment_id, correction_of, note, actor, created_at)
+       VALUES ($1,'coach',$2,'APPOINTMENT',$3,$4,$5,$6,'coach_appointment','OTHER',$7,NULL,$8,$9,$10)`,
+      [eidX, xId, teamB, input.seasonId || null, eventDate, seqX, apptX, note, actor, nowIso]
+    );
+    await client.query(
+      `INSERT INTO lifecycle_events (id, person_kind, person_id, event_kind, team_id, season_id, event_date, sequence, reason_category, reason_code, appointment_id, correction_of, note, actor, created_at)
+       VALUES ($1,'coach',$2,'APPOINTMENT',$3,$4,$5,$6,'coach_appointment','OTHER',$7,NULL,$8,$9,$10)`,
+      [eidY, yId, teamA, input.seasonId || null, eventDate, seqY, apptY, note, actor, nowIso]
+    );
+    await client.query(
+      `INSERT INTO coach_appointments (id, coach_id, team_id, role, start_date, end_date, status, appointment_reason, departure_reason, start_event_id, end_event_id, created_at, updated_at)
+       VALUES ($1,$2,$3,'HEAD_COACH',$4,NULL,'ACTIVE','OTHER',NULL,$5,NULL,$6,$6)
+       ON CONFLICT (id) DO NOTHING`,
+      [apptX, xId, teamB, eventDate, eidX, nowIso]
+    );
+    await client.query(
+      `INSERT INTO coach_appointments (id, coach_id, team_id, role, start_date, end_date, status, appointment_reason, departure_reason, start_event_id, end_event_id, created_at, updated_at)
+       VALUES ($1,$2,$3,'HEAD_COACH',$4,NULL,'ACTIVE','OTHER',NULL,$5,NULL,$6,$6)
+       ON CONFLICT (id) DO NOTHING`,
+      [apptY, yId, teamA, eventDate, eidY, nowIso]
+    );
+    await client.query(
+      `UPDATE teams SET stats = jsonb_set(COALESCE(stats,'{}'::jsonb), '{coach}', to_jsonb($1::text)) WHERE id = $2`,
+      [x.name, teamB]
+    );
+    await client.query(
+      `UPDATE teams SET stats = jsonb_set(COALESCE(stats,'{}'::jsonb), '{coach}', to_jsonb($1::text)) WHERE id = $2`,
+      [y.name, teamA]
+    );
+    await client.query("COMMIT");
+
+    // Memory mirror (same rows PG just committed).
+    try {
+      const mdb = loadDB();
+      if (!Array.isArray(mdb.lifecycleEvents)) mdb.lifecycleEvents = [];
+      if (!Array.isArray(mdb.coachAppointments)) mdb.coachAppointments = [];
+      mdb.lifecycleEvents.unshift(
+        { id: eidX, personKind: "coach", personId: xId, eventKind: "APPOINTMENT", teamId: teamB, seasonId: input.seasonId || null, eventDate, sequence: seqX, reasonCategory: "coach_appointment", reasonCode: "OTHER", appointmentId: apptX, correctionOf: null, note, actor, createdAt: nowIso },
+        { id: eidY, personKind: "coach", personId: yId, eventKind: "APPOINTMENT", teamId: teamA, seasonId: input.seasonId || null, eventDate, sequence: seqY, reasonCategory: "coach_appointment", reasonCode: "OTHER", appointmentId: apptY, correctionOf: null, note, actor, createdAt: nowIso }
+      );
+      for (const a of mdb.coachAppointments) {
+        if ((String(a.coachId) === xId || String(a.coachId) === yId) && a.status === "ACTIVE" && a.endDate == null) {
+          a.endDate = eventDate;
+          a.status = "ENDED";
+          a.departureReason = "OTHER";
+          a.updatedAt = nowIso;
+        }
+      }
+      mdb.coachAppointments.unshift(
+        { id: apptX, coachId: xId, teamId: teamB, startDate: eventDate, endDate: null, status: "ACTIVE", appointmentReason: "OTHER", departureReason: null, startEventId: eidX, endEventId: null, createdAt: nowIso, updatedAt: nowIso },
+        { id: apptY, coachId: yId, teamId: teamA, startDate: eventDate, endDate: null, status: "ACTIVE", appointmentReason: "OTHER", departureReason: null, startEventId: eidY, endEventId: null, createdAt: nowIso, updatedAt: nowIso }
+      );
+      const xc = (mdb.coaches || []).find((c: any) => String(c.id) === xId);
+      if (xc) { xc.teamId = teamB; xc.teamName = teamBName; xc.updatedAt = nowIso; }
+      const yc = (mdb.coaches || []).find((c: any) => String(c.id) === yId);
+      if (yc) { yc.teamId = teamA; yc.teamName = teamAName; yc.updatedAt = nowIso; }
+      for (const [tid, holder] of [[teamA, y.name], [teamB, x.name]] as const) {
+        const team = (mdb.teams || []).find((t: any) => String(t.id) === tid);
+        if (team) {
+          if (!team.stats) team.stats = {};
+          team.stats.coach = holder;
+          team.coach = holder;
+        }
+      }
+      markLifecycleDirty();
+      await saveDB();
+    } catch (mirrorErr: any) {
+      logMessage("warn", "api", "lifecycle swap mirror failed (PG is authoritative):", mirrorErr.message || mirrorErr);
+    }
+    try {
+      auditLog({
+        username: input.actor || "admin",
+        action: "lifecycle.coach.swap",
+        method: "POST",
+        path: "/api/lifecycle/swap",
+        details: { coachIdX: xId, coachIdY: yId, teamA, teamB, eventDate },
+      });
+    } catch { /* audit is fire-and-forget */ }
+    return { ok: true, status: 200, payload: { success: true } };
+  } catch (err: any) {
+    try { await client.query("ROLLBACK"); } catch { /* ignore */ }
+    if (err && err.code === "23505") {
+      return fail(409, "تداخل با انتصاب موجود؛ جابه‌جایی انجام نشد.");
+    }
+    logMessage("error", "api", "خطا در جابه‌جایی lifecycle:", err.message || err);
+    return fail(500, "خطا در جابه‌جایی.");
+  } finally {
+    client.release();
+  }
 }
 
 export async function fetchLifecycleState(): Promise<{ events: any[]; appointments: any[]; reasons: any[] }> {

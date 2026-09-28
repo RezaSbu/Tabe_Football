@@ -1,6 +1,7 @@
 import React from "react";
 import { MatchItem } from "../types";
 import TeamLogo from "../components/TeamLogo";
+import { getLeagueLabel } from "../shared/leagueLabel";
 
 interface LiveGoal {
   id: string;
@@ -144,7 +145,7 @@ export default function LiveScoresPage({
                     >
                       <div className="flex justify-between items-center text-[10px] text-gray-550 border-b border-white/5 pb-2 mb-3">
                         <span className="font-extrabold text-red-400 bg-red-950/20 px-2 py-0.5 rounded border border-red-500/15">
-                          {m.league === "pro-league" ? "لیگ برتر خلیج فارس" : m.league === "league-1" ? "لیگ آزادگان" : m.league === "league-2" ? "لیگ دسته دو" : "جام حذفی"}
+                          {getLeagueLabel(m.league)}
                         </span>
                         <span className="font-mono text-gray-400 flex items-center gap-1.5">
                           <span className="bg-white/10 text-amber-400 font-bold px-1.5 py-0.5 rounded border border-white/5">{getRelativeDateLabel(m.date)}</span>
