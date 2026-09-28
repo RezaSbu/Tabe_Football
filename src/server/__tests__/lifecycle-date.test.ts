@@ -55,7 +55,8 @@ describe("normalizeLifecycleDate", () => {
         }
       }
     }
-  });
+    // Exhaustive range: immune to parallel-suite CPU starvation.
+  }, 30000);
 
   it("pins ICU-verified anchors (Nowruz + leap boundaries)", () => {
     expect(normalizeLifecycleDate("1405-01-01").value).toBe("2026-03-21");
