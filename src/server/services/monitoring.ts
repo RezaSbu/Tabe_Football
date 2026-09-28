@@ -23,6 +23,11 @@ export function markDataSync(ok: boolean): void {
   syncCount++;
 }
 
+/** True only after a successful PG fetch. Guards boot + destructive saves. */
+export function isDataSynced(): boolean {
+  return lastSyncOk;
+}
+
 // ---------- آمار درخواست‌های HTTP ----------
 export interface HttpRequestSample {
   at: number;

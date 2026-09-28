@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { loadDB, snapshotDB, restoreDB } from "../state";
 import { logMessage } from "../utils/logger";
-import { saveDB } from "../services/database";
+import { saveDB, markTablesDirty } from "../services/database";
 import { markViewDirty, VIEW_BOT_RE } from "../services/viewTracker";
 import { detectConflict } from "../utils/versioning";
 import { recordAuthEvent, auditLog } from "../utils/audit";
@@ -12,6 +12,7 @@ import { compareNewsNewestFirst } from "../../shared/newsSort";
 import {
   generateToken,
   verifyToken,
+  revokeToken,
   JWT_EXPIRES_IN,
   findAdminUser,
   getRolePermissions,
@@ -35,6 +36,7 @@ export function registerMiscRoutes(app: Express) {
       createdAt: new Date().toISOString()
     };
     currentDB.submissions.push(submission);
+    markTablesDirty("submissions");
     await saveDB();
 
     res.json({ success: true, message: "پیام شما با موفقیت دریافت و همگام‌سازی شد." });
@@ -47,6 +49,7 @@ export function registerMiscRoutes(app: Express) {
     const originalLength = currentDB.submissions?.length || 0;
     currentDB.submissions = (currentDB.submissions || []).filter((s: any) => String(s.id) !== String(id));
     if (currentDB.submissions.length < originalLength) {
+      markTablesDirty("submissions");
       await saveDB();
       res.json({ success: true });
     } else {
@@ -62,6 +65,7 @@ export function registerMiscRoutes(app: Express) {
     const item = (currentDB.submissions || []).find((s: any) => String(s.id) === String(id));
     if (item) {
       item.isRead = isRead ?? true;
+      markTablesDirty("submissions");
       await saveDB();
       res.json({ success: true, submission: item });
     } else {
@@ -78,29 +82,29 @@ export function registerMiscRoutes(app: Express) {
 
     if (id.startsWith("transfer-det-")) {
       const trId = id.replace("transfer-det-", "");
-      const item = (currentDB.transfers || []).find((x: any) => String(x.id) === String(trId));
-      if (item) {
-        item.viewCount = (item.viewCount || 0) + VIEW_MULTIPLIER;
-        markViewDirty();
+        const item = (currentDB.transfers || []).find((x: any) => String(x.id) === String(trId));
+        if (item) {
+          item.viewCount = (item.viewCount || 0) + VIEW_MULTIPLIER;
+          markViewDirty("transfers");
         return res.json({ success: true, viewCount: item.viewCount });
       } else {
         return res.status(404).json({ error: "انتقال یافت نشد." });
       }
     } else if (id.startsWith("legionnaire-det-")) {
       const legId = id.replace("legionnaire-det-", "");
-      const item = (currentDB.legionnaires || []).find((x: any) => String(x.id) === String(legId));
-      if (item) {
-        item.viewCount = (item.viewCount || 0) + VIEW_MULTIPLIER;
-        markViewDirty();
+        const item = (currentDB.legionnaires || []).find((x: any) => String(x.id) === String(legId));
+        if (item) {
+          item.viewCount = (item.viewCount || 0) + VIEW_MULTIPLIER;
+          markViewDirty("legionnaires");
         return res.json({ success: true, viewCount: item.viewCount });
       } else {
         return res.status(404).json({ error: "لژیونر یافت نشد." });
       }
     } else {
-      const item = (currentDB.news || []).find((x: any) => String(x.id) === String(id));
-      if (item) {
-        item.viewCount = (item.viewCount || 0) + VIEW_MULTIPLIER;
-        markViewDirty();
+        const item = (currentDB.news || []).find((x: any) => String(x.id) === String(id));
+        if (item) {
+          item.viewCount = (item.viewCount || 0) + VIEW_MULTIPLIER;
+          markViewDirty("news");
         return res.json({ success: true, viewCount: item.viewCount });
       } else {
         return res.status(404).json({ error: "گزارش خبری یافت نشد." });
@@ -117,7 +121,7 @@ export function registerMiscRoutes(app: Express) {
     const item = (currentDB.images || []).find((x: any) => String(x.id) === String(id));
     if (item) {
       item.viewCount = (item.viewCount || 0) + VIEW_MULTIPLIER;
-      markViewDirty();
+      markViewDirty("images");
       return res.json({ success: true, viewCount: item.viewCount });
     } else {
       return res.status(404).json({ error: "تصویر یافت نشد." });
@@ -166,7 +170,7 @@ export function registerMiscRoutes(app: Express) {
         preds.scorePredictions[score] = (preds.scorePredictions[score] || 0) + 1;
       }
       matchFound.predictions = preds;
-      markViewDirty();
+      markViewDirty("matches");
       
       const responsePredictions: Record<string, any> = {};
       for (const sp of sports) {
@@ -216,6 +220,7 @@ export function registerMiscRoutes(app: Express) {
       clickCount: req.body.clickCount || 0
     };
     currentDB.ads.push(item);
+    markTablesDirty("ads");
     await saveDB();
     res.json({ success: true, item });
   });
@@ -226,6 +231,7 @@ export function registerMiscRoutes(app: Express) {
     const index = currentDB.ads.findIndex((a: any) => String(a.id) === String(req.params.id));
     if (index !== -1) {
       currentDB.ads[index] = { ...currentDB.ads[index], ...req.body, id: currentDB.ads[index].id };
+      markTablesDirty("ads");
       await saveDB();
       res.json({ success: true });
     } else {
@@ -239,6 +245,7 @@ export function registerMiscRoutes(app: Express) {
     const originalLength = currentDB.ads.length;
     currentDB.ads = currentDB.ads.filter((a: any) => String(a.id) !== String(req.params.id));
     if (currentDB.ads.length < originalLength) {
+      markTablesDirty("ads");
       await saveDB();
       res.json({ success: true });
     } else {
@@ -251,7 +258,7 @@ export function registerMiscRoutes(app: Express) {
     const item = (currentDB.ads || []).find((a: any) => String(a.id) === String(req.params.id));
     if (!item) return res.status(404).json({ error: "تبلیغ یافت نشد." });
     item.viewCount = (item.viewCount || 0) + 1;
-    await saveDB();
+    markViewDirty("ads");
     res.json({ success: true, viewCount: item.viewCount });
   });
 
@@ -260,7 +267,7 @@ export function registerMiscRoutes(app: Express) {
     const item = (currentDB.ads || []).find((a: any) => String(a.id) === String(req.params.id));
     if (!item) return res.status(404).json({ error: "تبلیغ یافت نشد." });
     item.clickCount = (item.clickCount || 0) + 1;
-    await saveDB();
+    markViewDirty("ads");
     res.json({ success: true, clickCount: item.clickCount });
   });
 
@@ -324,6 +331,9 @@ export function registerMiscRoutes(app: Express) {
       }
     }
     auditLog({ username, role, action: "logout", method: "POST", path: "/api/auth/logout", ip: req.ip });
+    // Server-side revocation: a stolen token stays dead after logout (8h
+    // window closed). verifyToken rejects revoked ids from here on.
+    if (token) revokeToken(token);
     res.clearCookie("token", { path: "/" });
     res.json({ success: true, message: "خروج با موفقیت انجام شد." });
   });
@@ -357,6 +367,7 @@ export function registerMiscRoutes(app: Express) {
       createdAt: new Date().toISOString()
     };
     currentDB.news.unshift(item);
+    markTablesDirty("news");
     await saveDB();
     res.json({ success: true });
   });
@@ -370,6 +381,7 @@ export function registerMiscRoutes(app: Express) {
         return res.status(409).json({ success: false, conflict: true, message: "این خبر پس از باز کردن فرم توسط شخص دیگری ویرایش شده است. لطفاً دوباره بارگذاری کنید.", current: existingNews });
       }
       currentDB.news[index] = { ...existingNews, ...req.body, updatedAt: new Date().toISOString() };
+      markTablesDirty("news");
       await saveDB();
       res.json({ success: true });
     } else {
@@ -380,6 +392,7 @@ export function registerMiscRoutes(app: Express) {
   app.delete("/api/news/:id", requirePermission("portal.news"), async (req, res) => {
     const currentDB = loadDB();
     currentDB.news = currentDB.news.filter((n: any) => n.id !== req.params.id);
+    markTablesDirty("news");
     await saveDB();
     res.json({ success: true });
   });
@@ -392,6 +405,7 @@ export function registerMiscRoutes(app: Express) {
       createdAt: new Date().toISOString()
     };
     currentDB.transfers.unshift(item);
+    markTablesDirty("transfers");
     await saveDB();
     res.json({ success: true });
   });
@@ -401,6 +415,7 @@ export function registerMiscRoutes(app: Express) {
     const index = currentDB.transfers.findIndex((t: any) => t.id === req.params.id);
     if (index !== -1) {
       currentDB.transfers[index] = { ...currentDB.transfers[index], ...req.body };
+      markTablesDirty("transfers");
       await saveDB();
       res.json({ success: true });
     } else {
@@ -411,6 +426,7 @@ export function registerMiscRoutes(app: Express) {
   app.delete("/api/transfers/:id", requirePermission("portal.transfers"), async (req, res) => {
     const currentDB = loadDB();
     currentDB.transfers = currentDB.transfers.filter((t: any) => t.id !== req.params.id);
+    markTablesDirty("transfers");
     await saveDB();
     res.json({ success: true });
   });
@@ -427,6 +443,7 @@ export function registerMiscRoutes(app: Express) {
       id: `team-tr-${Date.now()}`
     };
     currentDB.teamTransfersList.unshift(item);
+    markTablesDirty("teamTransfersList");
     await saveDB();
     res.json({ success: true });
   });
@@ -437,6 +454,7 @@ export function registerMiscRoutes(app: Express) {
     const index = currentDB.teamTransfersList.findIndex((t: any) => t.id === req.params.id);
     if (index !== -1) {
       currentDB.teamTransfersList[index] = { ...currentDB.teamTransfersList[index], ...req.body };
+      markTablesDirty("teamTransfersList");
       await saveDB();
       res.json({ success: true });
     } else {
@@ -448,6 +466,7 @@ export function registerMiscRoutes(app: Express) {
     const currentDB = loadDB();
     if (!currentDB.teamTransfersList) currentDB.teamTransfersList = [];
     currentDB.teamTransfersList = currentDB.teamTransfersList.filter((t: any) => t.id !== req.params.id);
+    markTablesDirty("teamTransfersList");
     await saveDB();
     res.json({ success: true });
   });
@@ -460,6 +479,7 @@ export function registerMiscRoutes(app: Express) {
       createdAt: req.body.createdAt || new Date().toISOString()
     };
     currentDB.images.unshift(item);
+    markTablesDirty("images");
     await saveDB();
     res.json({ success: true });
   });
@@ -469,6 +489,7 @@ export function registerMiscRoutes(app: Express) {
     const index = currentDB.images.findIndex((i: any) => i.id === req.params.id);
     if (index !== -1) {
       currentDB.images[index] = { ...currentDB.images[index], ...req.body };
+      markTablesDirty("images");
       await saveDB();
       res.json({ success: true });
     } else {
@@ -479,6 +500,7 @@ export function registerMiscRoutes(app: Express) {
   app.delete("/api/images/:id", requirePermission("portal.gallery"), async (req, res) => {
     const currentDB = loadDB();
     currentDB.images = currentDB.images.filter((i: any) => i.id !== req.params.id);
+    markTablesDirty("images");
     await saveDB();
     res.json({ success: true });
   });
@@ -493,6 +515,7 @@ export function registerMiscRoutes(app: Express) {
     };
     currentDB.legionnaires.unshift(item);
     try {
+      markTablesDirty("legionnaires");
       await saveDB();
       res.json({ success: true });
     } catch (err: any) {
@@ -508,6 +531,7 @@ export function registerMiscRoutes(app: Express) {
     if (index !== -1) {
       currentDB.legionnaires[index] = { ...currentDB.legionnaires[index], ...req.body };
       try {
+        markTablesDirty("legionnaires");
         await saveDB();
         res.json({ success: true });
       } catch (err: any) {
@@ -522,6 +546,7 @@ export function registerMiscRoutes(app: Express) {
   app.delete("/api/legionnaires/:id", requirePermission("portal.legionnaires"), async (req, res) => {
     const currentDB = loadDB();
     currentDB.legionnaires = currentDB.legionnaires.filter((l: any) => l.id !== req.params.id);
+    markTablesDirty("legionnaires");
     await saveDB();
     res.json({ success: true });
   });
@@ -536,6 +561,7 @@ export function registerMiscRoutes(app: Express) {
       id: `sc-${Date.now()}`
     };
     currentDB.selectedCombinations.push(item);
+    markTablesDirty("selectedCombinations");
     await saveDB();
     res.json({ success: true, item });
   });
@@ -548,6 +574,7 @@ export function registerMiscRoutes(app: Express) {
     const index = currentDB.selectedCombinations.findIndex((sc: any) => sc.id === req.params.id);
     if (index !== -1) {
       currentDB.selectedCombinations[index] = { ...currentDB.selectedCombinations[index], ...req.body };
+      markTablesDirty("selectedCombinations");
       await saveDB();
       res.json({ success: true });
     } else {
@@ -561,6 +588,7 @@ export function registerMiscRoutes(app: Express) {
       currentDB.selectedCombinations = [];
     }
     currentDB.selectedCombinations = currentDB.selectedCombinations.filter((sc: any) => sc.id !== req.params.id);
+    markTablesDirty("selectedCombinations");
     await saveDB();
     res.json({ success: true });
   });
@@ -578,6 +606,7 @@ export function registerMiscRoutes(app: Express) {
       id: req.body.id || `hs-${Date.now()}`
     };
     currentDB.heroSlides.push(item);
+    markTablesDirty("heroSlides");
     await saveDB();
     res.json({ success: true, item });
   });
@@ -588,6 +617,7 @@ export function registerMiscRoutes(app: Express) {
     const index = currentDB.heroSlides.findIndex((s: any) => s.id === req.params.id);
     if (index !== -1) {
       currentDB.heroSlides[index] = { ...currentDB.heroSlides[index], ...req.body };
+      markTablesDirty("heroSlides");
       await saveDB();
       res.json({ success: true });
     } else {
@@ -599,6 +629,7 @@ export function registerMiscRoutes(app: Express) {
     const currentDB = loadDB();
     if (!currentDB.heroSlides) currentDB.heroSlides = [];
     currentDB.heroSlides = currentDB.heroSlides.filter((s: any) => s.id !== req.params.id);
+    markTablesDirty("heroSlides");
     await saveDB();
     res.json({ success: true });
   });

@@ -7,7 +7,7 @@ import { pool } from "../db";
 import { logMessage } from "../utils/logger";
 import { auditLog } from "../utils/audit";
 import { requirePermission } from "../middleware/auth";
-import { saveDB } from "../services/database";
+import { saveDB, markTablesDirty } from "../services/database";
 import {
   getSystemMetrics,
   getPostgresMetrics,
@@ -168,6 +168,7 @@ export function registerDiagnosticsRoutes(app: Express) {
   app.get("/api/diagnostics", requirePermission("diagnostics"), async (req: Request, res: Response) => {
     try {
       if (req.query.refresh === "true") {
+        markTablesDirty("all");
         await saveDB();
       }
       const [postgres, visitors, audit, media, system, http, version, cache] = await Promise.all([
