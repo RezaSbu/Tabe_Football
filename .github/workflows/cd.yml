@@ -22,6 +22,7 @@ jobs:
             git checkout main
             git fetch origin
             git reset --hard origin/main
+            bash scripts/backup.sh
             docker compose -f docker-compose.yml -f docker-compose.prod.yml build --no-cache app
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
             docker image prune -f

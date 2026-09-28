@@ -8,7 +8,7 @@ import "./utils/envLoader";
 
 import { setupSecurityMiddleware } from "./middleware/security";
 import { centralAuthGuard } from "./middleware/auth";
-import { recordHttpRequest, cleanupOldVisits, cleanupOldAuditLogs } from "./services/monitoring";
+import { recordHttpRequest, cleanupOldVisits, cleanupOldAuditLogs, isDataSynced } from "./services/monitoring";
 
 import { loadDB, setDb } from "./state";
 import { dbLock } from "./utils/concurrency";
@@ -94,6 +94,11 @@ async function startServer() {
   }, 24 * 60 * 60 * 1000);
   await dbLock.acquire(() => fetchAndPopulateMemoryDB());
 
+  if (!isDataSynced()) {
+    logMessage("error", "general", "بوت متوقف شد: خوانش اولیه دیتابیس ناموفق بود. برای جلوگیری از پاک‌سازی جداول، سرور بالا نمی‌آید.");
+    process.exit(1);
+  }
+
   recalculateAndSyncDatabase();
   await saveDB();
 
@@ -107,6 +112,14 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
+    // Never serve sourcemaps or the raw server bundle: they expose backend
+    // source. (Build no longer emits server.cjs.map; this guards stale files.)
+    app.use((req, res, next) => {
+      if (req.path.endsWith(".map") || req.path.endsWith("server.cjs")) {
+        return res.status(404).end();
+      }
+      next();
+    });
     app.use(express.static(distPath, {
       setHeaders: (res, filePath) => {
         if (filePath.endsWith(".js")) {

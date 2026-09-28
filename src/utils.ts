@@ -357,26 +357,14 @@ export function computeDynamicAppletStats(
     };
   });
 
-  // Helper keyword to determine league dynamically for players
+  // Team league comes from the record's divisionKey (resolveTeamLeague).
+  // The old id/name keyword lists were removed: every real team carries a
+  // divisionKey, and keywords misclassified overlapping names. Unresolvable
+  // references use the documented "pro-league" default (see teamMatch.ts).
   const getTeamLeague = (teamId: string, teamName?: string): string => {
     const resolvedLeague = resolveTeamLeague(processedTeams, teamId, teamName);
     if (resolvedLeague) {
       return resolvedLeague;
-    }
-    const id = (teamId || "").toLowerCase();
-    const name = (teamName || "").toLowerCase();
-    if (id.startsWith("futsal-") || id.includes("futsal") || id.includes("sungun") || id.includes("giti") || name.includes("فوتسال") || name.includes("سونگون") || name.includes("گیتی")) {
-      return "futsal";
-    }
-    if (id.includes("mesrafsanjan") || id.includes("nassaji") || id.includes("zobahan") || name.includes("نساجی") || name.includes("رفسنجان") || name.includes("ذوب") || id.includes("golgohar") || name.includes("گل‌گهر") || name.includes("گل گهر")) {
-      return "league-1";
-    }
-    const league2Keywords = [
-      "foolad", "فولاد", "نوشهر", "کویر مقوا", "نیروی زمینی", "بعثت", "پاس همدان", "سپیدرود", "چوکا",
-      "داماش", "شاهین بوشهر", "شهرداری بم", "مس نوین", "اترک", "اسپاد", "آریو بهمن", "بابلسر"
-    ];
-    if (league2Keywords.some(keyword => id.includes(keyword) || name.includes(keyword))) {
-      return "league-2";
     }
     return "pro-league";
   };

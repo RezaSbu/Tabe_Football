@@ -79,22 +79,9 @@ export default function TeamDetail({
     String(m.seasonId) === String(seasonId) ||
     (seasonTag != null && (String(m.season) === String(seasonTag) || String(m.seasonId) === `season-${seasonTag}`));
 
-  // Resolve founded dynamically if missing
-  let founded = team.founded || "";
-
-  if (!founded || founded.trim() === "") {
-    if (teamName.includes("پرسپولیس")) founded = "1342";
-    else if (teamName.includes("استقلال")) founded = "1324";
-    else if (teamName.includes("سپاهان")) founded = "1332";
-    else if (teamName.includes("تراکتور")) founded = "1349";
-    else if (teamName.includes("ملوان")) founded = "1348";
-    else if (teamName.includes("ذوب") && teamName.includes("آهن")) founded = "1347";
-    else if (teamName.includes("گل") && teamName.includes("گهر")) founded = "1367";
-    else if (teamName.includes("فولاد")) founded = "1365";
-    else if (teamName.includes("مس") && teamName.includes("رفسنجان")) founded = "1354";
-    else if (teamName.includes("نساجی")) founded = "1338";
-    else founded = "1350";
-  }
+  // Founded year is shown only when the record carries it — never guessed
+  // from the team name (the old keyword table rendered fiction as fact).
+  const founded = (team.founded || "").trim();
 
   const coverImage = team.coverImage || "";
 
@@ -258,7 +245,7 @@ export default function TeamDetail({
                 </span>
               )}
             </h1>
-            <p className="text-xs text-slate-400 mt-1 sm:mt-2 max-w-lg truncate">تاسیس: {formatStatNumber(founded)}</p>
+            <p className="text-xs text-slate-400 mt-1 sm:mt-2 max-w-lg truncate">تاسیس: {founded ? formatStatNumber(founded) : "—"}</p>
           </div>
         </div>
 

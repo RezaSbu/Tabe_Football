@@ -2,14 +2,18 @@ import express, { Express, Request, Response } from "express";
 import { loadDB } from "../state";
 import { logMessage } from "../utils/logger";
 import { normalizePersianString } from "../utils/persian";
-import { saveDB } from "../services/database";
+import { saveDB, markTablesDirty } from "../services/database";
 import { getPlayerCalculatedStatsFromMatches } from "../services/stats";
 import { requirePermission } from "../middleware/auth";
 import { auditLog } from "../utils/audit";
+import { KNOWN_LEAGUE_KEYS } from "../utils/fields";
 
 export function registerStandingsRoutes(app: Express) {
   app.put("/api/standings/:leagueKey", requirePermission("overrides"), async (req: Request, res: Response) => {
     const { leagueKey } = req.params;
+    if (!KNOWN_LEAGUE_KEYS.has(String(leagueKey))) {
+      return res.status(400).json({ success: false, message: "کلید لیگ نامعتبر است." });
+    }
     const { rows, _heal } = req.body;
     const currentDB = loadDB();
 
@@ -94,6 +98,7 @@ export function registerStandingsRoutes(app: Express) {
     }
 
     currentDB.standings[leagueKey] = rows;
+    markTablesDirty("standings", "teams");
     await saveDB();
     if (_heal) {
       try {
@@ -112,6 +117,9 @@ export function registerStandingsRoutes(app: Express) {
 
   app.put("/api/stats/:leagueKey", requirePermission("overrides"), async (req: Request, res: Response) => {
     const { leagueKey } = req.params;
+    if (!KNOWN_LEAGUE_KEYS.has(String(leagueKey))) {
+      return res.status(400).json({ success: false, message: "کلید لیگ نامعتبر است." });
+    }
     const { data } = req.body;
     const currentDB = loadDB();
 
@@ -176,6 +184,7 @@ export function registerStandingsRoutes(app: Express) {
     }
 
     currentDB.stats[leagueKey] = data;
+    markTablesDirty("stats");
     await saveDB();
     res.json({ success: true });
   });

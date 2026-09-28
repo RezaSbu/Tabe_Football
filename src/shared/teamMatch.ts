@@ -82,9 +82,13 @@ export const normalizeLeagueKey = (key?: string | null): string => {
 
 /**
  * Single source of truth for team -> league resolution (server recalc AND
- * client season tables). First honors the team record's divisionKey, then
- * falls back to the legacy id/name keyword lists, defaulting to pro-league.
- * Extracted verbatim from the server recalc so both sides can never drift.
+ * client season tables). Honors the team record's divisionKey (promotion /
+ * relegation safe). The legacy id/name keyword lists were removed: every
+ * real team carries a divisionKey, and keywords misclassified overlapping
+ * names (bare "ذوب" / "فولاد" matched the wrong clubs). Unresolvable
+ * references fall back to an explicit, documented "pro-league" default
+ * instead of a misleading guess — rename mismatches surface through the
+ * sync resolver's NAME_MISMATCH findings for manual correction.
  */
 export function resolveTeamLeagueWithFallback<T extends TeamLike>(
   teams: T[],
@@ -93,21 +97,5 @@ export function resolveTeamLeagueWithFallback<T extends TeamLike>(
 ): string {
   const resolved = resolveTeamLeague(teams, teamId, teamName);
   if (resolved) return resolved;
-
-  const id = String(teamId || "").toLowerCase();
-  const name = String(teamName || "").toLowerCase();
-  if (id.includes("sungun") || id.includes("giti") || name.includes("فوتسال") || name.includes("سونگون") || name.includes("گیتی")) {
-    return "futsal";
-  }
-  if (id.includes("mesrafsanjan") || id.includes("nassaji") || id.includes("zobahan") || name.includes("نساجی") || name.includes("رفسنجان") || name.includes("ذوب") || id.includes("golgohar") || name.includes("گل‌گهر") || name.includes("گل گهر")) {
-    return "league-1";
-  }
-  const league2Keywords = [
-    "foolad", "فولاد", "نوشهر", "کویر مقوا", "نیروی زمینی", "بعثت", "پاس همدان", "سپیدرود", "چوکا",
-    "داماش", "شاهین بوشهر", "شهرداری بم", "مس نوین", "اترک", "اسپاد", "آریو بهمن", "بابلسر"
-  ];
-  if (league2Keywords.some((keyword) => id.includes(keyword) || name.includes(keyword))) {
-    return "league-2";
-  }
   return "pro-league";
 };

@@ -58,7 +58,10 @@ services:
       APP_URL: ${APP_URL}
     volumes:
       - ./uploads:/app/uploads
-      - backupdata:/app/backups
+      # Host-bound so in-app backups (diagnostics endpoint) and host scripts
+      # (scripts/backup.sh|restore.sh) see the SAME store. (The old
+      # backupdata named volume orphaned endpoint backups from restore.sh.)
+      - ./backups:/app/backups
     ports:
       - "127.0.0.1:3000:3000"
 
@@ -86,4 +89,3 @@ services:
 
 volumes:
   pgdata:
-  backupdata:

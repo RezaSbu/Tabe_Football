@@ -1,18 +1,21 @@
 import express, { Express, Request, Response } from "express";
 import { loadDB, snapshotDB, restoreDB } from "../state";
 import { logMessage } from "../utils/logger";
-import { saveDB } from "../services/database";
-import { getPlayerCalculatedStatsFromMatches, getCoachCalculatedStatsFromMatches } from "../services/stats";
+import { saveDB, markTablesDirty } from "../services/database";
+import { getPlayerCalculatedStatsFromMatches, getCoachCalculatedStatsFromMatches, calcTeamBaseFor } from "../services/stats";
+import { recordLifecycleEvent } from "../services/lifecycle";
 import { requirePermission } from "../middleware/auth";
 import { detectConflict } from "../utils/versioning";
 import { auditLog } from "../utils/audit";
+import { stripServerManaged } from "../utils/fields";
 
 export function registerTeamRoutes(app: Express) {
   app.post("/api/teams", requirePermission("teams"), async (req: Request, res: Response) => {
     const currentDB = loadDB();
-    const idPrefix = req.body.sport === "futsal" ? "futsal" : "team";
-    const item = {
-      ...req.body,
+    const cleanBody = stripServerManaged(req.body);
+    const idPrefix = cleanBody.sport === "futsal" ? "futsal" : "team";
+    const item: any = {
+      ...cleanBody,
       id: `${idPrefix}-${Date.now()}`
     };
 
@@ -24,13 +27,17 @@ export function registerTeamRoutes(app: Express) {
     const enteredGoalsFor = parseInt(item.stats?.goalsFor) || 0;
     const enteredGoalsAgainst = parseInt(item.stats?.goalsAgainst) || 0;
 
-    item.basePlayed = enteredPlayed;
-    item.baseWon = enteredWon;
-    item.baseDrawn = enteredDrawn;
-    item.baseLost = enteredLost;
-    item.basePoints = enteredPoints;
-    item.baseGoalsFor = enteredGoalsFor;
-    item.baseGoalsAgainst = enteredGoalsAgainst;
+    // Delta like PUT: base = entered minus what existing matches already
+    // explain (matched by name — the id is brand new). Seeding full entered
+    // values here double-counts on the first recalc (see Ario Eslamshahr).
+    const teamCalc = calcTeamBaseFor(currentDB.matches || [], item.id, item.name);
+    item.basePlayed = Math.max(0, enteredPlayed - teamCalc.played);
+    item.baseWon = Math.max(0, enteredWon - teamCalc.won);
+    item.baseDrawn = Math.max(0, enteredDrawn - teamCalc.drawn);
+    item.baseLost = Math.max(0, enteredLost - teamCalc.lost);
+    item.basePoints = Math.max(0, enteredPoints - teamCalc.points);
+    item.baseGoalsFor = Math.max(0, enteredGoalsFor - teamCalc.goalsFor);
+    item.baseGoalsAgainst = Math.max(0, enteredGoalsAgainst - teamCalc.goalsAgainst);
 
     item.coach = req.body.coach || "";
     item.city = req.body.city || "";
@@ -56,6 +63,7 @@ export function registerTeamRoutes(app: Express) {
     };
 
     currentDB.teams.push(item);
+    markTablesDirty("teams");
     await saveDB();
     res.json({ success: true });
   });
@@ -68,7 +76,7 @@ export function registerTeamRoutes(app: Express) {
       if (detectConflict(existingTeam, req.body.updatedAt)) {
         return res.status(409).json({ success: false, conflict: true, message: "این تیم پس از باز کردن فرم توسط شخص دیگری ویرایش شده است. لطفاً دوباره بارگذاری کنید.", current: existingTeam });
       }
-      const updatedTeam = { ...existingTeam, ...req.body, updatedAt: new Date().toISOString() };
+      const updatedTeam = { ...existingTeam, ...stripServerManaged(req.body), updatedAt: new Date().toISOString() };
 
       let matchPlayed = 0;
       let matchWon = 0;
@@ -175,6 +183,7 @@ export function registerTeamRoutes(app: Express) {
       }
 
       currentDB.teams[index] = updatedTeam;
+      markTablesDirty("teams", "matches", "players", "coaches");
       await saveDB();
       res.json({ success: true });
     } else {
@@ -185,6 +194,7 @@ export function registerTeamRoutes(app: Express) {
   app.delete("/api/teams/:id", requirePermission("teams"), async (req: Request, res: Response) => {
     const currentDB = loadDB();
     currentDB.teams = currentDB.teams.filter((t: any) => t.id !== req.params.id);
+    markTablesDirty("teams");
     await saveDB();
     res.json({ success: true });
   });
@@ -192,8 +202,9 @@ export function registerTeamRoutes(app: Express) {
   app.post("/api/players", requirePermission("players"), async (req: Request, res: Response) => {
     const snapshot = snapshotDB();
     const currentDB = loadDB();
-    const item = {
-      ...req.body,
+    const cleanBody = stripServerManaged(req.body);
+    const item: any = {
+      ...cleanBody,
       id: `player-${Date.now()}`
     };
 
@@ -204,12 +215,15 @@ export function registerTeamRoutes(app: Express) {
     const enteredYellow = parseInt(item.seasonStats?.yellowCards) || 0;
     const enteredRed = parseInt(item.seasonStats?.redCards) || 0;
 
-    item.baseMatches = enteredMatches;
-    item.baseGoals = enteredGoals;
-    item.baseAssists = enteredAssists;
-    item.baseCleanSheets = enteredCleanSheets;
-    item.baseYellowCards = enteredYellow;
-    item.baseRedCards = enteredRed;
+    // Delta like PUT: a same-named player may already have event rows in
+    // finished matches; seeding full entered values would double-count them.
+    const playerCalc = getPlayerCalculatedStatsFromMatches(String(item.id), currentDB.matches || [], [...(currentDB.players || []), item]);
+    item.baseMatches = Math.max(0, enteredMatches - playerCalc.matches);
+    item.baseGoals = Math.max(0, enteredGoals - playerCalc.goals);
+    item.baseAssists = Math.max(0, enteredAssists - playerCalc.assists);
+    item.baseCleanSheets = Math.max(0, enteredCleanSheets - playerCalc.cleanSheets);
+    item.baseYellowCards = Math.max(0, enteredYellow - playerCalc.yellowCards);
+    item.baseRedCards = Math.max(0, enteredRed - playerCalc.redCards);
 
     // Shirt numbers were removed from the data model: never persist them,
     // even if a stale client still sends the legacy fields.
@@ -226,7 +240,35 @@ export function registerTeamRoutes(app: Express) {
     };
 
     currentDB.players.push(item);
+    // Create-bound ledger: a player born with a club gets a from-NULL
+    // movement row, so tenure/career never fork (PUT path already guards).
+    if (item.teamId != null && String(item.teamId) !== "") {
+      const targetTeam = (currentDB.teams || []).find((t: any) => String(t.id) === String(item.teamId));
+      if (!targetTeam) {
+        restoreDB(snapshot);
+        return res.status(404).json({ success: false, message: "تیم یافت نشد." });
+      }
+      item.teamName = targetTeam.name;
+      const bodySeason = (req.body || {}).seasonId != null && String((req.body || {}).seasonId).trim() !== ""
+        ? (currentDB.seasons || []).find((s: any) => String(s.id) === String((req.body || {}).seasonId).trim())
+        : null;
+      const activeSeason = (currentDB.seasons || []).find((s: any) => s.isActive || s.status === "current");
+      const nowIso2 = new Date().toISOString();
+      if (!Array.isArray(currentDB.playerMovements)) currentDB.playerMovements = [];
+      currentDB.playerMovements.unshift({
+        id: `pcm-${Date.now()}`,
+        playerId: item.id,
+        fromTeamId: null,
+        toTeamId: String(item.teamId),
+        seasonId: bodySeason ? String(bodySeason.id) : activeSeason ? String(activeSeason.id) : null,
+        movementDate: nowIso2.slice(0, 10),
+        note: "create",
+        createdAt: nowIso2,
+        updatedAt: nowIso2,
+      });
+    }
     try {
+      markTablesDirty("players", "playerMovements");
       await saveDB();
       res.json({ success: true });
     } catch (err: any) {
@@ -243,7 +285,8 @@ export function registerTeamRoutes(app: Express) {
     if (index !== -1) {
       const existingPlayer = currentDB.players[index];
       // Resolver heal context is audit-only: never persist it into the record.
-      const { _heal, ...body } = (req.body || {}) as any;
+      const { _heal, ...rest } = (req.body || {}) as any;
+      const body = stripServerManaged(rest);
       if (detectConflict(existingPlayer, body.updatedAt)) {
         return res.status(409).json({ success: false, conflict: true, message: "این بازیکن پس از باز کردن فرم توسط شخص دیگری ویرایش شده است. لطفاً دوباره بارگذاری کنید.", current: existingPlayer });
       }
@@ -292,6 +335,7 @@ export function registerTeamRoutes(app: Express) {
 
       currentDB.players[index] = updatedPlayer;
       try {
+        markTablesDirty("players");
         await saveDB();
         if (_heal) {
           try {
@@ -328,6 +372,7 @@ export function registerTeamRoutes(app: Express) {
     if (Array.isArray(currentDB.playerMovements)) {
       currentDB.playerMovements = currentDB.playerMovements.filter((m: any) => String(m.playerId) !== String(req.params.id));
     }
+    markTablesDirty("players");
     await saveDB();
     res.json({ success: true });
   });
@@ -335,8 +380,9 @@ export function registerTeamRoutes(app: Express) {
   app.post("/api/coaches", requirePermission("coaches"), async (req: Request, res: Response) => {
     const snapshot = snapshotDB();
     const currentDB = loadDB();
-    const item = {
-      ...req.body,
+    const cleanBody = stripServerManaged(req.body);
+    const item: any = {
+      ...cleanBody,
       id: `coach-${Date.now()}`
     };
 
@@ -345,10 +391,18 @@ export function registerTeamRoutes(app: Express) {
     const enteredDraws = parseInt(item.seasonStats?.draws) || 0;
     const enteredLosses = parseInt(item.seasonStats?.losses) || 0;
 
-    item.baseMatches = enteredMatches;
-    item.baseWins = enteredWins;
-    item.baseDraws = enteredDraws;
-    item.baseLosses = enteredLosses;
+    // Delta like PUT: seeding full entered values double-counts on the first
+    // recalc whenever tenure matches already exist for this name.
+    const coachCalc = getCoachCalculatedStatsFromMatches(item, currentDB.matches || [], {
+      coaches: [...(currentDB.coaches || []), item],
+      movements: currentDB.coachMovements || [],
+      teams: currentDB.teams || [],
+      appointments: currentDB.coachAppointments || [],
+    });
+    item.baseMatches = Math.max(0, enteredMatches - coachCalc.matches);
+    item.baseWins = Math.max(0, enteredWins - coachCalc.wins);
+    item.baseDraws = Math.max(0, enteredDraws - coachCalc.draws);
+    item.baseLosses = Math.max(0, enteredLosses - coachCalc.losses);
 
     item.seasonStats = {
       matches: enteredMatches,
@@ -369,8 +423,53 @@ export function registerTeamRoutes(app: Express) {
       }
     }
 
+    // Create-bound ledger + occupancy (single-coach-path): a coach born with
+    // a club goes through the lifecycle APPOINTMENT (validates occupancy and
+    // writes events + appointment row). An occupied dugout 409s here instead
+    // of violating the unique index at save time.
+    if (item.teamId != null && String(item.teamId) !== "") {
+      const targetTeam = (currentDB.teams || []).find((t: any) => String(t.id) === String(item.teamId));
+      if (!targetTeam) {
+        restoreDB(snapshot);
+        return res.status(404).json({ success: false, message: "تیم یافت نشد." });
+      }
+      const incumbent = (currentDB.coaches || []).find(
+        (c: any) => String(c.id) !== String(item.id) && c.teamId != null && String(c.teamId) === String(item.teamId)
+      );
+      if (incumbent) {
+        restoreDB(snapshot);
+        return res.status(409).json({ success: false, occupied: true, message: `این تیم هم‌اکنون مربی دارد (${incumbent.name}).` });
+      }
+      item.teamName = targetTeam.name;
+    }
+
     currentDB.coaches.push(item);
+    if (item.teamId != null && String(item.teamId) !== "") {
+      const bodySeason = (req.body || {}).seasonId != null && String((req.body || {}).seasonId).trim() !== ""
+        ? (currentDB.seasons || []).find((s: any) => String(s.id) === String((req.body || {}).seasonId).trim())
+        : null;
+      const activeSeason = (currentDB.seasons || []).find((s: any) => s.isActive || s.status === "current");
+      const me = (req as any).user || {};
+      const result = await recordLifecycleEvent(
+        {
+          personKind: "coach",
+          personId: String(item.id),
+          eventKind: "APPOINTMENT",
+          teamId: String(item.teamId),
+          seasonId: bodySeason ? String(bodySeason.id) : activeSeason ? String(activeSeason.id) : null,
+          eventDate: new Date().toISOString().slice(0, 10),
+        },
+        { actor: me.username || "admin", path: "/api/coaches" }
+      );
+      if (!result.ok) {
+        restoreDB(snapshot);
+        return res.status(result.status).json(result.payload);
+      }
+      markTablesDirty("coaches", "teams");
+      return res.status(201).json({ success: true });
+    }
     try {
+      markTablesDirty("coaches");
       await saveDB();
       res.json({ success: true });
     } catch (err: any) {
@@ -388,7 +487,7 @@ export function registerTeamRoutes(app: Express) {
       if (detectConflict(prevCoach, req.body.updatedAt)) {
         return res.status(409).json({ success: false, conflict: true, message: "این مربی پس از باز کردن فرم توسط شخص دیگری ویرایش شده است. لطفاً دوباره بارگذاری کنید.", current: prevCoach });
       }
-      const updatedCoach = { ...currentDB.coaches[index], ...req.body, updatedAt: new Date().toISOString() };
+      const updatedCoach = { ...currentDB.coaches[index], ...stripServerManaged(req.body), updatedAt: new Date().toISOString() };
 
       // Lifecycle guard: team changes must flow through the movement API
       // (ledger + atomicity + occupancy). Direct teamId edits would fork
@@ -455,6 +554,7 @@ export function registerTeamRoutes(app: Express) {
 
       currentDB.coaches[index] = updatedCoach;
       try {
+        markTablesDirty("coaches");
         await saveDB();
         res.json({ success: true });
       } catch (err: any) {
@@ -481,6 +581,7 @@ export function registerTeamRoutes(app: Express) {
     if (Array.isArray(currentDB.coachMovements)) {
       currentDB.coachMovements = currentDB.coachMovements.filter((m: any) => String(m.coachId) !== String(req.params.id));
     }
+    markTablesDirty("coaches");
     await saveDB();
     res.json({ success: true });
   });

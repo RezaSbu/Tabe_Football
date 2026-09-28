@@ -2,7 +2,8 @@ import express, { Express, Request, Response } from "express";
 import { db as pgDb } from "../db";
 import { loadDB } from "../state";
 import { logMessage } from "../utils/logger";
-import { saveDB, updateMatchInDb, matchTouchesFinishedStats, normalizeSeasonTag, stampMissingCoachIds } from "../services/database";
+import { saveDB, markTablesDirty, updateMatchInDb, matchTouchesFinishedStats, normalizeSeasonTag, stampMissingCoachIds } from "../services/database";
+import { stripServerManaged, KNOWN_SPORTS } from "../utils/fields";
 import { detectConflict } from "../utils/versioning";
 import { requirePermission } from "../middleware/auth";
 
@@ -22,6 +23,7 @@ export function registerMatchRoutes(app: Express) {
   app.put("/api/bracket", requirePermission("bracket"), async (req, res) => {
     const currentDB = loadDB();
     currentDB.bracket = req.body;
+    markTablesDirty("bracket");
     await saveDB();
     res.json({ success: true });
   });
@@ -30,6 +32,9 @@ export function registerMatchRoutes(app: Express) {
     const { sport, stage, matchData } = req.body;
     if (!sport || !stage || !matchData) {
       return res.status(400).json({ success: false, message: "اطلاعات ارسالی ناقص است." });
+    }
+    if (!KNOWN_SPORTS.has(String(sport))) {
+      return res.status(400).json({ success: false, message: "ورزش نامعتبر است." });
     }
 
     const currentDB = loadDB();
@@ -49,8 +54,8 @@ export function registerMatchRoutes(app: Express) {
       currentDB[arrKey] = [];
     }
 
-    const item = {
-      ...matchData,
+    const item: any = {
+      ...stripServerManaged(matchData),
       id: `match-${Date.now()}`,
       sport,
       stage: finalStage,
@@ -70,6 +75,7 @@ export function registerMatchRoutes(app: Express) {
       }
     }
 
+    markTablesDirty("matches");
     await saveDB(
       finalStatus === "finished"
         ? undefined
@@ -89,10 +95,12 @@ export function registerMatchRoutes(app: Express) {
     if (detectConflict(current, baseVersion)) {
       return res.status(409).json({ success: false, conflict: true, message: "این مسابقه پس از باز کردن فرم توسط شخص دیگری ویرایش شده است. لطفاً دوباره بارگذاری کنید.", current });
     }
-    const { updatedAt, ...body } = req.body;
+    const { updatedAt, ...restBody } = req.body;
+    const body = stripServerManaged(restBody);
     const success = updateMatchInDb(id, { ...body, updatedAt: new Date().toISOString() });
     if (success) {
       const touched = matchTouchesFinishedStats(current, { ...current, ...body });
+      markTablesDirty("matches");
       await saveDB(
         touched ? undefined : { skipRecalc: true, tables: ["matches"] }
       );
@@ -132,6 +140,7 @@ export function registerMatchRoutes(app: Express) {
       console.error("PostgreSQL direct delete failed for match id", id, e);
     }
 
+    markTablesDirty("matches");
     await saveDB(
       (doomed && doomed.status === "finished")
         ? undefined
@@ -158,7 +167,7 @@ export function registerMatchRoutes(app: Express) {
     const seasonId = /^season-\d{4}$/.test(rawSid) ? rawSid : `season-${seasonTag}`;
 
     const item = {
-      ...req.body,
+      ...stripServerManaged(req.body),
       season: seasonTag,
       seasonId,
       id: `match-${Date.now()}`,
@@ -168,6 +177,7 @@ export function registerMatchRoutes(app: Express) {
     stampMissingCoachIds(item, currentDB);
 
     currentDB[`${sport}_${stage}`].unshift(item);
+    markTablesDirty("matches");
     await saveDB();
     res.json({ success: true });
   });
@@ -182,9 +192,10 @@ export function registerMatchRoutes(app: Express) {
     if (detectConflict(current, baseVersion)) {
       return res.status(409).json({ success: false, conflict: true, message: "این مسابقه پس از باز کردن فرم توسط شخص دیگری ویرایش شده است. لطفاً دوباره بارگذاری کنید.", current });
     }
-    const { updatedAt, ...body } = req.body;
-    const success = updateMatchInDb(id, { ...body, updatedAt: new Date().toISOString() });
+    const { updatedAt, ...restBody2 } = req.body;
+    const success = updateMatchInDb(id, { ...stripServerManaged(restBody2), updatedAt: new Date().toISOString() });
     if (success) {
+      markTablesDirty("matches");
       await saveDB();
       res.json({ success: true });
     } else {
@@ -192,7 +203,7 @@ export function registerMatchRoutes(app: Express) {
     }
   });
 
-  app.delete("/api/matches/:id", requirePermission("matches"), async (req, res) => {
+  app.delete("/api/matches/:id", requirePermission("matches"), async (req: Request, res: Response) => {
     const { id } = req.params;
     const currentDB = loadDB();
     
@@ -212,6 +223,7 @@ export function registerMatchRoutes(app: Express) {
     }
 
     if (deleted) {
+      markTablesDirty("matches");
       await saveDB();
       res.json({ success: true });
     } else {

@@ -21,15 +21,26 @@ export type DirtyTable =
 
 const dirtyTables = new Set<DirtyTable | "all">(["all"]);
 
+// Tables whose last fetch failed: saveDB must not persist them (their memory
+// is seed-empty and delete-not-in would wipe real rows). Cleared per fetch.
+const fetchFailedTables = new Set<DirtyTable>();
+
+// Fail-safe: memory starts UNTRUSTED. Only a successful PG fetch flips it.
+// While untrusted, saveDB refuses to persist (a seed-empty memory + the
+// delete-not-in pattern would otherwise wipe production tables on DB blips).
+let memoryBootstrapped = false;
+
+export function isMemoryBootstrapped(): boolean {
+  return memoryBootstrapped;
+}
+
 export function markTablesDirty(...tables: Array<DirtyTable | "all">): void {
   for (const t of tables) dirtyTables.add(t);
 }
 
-function consumeDirty(all: boolean): Set<DirtyTable | "all"> {
+function consumeDirty(): Set<DirtyTable | "all"> {
   const out = new Set(dirtyTables);
   dirtyTables.clear();
-  dirtyTables.add("all");
-  void all;
   return out;
 }
 
@@ -940,6 +951,29 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
     if (errCoaches) logMessage("warn", "database", "خطا در دریافت جدول مربیان", errCoaches);
     if (errMatches) logMessage("warn", "database", "خطا در دریافت جدول مسابقات", errMatches);
 
+    // Partial-fetch guard: tables whose query failed keep seed-empty memory.
+    // Persisting them (delete-not-in) would wipe real PG rows, so saveDB
+    // skips those tables until the next successful fetch.
+    fetchFailedTables.clear();
+    const failPairs: Array<[any, DirtyTable]> = [
+      [errAds, "ads"], [errPM, "playerMovements"], [errCM, "coachMovements"],
+      [errLE, "lifecycleEvents"], [errCA, "coachAppointments"], [errLR, "lifecycleReasons"],
+      [errPSS, "playerSeasonStats"], [errCSS, "coachSeasonStats"], [errTSS, "teamSeasonStats"],
+      [errBracket, "bracket"], [errNews, "news"], [errTeams, "teams"], [errPlayers, "players"],
+      [errCoaches, "coaches"], [errMatches, "matches"], [errTransfers, "transfers"],
+      [errLegionnaires, "legionnaires"], [errImages, "images"], [errStandings, "standings"],
+      [errStats, "stats"], [errSubmissions, "submissions"], [errHero, "heroSlides"],
+      [errSC, "selectedCombinations"],
+    ];
+    for (const [e, t] of failPairs) {
+      if (e) {
+        fetchFailedTables.add(t);
+        logMessage("warn", "database", `جدول ${t} در این fetch خوانده نشد؛ ذخیره آن تا fetch بعدی رد می‌شود.`);
+      }
+    }
+    if (!dbTeamTransfersList || !(dbTeamTransfersList as any).data) fetchFailedTables.add("teamTransfersList");
+    if (!dbMediaFiles || !(dbMediaFiles as any).data) fetchFailedTables.add("mediaFiles");
+
     const parsed: any = { ...seedData };
 
     if (dbAds && Array.isArray(dbAds)) {
@@ -1540,6 +1574,7 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
     logMessage("info", "database", "کل داده‌ها با موفقیت از PostgreSQL دریافت و همگام گردید.");
     setDb(parsed);
     markDataSync(true);
+    memoryBootstrapped = true;
     // Phase 3 backfill: the migration cleared the legacy zero-placeholders,
     // so the first boot recomputes + persists the derived season tables once.
     // Any empty table (e.g. after a partial write failure) self-heals here.
@@ -1554,18 +1589,24 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
     logMessage("error", "database", "خطا در بارگذاری اولیه اطلاعات از PostgreSQL", err.message || err);
     setDb(seedData);
     markDataSync(false);
+    memoryBootstrapped = false;
   }
 }
 
 export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<DirtyTable | "all"> }): Promise<void> {
+  if (!memoryBootstrapped) {
+    const msg = "saveDB refused: memory was never bootstrapped from PostgreSQL (fetch failed).";
+    logMessage("error", "database", msg);
+    throw new Error(msg);
+  }
   return dbLock.acquire(async () => {
   const data = loadDB();
   try {
-    const dirty = consumeDirty(false);
+    const dirty = consumeDirty();
     if (options && options.tables) {
       for (const t of options.tables) dirty.add(t);
     }
-    const need = (t: DirtyTable) => isDirty(dirty, t);
+    const need = (t: DirtyTable) => !fetchFailedTables.has(t) && isDirty(dirty, t);
     const allStagedMatches: any[] = [];
     const sports = ["football", "futsal"];
     const stages = ["Feature_Games", "Now_Games", "Finished_Games"];
@@ -1602,8 +1643,12 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
     } else {
       recalculateAndSyncDatabase();
       recalcRan = true;
-      markTablesDirty("playerSeasonStats", "coachSeasonStats", "teamSeasonStats");
+      // Recalc rewrites these collections in memory: they must persist even
+      // when the caller only marked its own table. (No "all" fallback.)
+      markTablesDirty("teams", "players", "coaches", "matches", "standings", "stats", "playerSeasonStats", "coachSeasonStats", "teamSeasonStats");
     }
+    // Merge marks made during migrations/recalc into this save's working set.
+    for (const t of consumeDirty()) dirty.add(t);
 
     const promises: any[] = [];
 

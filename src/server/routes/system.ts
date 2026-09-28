@@ -5,7 +5,7 @@ import { db as pgDb, dbQuery, getUploadsDir } from "../db";
 import { loadDB, setDb } from "../state";
 import { logMessage, SYSTEM_LOGS } from "../utils/logger";
 import { dbLock } from "../utils/concurrency";
-import { fetchAndPopulateMemoryDB, saveDB } from "../services/database";
+import { fetchAndPopulateMemoryDB, saveDB, markTablesDirty } from "../services/database";
 import { requirePermission } from "../middleware/auth";
 
 async function getDirectorySize(dir: string): Promise<number> {
@@ -76,7 +76,7 @@ export function registerSystemRoutes(app: Express) {
     res.json({ status: "ok", ...bulk });
   });
 
-  app.get("/api/logs", (req: Request, res: Response) => {
+  app.get("/api/logs", requirePermission("diagnostics"), (req: Request, res: Response) => {
     res.json({ status: "ok", logs: SYSTEM_LOGS });
   });
 
@@ -100,7 +100,7 @@ export function registerSystemRoutes(app: Express) {
     res.send(JSON.stringify(SYSTEM_LOGS, null, 2));
   });
 
-  app.get("/api/testdb", async (req: Request, res: Response) => {
+  app.get("/api/testdb", requirePermission("diagnostics"), async (req: Request, res: Response) => {
     try {
       if (req.query.refresh === "true") {
         logMessage("info", "database", "درخواست به‌روزرسانی دستی همگام‌ساز اطلاعات دریافت شد. درحال دریافت رکوردها...");
@@ -181,6 +181,7 @@ export function registerSystemRoutes(app: Express) {
 
   app.post("/api/sync", requirePermission("centralSync"), async (req: Request, res: Response) => {
     try {
+      markTablesDirty("all");
       await saveDB();
       logMessage("info", "general", "همگام‌سازی فلاش هماهنگی فیزیکی دیتابیس تایید گردید: تمام اطلاعات در فایل db.json بازنویسی و ذخیره شد.");
       res.json({ success: true, message: "تمام جداول و مسابقات با موفقیت با فایل اصلی db.json همگام و روی دیسک ذخیره شدند." });

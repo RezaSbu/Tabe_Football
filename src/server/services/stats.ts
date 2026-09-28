@@ -299,6 +299,39 @@ export function getCoachCalculatedStatsFromMatches(coach: any, matches: any[], c
   return result;
 }
 
+/**
+ * What finished, non-auto, non-cup matches already explain for a team.
+ * Exported so create-routes seed base = entered - explained (delta), exactly
+ * like update-routes — never base = entered in full (double count).
+ */
+export function calcTeamBaseFor(
+  matches: any[],
+  teamId: any,
+  teamName: any
+): { played: number; won: number; drawn: number; lost: number; points: number; goalsFor: number; goalsAgainst: number } {
+  const out = { played: 0, won: 0, drawn: 0, lost: 0, points: 0, goalsFor: 0, goalsAgainst: 0 };
+  const norm = normalizePersianString(String(teamName || ""));
+  for (const m of matches || []) {
+    if (!m || m.status !== "finished" || m.isAutoFinished || (m as any).archived_standings) continue;
+    const isHome = (m.teamHomeId != null && String(m.teamHomeId) === String(teamId)) ||
+      (norm !== "" && normalizePersianString(m.teamHome || "") === norm);
+    const isAway = (m.teamAwayId != null && String(m.teamAwayId) === String(teamId)) ||
+      (norm !== "" && normalizePersianString(m.teamAway || "") === norm);
+    if (!isHome && !isAway) continue;
+    const hp = parseInt(String(m.scoreHome), 10) || 0;
+    const ap = parseInt(String(m.scoreAway), 10) || 0;
+    const scored = isHome ? hp : ap;
+    const conceded = isHome ? ap : hp;
+    out.played += 1;
+    out.goalsFor += scored;
+    out.goalsAgainst += conceded;
+    if (scored > conceded) { out.won += 1; out.points += 3; }
+    else if (scored < conceded) { out.lost += 1; }
+    else { out.drawn += 1; out.points += 1; }
+  }
+  return out;
+}
+
 export function recalculateAndSyncDatabase(): void {
   const db = loadDB();
   if (!db) return;
@@ -487,29 +520,8 @@ export function recalculateAndSyncDatabase(): void {
   // in db can never be counted twice. (The old formula seeded base = stored
   // in full, which double-counted for any team whose stored stats already
   // reflected db.matches — see Ario Eslamshahr, the only nonzero-base team.)
-  const calcTeamBase = (teamId: any, teamName: any): { played: number; won: number; drawn: number; lost: number; points: number; goalsFor: number; goalsAgainst: number } => {
-    const out = { played: 0, won: 0, drawn: 0, lost: 0, points: 0, goalsFor: 0, goalsAgainst: 0 };
-    const norm = normalizePersianString(String(teamName || ""));
-    for (const m of nonCupMatchesForBase) {
-      if (!m || m.status !== "finished" || m.isAutoFinished || (m as any).archived_standings) continue;
-      const isHome = (m.teamHomeId != null && String(m.teamHomeId) === String(teamId)) ||
-        (norm !== "" && normalizePersianString(m.teamHome || "") === norm);
-      const isAway = (m.teamAwayId != null && String(m.teamAwayId) === String(teamId)) ||
-        (norm !== "" && normalizePersianString(m.teamAway || "") === norm);
-      if (!isHome && !isAway) continue;
-      const hp = parseInt(String(m.scoreHome), 10) || 0;
-      const ap = parseInt(String(m.scoreAway), 10) || 0;
-      const scored = isHome ? hp : ap;
-      const conceded = isHome ? ap : hp;
-      out.played += 1;
-      out.goalsFor += scored;
-      out.goalsAgainst += conceded;
-      if (scored > conceded) { out.won += 1; out.points += 3; }
-      else if (scored < conceded) { out.lost += 1; }
-      else { out.drawn += 1; out.points += 1; }
-    }
-    return out;
-  };
+  const calcTeamBase = (teamId: any, teamName: any): { played: number; won: number; drawn: number; lost: number; points: number; goalsFor: number; goalsAgainst: number } =>
+    calcTeamBaseFor(nonCupMatchesForBase, teamId, teamName);
 
   db.teams.forEach((t: any) => {
     const needsTeamBaseSeed =
@@ -553,10 +565,19 @@ export function recalculateAndSyncDatabase(): void {
 
   if (!db.coaches) db.coaches = [];
   db.coaches.forEach((c: any) => {
-    if (c.baseMatches === undefined) c.baseMatches = parseInt(c.seasonStats?.matches) || 0;
-    if (c.baseWins === undefined) c.baseWins = parseInt(c.seasonStats?.wins) || 0;
-    if (c.baseDraws === undefined) c.baseDraws = parseInt(c.seasonStats?.draws) || 0;
-    if (c.baseLosses === undefined) c.baseLosses = parseInt(c.seasonStats?.losses) || 0;
+    // Delta like players/teams (and like PUT /api/coaches): base = entered
+    // minus what tenure matches already explain. Never seed full entered
+    // values — that double-counts on the first recalc after a create.
+    const coachSeedCalc = (c.baseMatches === undefined || c.baseWins === undefined || c.baseDraws === undefined || c.baseLosses === undefined)
+      ? getCoachCalculatedStatsFromMatches(c, db.matches || [], {
+          coaches: db.coaches || [], movements: db.coachMovements || [],
+          teams: db.teams || [], appointments: db.coachAppointments || [],
+        })
+      : null;
+    if (c.baseMatches === undefined) c.baseMatches = Math.max(0, (parseInt(c.seasonStats?.matches) || 0) - (coachSeedCalc ? coachSeedCalc.matches : 0));
+    if (c.baseWins === undefined) c.baseWins = Math.max(0, (parseInt(c.seasonStats?.wins) || 0) - (coachSeedCalc ? coachSeedCalc.wins : 0));
+    if (c.baseDraws === undefined) c.baseDraws = Math.max(0, (parseInt(c.seasonStats?.draws) || 0) - (coachSeedCalc ? coachSeedCalc.draws : 0));
+    if (c.baseLosses === undefined) c.baseLosses = Math.max(0, (parseInt(c.seasonStats?.losses) || 0) - (coachSeedCalc ? coachSeedCalc.losses : 0));
 
     c.seasonStats = {
       matches: c.baseMatches,

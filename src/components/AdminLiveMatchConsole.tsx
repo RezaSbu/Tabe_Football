@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { formatStatNumber, normalizePersianString } from "../utils";
 import { parseMatchMinute } from "../shared/matchMinute";
+import { getLeagueLabel } from "../shared/leagueLabel";
 
 interface MatchEvent {
   id: string;
@@ -479,7 +480,7 @@ export default function AdminLiveMatchConsole({
           <h2 className="font-extrabold text-base text-white mt-1">
             {match.teamHome} {scoreHome} - {scoreAway} {match.teamAway}
           </h2>
-          <p className="text-[10px] text-slate-400 mt-1">{match.league === "futsal" ? "لیگ برتر فوتسال" : "لیگ فوتبال حرفه‌ای"} | فصل {match.season} | {match.week}</p>
+          <p className="text-[10px] text-slate-400 mt-1">{getLeagueLabel(match.league)} | فصل {match.season} | {match.week}</p>
         </div>
 
         <button onClick={onCancel} className="px-3 py-1.5 rounded-lg bg-[#222227] hover:bg-white/5 text-xs text-slate-300 transition flex items-center gap-1 cursor-pointer">

@@ -72,9 +72,12 @@ export default function PlayerDetail({
     setLastPlayerId(player?.id);
   }
 
-  const isFutsalPlayer = player.id?.startsWith("futsal-") || 
-                         player.teamId?.startsWith("futsal-") || 
-                         player.teamId?.includes("futsal") || 
+  // Same futsal signals as TeamDetail (explicit fields + futsal id prefix).
+  const isFutsalPlayer = (player as any).sport === "futsal" ||
+                         (player as any).league === "futsal" ||
+                         player.id?.startsWith("futsal-") ||
+                         player.teamId?.startsWith("futsal-") ||
+                         player.teamId?.includes("futsal") ||
                          (player.teamName || "").includes("فوتسال");
 
   const identityIndex = buildPlayerIdentityIndex(allPlayers && allPlayers.length > 0 ? allPlayers : [player]);
