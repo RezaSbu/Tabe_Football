@@ -5,6 +5,7 @@ import { saveDB } from "../services/database";
 import { getPlayerCalculatedStatsFromMatches, getCoachCalculatedStatsFromMatches } from "../services/stats";
 import { requirePermission } from "../middleware/auth";
 import { detectConflict } from "../utils/versioning";
+import { auditLog } from "../utils/audit";
 
 export function registerTeamRoutes(app: Express) {
   app.post("/api/teams", requirePermission("teams"), async (req: Request, res: Response) => {
@@ -241,14 +242,16 @@ export function registerTeamRoutes(app: Express) {
     const index = currentDB.players.findIndex((p: any) => p.id === req.params.id);
     if (index !== -1) {
       const existingPlayer = currentDB.players[index];
-      if (detectConflict(existingPlayer, req.body.updatedAt)) {
+      // Resolver heal context is audit-only: never persist it into the record.
+      const { _heal, ...body } = (req.body || {}) as any;
+      if (detectConflict(existingPlayer, body.updatedAt)) {
         return res.status(409).json({ success: false, conflict: true, message: "این بازیکن پس از باز کردن فرم توسط شخص دیگری ویرایش شده است. لطفاً دوباره بارگذاری کنید.", current: existingPlayer });
       }
-      const updatedPlayer = { ...existingPlayer, ...req.body, updatedAt: new Date().toISOString() };
+      const updatedPlayer = { ...existingPlayer, ...body, updatedAt: new Date().toISOString() };
 
       // Lifecycle guard: team changes must flow through the movement API
       // (ledger + atomicity). Direct teamId edits would fork the ledger.
-      if (req.body.teamId !== undefined && String(req.body.teamId || "") !== String(existingPlayer.teamId || "")) {
+      if (body.teamId !== undefined && String(body.teamId || "") !== String(existingPlayer.teamId || "")) {
         return res.status(409).json({
           success: false,
           bypass: true,
@@ -290,6 +293,23 @@ export function registerTeamRoutes(app: Express) {
       currentDB.players[index] = updatedPlayer;
       try {
         await saveDB();
+        if (_heal) {
+          try {
+            auditLog({
+              username: ((req as any).user || {}).username || "admin",
+              role: ((req as any).user || {}).role,
+              action: "resolver.heal.player",
+              method: "PUT",
+              path: `/api/players/${req.params.id}`,
+              details: {
+                playerId: req.params.id,
+                heal: _heal,
+                old: { seasonStats: existingPlayer.seasonStats, baseMatches: existingPlayer.baseMatches, baseGoals: existingPlayer.baseGoals, baseAssists: existingPlayer.baseAssists },
+                new: { seasonStats: updatedPlayer.seasonStats, baseMatches: updatedPlayer.baseMatches, baseGoals: updatedPlayer.baseGoals, baseAssists: updatedPlayer.baseAssists },
+              },
+            });
+          } catch { /* audit is fire-and-forget */ }
+        }
         res.json({ success: true });
       } catch (err: any) {
         restoreDB(snapshot);
