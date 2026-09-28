@@ -184,7 +184,7 @@ export function registerStandingsRoutes(app: Express) {
     }
 
     currentDB.stats[leagueKey] = data;
-    markTablesDirty("stats");
+    markTablesDirty("stats", "players");
     await saveDB();
     res.json({ success: true });
   });
