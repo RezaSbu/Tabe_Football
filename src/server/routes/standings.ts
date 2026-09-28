@@ -5,11 +5,12 @@ import { normalizePersianString } from "../utils/persian";
 import { saveDB } from "../services/database";
 import { getPlayerCalculatedStatsFromMatches } from "../services/stats";
 import { requirePermission } from "../middleware/auth";
+import { auditLog } from "../utils/audit";
 
 export function registerStandingsRoutes(app: Express) {
   app.put("/api/standings/:leagueKey", requirePermission("overrides"), async (req: Request, res: Response) => {
     const { leagueKey } = req.params;
-    const { rows } = req.body;
+    const { rows, _heal } = req.body;
     const currentDB = loadDB();
 
     if (Array.isArray(rows)) {
@@ -94,6 +95,18 @@ export function registerStandingsRoutes(app: Express) {
 
     currentDB.standings[leagueKey] = rows;
     await saveDB();
+    if (_heal) {
+      try {
+        auditLog({
+          username: ((req as any).user || {}).username || "admin",
+          role: ((req as any).user || {}).role,
+          action: "resolver.heal.standings",
+          method: "PUT",
+          path: `/api/standings/${leagueKey}`,
+          details: { leagueKey, rows: Array.isArray(rows) ? rows.length : 0, heal: _heal },
+        });
+      } catch { /* audit is fire-and-forget */ }
+    }
     res.json({ success: true });
   });
 

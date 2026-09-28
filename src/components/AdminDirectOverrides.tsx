@@ -19,10 +19,10 @@ interface AdminDirectOverridesProps {
   teams: TeamItem[];
   players: PlayerItem[];
   stats: Record<string, any>;
-  onUpdateStandings: (leagueKey: string, rows: StandingRow[]) => Promise<boolean>;
+  onUpdateStandings: (leagueKey: string, rows: StandingRow[], heal?: { reason: string; findings: string[] }) => Promise<boolean>;
   onUpdateStats: (leagueKey: string, statsData: any) => Promise<boolean>;
   onUpdateTeam: (id: string, data: any) => Promise<boolean>;
-  onUpdatePlayer: (id: string, data: any) => Promise<boolean>;
+  onUpdatePlayer: (id: string, data: any, heal?: { reason: string; findings: string[] }) => Promise<boolean>;
   onRefreshData: () => void;
 }
 
