@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { runDatabaseMigrationsAndTransitions } from "../services/migrations";
 
 // Helper: build a full parseable object with a date far in the past so elapsed
@@ -31,6 +31,16 @@ function buildParsed(minutes?: string | null, status = "not-started") {
 }
 
 describe("runDatabaseMigrationsAndTransitions — minute preservation", () => {
+  // Wall-clock hermetic: the transition logic compares kickoff against
+  // "now", so a stepping/skewed CI clock could flip outcomes between the
+  // fixture build and the migration run. Freeze time for the whole block.
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 8, 15, 12, 0, 0));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
   it("keeps a manually stored minute for a live match (does not overwrite from elapsed)", () => {
     const parsed = buildParsed("30", "live");
     const { parsed: out } = runDatabaseMigrationsAndTransitions(parsed);
