@@ -11,11 +11,15 @@
 # run heal/repair/restore until counts + app logs are reviewed).
 # ============================================
 
-DB_CONTAINER="tabe-football-db"
 DB_NAME="${DB_NAME:-tabe_football}"
 DB_USER="${DB_USER:-tabe_admin}"
 APP_URL="${APP_URL:-http://127.0.0.1:3000}"
 export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
+
+# Run from the repo root so `docker compose exec` resolves the project.
+# (Plain `docker exec -T` is not supported by older docker CLIs, while
+# `docker compose exec -T` works — learned the hard way on the VPS.)
+cd "$(dirname "$0")/.." || { echo "[MONITOR][ALERT] cannot cd to repo root"; exit 1; }
 
 fail=0
 diag_done=0
@@ -23,19 +27,24 @@ alert() { echo "[MONITOR][ALERT] $1"; fail=1; }
 info() { echo "[MONITOR] $1"; }
 
 count_of() {
+  # Echoes ONLY the bare number on stdout (empty on failure). All
+  # diagnostics go to stderr — otherwise they pollute the captured value
+  # and a broken check can look OK (this once faked an "all sane").
   local res
-  res="$(docker exec -T "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -t -A -c "SELECT count(*) FROM $1;" 2>&1 | tr -d '[:space:]')"
+  res="$(docker compose exec -T postgres psql -U "$DB_USER" -d "$DB_NAME" -t -A -c "SELECT count(*) FROM $1;" 2>&1 | tr -d '[:space:]')"
   case "$res" in
     ''|*[!0-9]*)
       # Not a number: surface the real cause once (docker/auth/query),
       # instead of hiding it behind "cannot read".
       if [ "$diag_done" = "0" ]; then
         diag_done=1
-        echo "[MONITOR][DIAG] container='$DB_CONTAINER' user='$DB_USER' db='$DB_NAME'"
-        echo "[MONITOR][DIAG] docker ps:"
-        docker ps --format '{{.Names}} {{.Status}}' 2>&1 | head -5
-        echo "[MONITOR][DIAG] sample query error:"
-        docker exec -T "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -t -A -c "SELECT 1;" 2>&1 | head -3
+        {
+          echo "[MONITOR][DIAG] user='$DB_USER' db='$DB_NAME'"
+          echo "[MONITOR][DIAG] compose ps:"
+          docker compose ps --format '{{.Name}} {{.Status}}' 2>&1 | head -5
+          echo "[MONITOR][DIAG] sample query error:"
+          docker compose exec -T postgres psql -U "$DB_USER" -d "$DB_NAME" -t -A -c "SELECT 1;" 2>&1 | head -3
+        } >&2
       fi
       echo ""
       ;;
@@ -46,10 +55,12 @@ count_of() {
 check_min() {
   local table="$1" min="$2" got
   got="$(count_of "$table")"
-  if [ -z "$got" ]; then
-    alert "cannot read table $table (DB unreachable or query failed)"
-    return
-  fi
+  case "$got" in
+    ''|*[!0-9]*)
+      alert "cannot read table $table (see DIAG above)"
+      return
+      ;;
+  esac
   if [ "$got" -lt "$min" ]; then
     alert "table $table count=$got below floor $min"
   else
