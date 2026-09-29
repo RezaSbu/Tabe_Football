@@ -58,7 +58,9 @@ jobs:
           PGPASSWORD: ci_test_password
 
       - name: Run Unit Tests
-        run: npx vitest run src/server/__tests__/auth.test.ts src/server/__tests__/state.test.ts
+        # Full unit suite. api.test.ts is excluded: it targets a live server
+        # at localhost:3000 and cannot run in CI (see CD health check).
+        run: npx vitest run --exclude src/server/__tests__/api.test.ts
 
   build:
     runs-on: ubuntu-latest
