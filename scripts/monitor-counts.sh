@@ -18,11 +18,29 @@ APP_URL="${APP_URL:-http://127.0.0.1:3000}"
 export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
 
 fail=0
+diag_done=0
 alert() { echo "[MONITOR][ALERT] $1"; fail=1; }
 info() { echo "[MONITOR] $1"; }
 
 count_of() {
-  docker exec -T "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -t -A -c "SELECT count(*) FROM $1;" 2>/dev/null | tr -d '[:space:]'
+  local res
+  res="$(docker exec -T "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -t -A -c "SELECT count(*) FROM $1;" 2>&1 | tr -d '[:space:]')"
+  case "$res" in
+    ''|*[!0-9]*)
+      # Not a number: surface the real cause once (docker/auth/query),
+      # instead of hiding it behind "cannot read".
+      if [ "$diag_done" = "0" ]; then
+        diag_done=1
+        echo "[MONITOR][DIAG] container='$DB_CONTAINER' user='$DB_USER' db='$DB_NAME'"
+        echo "[MONITOR][DIAG] docker ps:"
+        docker ps --format '{{.Names}} {{.Status}}' 2>&1 | head -5
+        echo "[MONITOR][DIAG] sample query error:"
+        docker exec -T "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" -t -A -c "SELECT 1;" 2>&1 | head -3
+      fi
+      echo ""
+      ;;
+    *) echo "$res" ;;
+  esac
 }
 
 check_min() {
@@ -48,11 +66,12 @@ check_min news 100
 check_min seasons 1
 check_min schema_migrations 10
 
-# App must answer health.
-if curl -sf --max-time 15 "$APP_URL/api/health" > /dev/null 2>&1; then
+# App must answer health (code surfaced; curl errors become 000).
+health_code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "$APP_URL/api/health" 2>/dev/null || echo "000")"
+if [ "$health_code" = "200" ]; then
   info "app health OK"
 else
-  alert "app health check FAILED at $APP_URL/api/health"
+  alert "app health check FAILED at $APP_URL/api/health (http=$health_code)"
 fi
 
 if [ "$fail" -ne 0 ]; then
