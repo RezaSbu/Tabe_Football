@@ -1565,16 +1565,21 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
     const migResult = runDatabaseMigrationsAndTransitions(parsed);
     recalculateAndSyncDatabase();
 
-    if (migResult.changed) {
-      logMessage("info", "database", "تشخیص تغییرات ساختاری در مهاجرت خودکار داده‌ها؛ ثبت تغییرات در پایگاه داده...");
-      setDb(parsed);
-      saveDB();
-    }
-
-    logMessage("info", "database", "کل داده‌ها با موفقیت از PostgreSQL دریافت و همگام گردید.");
+    // Memory is fully populated at this point: mark it trusted BEFORE any
+    // persist below. (The migration save must not trip the bootstrap guard.)
     setDb(parsed);
     markDataSync(true);
     memoryBootstrapped = true;
+    if (migResult.changed) {
+      logMessage("info", "database", "تشخیص تغییرات ساختاری در مهاجرت خودکار داده‌ها؛ ثبت تغییرات در پایگاه داده...");
+      // Fire-and-forget by design: saveDB re-acquires dbLock, which the
+      // caller of this fetch already holds — awaiting here would deadlock.
+      // .catch() keeps a persist failure from becoming a fatal unhandled
+      // rejection (which previously crash-looped the container at boot).
+      saveDB().catch((e: any) => logMessage("error", "database", "خطا در ذخیره مهاجرت خودکار", e?.message || e));
+    }
+
+    logMessage("info", "database", "کل داده‌ها با موفقیت از PostgreSQL دریافت و همگام گردید.");
     // Phase 3 backfill: the migration cleared the legacy zero-placeholders,
     // so the first boot recomputes + persists the derived season tables once.
     // Any empty table (e.g. after a partial write failure) self-heals here.
@@ -1583,7 +1588,7 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
       || (!dbTeamSeasonStats || dbTeamSeasonStats.length === 0);
     if (seasonBackfillNeeded) {
       logMessage("info", "database", "جدول‌های آمار فصلی خالی‌اند؛ بازمحاسبه و ذخیره اولیه انجام می‌شود...");
-      saveDB();
+      saveDB().catch((e: any) => logMessage("error", "database", "خطا در ذخیره backfill فصلی", e?.message || e));
     }
   } catch (err: any) {
     logMessage("error", "database", "خطا در بارگذاری اولیه اطلاعات از PostgreSQL", err.message || err);

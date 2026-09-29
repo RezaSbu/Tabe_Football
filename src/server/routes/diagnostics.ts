@@ -43,14 +43,14 @@ function preflightBackupDir(): { ok: boolean; error?: string } {
   try {
     fs.mkdirSync(BACKUPS_DIR, { recursive: true });
   } catch (err: any) {
-    return { ok: false, error: `ساخت پوشه بکاپ ناممکن است (${BACKUPS_DIR}): ${err?.message || err}` };
+    return { ok: false, error: `ساخت پوشه بکاپ ناممکن است (${BACKUPS_DIR}): ${err?.message || err}. راه‌حل روی سرور: ساخته شدن پوشه backups کنار docker-compose و دسترسی نوشتن آن را بررسی کنید.` };
   }
   try {
     const probe = path.join(BACKUPS_DIR, `.write-test-${Date.now()}.tmp`);
     fs.writeFileSync(probe, "ok");
     fs.unlinkSync(probe);
   } catch (err: any) {
-    return { ok: false, error: `دسترسی نوشتن به پوشه بکاپ نیست (${BACKUPS_DIR}): ${err?.message || err}` };
+    return { ok: false, error: `دسترسی نوشتن به پوشه بکاپ نیست (${BACKUPS_DIR}): ${err?.message || err}. راه‌حل روی سرور: chown -R 100:101 backups (کاربر appuser داخل کانتینر) — این شایع‌ترین علت روی VPS است.` };
   }
   try {
     const st = (fs as any).statfsSync ? (fs as any).statfsSync(BACKUPS_DIR) : null;
