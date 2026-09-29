@@ -1,11 +1,16 @@
 name: CD
 
+# Deploy only after CI (typecheck + lint + full unit suite) passes on main.
+# A green build no longer means deployable code — this gate does.
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches: [main]
 
 jobs:
   deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,3 +31,15 @@ jobs:
             docker compose -f docker-compose.yml -f docker-compose.prod.yml build --no-cache app
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
             docker image prune -f
+            echo "[CD] waiting for app health..."
+            for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+              if curl -sf http://127.0.0.1:3000/api/health > /dev/null 2>&1; then
+                echo "[CD] app healthy."
+                break
+              fi
+              if [ "$i" = "12" ]; then
+                echo "[CD] app did NOT become healthy — failing the deploy."
+                exit 1
+              fi
+              sleep 30
+            done
