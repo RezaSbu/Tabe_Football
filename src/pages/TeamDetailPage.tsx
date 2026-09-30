@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { ArrowRight, Loader2 } from "lucide-react";
 import TeamDetail from "../components/TeamDetail";
 import { getSafeImageUrl, fetchCachedAppData } from "../utils";
+import { useSmartNavigate } from "../hooks/useSmartNavigate";
 
 export default function TeamDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+  const navigate = useSmartNavigate();
   const [team, setTeam] = useState<any>(null);
   const [players, setPlayers] = useState<any[]>([]);
   const [coaches, setCoaches] = useState<any[]>([]);

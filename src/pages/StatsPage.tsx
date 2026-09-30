@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Flame, Zap, Award, X, List, Star } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import { StatsData } from "../types";
 import { resolveTeam, resolveTeamLeagueWithFallback, normalizeLeagueKey } from "../shared/teamMatch";
 import SeasonSwitcher, { defaultSeasonValue } from "../components/SeasonSwitcher";
 import { useSeasons, useSeasonData } from "../hooks/useSeasonData";
+import { useSmartNavigate } from "../hooks/useSmartNavigate";
 
 interface StatsPageProps {
   stats: Record<string, StatsData>;
@@ -147,7 +147,7 @@ export default function StatsPage({
   teams = [],
   players = [],
 }: StatsPageProps) {
-  const navigate = useNavigate();
+  const navigate = useSmartNavigate();
 
   // Phase 5: per-season leaders from the season tables ("career" = the
   // all-time leaderboards, previous behavior). Team scope uses the played-for

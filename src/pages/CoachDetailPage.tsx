@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { ArrowRight, Loader2 } from "lucide-react";
 import CoachDetail from "../components/CoachDetail";
 import { fetchCachedAppData } from "../utils";
+import { useSmartNavigate } from "../hooks/useSmartNavigate";
 
 export default function CoachDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+  const navigate = useSmartNavigate();
   const [coach, setCoach] = useState<any>(null);
   const [allMatches, setAllMatches] = useState<any[]>([]);
   const [allTeams, setAllTeams] = useState<any[]>([]);
