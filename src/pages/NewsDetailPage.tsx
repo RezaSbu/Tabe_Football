@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { ArrowRight, Loader2, Tag, Clock } from "lucide-react";
 import { getSafeImageUrl, formatStatNumber } from "../utils";
+import { useSmartNavigate } from "../hooks/useSmartNavigate";
 
 export default function NewsDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+  const navigate = useSmartNavigate();
   const [article, setArticle] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);

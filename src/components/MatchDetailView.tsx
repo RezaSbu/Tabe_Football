@@ -1,10 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   ArrowLeft, Calendar, MapPin, Clock, Shield, 
-  AlertCircle, Sparkles, Trophy, TrendingUp, ListOrdered, Shirt, GitCompareArrows, RefreshCw 
+  AlertCircle, Sparkles, Trophy, ListOrdered, Shirt, GitCompareArrows, RefreshCw, Newspaper 
 } from "lucide-react";
 import { StandingRow } from "../types";
-import { convertGregorianToShamsi, formatStatNumber, normalizePersianString } from "../utils";
+import { convertGregorianToShamsi, formatStatNumber, normalizePersianString, getSafeImageUrl } from "../utils";
 import { minuteSortKey } from "../shared/matchMinute";
 import TeamLogo from "./TeamLogo";
 
@@ -16,6 +16,7 @@ interface MatchDetailViewProps {
   standings?: Record<string, StandingRow[]>;
   onBack: () => void;
   onSelectPlayer?: (playerId: string) => void;
+  onSelectNews?: (newsId: string) => void;
 }
 
 const EVENT_META: Record<string, { label: string; icon: string }> = {
@@ -47,12 +48,29 @@ export default function MatchDetailView({
   players = [], 
   standings = {},
   onBack, 
-  onSelectPlayer 
+  onSelectPlayer,
+  onSelectNews 
 }: MatchDetailViewProps) {
   
-  const [activeTab, setActiveTab] = useState<"timeline" | "stats" | "lineups" | "h2h">("timeline");
+  const [activeTab, setActiveTab] = useState<"timeline" | "news" | "lineups" | "h2h">("timeline");
+  const [matchNews, setMatchNews] = useState<any[]>([]);
   const isPlayed = match.status === "live" || match.status === "finished";
   const isLive = match.status === "live";
+
+  // Match news: only items whose TEXT mentions BOTH teams (fetched server-side).
+  useEffect(() => {
+    if (!match?.id) return;
+    let cancelled = false;
+    fetch(`/api/related-news/match/${match.id}?limit=10`)
+      .then(res => res.json())
+      .then(data => {
+        if (!cancelled && data.success && Array.isArray(data.data)) {
+          setMatchNews(data.data);
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [match?.id]);
 
   const leagueName = LEAGUE_NAMES[match.league] || (match.league ? match.league : "لیگ فوتبال کشور");
 
@@ -111,75 +129,7 @@ export default function MatchDetailView({
 
   const sortedTimeline = [...defaultTimeline].sort((a, b) => minuteSortKey(a.minute) - minuteSortKey(b.minute));
 
-  // --- 2. NORMALIZE STATS ---
-  const teamStatsObj = match.teamStats || {};
-  const statsObj = match.stats || {};
-  const normalizeStats = () => {
-    const raw: { label: string; homeValue: string | number; awayValue: string | number }[] = [];
-
-    const isUnknown = (val: any) => {
-      return val === null || val === undefined || val === -1 || val === "-1" || val === "نامشخص" || val === "undefined";
-    };
-
-    const pH = teamStatsObj.possession?.home ?? statsObj.possessionHome;
-    const pA = teamStatsObj.possession?.away ?? statsObj.possessionAway;
-    if (pH != null && pA != null && !isUnknown(pH) && !isUnknown(pA)) {
-      raw.push({ label: "مالکیت توپ", homeValue: `${pH}%`, awayValue: `${pA}%` });
-    }
-
-    const xgH = teamStatsObj.expectedGoals?.home;
-    const xgA = teamStatsObj.expectedGoals?.away;
-    if (xgH != null && xgA != null && !isUnknown(xgH) && !isUnknown(xgA)) {
-      raw.push({ label: "امید به گل (xG)", homeValue: xgH, awayValue: xgA });
-    }
-
-    const sH = teamStatsObj.shots?.home ?? statsObj.shotsHome;
-    const sA = teamStatsObj.shots?.away ?? statsObj.shotsAway;
-    if (sH != null && sA != null && !isUnknown(sH) && !isUnknown(sA)) {
-      raw.push({ label: "شوت مجموع", homeValue: sH, awayValue: sA });
-    }
-
-    const sotH = teamStatsObj.shotsOnTarget?.home ?? statsObj.shotsOnTargetHome;
-    const sotA = teamStatsObj.shotsOnTarget?.away ?? statsObj.shotsOnTargetAway;
-    if (sotH != null && sotA != null && !isUnknown(sotH) && !isUnknown(sotA)) {
-      raw.push({ label: "شوت داخل چارچوب", homeValue: sotH, awayValue: sotA });
-    }
-
-    const psH = teamStatsObj.passes?.home;
-    const psA = teamStatsObj.passes?.away;
-    if (psH != null && psA != null && !isUnknown(psH) && !isUnknown(psA)) {
-      raw.push({ label: "پاس‌های ردوبدل شده", homeValue: psH, awayValue: psA });
-    }
-
-    const accH = teamStatsObj.passAccuracy?.home;
-    const accA = teamStatsObj.passAccuracy?.away;
-    if (accH != null && accA != null && !isUnknown(accH) && !isUnknown(accA)) {
-      raw.push({ label: "دقت پاس", homeValue: `${accH}%`, awayValue: `${accA}%` });
-    }
-
-    const cH = teamStatsObj.corners?.home ?? statsObj.cornersHome;
-    const cA = teamStatsObj.corners?.away ?? statsObj.cornersAway;
-    if (cH != null && cA != null && !isUnknown(cH) && !isUnknown(cA)) {
-      raw.push({ label: "ضربات کرنر", homeValue: cH, awayValue: cA });
-    }
-
-    const svH = teamStatsObj.saves?.home;
-    const svA = teamStatsObj.saves?.away;
-    if (svH != null && svA != null && !isUnknown(svH) && !isUnknown(svA)) {
-      raw.push({ label: "مهارها (سیو)", homeValue: svH, awayValue: svA });
-    }
-
-    const fH = teamStatsObj.fouls?.home ?? statsObj.foulsHome;
-    const fA = teamStatsObj.fouls?.away ?? statsObj.foulsAway;
-    if (fH != null && fA != null && !isUnknown(fH) && !isUnknown(fA)) {
-      raw.push({ label: "خطاها", homeValue: fH, awayValue: fA });
-    }
-
-    return raw;
-  };
-  const defaultStats = normalizeStats();
-
-  // --- 3. LINEUPS ---
+  // --- 2. LINEUPS ---
   const defaultLineups = match.lineups || { home: [], away: [], homeSubs: [], awaySubs: [] };
 
   const homeLineup = defaultLineups.home || [];
@@ -359,8 +309,8 @@ export default function MatchDetailView({
 
   const tabs = [
     { id: "timeline" as const, label: "گزارش و وقایع", icon: ListOrdered },
-    { id: "stats" as const, label: "آمار دقیق بازی", icon: TrendingUp },
-    { id: "lineups" as const, label: "ترکیب دو تیم", icon: Shirt },
+    { id: "news" as const, label: "اخبار بازی", icon: Newspaper },
+    { id: "lineups" as const, label: "ترکیب و نمرات دو تیم", icon: Shirt },
     { id: "h2h" as const, label: "رویارویی‌ها (H2H)", icon: GitCompareArrows },
   ];
 
@@ -627,68 +577,44 @@ export default function MatchDetailView({
           </div>
         )}
 
-        {/* ===== TAB 2: STATS ===== */}
-        {activeTab === "stats" && (
-          <div className="space-y-5 max-w-xl mx-auto animate-in fade-in duration-200">
-            {!isPlayed ? (
-              <div className="p-8 text-center text-slate-400 bg-black/15 border border-white/5 border-dashed rounded-2xl max-w-md mx-auto space-y-3">
-                 <TrendingUp className="h-10 w-10 text-amber-500 mx-auto" strokeWidth={1.5} />
-                 <h4 className="font-extrabold text-sm text-white">آمار بازی پس از شروع فرستاده می‌شود</h4>
-                 <p className="text-xs text-slate-400">مالکیت توپ، جزئیات شوت‌ها، دقت پاس و امید به گل پس از سوت آغاز بازی بصورت اتوماتیک استخراج می‌گردند.</p>
-              </div>
-            ) : defaultStats.length === 0 ? (
-              <div className="p-8 text-center text-slate-400 bg-black/15 border border-white/5 border-dashed rounded-2xl max-w-md mx-auto space-y-3">
-                 <TrendingUp className="h-10 w-10 text-slate-500 mx-auto" strokeWidth={1.5} />
-                 <h4 className="font-extrabold text-sm text-white">آماری برای این مسابقه ثبت نشده است</h4>
-                 <p className="text-xs text-slate-400">اطلاعات آماری تفصیلی (شوت، مالکیت، کرنر و...) برای این مسابقه در سیستم وارد نشده است.</p>
-              </div>
+        {/* ===== TAB 2: MATCH NEWS ===== */}
+        {activeTab === "news" && (
+          <div className="space-y-3 max-w-xl mx-auto animate-in fade-in duration-200">
+            {matchNews.length > 0 ? (
+              matchNews.map((nw: any) => (
+                <button
+                  key={nw.id}
+                  onClick={() => onSelectNews && onSelectNews(nw.id)}
+                  className="w-full flex items-start gap-3 text-right p-2.5 rounded-xl bg-white/[0.02] hover:bg-white/[0.05] border border-white/5 hover:border-emerald-500/30 transition cursor-pointer group"
+                >
+                  {nw.image ? (
+                    <img
+                      src={getSafeImageUrl(nw.image)}
+                      alt={nw.title}
+                      loading="lazy"
+                      className="w-16 h-16 rounded-lg object-cover shrink-0 bg-slate-800"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    <div className="w-16 h-16 rounded-lg shrink-0 bg-slate-800 flex items-center justify-center text-lg">📰</div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-xs font-bold text-white leading-snug line-clamp-2 group-hover:text-emerald-400 transition">
+                      {nw.title}
+                    </h4>
+                    {nw.summary && (
+                      <p className="text-[10px] text-slate-500 line-clamp-2 mt-1 leading-relaxed">
+                        {nw.summary}
+                      </p>
+                    )}
+                  </div>
+                </button>
+              ))
             ) : (
-              <div className="rounded-2xl bg-[#141418] border border-white/5 overflow-hidden">
-                <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between gap-2 text-xs font-black">
-                  <span className="flex items-center gap-1.5 text-slate-100 min-w-0">
-                    <TeamLogo logo={match.teamHomeLogo} fallback="🛡️" size="xs" />
-                    <span className="truncate">{match.teamHome}</span>
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-bold shrink-0">مهمترین آمار بازی</span>
-                  <span className="flex items-center gap-1.5 text-slate-100 min-w-0">
-                    <span className="truncate">{match.teamAway}</span>
-                    <TeamLogo logo={match.teamAwayLogo} fallback="⚔️" size="xs" />
-                  </span>
-                </div>
-
-                <div className="divide-y divide-white/[0.04]">
-                  {defaultStats.map((stat, idx) => {
-                    const parseVal = (v: any) => parseFloat(String(v).replace("%", "")) || 0;
-                    const homeValue = parseVal(stat.homeValue);
-                    const awayValue = parseVal(stat.awayValue);
-                    const totalVal = homeValue + awayValue || 1;
-                    const homePercentage = (homeValue / totalVal) * 100;
-                    const homeLead = homeValue > awayValue;
-                    const awayLead = awayValue > homeValue;
-
-                    return (
-                      <div key={idx} className="px-4 py-4 space-y-2">
-                        <div className="flex justify-between items-center text-xs sm:text-sm gap-3">
-                          <span className={`font-extrabold font-mono ${homeLead ? "text-emerald-400" : "text-slate-400"}`}>
-                            {formatStatNumber(stat.homeValue)}
-                          </span>
-                          <span className="text-slate-400 font-bold">{stat.label}</span>
-                          <span className={`font-extrabold font-mono ${awayLead ? "text-cyan-400" : "text-slate-400"}`}>
-                            {formatStatNumber(stat.awayValue)}
-                          </span>
-                        </div>
-
-                        <div className="h-2.5 rounded-full bg-[#18181c] overflow-hidden flex border border-white/5">
-                          <div 
-                            style={{ width: `${homePercentage}%` }}
-                            className={`h-full transition-all duration-300 ${homeLead ? "bg-emerald-400" : "bg-emerald-600/80"}`}
-                          />
-                          <div className={`flex-1 h-full transition-all duration-300 ${awayLead ? "bg-cyan-400" : "bg-cyan-600/80"}`} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+              <div className="p-8 text-center text-slate-400 bg-black/15 border border-white/5 border-dashed rounded-2xl max-w-md mx-auto space-y-3">
+                <Newspaper className="h-10 w-10 text-slate-500 mx-auto" strokeWidth={1.5} />
+                <h4 className="font-extrabold text-sm text-white">خبری برای این مسابقه ثبت نشده است</h4>
+                <p className="text-xs text-slate-400">اخباری که همزمان از هر دو تیم نام برده باشند، اینجا نمایش داده می‌شوند.</p>
               </div>
             )}
           </div>
@@ -700,7 +626,7 @@ export default function MatchDetailView({
             {homeLineup.length === 0 && awayLineup.length === 0 && homeSubs.length === 0 && awaySubs.length === 0 ? (
               <div className="p-8 text-center text-slate-400 bg-black/15 border border-white/5 border-dashed rounded-2xl max-w-md mx-auto space-y-3">
                 <Shirt className="h-10 w-10 text-slate-500 mx-auto" />
-                <h4 className="font-extrabold text-sm text-white">ترکیب دو تیم ثبت نشده است</h4>
+                <h4 className="font-extrabold text-sm text-white">ترکیب و نمرات دو تیم ثبت نشده است</h4>
                 <p className="text-xs text-slate-400">اطلاعات یازده‌نفر اصلی و ذخیره‌های این مسابقه پس از تأیید توسط کادر فنی در این بخش نمایش داده می‌شود.</p>
               </div>
             ) : (

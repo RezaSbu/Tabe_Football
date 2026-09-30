@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { ArrowRight, Loader2 } from "lucide-react";
 import MatchDetailView from "../components/MatchDetailView";
 import { computeDynamicAppletStats, fetchCachedAppData } from "../utils";
+import { useSmartNavigate } from "../hooks/useSmartNavigate";
 
 export default function MatchDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+  const navigate = useSmartNavigate();
   const [match, setMatch] = useState<any>(null);
   const [allMatches, setAllMatches] = useState<any[]>([]);
   const [standings, setStandings] = useState<Record<string, any[]>>({});
@@ -113,6 +114,7 @@ export default function MatchDetailPage() {
         standings={standings}
         onBack={() => navigate(-1)}
         onSelectPlayer={(pid: string) => navigate(`/player/${pid}`)}
+        onSelectNews={(newsId: string) => navigate(`/news/${newsId}`)}
       />
     </>
   );

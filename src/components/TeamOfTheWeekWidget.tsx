@@ -9,13 +9,32 @@ interface TeamOfTheWeekWidgetProps {
   onSelectPlayer?: (playerId: string) => void;
 }
 
+const LEAGUE_TABS = [
+  { key: "pro-league", label: "لیگ برتر", leagueKey: "pro-league", group: "" },
+  { key: "league-1", label: "لیگ آزادگان (یک)", leagueKey: "league-1", group: "" },
+  { key: "league-2-a", label: "لیگ دو الف", leagueKey: "league-2", group: "a" },
+  { key: "league-2-b", label: "لیگ دو ب", leagueKey: "league-2", group: "b" }
+];
+
+function tabOf(key: string) {
+  return LEAGUE_TABS.find(t => t.key === key) || LEAGUE_TABS[0];
+}
+
+function matchesTab(c: SelectedCombination, tabKey: string) {
+  const tab = tabOf(tabKey);
+  return c.leagueKey === tab.leagueKey
+    && (tab.group === "" || (c.group || "a") === tab.group);
+}
+
 export default function TeamOfTheWeekWidget({ combinations = [], allPlayers = [], onSelectPlayer }: TeamOfTheWeekWidgetProps) {
   const [selectedLeague, setSelectedLeague] = useState<string>("pro-league");
-  
-  // Find available week combinations with live/populated rosters for the selected league
-  const leagueCombinations = combinations.filter(
-    c => c.leagueKey === selectedLeague && c.players && Object.keys(c.players).length > 0
+
+  const combosForTab = (tabKey: string) => combinations.filter(
+    c => matchesTab(c, tabKey) && c.players && Object.keys(c.players).length > 0
   );
+
+  // Find available week combinations with live/populated rosters for the selected league tab
+  const leagueCombinations = combosForTab(selectedLeague);
   
   const activeWeeks = Array.from(new Set(leagueCombinations.map(c => c.week))).sort((a, b) => a - b);
 
@@ -30,14 +49,10 @@ export default function TeamOfTheWeekWidget({ combinations = [], allPlayers = []
 
   // Get active combination
   const activeCombination = combinations.find(
-    c => c.leagueKey === selectedLeague && c.week === currentWeek
+    c => matchesTab(c, selectedLeague) && c.week === currentWeek
   ) || leagueCombinations[0];
 
-  const leagues = [
-    { key: "pro-league", label: "لیگ برتر فوتبال" },
-    { key: "league-1", label: "لیگ آزادگان (یک)" },
-    { key: "league-2", label: "لیگ دسته دو" }
-  ];
+  const leagues = LEAGUE_TABS;
 
   // Perfectly balanced 3-5-2 Formation Coordinates on Half-field Pitch (from GK bottom to ST top)
   // Re-designed percentages to guarantee absolute ZERO overlap across all screen dimensions!
@@ -113,7 +128,7 @@ export default function TeamOfTheWeekWidget({ combinations = [], allPlayers = []
               key={l.key}
               onClick={() => {
                 setSelectedLeague(l.key);
-                const leagueCombs = combinations.filter(c => c.leagueKey === l.key && c.players && Object.keys(c.players).length > 0);
+                const leagueCombs = combosForTab(l.key);
                 const leagueWeeks = Array.from(new Set(leagueCombs.map(c => c.week))).sort((a,b)=>a-b);
                 const latestWeek = leagueWeeks[leagueWeeks.length - 1] || 1;
                 setSelectedWeek(latestWeek);

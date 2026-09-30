@@ -1,14 +1,15 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { ArrowRight, Loader2 } from "lucide-react";
 import PlayerDetail from "../components/PlayerDetail";
 import { getSafeImageUrl, fetchCachedAppData } from "../utils";
 import { resolveTeam } from "../shared/teamMatch";
+import { useSmartNavigate } from "../hooks/useSmartNavigate";
 
 export default function PlayerDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+  const navigate = useSmartNavigate();
   const [player, setPlayer] = useState<any>(null);
   const [allMatches, setAllMatches] = useState<any[]>([]);
   const [allTeams, setAllTeams] = useState<any[]>([]);

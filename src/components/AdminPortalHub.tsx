@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { 
   FileText, 
   RefreshCw, 
@@ -147,6 +147,32 @@ export default function AdminPortalHub({
   const [trTags, setTrTags] = useState("");
   const [legTags, setLegTags] = useState("");
   const [imgTags, setImgTags] = useState("");
+  const [showTagSuggest, setShowTagSuggest] = useState(false);
+
+  // All previously used news tags (dynamic: newly saved tags appear here
+  // automatically on next load, so they get suggested in later sessions).
+  const allExistingTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const n of news || []) {
+      for (const t of (n as any).tags || []) {
+        const clean = String(t || "").trim();
+        if (clean) set.add(clean);
+      }
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, "fa"));
+  }, [news]);
+
+  // Suggestions filtered by the token currently being typed (after last comma).
+  const tagSuggestions = useMemo(() => {
+    const parts = newsTags.split(",");
+    const token = (parts[parts.length - 1] || "").trim();
+    const used = new Set(
+      parts.slice(0, -1).map(p => p.trim()).filter(Boolean)
+    );
+    return allExistingTags
+      .filter(t => !used.has(t) && (token === "" || t.includes(token)))
+      .slice(0, 8);
+  }, [newsTags, allExistingTags]);
 
   // AD FORM STATE
   const [adForm, setAdForm] = useState<AdItem | null>(null);
@@ -780,9 +806,29 @@ export default function AdminPortalHub({
                 </div>
               </div>
 
-              <div>
+              <div className="relative">
                 <label className="block text-[10px] text-gray-500 mb-1">برچسب‌ها (با کاما "," جدا کنید)</label>
-                <input type="text" value={newsTags} onChange={e => setNewsTags(e.target.value)} placeholder="لیگ برتر, پرسپولیس, نقل و انتقالات, استقلال" className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" />
+                <input type="text" value={newsTags} onChange={e => { setNewsTags(e.target.value); setShowTagSuggest(true); }} onFocus={() => setShowTagSuggest(true)} onBlur={() => setTimeout(() => setShowTagSuggest(false), 150)} placeholder="لیگ برتر, پرسپولیس, نقل و انتقالات, استقلال" className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" />
+                {showTagSuggest && tagSuggestions.length > 0 && (
+                  <div className="absolute z-20 mt-1 w-full max-h-40 overflow-y-auto rounded-lg border border-white/10 bg-[#141419] shadow-2xl">
+                    {tagSuggestions.map(tag => (
+                      <button
+                        key={tag}
+                        type="button"
+                        onMouseDown={e => e.preventDefault()}
+                        onClick={() => {
+                          const parts = newsTags.split(",");
+                          parts[parts.length - 1] = ` ${tag}`;
+                          setNewsTags(parts.join(",").replace(/^,\s*/, ""));
+                          setShowTagSuggest(false);
+                        }}
+                        className="block w-full text-right px-3 py-1.5 text-xs text-slate-200 hover:bg-emerald-500/10 hover:text-emerald-300 transition cursor-pointer"
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end gap-2 pt-2">

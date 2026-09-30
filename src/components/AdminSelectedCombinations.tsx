@@ -34,8 +34,21 @@ export default function AdminSelectedCombinations({
   const leagues = [
     { key: "pro-league", label: "لیگ برتر" },
     { key: "league-1", label: "لیگ یک" },
-    { key: "league-2", label: "لیگ دو" }
+    { key: "league-2-a", label: "لیگ دو الف" },
+    { key: "league-2-b", label: "لیگ دو ب" }
   ];
+
+  // The league select shows 4 direct options; league-2-a/b map to leagueKey "league-2" + group a/b
+  const leagueSelectValue = (item: Partial<SelectedCombination> | null | undefined) => {
+    if (item?.leagueKey === "league-2") return (item?.group || "a") === "b" ? "league-2-b" : "league-2-a";
+    return item?.leagueKey || "";
+  };
+
+  const handleLeagueSelect = (value: string) => {
+    if (value === "league-2-a") setEditingItem({ ...editingItem, leagueKey: "league-2", group: "a" });
+    else if (value === "league-2-b") setEditingItem({ ...editingItem, leagueKey: "league-2", group: "b" });
+    else setEditingItem({ ...editingItem, leagueKey: value, group: "" });
+  };
 
   const positions = [
     { key: "gk", label: "دروازه‌بان (GK)" },
@@ -76,6 +89,7 @@ export default function AdminSelectedCombinations({
       id: "",
       leagueKey: "pro-league",
       week: currentMaxWeek + 1,
+      group: "",
       players: {
         gk: null, cb1: null, cb2: null, cb3: null,
         lm: null, cm1: null, cm2: null, cm3: null, rm: null,
@@ -244,7 +258,7 @@ export default function AdminSelectedCombinations({
                     </div>
                     <div>
                       <div className="text-xs font-black text-white">
-                        {leagues.find(l => l.key === item.leagueKey)?.label || item.leagueKey}
+                        {leagues.find(l => l.key === leagueSelectValue(item))?.label || item.leagueKey}
                       </div>
                       <div className="text-[10px] text-gray-400 flex items-center gap-2 mt-1">
                         <span>مشتمل بر 11 بازیکن منتخب هفته</span>
@@ -334,8 +348,8 @@ export default function AdminSelectedCombinations({
             <div className="md:col-span-6 bg-gray-950/40 p-4 rounded-2xl border border-white/5 space-y-1">
               <label className="block text-[11px] text-gray-400 font-black">انتخاب رده لیگ</label>
               <select
-                value={editingItem?.leagueKey || ""}
-                onChange={e => setEditingItem({ ...editingItem, leagueKey: e.target.value })}
+                value={leagueSelectValue(editingItem)}
+                onChange={e => handleLeagueSelect(e.target.value)}
                 className="w-full bg-slate-950 border border-white/5 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500 font-bold mt-1"
               >
                 {leagues.map(l => (

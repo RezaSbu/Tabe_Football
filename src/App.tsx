@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useState } from "react";
-import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import {
   NewsItem,
   MatchItem,
@@ -17,6 +17,7 @@ import { resolveTeam } from "./shared/teamMatch";
 import Footer from "./components/Footer";
 import { useAppData } from "./hooks/useAppData";
 import { useGoalNotifications } from "./hooks/useGoalNotifications";
+import { useSmartNavigate } from "./hooks/useSmartNavigate";
 import { GoalNotification } from "./components/GoalNotification";
 import PopupAd from "./components/PopupAd";
 import FloatingAd from "./components/FloatingAd";
@@ -83,7 +84,7 @@ const loadingFallback = (
 );
 
 function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof useAppData>; triggerMockGoalNotification: any }) {
-  const navigate = useNavigate();
+  const navigate = useSmartNavigate();
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
 
   const leagueCallbacks = (art: NewsItem) => {
@@ -274,7 +275,7 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
 
 export default function App() {
   const location = useLocation();
-  const navigate = useNavigate();
+  const navigate = useSmartNavigate();
   const d = useAppData();
   const { triggerMockGoalNotification } = useGoalNotifications({
     activeGoalEvent: d.activeGoalEvent,

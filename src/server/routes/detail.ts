@@ -7,6 +7,12 @@ import {
   isDuplicatePlayerName,
   isSamePlayer,
 } from "../../shared/playerIdentity";
+import {
+  tagEqualsTeamName,
+  tagWordsInPlayerName,
+  tagMentionsBothTeams,
+  normTag,
+} from "../../shared/newsRelated";
 import { VIEW_MULTIPLIER } from "../config";
 
 export function registerDetailRoutes(app: Express) {
@@ -322,7 +328,7 @@ export function registerDetailRoutes(app: Express) {
     }
   });
 
-  // Unified Related News API for Player, Coach, and Team
+  // Unified Related News API for Player, Coach, Team, and Match
   app.get("/api/related-news/:type/:id", (req: Request, res: Response) => {
     const db = loadDB();
     const { type, id } = req.params;
@@ -330,6 +336,32 @@ export function registerDetailRoutes(app: Express) {
 
     let entityName = "";
     let entityTeamName = "";
+
+    if (type === "match") {
+      const match = (db.matches || []).find((m: any) => String(m.id) === String(id));
+      if (!match) return res.status(404).json({ success: false, message: "مسابقه یافت نشد." });
+
+      const home = match.teamHome || "";
+      const away = match.teamAway || "";
+      if (!home || !away) {
+        return res.json({ success: true, data: [] });
+      }
+
+      // Match news: the news must carry the tag of BOTH teams at once
+      // (exact team-name tags). Text keywords are not used for match news.
+      const matchedNews = (db.news || [])
+        .filter((n: any) => n && tagMentionsBothTeams(n, home, away))
+        .sort((a: any, b: any) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+
+      const seen = new Set<string>();
+      const unique = matchedNews.filter((n: any) => {
+        if (seen.has(n.id)) return false;
+        seen.add(n.id);
+        return true;
+      });
+
+      return res.json({ success: true, data: unique.slice(0, limit) });
+    }
 
     if (type === "player") {
       const player = (db.players || []).find((p: any) => String(p.id) === String(id));
@@ -364,7 +396,22 @@ export function registerDetailRoutes(app: Express) {
     const matchedNews = (db.news || [])
       .filter((n: any) => {
         if (!n) return false;
-        
+        const tags = (n.tags || []).map((t: string) => normTag(t)).filter(Boolean);
+
+        if (type === "team") {
+          // Team news rule: TAG ONLY. The tag must be the team name itself.
+          // No keyword/text matching.
+          return tags.some((t: string) => tagEqualsTeamName(t, entityName));
+        }
+
+        if (type === "player") {
+          // Player news rule: TAG ONLY, fuzzy. Every word of the tag must
+          // appear in the profile name ("حسین حسینی" matches "سید حسین حسینی").
+          // No keyword/text matching.
+          return tags.some((t: string) => tagWordsInPlayerName(t, entityName));
+        }
+
+        // Coach: legacy combined behavior (text keywords + tags), unchanged.
         // Check name in title + summary + content
         const haystack = normalizePersianString(`${n.title || ""} ${n.summary || ""} ${n.content || ""}`);
         const nameHit = normName && haystack.includes(normName);
@@ -372,14 +419,13 @@ export function registerDetailRoutes(app: Express) {
         // A duplicated name alone proves nothing: require the team to be mentioned too.
         if (nameHit && (!nameIsDuplicate || teamHit)) return true;
         if (!nameIsDuplicate && teamHit) return true;
-        
+
         // Check name in tags
-        const tags = (n.tags || []).map((t: string) => normalizePersianString(t).replace(/^#/, "").replace(/_/g, " "));
         const tagNameHit = tags.some((t: string) => t && (t === normName || t.includes(normName) || normName.includes(t)));
         const tagTeamHit = normTeamName && tags.some((t: string) => t && (t === normTeamName || t.includes(normTeamName) || normTeamName.includes(t)));
         if (tagNameHit && (!nameIsDuplicate || tagTeamHit)) return true;
         if (!nameIsDuplicate && tagTeamHit) return true;
-        
+
         return false;
       })
       .sort((a: any, b: any) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
