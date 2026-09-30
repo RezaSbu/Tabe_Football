@@ -133,7 +133,7 @@ export default function LeagueTables({
   bracket,
   currentSeason = "1405"
 }: LeagueTablesProps) {
-  const [subTab, setSubTab] = useState<"standings" | "matches" | "stats" | "news">("standings");
+  const [subTab, setSubTab] = useState<"standings" | "matches" | "stats" | "news">("news");
   const [activeL2Group, setActiveL2Group] = useState<"league-2-group-a" | "league-2-group-b">("league-2-group-a");
   const [matchSearch, setMatchSearch] = useState<string>("");
   const [weekFilter, setWeekFilter] = useState<number | null>(null);
@@ -488,6 +488,14 @@ export default function LeagueTables({
 
           <div className="flex bg-[#121215] p-1 rounded-xl border border-white/5 text-xs font-bold gap-1 self-stretch md:self-auto overflow-x-auto">
             <button
+              onClick={() => setSubTab("news")}
+              className={`rounded-lg px-3.5 py-1.5 transition shrink-0 ${
+                subTab === "news" ? config.activeBtn : "text-gray-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              اخبار اختصاصی
+            </button>
+            <button
               onClick={() => setSubTab("standings")}
               className={`rounded-lg px-3.5 py-1.5 transition shrink-0 ${
                 subTab === "standings" ? config.activeBtn : "text-gray-400 hover:text-white hover:bg-white/5"
@@ -510,14 +518,6 @@ export default function LeagueTables({
               }`}
             >
               آمار انفرادی
-            </button>
-            <button
-              onClick={() => setSubTab("news")}
-              className={`rounded-lg px-3.5 py-1.5 transition shrink-0 ${
-                subTab === "news" ? config.activeBtn : "text-gray-400 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              اخبار اختصاصی
             </button>
           </div>
         </div>
