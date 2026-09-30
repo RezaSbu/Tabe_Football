@@ -288,6 +288,7 @@ export interface SelectedCombination {
   id: string;
   leagueKey: string; // "pro-league" | "league-1" | "league-2"
   week: number;
+  group?: string; // "a" | "b" — بازه گروه برای لیگ دسته دو (الف/ب)
   players: {
     gk?: SelectedCombinationPlayer | null;
     cb1?: SelectedCombinationPlayer | null;

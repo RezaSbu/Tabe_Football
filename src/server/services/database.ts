@@ -1521,6 +1521,7 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
           id: sc.id,
           leagueKey: leagueKey,
           week: week,
+          group: (posObj && posObj.group) || "",
           title: sc.title,
           description: sc.description,
           positions: posObj,
@@ -2267,6 +2268,7 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
 
         posObj.leagueKey = sc.leagueKey;
         posObj.week = sc.week;
+        posObj.group = sc.group || "";
 
         let playersObj = sc.players || {};
         if (typeof playersObj === "string" && playersObj.trim() !== "") {
