@@ -1,4 +1,5 @@
 import express, { Express, Request, Response } from "express";
+import { db as pgDb } from "../db";
 import { loadDB, snapshotDB, restoreDB } from "../state";
 import { logMessage } from "../utils/logger";
 import { saveDB, markTablesDirty } from "../services/database";
@@ -268,6 +269,13 @@ export function registerTeamRoutes(app: Express) {
       });
     }
     try {
+      // Parent-first persist: the movement row FK-references the new player.
+      // Persisting both in one saveDB races inside Promise.all and the
+      // movement INSERT can land before the player row exists
+      // (fk_pcm_player violation). The player row goes first, then the
+      // full save (recalc + ledger) follows.
+      markTablesDirty("players");
+      await saveDB({ skipRecalc: true, tables: ["players"] });
       markTablesDirty("players", "playerMovements");
       await saveDB();
       res.json({ success: true });
@@ -445,6 +453,18 @@ export function registerTeamRoutes(app: Express) {
 
     currentDB.coaches.push(item);
     if (item.teamId != null && String(item.teamId) !== "") {
+      // Parent-first persist: the APPOINTMENT row FK-references the new
+      // coach (fk_appt_coach). recordLifecycleEvent runs its own Postgres
+      // transaction, so the coach row must already exist there — otherwise
+      // the appointment INSERT fails and the create 500s. Same race class
+      // as the player+movement fix above.
+      try {
+        markTablesDirty("coaches");
+        await saveDB({ skipRecalc: true, tables: ["coaches"] });
+      } catch (err: any) {
+        restoreDB(snapshot);
+        return res.status(500).json({ success: false, message: "خطا در ذخیره‌سازی مربی." });
+      }
       const bodySeason = (req.body || {}).seasonId != null && String((req.body || {}).seasonId).trim() !== ""
         ? (currentDB.seasons || []).find((s: any) => String(s.id) === String((req.body || {}).seasonId).trim())
         : null;
@@ -462,6 +482,10 @@ export function registerTeamRoutes(app: Express) {
         { actor: me.username || "admin", path: "/api/coaches" }
       );
       if (!result.ok) {
+        // Compensate the parent-first save above: the coach row is already
+        // committed in PG while memory is restored, so remove it to avoid
+        // an orphan coach row without its appointment.
+        try { await pgDb.from("coaches").delete().eq("id", String(item.id)); } catch {}
         restoreDB(snapshot);
         return res.status(result.status).json(result.payload);
       }

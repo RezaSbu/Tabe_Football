@@ -194,6 +194,67 @@ describe("API - CRUD: Players", () => {
   });
 });
 
+describe("API - Players with team (ledger FK race regression)", () => {
+  // Regression: POST /api/players with teamId used to 500 because the
+  // create-bound movement row was persisted in the same saveDB batch as
+  // the player row, and the movement INSERT could land first
+  // (fk_pcm_player violation). The route now persists the parent first.
+  let teamId = "";
+  let playerId = "";
+
+  it("POST /api/teams creates fixture team", async () => {
+    if (!needsAuth()) return;
+    const { status, data } = await apiPost("/api/teams", { name: "TEST_TEAM_FOR_PLAYER" }, token);
+    expect(status).toBe(200);
+    expect(data.success).toBe(true);
+
+    const { data: allData } = await apiGet("/api/data");
+    const found = allData.teams.find((t: any) => t.name === "TEST_TEAM_FOR_PLAYER");
+    expect(found).toBeDefined();
+    teamId = found.id;
+  });
+
+  it("POST /api/players with teamId succeeds and writes the create ledger row", async () => {
+    if (!needsAuth() || !teamId) return;
+    const { status, data } = await apiPost("/api/players", {
+      name: "TEST_PLAYER_WITH_TEAM",
+      position: "FW",
+      teamId,
+      seasonStats: { matches: 0, goals: 0, assists: 0, cleanSheets: 0, yellowCards: 0, redCards: 0 },
+    }, token);
+    expect(status).toBe(200);
+    expect(data.success).toBe(true);
+
+    const { data: allData } = await apiGet("/api/data");
+    const found = allData.players.find((p: any) => p.name === "TEST_PLAYER_WITH_TEAM");
+    expect(found).toBeDefined();
+    expect(String(found.teamId)).toBe(String(teamId));
+    playerId = found.id;
+
+    const mvRes = await fetch(`${BASE}/api/player-movements?playerId=${encodeURIComponent(playerId)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(mvRes.status).toBe(200);
+    const mvData = await mvRes.json();
+    const leg = (mvData.movements || []).find(
+      (m: any) => String(m.toTeamId) === String(teamId) && m.fromTeamId == null
+    );
+    expect(leg).toBeDefined();
+  });
+
+  it("DELETE cleanup removes player and fixture team", async () => {
+    if (!needsAuth()) return;
+    if (playerId) {
+      const { status } = await apiDelete(`/api/players/${playerId}`, token);
+      expect(status).toBe(200);
+    }
+    if (teamId) {
+      const { status } = await apiDelete(`/api/teams/${teamId}`, token);
+      expect(status).toBe(200);
+    }
+  });
+});
+
 describe("API - CRUD: Transfers", () => {
   let createdId = "";
 
