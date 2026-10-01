@@ -31,9 +31,16 @@
     <meta name="color-scheme" content="dark" />
 
     <script>
-      // تم تیره، پیش‌فرض اصلی سایت است؛ هر ورود/بازگشت به سایت با تم تیره شروع می‌شود.
-      // کاربر می‌تواند با سوییچ تم روشن/تیره انتخاب را تغییر دهد.
-      document.documentElement.classList.remove("light");
+      // Restore the saved theme before first paint (no dark flash for light users).
+      try {
+        if (window.localStorage.getItem("tabefootball-theme") === "light") {
+          document.documentElement.classList.add("light");
+        } else {
+          document.documentElement.classList.remove("light");
+        }
+      } catch (e) {
+        document.documentElement.classList.remove("light");
+      }
     </script>
 
     <link rel="canonical" href="https://tabefotbal.ir" />

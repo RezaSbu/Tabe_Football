@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { MatchItem } from "../types";
-import { Calendar, MapPin, AlignLeft, Trophy, ChevronRight, ChevronLeft } from "lucide-react";
+import { Calendar, MapPin, Trophy, ChevronRight, ChevronLeft } from "lucide-react";
 import TeamLogo from "./TeamLogo";
+import EmptyState from "./ui/EmptyState";
 
 interface MatchTickerProps {
   matches: MatchItem[];
@@ -132,11 +133,11 @@ export default function MatchTicker({ matches, selectedLeagueFilter, onSelectMat
 
       {/* Matches List Grid */}
       {filteredMatches.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl bg-[#0a0a0c]/40 py-10 border border-white/5 text-center">
-          <AlignLeft className="h-8 w-8 text-gray-600 mb-2" />
-          <p className="text-sm text-gray-400">هیچ مسابقه‌ای برای تاریخ انتخابی در این بخش ثبت نشده است.</p>
-          <p className="text-[11px] text-gray-500 mt-1">از پنل مدیریت می‌توانید مسابقه جدید اضافه نمایید.</p>
-        </div>
+        <EmptyState
+          icon="calendar"
+          title="مسابقه‌ای برای این تاریخ ثبت نشده است"
+          hint="از پنل مدیریت می‌توانید مسابقه جدید اضافه نمایید."
+        />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {filteredMatches.map((match) => {

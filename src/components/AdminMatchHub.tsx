@@ -15,6 +15,8 @@ import {
   ClipboardEdit
 } from "lucide-react";
 import TeamLogo from "./TeamLogo";
+import { SkeletonList } from "./ui/Skeleton";
+import EmptyState from "./ui/EmptyState";
 import { MatchItem, TeamItem, PlayerItem, StandingRow } from "../types";
 import { formatStatNumber } from "../utils";
 import AdminFeatureMatchForm from "./AdminFeatureMatchForm";
@@ -400,13 +402,13 @@ export default function AdminMatchHub({
 
         {/* List items */}
         {listLoading ? (
-          <div className="py-10 text-center space-y-2">
-            <p className="text-xs text-slate-500 italic">در حال بارگذاری مسابقات...</p>
-          </div>
+          <SkeletonList count={6} />
         ) : getFilteredMatches().length === 0 ? (
-          <div className="py-10 text-center space-y-2">
-            <p className="text-xs text-slate-500 italic">هیچ بازی منطبق با فیلترها و جستجوی شما یافت نشد.</p>
-          </div>
+          <EmptyState
+            icon="calendar"
+            title="بازی منطبق با فیلترها یافت نشد"
+            hint="فیلتر مرحله، لیگ یا عبارت جستجو را تغییر دهید."
+          />
         ) : (
           <>
           <div className="grid gap-3 md:grid-cols-2">

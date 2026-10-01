@@ -1,6 +1,7 @@
 import React from "react";
 import { MatchItem } from "../types";
 import TeamLogo from "../components/TeamLogo";
+import EmptyState from "../components/ui/EmptyState";
 import { getLeagueLabel } from "../shared/leagueLabel";
 
 interface LiveGoal {
@@ -116,8 +117,12 @@ export default function LiveScoresPage({
               if (livescoreFilter === "all") return true;
               return m.status === livescoreFilter;
             }).length === 0 ? (
-              <div className="col-span-full py-12 text-center rounded-2xl bg-slate-900/40 border border-dashed border-white/5">
-                <p className="text-sm text-slate-400">هیچ مسابقه‌ای در این دسته‌بندی برای امروز یافت نشد.</p>
+              <div className="col-span-full">
+                <EmptyState
+                  icon="calendar"
+                  title="مسابقه‌ای برای امروز یافت نشد"
+                  hint="دسته‌بندی دیگری را امتحان کنید یا فردا برگردید."
+                />
               </div>
             ) : (
               matches
