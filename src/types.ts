@@ -75,6 +75,9 @@ export interface MatchScorerItem {
   minute?: string;
 }
 
+export type MatchFormationKey =
+  | "4-3-3" | "4-4-2" | "4-2-3-1" | "3-4-3" | "3-5-2" | "5-3-2" | "5-4-1";
+
 export interface MatchLineupPlayer {
   id: string;
   name: string;
@@ -83,6 +86,11 @@ export interface MatchLineupPlayer {
   // Explicit per-match role. Entries in home/away are starters, entries in
   // homeSubs/awaySubs are substitutes; the field only clarifies intent.
   role?: "starter" | "substitute";
+  // Normalized pitch coordinates (0..1, home attacks left-to-right).
+  // Absent on legacy rows: UI falls back to formation-derived slots.
+  x?: number;
+  y?: number;
+  captain?: boolean;
 }
 
 export interface MatchLineup {
@@ -90,6 +98,8 @@ export interface MatchLineup {
   away: MatchLineupPlayer[];
   homeSubs?: MatchLineupPlayer[];
   awaySubs?: MatchLineupPlayer[];
+  formationHome?: MatchFormationKey;
+  formationAway?: MatchFormationKey;
 }
 
 export interface StandingRow {
