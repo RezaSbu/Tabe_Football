@@ -81,15 +81,20 @@ export type MatchFormationKey =
 export interface MatchLineupPlayer {
   id: string;
   name: string;
+  // Natural post of the player (e.g. "مدافع", "GK"). Stays with the player
+  // when swapped; it is NOT the tactical slot.
   position: string;
   rating?: number;
   // Explicit per-match role. Entries in home/away are starters, entries in
   // homeSubs/awaySubs are substitutes; the field only clarifies intent.
   role?: "starter" | "substitute";
-  // Normalized pitch coordinates (0..1, home attacks left-to-right).
-  // Absent on legacy rows: UI falls back to formation-derived slots.
+  // Normalized pitch coordinates (0..100, HOME on the physical RIGHT half,
+  // see matchcenter/formations.ts). Display hint; slot key is authoritative.
   x?: number;
   y?: number;
+  // Tactical slot key within the side formation (e.g. "GK", "LCB", "CAM").
+  // One slot holds at most one player; one player holds at most one slot.
+  formation_slot?: string;
   captain?: boolean;
 }
 

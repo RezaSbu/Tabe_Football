@@ -38,8 +38,19 @@ const EVENT_META: Record<string, { label: string }> = {
   other: { label: "رویداد" },
 };
 
-const LEAGUE_NAMES: Record<string, string> = {
-  "pro-league": "لیگ برتر خلیج فارس",
+const relativeFaTime = (iso?: string): string => {
+  if (!iso) return "";
+  const t = new Date(iso).getTime();
+  if (isNaN(t)) return "";
+  const mins = Math.max(0, Math.floor((Date.now() - t) / 60000));
+  if (mins < 1) return "لحظاتی پیش";
+  if (mins < 60) return `${formatStatNumber(mins)} دقیقه پیش`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${formatStatNumber(hours)} ساعت پیش`;
+  return `${formatStatNumber(Math.floor(hours / 24))} روز پیش`;
+};
+
+const LEAGUE_NAMES: Record<string, string> = {  "pro-league": "لیگ برتر خلیج فارس",
   "hazfi-cup": "جام حذفی فوتبال",
   "league-1": "لیگ آزادگان",
   "league-2": "لیگ دسته دوم",
@@ -206,15 +217,15 @@ export default function MatchDetailView({
   };
 
   const pitchCoaches = (() => {
-    const out: { id: string; name: string; side: "home" | "away" }[] = [];
+    const out: { id: string; name: string; side: "home" | "away"; image?: string }[] = [];
     const findCoach = (id: any) => (coaches || []).find((c: any) => String(c.id) === String(id));
     if (match.coachHomeId) {
       const c = findCoach(match.coachHomeId);
-      if (c) out.push({ id: String(c.id), name: c.name, side: "home" });
+      if (c) out.push({ id: String(c.id), name: c.name, side: "home", image: c.image });
     }
     if (match.coachAwayId) {
       const c = findCoach(match.coachAwayId);
-      if (c) out.push({ id: String(c.id), name: c.name, side: "away" });
+      if (c) out.push({ id: String(c.id), name: c.name, side: "away", image: c.image });
     }
     return out;
   })();
@@ -544,8 +555,9 @@ export default function MatchDetailView({
                 {sortedTimeline.filter(filterTimelineItem).length === 0 ? (
                   <p className="text-center text-xs text-slate-500 py-6">در این دسته رویدادی ثبت نشده است.</p>
                 ) : (
-                <div className="relative flex flex-col gap-4">
-                  <div className="absolute top-4 bottom-4 left-1/2 -translate-x-1/2 w-0.5 bg-slate-800/80 hidden sm:block" />
+                <div className="relative flex flex-col gap-3 sm:gap-4">
+                  {/* Center axis: visible on all widths so home/away sides never merge */}
+                  <div className="absolute top-4 bottom-4 left-1/2 -translate-x-1/2 w-0.5 bg-slate-800/80" />
                   {sortedTimeline.filter(filterTimelineItem).map((item, idx) => {
                       const meta = EVENT_META[item.type] || EVENT_META.other;
                       const isHome = item.team === "home";
@@ -602,21 +614,21 @@ export default function MatchDetailView({
 
                       const minutePill = (
                         <div className="flex justify-center">
-                          <span className="w-11 h-11 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-900 border-2 border-slate-700 shadow-xl flex items-center justify-center text-[11px] font-black font-mono tabular-nums text-slate-200">
+                          <span className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-b from-slate-800 to-slate-900 border-2 border-slate-700 shadow-xl flex items-center justify-center text-[9px] sm:text-[11px] font-black font-mono tabular-nums text-slate-200">
                             {formatStatNumber(item.minute)}'
                           </span>
                         </div>
                       );
 
                       return (
-                        <div key={idx} className="relative z-10 grid grid-cols-1 sm:grid-cols-12 items-center gap-2 sm:gap-3">
-                          <div className="sm:col-span-5 sm:flex sm:justify-end">
+                        <div key={idx} className="relative z-10 grid grid-cols-[1fr_34px_1fr] sm:grid-cols-12 items-center gap-1.5 sm:gap-3">
+                          <div className="col-span-1 sm:col-span-5 flex justify-end min-w-0">
                             {isHome && card}
                           </div>
-                          <div className="sm:col-span-2 flex sm:justify-center order-first sm:order-none">
+                          <div className="col-span-1 sm:col-span-2 flex justify-center">
                             {minutePill}
                           </div>
-                          <div className="sm:col-span-5 sm:flex sm:justify-start">
+                          <div className="col-span-1 sm:col-span-5 flex justify-start min-w-0">
                             {!isHome && card}
                           </div>
                         </div>
@@ -636,39 +648,95 @@ export default function MatchDetailView({
           </div>
         )}
 
-        {/* ===== TAB 2: MATCH NEWS ===== */}
+        {/* ===== TAB 2: MATCH NEWS (figma: hero + grid) ===== */}
         {activeTab === "news" && (
-          <div className="space-y-3 max-w-xl mx-auto animate-in fade-in duration-200">
+          <div className="space-y-4 animate-in fade-in duration-200">
             {matchNews.length > 0 ? (
-              matchNews.map((nw: any) => (
-                <button
-                  key={nw.id}
-                  onClick={() => onSelectNews && onSelectNews(nw.id)}
-                  className="w-full flex items-start gap-3 text-right p-2.5 rounded-xl bg-white/[0.02] hover:bg-white/[0.05] border border-white/5 hover:border-emerald-500/30 transition cursor-pointer group"
-                >
-                  {nw.image ? (
-                    <img
-                      src={getSafeImageUrl(nw.image)}
-                      alt={nw.title}
-                      loading="lazy"
-                      className="w-16 h-16 rounded-lg object-cover shrink-0 bg-slate-800"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-lg shrink-0 bg-slate-800 flex items-center justify-center text-lg">📰</div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <h4 className="text-xs font-bold text-white leading-snug line-clamp-2 group-hover:text-emerald-400 transition">
-                      {nw.title}
-                    </h4>
-                    {nw.summary && (
-                      <p className="text-[10px] text-slate-500 line-clamp-2 mt-1 leading-relaxed">
-                        {nw.summary}
-                      </p>
-                    )}
-                  </div>
-                </button>
-              ))
+              <>
+                {(() => {
+                  const [hero, ...rest] = matchNews;
+                  return (
+                    <>
+                      <button
+                        key={hero.id}
+                        onClick={() => onSelectNews && onSelectNews(hero.id)}
+                        className="w-full text-right rounded-2xl border border-white/5 bg-gradient-to-br from-[#151d2d] to-[#0f1420] p-5 sm:p-6 shadow-xl relative overflow-hidden group cursor-pointer hover:border-emerald-500/25 transition"
+                      >
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            خبر اصلی مسابقه
+                          </span>
+                          <span className="text-[11px] text-slate-400">{relativeFaTime(hero.createdAt)} • {match.teamHome} - {match.teamAway}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-4">
+                          {hero.image && (
+                            <img
+                              src={getSafeImageUrl(hero.image)}
+                              alt={hero.title}
+                              loading="lazy"
+                              className="w-full sm:w-56 h-40 sm:h-36 rounded-xl object-cover shrink-0 bg-slate-800"
+                              referrerPolicy="no-referrer"
+                            />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <h2 className="text-base sm:text-xl font-black text-white leading-snug mb-2 group-hover:text-emerald-300 transition-colors line-clamp-3">
+                              {hero.title}
+                            </h2>
+                            {hero.summary && (
+                              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed line-clamp-3">
+                                {hero.summary}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                      {rest.length > 0 && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {rest.map((nw: any) => (
+                            <button
+                              key={nw.id}
+                              onClick={() => onSelectNews && onSelectNews(nw.id)}
+                              className="bg-[#131924] rounded-2xl border border-white/5 p-5 flex flex-col justify-between hover:border-white/15 hover:bg-[#161d2b] transition-all cursor-pointer group shadow-lg text-right"
+                            >
+                              <div>
+                                {nw.image && (
+                                  <img
+                                    src={getSafeImageUrl(nw.image)}
+                                    alt={nw.title}
+                                    loading="lazy"
+                                    className="w-full h-32 rounded-xl object-cover bg-slate-800 mb-3"
+                                    referrerPolicy="no-referrer"
+                                  />
+                                )}
+                                <div className="flex items-center justify-between gap-2 mb-2">
+                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold border bg-sky-500/20 text-sky-300 border-sky-500/30">
+                                    اخبار مسابقه
+                                  </span>
+                                  <span className="text-[11px] text-slate-400 font-mono">{relativeFaTime(nw.createdAt)}</span>
+                                </div>
+                                <h3 className="font-bold text-sm text-slate-100 group-hover:text-emerald-300 transition-colors leading-snug mb-2 line-clamp-2">
+                                  {nw.title}
+                                </h3>
+                                {nw.summary && (
+                                  <p className="text-xs text-slate-400 leading-relaxed line-clamp-3">
+                                    {nw.summary}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex items-center justify-end text-[11px] text-slate-400 pt-3 mt-4 border-t border-white/5">
+                                <span className="group-hover:text-emerald-400 flex items-center gap-1 transition-colors">
+                                  ادامه خبر ←
+                                </span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </>
             ) : (
               <div className="p-8 text-center text-slate-400 bg-black/15 border border-white/5 border-dashed rounded-2xl max-w-md mx-auto space-y-3">
                 <Newspaper className="h-10 w-10 text-slate-500 mx-auto" strokeWidth={1.5} />

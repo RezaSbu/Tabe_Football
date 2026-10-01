@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { FORMATION_KEYS, getFormationPositions, isFormationKey, defaultFormation } from "./formations";
+import { FORMATION_KEYS, getFormationPositions, isFormationKey, defaultFormation, getFormationSlots } from "./formations";
 import { formatStatNumber, getSafeImageUrl } from "../utils";
 import type { MatchFormationKey } from "../types";
 
@@ -75,13 +75,34 @@ export default function LineupBuilder({ homeName, awayName, homeRoster, awayRost
   const slotsHome = useMemo(() => getFormationPositions(formationHome, true), [formationHome]);
   const slotsAway = useMemo(() => getFormationPositions(formationAway, false), [formationAway]);
 
-  // Seat current starters onto slots (stored x/y snap to nearest free slot).
-  const seat = (list: any[], roster: BuilderRosterPlayer[], slots: { x: number; y: number }[]): (Placed | null)[] => {
+  // Seat current starters onto slots. Priority: stored formation_slot key,
+  // then stored x/y (nearest free slot), then free order. This restores the
+  // exact saved board on reload.
+  const seat = (list: any[], roster: BuilderRosterPlayer[], slots: { x: number; y: number }[], slotKeys: string[]): (Placed | null)[] => {
     const seated: (Placed | null)[] = Array.from({ length: 11 }, () => null);
     const taken = new Set<number>();
-    const pool = list.map(r => toPlaced(r, roster)).filter((p): p is Placed => !!p).slice(0, 11);
-    const withCoords = pool.filter(p => p.x >= 0 && p.y >= 0);
-    const withoutCoords = pool.filter(p => !(p.x >= 0 && p.y >= 0));
+    type Seatable = Placed & { slotKey?: string };
+    const pool: Seatable[] = [];
+    for (const r of list) {
+      const p = toPlaced(r, roster);
+      if (!p) continue;
+      const sk = typeof r?.formation_slot === "string" ? (r.formation_slot as string) : undefined;
+      pool.push({ ...p, slotKey: sk });
+      if (pool.length >= 11) break;
+    }
+    const byKey = pool.filter(p => p.slotKey && slotKeys.includes(p.slotKey));
+    const rest = pool.filter(p => !(p.slotKey && slotKeys.includes(p.slotKey)));
+    for (const p of byKey) {
+      const idx = slotKeys.indexOf(p.slotKey as string);
+      if (!taken.has(idx)) {
+        taken.add(idx);
+        seated[idx] = { ...p, x: slots[idx].x, y: slots[idx].y };
+      } else {
+        rest.push(p);
+      }
+    }
+    const withCoords = rest.filter(p => p.x >= 0 && p.y >= 0);
+    const withoutCoords = rest.filter(p => !(p.x >= 0 && p.y >= 0));
     for (const p of [...withCoords, ...withoutCoords]) {
       let idx: number;
       if (p.x >= 0 && p.y >= 0) {
@@ -97,8 +118,8 @@ export default function LineupBuilder({ homeName, awayName, homeRoster, awayRost
     return seated;
   };
 
-  const seatedHome = useMemo(() => seat(value.home || [], homeRoster, slotsHome), [value.home, homeRoster, slotsHome]);
-  const seatedAway = useMemo(() => seat(value.away || [], awayRoster, slotsAway), [value.away, awayRoster, slotsAway]);
+  const seatedHome = useMemo(() => seat(value.home || [], homeRoster, slotsHome, getFormationSlots(formationHome)), [value.home, homeRoster, slotsHome, formationHome]);
+  const seatedAway = useMemo(() => seat(value.away || [], awayRoster, slotsAway, getFormationSlots(formationAway)), [value.away, awayRoster, slotsAway, formationAway]);
   const subsHome = useMemo(() => (value.homeSubs || []).map(r => toPlaced(r, homeRoster)).filter((p): p is Placed => !!p), [value.homeSubs, homeRoster]);
   const subsAway = useMemo(() => (value.awaySubs || []).map(r => toPlaced(r, awayRoster)).filter((p): p is Placed => !!p), [value.awaySubs, awayRoster]);
 
@@ -109,15 +130,23 @@ export default function LineupBuilder({ homeName, awayName, homeRoster, awayRost
   }, [seatedHome, seatedAway]);
 
   const emit = (nh: (Placed | null)[], na: (Placed | null)[], sh: Placed[], sa: Placed[], fh: string, fa: string) => {
-    const ser = (p: Placed, role: "starter" | "substitute") => ({
+    const slotKeysH = getFormationSlots(fh);
+    const slotKeysA = getFormationSlots(fa);
+    const ser = (p: Placed, role: "starter" | "substitute", slotKey?: string) => ({
       id: p.id, name: p.name, position: p.position, role,
       ...(p.rating !== null ? { rating: p.rating } : {}),
       ...(role === "starter" ? { x: p.x, y: p.y } : {}),
+      ...(role === "starter" && slotKey ? { formation_slot: slotKey } : {}),
       ...(p.captain ? { captain: true } : {}),
     });
+    const serStarters = (arr: (Placed | null)[], keys: string[]) => {
+      const out: ReturnType<typeof ser>[] = [];
+      arr.forEach((p, i) => { if (p) out.push(ser(p, "starter", keys[i])); });
+      return out;
+    };
     onChange({
-      home: nh.filter((p): p is Placed => !!p).map(p => ser(p, "starter")),
-      away: na.filter((p): p is Placed => !!p).map(p => ser(p, "starter")),
+      home: serStarters(nh, slotKeysH),
+      away: serStarters(na, slotKeysA),
       homeSubs: sh.map(p => ser(p, "substitute")),
       awaySubs: sa.map(p => ser(p, "substitute")),
       formationHome: fh,
@@ -133,73 +162,63 @@ export default function LineupBuilder({ homeName, awayName, homeRoster, awayRost
     return null;
   };
 
-  const placeOnSlot = (side: Side, slot: number) => {
-    if (!pendingId) return;
+  const placeOnSlot = (side: Side, slot: number, explicitId?: string) => {
+    const pid = explicitId ?? pendingId;
+    if (!pid) return;
     const slots = side === "home" ? [...seatedHome] : [...seatedAway];
-    const other = side === "home" ? [...seatedAway] : [...seatedHome];
-    // duplicate guard: same player cannot be placed twice (or on both teams)
-    if (allPlacedIds.has(pendingId)) {
-      const existing = findPlaced(pendingId);
-      // tap own slot = deselect; tap another slot = swap
-      if (existing && existing.side === side && existing.slot === slot) { setPendingId(null); return; }
-      if (existing) {
-        const fromArr = existing.side === "home" ? [...seatedHome] : [...seatedAway];
-        const mover = fromArr[existing.slot];
-        const occupant = slots[slot];
-        fromArr[existing.slot] = occupant;
-        slots[slot] = mover;
-        // re-snap coords to slots
-        const coords = side === "home" ? slotsHome : slotsAway;
-        const otherCoords = side === "home" ? slotsAway : slotsHome;
-        if (slots[slot]) { slots[slot] = { ...(slots[slot] as Placed), x: coords[slot].x, y: coords[slot].y }; }
-        if (existing.side === side && occupant) {
-          // same-side swap handled above; nothing extra
-        } else if (occupant) {
-          // cross-side: occupant has nowhere to go -> send to its bench
-          const oSubs = existing.side === "home" ? [...subsAway] : [...subsHome];
-          oSubs.push({ ...occupant, x: -1, y: -1 });
-          if (existing.side === "home") {
-            emit(side === "home" ? slots : fromArr, side === "home" ? fromArr : slots,
-              side === "home" ? subsHome : oSubs, side === "home" ? oSubs : subsAway, formationHome, formationAway);
-          } else {
-            emit(side === "home" ? slots : fromArr, side === "home" ? fromArr : slots,
-              side === "home" ? subsHome : oSubs, side === "home" ? oSubs : subsAway, formationHome, formationAway);
-          }
-          setPendingId(null);
-          return;
-        }
-        if (side === "home") emit(slots, other, subsHome, subsAway, formationHome, formationAway);
-        else emit(other, slots, subsHome, subsAway, formationHome, formationAway);
-        setPendingId(null);
-        return;
-      }
-    }
-    // fresh placement from roster/bench
-    const roster = side === "home" ? homeRoster : awayRoster;
-    const live = roster.find(p => String(p.id) === pendingId);
-    const benchPool = [...subsHome, ...subsAway].find(p => p.id === pendingId);
-    const base = live
-      ? { id: String(live.id), name: live.name, position: live.position || "", image: live.image, rating: null as number | null, captain: false }
-      : benchPool
-        ? { id: benchPool.id, name: benchPool.name, position: benchPool.position, image: benchPool.image, rating: benchPool.rating, captain: benchPool.captain }
-        : null;
-    if (!base) { setPendingId(null); return; }
     const coords = side === "home" ? slotsHome : slotsAway;
     const occupant = slots[slot];
-    slots[slot] = { ...base, x: coords[slot].x, y: coords[slot].y };
-    let nhSubs = [...subsHome];
-    let naSubs = [...subsAway];
+    const existing = findPlaced(pid);
+    // tap own slot = cancel selection
+    if (existing && existing.side === side && existing.slot === slot) { setPendingId(null); return; }
+    // cross-side moves are rejected: a player belongs to one team
+    if (existing && existing.side !== side) {
+      alert("این بازیکن در ترکیب تیم مقابل است و نمی‌تواند به این تیم منتقل شود.");
+      setPendingId(null);
+      return;
+    }
+
+    const pool: Placed[] = [
+      ...seatedHome.filter((p): p is Placed => !!p),
+      ...seatedAway.filter((p): p is Placed => !!p),
+      ...subsHome, ...subsAway,
+    ];
+    const roster = side === "home" ? homeRoster : awayRoster;
+    const live = roster.find(p => String(p.id) === pid);
+    const moving = pool.find(p => p.id === pid) ?? (live ? {
+      id: String(live.id), name: live.name, position: live.position || "",
+      image: live.image, rating: null as number | null, captain: false,
+    } : null);
+    if (!moving) { setPendingId(null); return; }
+
+    if (existing) {
+      // Same-side move/swap (cross-side was rejected above, so
+      // existing.side === side here): clear origin, place target,
+      // re-snapping both to their slot coords. No duplicates possible.
+      slots[existing.slot] = null;
+      if (occupant) {
+        slots[existing.slot] = { ...occupant, x: coords[existing.slot].x, y: coords[existing.slot].y };
+      }
+      slots[slot] = { ...moving, x: coords[slot].x, y: coords[slot].y };
+      if (side === "home") emit(slots, [...seatedAway], subsHome.filter(p => p.id !== pid), subsAway.filter(p => p.id !== pid), formationHome, formationAway);
+      else emit([...seatedHome], slots, subsHome.filter(p => p.id !== pid), subsAway.filter(p => p.id !== pid), formationHome, formationAway);
+      setPendingId(null);
+      setInspectedId(pid);
+      return;
+    }
+    // fresh placement from roster/bench
+    slots[slot] = { ...moving, x: coords[slot].x, y: coords[slot].y };
+    let nhSubs = [...subsHome].filter(p => p.id !== pid);
+    let naSubs = [...subsAway].filter(p => p.id !== pid);
     if (occupant) {
-      // displaced starter goes to its bench
+      // displaced starter goes to ITS OWN side bench
       if (side === "home") nhSubs = [...nhSubs, { ...occupant, x: -1, y: -1 }];
       else naSubs = [...naSubs, { ...occupant, x: -1, y: -1 }];
     }
-    // remove placed player from benches
-    nhSubs = nhSubs.filter(p => p.id !== pendingId);
-    naSubs = naSubs.filter(p => p.id !== pendingId);
-    if (side === "home") emit(slots, other, nhSubs, naSubs, formationHome, formationAway);
-    else emit(other, slots, nhSubs, naSubs, formationHome, formationAway);
+    if (side === "home") emit(slots, [...seatedAway], nhSubs, naSubs, formationHome, formationAway);
+    else emit([...seatedHome], slots, nhSubs, naSubs, formationHome, formationAway);
     setPendingId(null);
+    setInspectedId(pid);
   };
 
   const removeToBench = (side: Side, slot: number) => {
@@ -257,6 +276,30 @@ export default function LineupBuilder({ homeName, awayName, homeRoster, awayRost
   const inspectedPlayer = inspected
     ? (inspected.side === "home" ? seatedHome : seatedAway)[inspected.slot]
     : null;
+
+  // Live validation (§8.3): 11 starters, one player per slot, no cross-side
+  // duplicates, a goalkeeper on slot 0. Slots are fixed at 11 by
+  // construction, so counts above 11 are impossible; warnings cover the rest.
+  const validation = useMemo(() => {
+    const warns: string[] = [];
+    const hc = seatedHome.filter(Boolean).length;
+    const ac = seatedAway.filter(Boolean).length;
+    if (hc !== 11) warns.push(`${homeName}: ${formatStatNumber(hc)} بازیکن اصلی (باید ۱۱ باشد)`);
+    if (ac !== 11) warns.push(`${awayName}: ${formatStatNumber(ac)} بازیکن اصلی (باید ۱۱ باشد)`);
+    const seen = new Map<string, string>();
+    [...seatedHome.map((p, i) => ({ p, side: "home", i })), ...seatedAway.map((p, i) => ({ p, side: "away", i }))]
+      .forEach(({ p, side, i }) => {
+        if (!p) return;
+        const prev = seen.get(p.id);
+        if (prev) warns.push(`بازیکن تکراری: ${p.name} در دو جایگاه (${prev} و ${side === "home" ? homeName : awayName})`);
+        else seen.set(p.id, `${side === "home" ? homeName : awayName} #${i + 1}`);
+      });
+    const gkH = seatedHome[0];
+    const gkA = seatedAway[0];
+    if (gkH && !gkH.position.includes("دروازه")) warns.push(`${homeName}: جایگاه دروازه‌بان با پست «${gkH.position || "نامشخص"}» پر شده است`);
+    if (gkA && !gkA.position.includes("دروازه")) warns.push(`${awayName}: جایگاه دروازه‌بان با پست «${gkA.position || "نامشخص"}» پر شده است`);
+    return warns;
+  }, [seatedHome, seatedAway, homeName, awayName]);
 
   const renderSquad = (side: Side) => {
     const roster = side === "home" ? homeRoster : awayRoster;
@@ -343,7 +386,7 @@ export default function LineupBuilder({ homeName, awayName, homeRoster, awayRost
             }}
             onClick={() => {
               if (pendingId) placeOnSlot(side, idx);
-              else { setInspectedId(p.id); }
+              else { setPendingId(p.id); setInspectedId(p.id); }
             }}
             className={`flex flex-col items-center gap-0.5 cursor-pointer rounded-xl p-1 transition ${isInspected ? "ring-2 ring-amber-400 bg-amber-500/10" : "hover:bg-white/5"}`}
             title={p.name}
@@ -450,6 +493,13 @@ export default function LineupBuilder({ homeName, awayName, homeRoster, awayRost
             </div>
           </div>
           <p className="text-[10px] text-slate-500 text-center mt-1">بازیکن را از لیست انتخاب کنید، بعد روی جایگاه زمین بزنید (در دسکتاپ: درگ کنید)</p>
+          {validation.length > 0 && (
+            <div className="mt-2 rounded-xl border border-amber-500/30 bg-amber-500/[0.06] px-3 py-2 space-y-1" role="alert">
+              {validation.map((w, i) => (
+                <p key={i} className="text-[10px] font-bold text-amber-300">⚠ {w}</p>
+              ))}
+            </div>
+          )}
         </div>
         <div className="md:col-span-3 hidden md:block">{renderSquad("away")}</div>
         <div className="md:hidden">{renderSquad(activeSide)}</div>

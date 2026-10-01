@@ -1,5 +1,4 @@
-import React, { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import React from "react";
 import { getFormationPositions, isFormationKey, defaultFormation } from "./formations";
 import { EventIcon, MvpStarIcon, ratingColor } from "./EventIcon";
 import { formatStatNumber, getSafeImageUrl } from "../utils";
@@ -24,6 +23,7 @@ export interface PitchCoach {
   id: string;
   name: string;
   side: "home" | "away";
+  image?: string;
 }
 
 interface MatchPitchProps {
@@ -133,17 +133,23 @@ function PlayerNode({ p, onSelect }: { p: PitchPlayer; onSelect?: (id: string) =
 
 export default function MatchPitch(props: MatchPitchProps) {
   const { home, away, homeSubs, awaySubs, homeName, awayName, homeLogo, awayLogo, onSelectPlayer, coaches = [], onSelectCoach } = props;
-  const [coachesOpen, setCoachesOpen] = useState(false);
 
   const formHome = isFormationKey(props.formationHome) ? props.formationHome : inferFormation(home);
   const formAway = isFormationKey(props.formationAway) ? props.formationAway : inferFormation(away);
   const homePos = getFormationPositions(formHome, true);
   const awayPos = getFormationPositions(formAway, false);
 
-  const placedHome = home.slice(0, 11).map((p, i) => ({ ...p, x: p.x ?? homePos[i]?.x ?? 20, y: p.y ?? homePos[i]?.y ?? 50 }));
-  const placedAway = away.slice(0, 11).map((p, i) => ({ ...p, x: p.x ?? awayPos[i]?.x ?? 80, y: p.y ?? awayPos[i]?.y ?? 50 }));
+  const placedHome = home.slice(0, 11).map((p, i) => ({ ...p, x: p.x ?? homePos[i]?.x ?? 80, y: p.y ?? homePos[i]?.y ?? 50 }));
+  const placedAway = away.slice(0, 11).map((p, i) => ({ ...p, x: p.x ?? awayPos[i]?.x ?? 20, y: p.y ?? awayPos[i]?.y ?? 50 }));
 
-  const renderSubRow = (p: PitchPlayer, accent: string) => (
+  const renderSubRow = (p: PitchPlayer) => {
+    const goals = p.events.filter(e => (e.role ? e.role === "goal" : (e.type === "goal" || e.type === "penalty"))).length;
+    const assists = p.events.filter(e => (e.role ? e.role === "assist" : e.type === "assist")).length;
+    const yellow = p.events.some(e => e.type === "yellow-card");
+    const red = p.events.some(e => e.type === "red-card" || e.type === "second-yellow");
+    const subOut = p.events.find(e => (e.role ? e.role === "sub-out" : false));
+    const subInMinute = p.events.find(e => (e.role ? e.role === "sub-in" : false))?.minute ?? p.subInMinute;
+    return (
     <button
       key={String(p.id || p.name)}
       type="button"
@@ -153,14 +159,46 @@ export default function MatchPitch(props: MatchPitchProps) {
       <NodeAvatar p={p} size={30} />
       <span className="min-w-0 flex-1">
         <span className="block text-xs font-bold text-white truncate">{p.name}</span>
-        <span className="block text-[10px] text-slate-500">{p.position || "بازیکن"}{p.subInMinute ? ` • ورود ${formatStatNumber(p.subInMinute)}'` : " • نیمکت‌نشین"}</span>
+        <span className="block text-[10px] text-slate-500">{p.position || "بازیکن"}</span>
+      </span>
+      <span className="flex items-center gap-1 shrink-0">
+        {goals > 0 && <span className="inline-flex items-center gap-0.5"><EventIcon type="goal" size={13} />{goals > 1 && <span className="text-[9px] font-black text-emerald-400 font-mono">x{formatStatNumber(goals)}</span>}</span>}
+        {assists > 0 && <span className="inline-flex items-center gap-0.5"><EventIcon type="assist" size={13} /></span>}
+        {yellow && <EventIcon type="yellow-card" size={12} />}
+        {red && <EventIcon type="red-card" size={12} />}
+        {subOut && <span className="inline-flex items-center gap-0.5 rounded bg-rose-500/15 border border-rose-500/30 px-1" title={`خروج ${formatStatNumber(subOut.minute || "")}'`}><span className="text-rose-400 font-black text-[10px] leading-none">↓</span>{subOut.minute && <span className="text-[9px] font-mono text-rose-300" dir="ltr">{formatStatNumber(subOut.minute)}'</span>}</span>}
+        {subInMinute && <span className="inline-flex items-center gap-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 px-1" title={`ورود ${formatStatNumber(subInMinute)}'`}><span className="text-emerald-400 font-black text-[10px] leading-none">↑</span><span className="text-[9px] font-mono text-emerald-300" dir="ltr">{formatStatNumber(subInMinute)}'</span></span>}
       </span>
       {typeof p.rating === "number" && p.rating > 0 && (
         <span className={`font-mono text-[10px] font-black px-1.5 py-0.5 rounded border ${ratingColor(p.rating)}`}>{formatStatNumber(p.rating.toFixed(1))}</span>
       )}
-      <span className={`text-[10px] font-bold ${accent}`}>{p.subInMinute ? "وارد زمین شد" : ""}</span>
     </button>
-  );
+    );
+  };
+
+  const renderCoachCard = (side: "home" | "away") => {
+    const c = coaches.find(k => k.side === side);
+    if (!c) return null;
+    const teamName = side === "home" ? homeName : awayName;
+    return (
+      <button
+        key={`coach-${side}`}
+        type="button"
+        onClick={() => onSelectCoach && onSelectCoach(c.id)}
+        className={`w-full flex items-center gap-2.5 rounded-2xl border border-white/5 bg-[#141418] px-4 py-2.5 transition cursor-pointer text-right ${side === "home" ? "hover:border-emerald-500/30" : "hover:border-cyan-500/30"}`}
+      >
+        {c.image ? (
+          <img src={getSafeImageUrl(c.image)} alt={c.name} loading="lazy" referrerPolicy="no-referrer" className="w-9 h-9 rounded-full object-cover border border-white/15 bg-slate-800 shrink-0" />
+        ) : (
+          <span className="w-9 h-9 rounded-full bg-slate-700 text-white text-xs font-black flex items-center justify-center shrink-0">{c.name.trim().charAt(0)}</span>
+        )}
+        <span className="min-w-0 flex-1">
+          <span className="block text-xs font-black text-white truncate">{c.name}</span>
+          <span className="block text-[10px] text-slate-500">سرمربی {teamName}</span>
+        </span>
+      </button>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -206,43 +244,25 @@ export default function MatchPitch(props: MatchPitchProps) {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="rounded-2xl bg-[#141418] border border-white/5 overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-white/5 text-xs font-black text-emerald-400">ذخیره‌های {homeName}</div>
-          <div className="divide-y divide-white/[0.04] max-h-[260px] overflow-y-auto">
-            {homeSubs.length > 0 ? homeSubs.map(p => renderSubRow(p, "text-emerald-400")) : <p className="px-4 py-3 text-[11px] text-slate-500">بازیکن ذخیره‌ای ثبت نشده است.</p>}
+        <div>
+          <div className="rounded-2xl bg-[#141418] border border-white/5 overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-white/5 text-xs font-black text-emerald-400">ذخیره‌های {homeName}</div>
+            <div className="divide-y divide-white/[0.04] max-h-[260px] overflow-y-auto">
+              {homeSubs.length > 0 ? homeSubs.map(p => renderSubRow(p)) : <p className="px-4 py-3 text-[11px] text-slate-500">بازیکن ذخیره‌ای ثبت نشده است.</p>}
+            </div>
           </div>
+          {renderCoachCard("home")}
         </div>
-        <div className="rounded-2xl bg-[#141418] border border-white/5 overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-white/5 text-xs font-black text-cyan-400">ذخیره‌های {awayName}</div>
-          <div className="divide-y divide-white/[0.04] max-h-[260px] overflow-y-auto">
-            {awaySubs.length > 0 ? awaySubs.map(p => renderSubRow(p, "text-cyan-400")) : <p className="px-4 py-3 text-[11px] text-slate-500">بازیکن ذخیره‌ای ثبت نشده است.</p>}
+        <div>
+          <div className="rounded-2xl bg-[#141418] border border-white/5 overflow-hidden">
+            <div className="px-4 py-2.5 border-b border-white/5 text-xs font-black text-cyan-400">ذخیره‌های {awayName}</div>
+            <div className="divide-y divide-white/[0.04] max-h-[260px] overflow-y-auto">
+              {awaySubs.length > 0 ? awaySubs.map(p => renderSubRow(p)) : <p className="px-4 py-3 text-[11px] text-slate-500">بازیکن ذخیره‌ای ثبت نشده است.</p>}
+            </div>
           </div>
+          {renderCoachCard("away")}
         </div>
       </div>
-
-      {coaches.length > 0 && (
-        <div className="rounded-2xl bg-[#141418] border border-white/5 overflow-hidden">
-          <button type="button" onClick={() => setCoachesOpen(v => !v)} className="w-full flex items-center justify-between px-4 py-2.5 text-xs font-black text-white cursor-pointer hover:bg-white/[0.03] transition">
-            <span>کادر فنی دو تیم ({formatStatNumber(coaches.length)})</span>
-            <ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${coachesOpen ? "rotate-180" : ""}`} />
-          </button>
-          {coachesOpen && (
-            <div className="divide-y divide-white/[0.04] border-t border-white/5">
-              {coaches.map(c => (
-                <button
-                  key={`${c.side}-${c.id}`}
-                  type="button"
-                  onClick={() => onSelectCoach && onSelectCoach(c.id)}
-                  className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/[0.04] transition cursor-pointer text-right"
-                >
-                  <span className="text-xs font-bold text-white">{c.name}</span>
-                  <span className="text-[10px] text-slate-500">سرمربی {c.side === "home" ? homeName : awayName}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
