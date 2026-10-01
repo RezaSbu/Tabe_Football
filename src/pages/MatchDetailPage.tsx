@@ -12,6 +12,8 @@ export default function MatchDetailPage() {
   const [match, setMatch] = useState<any>(null);
   const [allMatches, setAllMatches] = useState<any[]>([]);
   const [standings, setStandings] = useState<Record<string, any[]>>({});
+  const [players, setPlayers] = useState<any[]>([]);
+  const [coaches, setCoaches] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -56,6 +58,8 @@ export default function MatchDetailPage() {
         if (cancelled) return;
         setAllMatches(d.matches || []);
         setStandings(d.standings || {});
+        setPlayers(d.players || []);
+        setCoaches(d.coaches || []);
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -112,9 +116,12 @@ export default function MatchDetailPage() {
         match={match}
         allMatches={allMatches}
         standings={standings}
+        players={players}
+        coaches={coaches}
         onBack={() => navigate(-1)}
         onSelectPlayer={(pid: string) => navigate(`/player/${pid}`)}
         onSelectNews={(newsId: string) => navigate(`/news/${newsId}`)}
+        onSelectCoach={(cid: string) => navigate(`/coach/${cid}`)}
       />
     </>
   );

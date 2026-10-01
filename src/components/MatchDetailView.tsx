@@ -1,22 +1,25 @@
 import React, { useState, useEffect } from "react";
 import { 
   ArrowLeft, Calendar, MapPin, Clock, Shield, 
-  AlertCircle, Sparkles, Trophy, ListOrdered, Shirt, GitCompareArrows, RefreshCw, Newspaper 
+  AlertCircle, Sparkles, Trophy, ListOrdered, Shirt, GitCompareArrows, Newspaper 
 } from "lucide-react";
 import { StandingRow } from "../types";
 import { convertGregorianToShamsi, formatStatNumber, normalizePersianString, getSafeImageUrl } from "../utils";
 import { minuteSortKey } from "../shared/matchMinute";
 import TeamLogo from "./TeamLogo";
+import MatchPitch from "../matchcenter/MatchPitch";
 
 interface MatchDetailViewProps {
   match: any;
   allMatches?: any[];
   allTeams?: any[];
   players?: any[];
+  coaches?: any[];
   standings?: Record<string, StandingRow[]>;
   onBack: () => void;
   onSelectPlayer?: (playerId: string) => void;
   onSelectNews?: (newsId: string) => void;
+  onSelectCoach?: (coachId: string) => void;
 }
 
 const EVENT_META: Record<string, { label: string; icon: string }> = {
@@ -46,10 +49,12 @@ export default function MatchDetailView({
   allMatches = [], 
   allTeams = [], 
   players = [], 
+  coaches = [],
   standings = {},
   onBack, 
   onSelectPlayer,
-  onSelectNews 
+  onSelectNews,
+  onSelectCoach
 }: MatchDetailViewProps) {
   
   const [activeTab, setActiveTab] = useState<"timeline" | "news" | "lineups" | "h2h">("timeline");
@@ -151,6 +156,44 @@ export default function MatchDetailView({
     });
   };
 
+  // --- 3c. Pitch enrichment: photo, events, sub-in minute, MVP, coords ---
+  const photoById = (id: string) => (players || []).find((pl: any) => String(pl.id) === String(id))?.image;
+  const toPitchPlayer = (p: any) => {
+    const evs = getPlayerEvents(p.id, p.name);
+    const subIn = (match.events || []).find((e: any) =>
+      e.type === "substitution" &&
+      (e.player2Id === p.id || (e.player2Id == null && e.player2Name === p.name))
+    );
+    const rating = typeof p.rating === "number" ? p.rating : (p.rating ? parseFloat(p.rating) : null);
+    return {
+      id: String(p.id || ""),
+      name: p.name,
+      position: p.position,
+      rating: rating != null && !isNaN(rating) ? rating : null,
+      image: photoById(p.id),
+      captain: !!p.captain,
+      x: typeof p.x === "number" ? p.x : undefined,
+      y: typeof p.y === "number" ? p.y : undefined,
+      events: evs.map((e: any) => ({ type: e.type, minute: e.minute, player2Name: e.player2Name })),
+      subInMinute: subIn?.minute,
+      isMvp: match.mvpId != null && String(match.mvpId) === String(p.id),
+    };
+  };
+
+  const pitchCoaches = (() => {
+    const out: { id: string; name: string; side: "home" | "away" }[] = [];
+    const findCoach = (id: any) => (coaches || []).find((c: any) => String(c.id) === String(id));
+    if (match.coachHomeId) {
+      const c = findCoach(match.coachHomeId);
+      if (c) out.push({ id: String(c.id), name: c.name, side: "home" });
+    }
+    if (match.coachAwayId) {
+      const c = findCoach(match.coachAwayId);
+      if (c) out.push({ id: String(c.id), name: c.name, side: "away" });
+    }
+    return out;
+  })();
+
   // --- 4. HEAD TO HEAD ---
   const h2hMatches = allMatches.filter(m => 
     m.status === "finished" && 
@@ -211,91 +254,6 @@ export default function MatchDetailView({
     if (homeLineup.some((p: any) => String(p.id) === String(sc.scorerId) || (p.id == null && p.name === name))) return "home";
     if (awayLineup.some((p: any) => String(p.id) === String(sc.scorerId) || (p.id == null && p.name === name))) return "away";
     return null;
-  };
-
-  // Lineup rendering helpers
-  const positionOrder = (pos: string) => {
-    if (pos.includes("دروازه")) return 0;
-    if (pos.includes("مدافع")) return 1;
-    if (pos.includes("هافبک") || pos.includes("وینگر")) return 2;
-    return 3;
-  };
-
-  const renderLineupColumn = (players: any[], subs: any[], teamName: string, accent: "emerald" | "cyan") => {
-    const sorted = [...players].sort(
-      (a, b) => positionOrder(a.position || "") - positionOrder(b.position || "") || String(a.name || "").localeCompare(String(b.name || ""))
-    );
-    const sortedSubs = [...subs].sort(
-      (a, b) => positionOrder(a.position || "") - positionOrder(b.position || "") || String(a.name || "").localeCompare(String(b.name || ""))
-    );
-
-    const renderRow = (p: any) => {
-      const rating = typeof p.rating === "number" ? p.rating : (p.rating ? parseFloat(p.rating) : undefined);
-      
-      // Extract events from match.events (single source of truth)
-      const playerEvents = getPlayerEvents(p.id, p.name);
-      const goals = playerEvents.filter((e: any) => e.type === "goal" || e.type === "penalty").length;
-      const assists = playerEvents.filter((e: any) => e.type === "assist").length;
-      const yellowCards = playerEvents.filter((e: any) => e.type === "yellow-card").length;
-      const redCards = playerEvents.filter((e: any) => e.type === "red-card").length;
-      const substitution = playerEvents.find((e: any) => e.type === "substitution");
-      
-      return (
-        <button
-          key={String(p.id || p.name)}
-          onClick={() => onSelectPlayer && onSelectPlayer(p.id)}
-          className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 hover:bg-white/[0.04] transition cursor-pointer text-right"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="min-w-0">
-              <span className="block text-xs font-bold text-white truncate">{p.name}</span>
-              <span className="block text-[10px] text-slate-500">{p.position || "بازیکن"}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            {goals > 0 && <span className="text-[10px] font-black text-emerald-400">⚽{formatStatNumber(goals)}</span>}
-            {assists > 0 && <span className="text-[10px] font-black text-cyan-400">👟{formatStatNumber(assists)}</span>}
-            {yellowCards > 0 && <span className="text-[10px]">🟨</span>}
-            {redCards > 0 && <span className="text-[10px]">🟥</span>}
-            {substitution && (
-              <span className="text-[10px] font-black text-amber-400" title={`خروج ${substitution.playerName} / ورود ${substitution.player2Name || ""}`}>
-                🔄{substitution.minute && <span className="font-mono">{formatStatNumber(substitution.minute)}'</span>}
-              </span>
-            )}
-            {rating != null && rating > 0 && (
-              <span className={`font-mono text-[10px] font-black px-1.5 py-0.5 rounded ${
-                rating >= 7.5 ? "bg-emerald-500/10 text-emerald-400" : rating >= 6.5 ? "bg-amber-500/10 text-amber-400" : "bg-white/5 text-slate-400"
-              }`}>
-                {formatStatNumber(rating.toFixed(1))}
-              </span>
-            )}
-          </div>
-        </button>
-      );
-    };
-
-    return (
-      <div className="rounded-2xl bg-[#141418] border border-white/5 overflow-hidden">
-        <div className={`px-4 py-3 border-b border-white/5 flex items-center justify-between gap-2 bg-gradient-to-l ${accent === "emerald" ? "from-emerald-500/10" : "from-cyan-500/10"}`}>
-          <span className="text-xs font-black text-white truncate">{teamName}</span>
-          <span className={`text-[10px] font-bold shrink-0 ${accent === "emerald" ? "text-emerald-400" : "text-cyan-400"}`}>
-            {formatStatNumber(sorted.length)} بازیکن
-          </span>
-        </div>
-
-        <div className="divide-y divide-white/[0.04] max-h-[420px] overflow-y-auto scrollbar-thin">
-          {sorted.map(renderRow)}
-          {sortedSubs.length > 0 && (
-            <>
-              <div className="px-3.5 py-2 text-[10px] font-black text-slate-500 bg-white/[0.02] flex items-center gap-1.5">
-                <RefreshCw className="h-3 w-3" /> بازیکنان ذخیره
-              </div>
-              {sortedSubs.map(renderRow)}
-            </>
-          )}
-        </div>
-      </div>
-    );
   };
 
   const extraResult = match.halfTimeScore || match.halftime || match.ht;
@@ -620,7 +578,7 @@ export default function MatchDetailView({
           </div>
         )}
 
-        {/* ===== TAB 3: LINEUPS ===== */}
+        {/* ===== TAB 3: LINEUPS (pitch) ===== */}
         {activeTab === "lineups" && (
           <div className="space-y-5 animate-in fade-in duration-200">
             {homeLineup.length === 0 && awayLineup.length === 0 && homeSubs.length === 0 && awaySubs.length === 0 ? (
@@ -630,10 +588,19 @@ export default function MatchDetailView({
                 <p className="text-xs text-slate-400">اطلاعات یازده‌نفر اصلی و ذخیره‌های این مسابقه پس از تأیید توسط کادر فنی در این بخش نمایش داده می‌شود.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {renderLineupColumn(homeLineup, homeSubs, match.teamHome, "emerald")}
-                {renderLineupColumn(awayLineup, awaySubs, match.teamAway, "cyan")}
-              </div>
+              <MatchPitch
+                home={homeLineup.map(toPitchPlayer)}
+                away={awayLineup.map(toPitchPlayer)}
+                homeSubs={homeSubs.map(toPitchPlayer)}
+                awaySubs={awaySubs.map(toPitchPlayer)}
+                homeName={match.teamHome}
+                awayName={match.teamAway}
+                formationHome={defaultLineups.formationHome}
+                formationAway={defaultLineups.formationAway}
+                onSelectPlayer={onSelectPlayer}
+                coaches={pitchCoaches}
+                onSelectCoach={onSelectCoach}
+              />
             )}
           </div>
         )}

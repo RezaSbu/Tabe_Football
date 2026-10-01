@@ -30,6 +30,18 @@ input, textarea, select {
   text-align: justify;
 }
 
+/* Match-center pitch stripes (mowed-grass bands under the SVG markings) */
+.pitch-stripes {
+  background-color: #0d5c2e;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.045) 0px,
+    rgba(255, 255, 255, 0.045) 56px,
+    rgba(0, 0, 0, 0.06) 56px,
+    rgba(0, 0, 0, 0.06) 112px
+  );
+}
+
 /* Webkit scrollbar for premium dark-mode feeling */
 ::-webkit-scrollbar {
   width: 8px;
