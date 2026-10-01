@@ -36,14 +36,17 @@ export function BallIcon({ size = 16, className = "" }: IconProps) {
   );
 }
 
-export function ShoeIcon({ size = 16, className = "" }: IconProps) {
+export function AssistBadge({ size = 16, className = "" }: IconProps) {
+  const fontSize = Math.max(9, Math.round(size * 0.58));
   return (
-    <svg viewBox="0 0 24 24" width={size} height={size} fill="currentColor" className={`shrink-0 text-cyan-400 ${className}`} aria-hidden="true">
-      <path d="M 3.5 14.5 C 3.5 13 4 11.5 5 10 C 5.8 8.8 7 8 8.5 8.2 L 11.5 8.8 C 13.5 9.2 16 10.5 18.5 11.8 C 20.2 12.6 21.5 13.6 21.5 14.8 C 21.5 15.5 21 16 20 16.2 L 4.5 16.2 C 3.9 16.2 3.5 15.6 3.5 14.5 Z" fillRule="evenodd" />
-      <rect x="5.5" y="16.5" width="2.2" height="2.5" rx="1.1" />
-      <rect x="13.5" y="16.5" width="2.2" height="2.5" rx="1.1" />
-      <rect x="18" y="16.5" width="2.2" height="2.5" rx="1.1" />
-    </svg>
+    <span
+      className={`inline-flex items-center justify-center rounded-full bg-gradient-to-br from-sky-400 via-sky-500 to-blue-600 text-slate-950 font-black font-mono shadow-md border border-sky-200 shrink-0 select-none ${className}`}
+      style={{ width: size, height: size, fontSize, lineHeight: 1 }}
+      title="پاس گل"
+      aria-hidden="true"
+    >
+      A
+    </span>
   );
 }
 
@@ -113,13 +116,14 @@ export function OwnGoalIcon({ size = 16, className = "" }: IconProps) {
   );
 }
 
-export function VarIcon({ size = 16, className = "" }: IconProps) {
+export function VarIcon({ size = 16, className = "", isDisallowed = false }: IconProps & { isDisallowed?: boolean }) {
   return (
-    <span className="px-1.5 py-0.5 rounded-md border text-[10px] font-mono font-black flex items-center gap-1 shadow-sm shrink-0 bg-purple-950/80 border-purple-500/70 text-purple-200" title="بررسی VAR">
+    <span className={`px-1.5 py-0.5 rounded-md border text-[10px] font-mono font-black flex items-center gap-1 shadow-sm shrink-0 ${isDisallowed ? "bg-rose-950/80 border-rose-500/70 text-rose-200" : "bg-purple-950/80 border-purple-500/70 text-purple-200"}`} title="بررسی VAR">
       <svg viewBox="0 0 16 16" fill="currentColor" style={{ width: 12, height: 12 }} aria-hidden="true">
         <path d="M2 3h12a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zm6 10h-2v1h4v-1h-2z" />
       </svg>
       <span>VAR</span>
+      {isDisallowed && <span className="text-rose-400 font-bold">✕</span>}
     </span>
   );
 }
@@ -165,7 +169,7 @@ export function EventIcon({ type, size = 16, className = "" }: { type: string; s
     case "goal": return <BallIcon size={size} className={className} />;
     case "penalty": return <PenaltyIcon size={size} className={className} />;
     case "own-goal": return <OwnGoalIcon size={size} className={className} />;
-    case "assist": return <ShoeIcon size={size} className={className} />;
+    case "assist": return <AssistBadge size={size} className={className} />;
     case "yellow-card": return <YellowCardIcon size={size} className={className} />;
     case "red-card": return <RedCardIcon size={size} className={className} />;
     case "substitution": return <SubIcon size={size} className={className} />;

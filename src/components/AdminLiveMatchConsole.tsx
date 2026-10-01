@@ -171,11 +171,13 @@ export default function AdminLiveMatchConsole({
   // Local starting lineups + substitutes management.
   // home/away = starters; homeSubs/awaySubs = bench. A rating on a bench
   // entry only counts if that substitute actually entered the pitch.
-  const [localLineups, setLocalLineups] = useState<{ home: any[]; away: any[]; homeSubs: any[]; awaySubs: any[] }>({
+  const [localLineups, setLocalLineups] = useState<{ home: any[]; away: any[]; homeSubs: any[]; awaySubs: any[]; formationHome?: string; formationAway?: string }>({
     home: (match as any).lineups?.home || [],
     away: (match as any).lineups?.away || [],
     homeSubs: (match as any).lineups?.homeSubs || [],
-    awaySubs: (match as any).lineups?.awaySubs || []
+    awaySubs: (match as any).lineups?.awaySubs || [],
+    formationHome: (match as any).lineups?.formationHome,
+    formationAway: (match as any).lineups?.formationAway
   });
   const [showLineupMgmt, setShowLineupMgmt] = useState<boolean>(false);
   const [lineupMode, setLineupMode] = useState<"list" | "pitch">("pitch");

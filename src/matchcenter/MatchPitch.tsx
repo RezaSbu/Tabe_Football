@@ -15,7 +15,7 @@ export interface PitchPlayer {
   captain?: boolean;
   x?: number;
   y?: number;
-  events: { type: string; minute?: string; player2Name?: string }[];
+  events: { type: string; minute?: string; player2Name?: string; role?: "goal" | "assist" | "sub-out" | "sub-in" | "other" }[];
   subInMinute?: string;
   isMvp?: boolean;
 }
@@ -82,11 +82,19 @@ function NodeAvatar({ p, size = 44 }: { p: PitchPlayer; size?: number }) {
 }
 
 function PlayerNode({ p, onSelect }: { p: PitchPlayer; onSelect?: (id: string) => void }) {
-  const goals = p.events.filter(e => e.type === "goal" || e.type === "penalty").length;
-  const assists = p.events.filter(e => e.type === "assist").length;
+  // Role-aware counting: a goal event where this player is the assister
+  // (player2) counts as an assist, never as a goal. Falls back to legacy
+  // type-only logic when no role was attached.
+  const isGoal = (e: PitchPlayer["events"][number]) =>
+    e.role ? e.role === "goal" : (e.type === "goal" || e.type === "penalty");
+  const isAssist = (e: PitchPlayer["events"][number]) =>
+    e.role ? e.role === "assist" : e.type === "assist";
+  const goals = p.events.filter(isGoal).length;
+  const assists = p.events.filter(isAssist).length;
+  const subOut = p.events.find(e => (e.role ? e.role === "sub-out" : e.type === "substitution"));
+  const subIn = p.events.find(e => e.role === "sub-in");
   const yellow = p.events.some(e => e.type === "yellow-card");
   const red = p.events.some(e => e.type === "red-card");
-  const sub = p.events.find(e => e.type === "substitution");
   const rating = typeof p.rating === "number" ? p.rating : null;
   return (
     <button
@@ -99,23 +107,24 @@ function PlayerNode({ p, onSelect }: { p: PitchPlayer; onSelect?: (id: string) =
       <span className="relative inline-flex">
         <NodeAvatar p={p} />
         {p.captain && (
-          <span className="absolute -left-1 -bottom-1 w-4 h-4 rounded-full bg-fuchsia-500 text-slate-950 text-[9px] font-black flex items-center justify-center border border-white/60" title="کاپیتان">C</span>
+          <span className="absolute -left-1 -bottom-1 w-4 h-4 rounded-full bg-amber-400 text-slate-950 text-[9px] font-black flex items-center justify-center border border-slate-950" title="کاپیتان">C</span>
         )}
-        {rating != null && (
-          <span className={`absolute -top-2 -right-2 text-[9px] font-black font-mono px-1 rounded border ${ratingColor(rating)}`}>
+        {rating != null ? (
+          <span className={`absolute -top-2 -right-2 inline-flex items-center gap-0.5 text-[9px] font-black font-mono px-1 rounded border ${ratingColor(rating)}`}>
+            {p.isMvp && <MvpStarIcon size={10} />}
             {formatStatNumber(rating.toFixed(1))}
           </span>
-        )}
-        {p.isMvp && (
-          <span className="absolute -top-2 -left-2"><MvpStarIcon size={14} /></span>
-        )}
+        ) : p.isMvp ? (
+          <span className="absolute -top-2 -right-2"><MvpStarIcon size={14} /></span>
+        ) : null}
       </span>
       <span className="flex items-center gap-0.5">
         {goals > 0 && <span className="inline-flex items-center gap-0.5"><EventIcon type="goal" size={13} />{goals > 1 && <span className="text-[9px] font-black text-emerald-400 font-mono">x{formatStatNumber(goals)}</span>}</span>}
         {assists > 0 && <span className="inline-flex items-center gap-0.5"><EventIcon type="assist" size={13} />{assists > 1 && <span className="text-[9px] font-black text-cyan-400 font-mono">x{formatStatNumber(assists)}</span>}</span>}
         {yellow && <EventIcon type="yellow-card" size={12} />}
         {red && <EventIcon type="red-card" size={12} />}
-        {sub && <span className="inline-flex items-center gap-0.5"><EventIcon type="substitution" size={13} />{sub.minute && <span className="text-[9px] font-mono text-amber-400">{formatStatNumber(sub.minute)}'</span>}</span>}
+        {subOut && <span className="inline-flex items-center gap-0.5 rounded bg-rose-500/15 border border-rose-500/30 px-1"><span className="text-rose-400 font-black text-[10px] leading-none">↘</span>{subOut.minute && <span className="text-[9px] font-mono text-rose-300">{formatStatNumber(subOut.minute)}'</span>}</span>}
+        {subIn && <span className="inline-flex items-center gap-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 px-1"><span className="text-emerald-400 font-black text-[10px] leading-none">↗</span>{subIn.minute && <span className="text-[9px] font-mono text-emerald-300">{formatStatNumber(subIn.minute)}'</span>}</span>}
       </span>
       <span className="max-w-[92px] truncate text-[10px] font-bold text-white bg-black/55 rounded px-1 group-hover:text-emerald-300 transition">{p.name}</span>
     </button>

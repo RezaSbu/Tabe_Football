@@ -24,18 +24,18 @@ interface MatchDetailViewProps {
   onSelectCoach?: (coachId: string) => void;
 }
 
-const EVENT_META: Record<string, { label: string; icon: string }> = {
-  goal: { label: "گل", icon: "⚽" },
-  penalty: { label: "گل پنالتی", icon: "🥅" },
-  "own-goal": { label: "گل به خودی", icon: "🎯" },
-  assist: { label: "پاس گل", icon: "👟" },
-  "yellow-card": { label: "کارت زرد", icon: "🟨" },
-  "red-card": { label: "کارت قرمز", icon: "🟥" },
-  substitution: { label: "تعویض", icon: "🔄" },
-  "missed-penalty": { label: "پنالتی از دست رفته", icon: "❌" },
-  injury: { label: "مصدومیت", icon: "🩹" },
-  var: { label: "بررسی VAR", icon: "📺" },
-  other: { label: "رویداد", icon: "💬" },
+const EVENT_META: Record<string, { label: string }> = {
+  goal: { label: "گل" },
+  penalty: { label: "گل پنالتی" },
+  "own-goal": { label: "گل به خودی" },
+  assist: { label: "پاس گل" },
+  "yellow-card": { label: "کارت زرد" },
+  "red-card": { label: "کارت قرمز" },
+  substitution: { label: "تعویض" },
+  "missed-penalty": { label: "پنالتی از دست رفته" },
+  injury: { label: "مصدومیت" },
+  var: { label: "بررسی VAR" },
+  other: { label: "رویداد" },
 };
 
 const LEAGUE_NAMES: Record<string, string> = {
@@ -86,27 +86,27 @@ export default function MatchDetailView({
   const describeEvent = (type: string, p1: string, p2: string, details: string): string => {
     switch (type) {
       case "goal":
-        return `⚽ گل توسط ${p1}${p2 ? ` (پاس گل: ${p2})` : ""}${details ? ` — ${details}` : ""}`;
+        return `گل توسط ${p1}${p2 ? ` (پاس گل: ${p2})` : ""}${details ? ` — ${details}` : ""}`;
       case "assist":
-        return `👟 پاس گل توسط ${p1}${p2 ? ` برای ${p2}` : ""}${details ? ` — ${details}` : ""}`;
+        return `پاس گل توسط ${p1}${p2 ? ` برای ${p2}` : ""}${details ? ` — ${details}` : ""}`;
       case "penalty":
-        return `🥅 گل پنالتی توسط ${p1}${details ? ` — ${details}` : ""}`;
+        return `گل پنالتی توسط ${p1}${details ? ` — ${details}` : ""}`;
       case "own-goal":
-        return `🎯 گل به خودی توسط ${p1}${details ? ` — ${details}` : ""}`;
+        return `گل به خودی توسط ${p1}${details ? ` — ${details}` : ""}`;
       case "missed-penalty":
-        return `❌ پنالتی از دست رفته توسط ${p1}${details ? ` — ${details}` : ""}`;
+        return `پنالتی از دست رفته توسط ${p1}${details ? ` — ${details}` : ""}`;
       case "yellow-card":
-        return `🟨 کارت زرد برای ${p1}${details ? ` — ${details}` : ""}`;
+        return `کارت زرد برای ${p1}${details ? ` — ${details}` : ""}`;
       case "red-card":
-        return `🟥 کارت قرمز برای ${p1}${details ? ` — ${details}` : ""}`;
+        return `کارت قرمز برای ${p1}${details ? ` — ${details}` : ""}`;
       case "substitution":
-        return `🔁 تعویض: خروج ${p1} / ورود ${p2 || "بازیکن جدید"}${details ? ` — ${details}` : ""}`;
+        return `تعویض: خروج ${p1} / ورود ${p2 || "بازیکن جدید"}${details ? ` — ${details}` : ""}`;
       case "injury":
-        return `🩹 مصدومیت ${p1}${details ? ` — ${details}` : ""}`;
+        return `مصدومیت ${p1}${details ? ` — ${details}` : ""}`;
       case "var":
-        return `📺 تصمیم VAR ${p1 ? `برای ${p1}` : ""}${details ? ` — ${details}` : ""}`;
+        return `تصمیم VAR ${p1 ? `برای ${p1}` : ""}${details ? ` — ${details}` : ""}`;
       case "other":
-        return `💬 ${details || "رویداد بازی"}${p1 ? ` (${p1})` : ""}`;
+        return `${details || "رویداد بازی"}${p1 ? ` (${p1})` : ""}`;
       default:
         return `${p1} — ${details || type}`;
     }
@@ -183,10 +183,26 @@ export default function MatchDetailView({
       captain: !!p.captain,
       x: typeof p.x === "number" ? p.x : undefined,
       y: typeof p.y === "number" ? p.y : undefined,
-      events: evs.map((e: any) => ({ type: e.type, minute: e.minute, player2Name: e.player2Name })),
+      events: evs.map((e: any) => ({ type: e.type, minute: e.minute, player2Name: e.player2Name, role: eventRoleFor(e, p.id, p.name) })),
       subInMinute: subIn?.minute,
       isMvp: match.mvpId != null && String(match.mvpId) === String(p.id),
     };
+  };
+
+  // Role of a player within one event: a goal/penalty event counts as a GOAL
+  // for its scorer (playerId) but as an ASSIST for its assister (player2Id).
+  // Without this, assisters render a ball badge instead of the assist badge.
+  const eventRoleFor = (e: any, pid: string, pname: string): "goal" | "assist" | "sub-out" | "sub-in" | "other" => {
+    const iamFirst = e.playerId === pid || (e.playerId == null && e.player2Id == null && e.playerName === pname);
+    const iamSecond = e.player2Id === pid || (e.player2Id == null && e.player2Name === pname && !iamFirst);
+    if (e.type === "substitution") {
+      if (iamSecond && !iamFirst) return "sub-in";
+      return "sub-out";
+    }
+    if ((e.type === "goal" || e.type === "penalty") && iamSecond && !iamFirst) return "assist";
+    if (e.type === "assist") return "assist";
+    if (e.type === "goal" || e.type === "penalty") return "goal";
+    return "other";
   };
 
   const pitchCoaches = (() => {
