@@ -3,6 +3,7 @@ import { ChevronDown } from "lucide-react";
 import { getFormationPositions, isFormationKey, defaultFormation } from "./formations";
 import { EventIcon, MvpStarIcon, ratingColor } from "./EventIcon";
 import { formatStatNumber, getSafeImageUrl } from "../utils";
+import TeamLogo from "../components/TeamLogo";
 import type { MatchFormationKey } from "../types";
 
 export interface PitchPlayer {
@@ -32,6 +33,8 @@ interface MatchPitchProps {
   awaySubs: PitchPlayer[];
   homeName: string;
   awayName: string;
+  homeLogo?: string;
+  awayLogo?: string;
   formationHome?: string;
   formationAway?: string;
   onSelectPlayer?: (playerId: string) => void;
@@ -41,7 +44,7 @@ interface MatchPitchProps {
 
 // Infer a formation key from coarse Persian position buckets when the
 // admin has not stored one explicitly. Falls back to 4-4-2.
-function inferFormation(players: { position: string }[]): MatchFormationKey {
+export function inferFormation(players: { position: string }[]): MatchFormationKey {
   const norm = (p: string) => p || "";
   const df = players.filter(p => norm(p.position).includes("مدافع")).length;
   const mf = players.filter(p => norm(p.position).includes("هافبک") || norm(p.position).includes("وینگر")).length;
@@ -120,7 +123,7 @@ function PlayerNode({ p, onSelect }: { p: PitchPlayer; onSelect?: (id: string) =
 }
 
 export default function MatchPitch(props: MatchPitchProps) {
-  const { home, away, homeSubs, awaySubs, homeName, awayName, onSelectPlayer, coaches = [], onSelectCoach } = props;
+  const { home, away, homeSubs, awaySubs, homeName, awayName, homeLogo, awayLogo, onSelectPlayer, coaches = [], onSelectCoach } = props;
   const [coachesOpen, setCoachesOpen] = useState(false);
 
   const formHome = isFormationKey(props.formationHome) ? props.formationHome : inferFormation(home);
@@ -152,10 +155,18 @@ export default function MatchPitch(props: MatchPitchProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-center gap-2 text-[11px] font-black">
-        <span className="text-emerald-400">{homeName} • <span className="font-mono" dir="ltr">{formHome}</span></span>
-        <span className="text-slate-600">|</span>
-        <span className="text-cyan-400">{awayName} • <span className="font-mono" dir="ltr">{formAway}</span></span>
+      <div className="flex items-center justify-between gap-2 rounded-2xl border border-white/5 bg-black/25 px-4 py-2.5">
+        <span className="flex items-center gap-2 min-w-0">
+          <TeamLogo logo={homeLogo} fallback="🛡️" size="sm" />
+          <span className="text-xs font-black text-white truncate">{homeName}</span>
+          <span className="font-mono text-[10px] text-emerald-400/90" dir="ltr">{formHome}</span>
+        </span>
+        <span className="text-[10px] text-slate-600 font-black shrink-0">ترکیب اصلی</span>
+        <span className="flex items-center gap-2 min-w-0">
+          <span className="font-mono text-[10px] text-cyan-400/90" dir="ltr">{formAway}</span>
+          <span className="text-xs font-black text-white truncate">{awayName}</span>
+          <TeamLogo logo={awayLogo} fallback="⚔️" size="sm" />
+        </span>
       </div>
 
       <div className="w-full overflow-x-auto pb-2">

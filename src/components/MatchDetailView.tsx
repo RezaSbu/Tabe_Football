@@ -8,6 +8,8 @@ import { convertGregorianToShamsi, formatStatNumber, normalizePersianString, get
 import { minuteSortKey } from "../shared/matchMinute";
 import TeamLogo from "./TeamLogo";
 import MatchPitch from "../matchcenter/MatchPitch";
+import { inferFormation } from "../matchcenter/MatchPitch";
+import { EventIcon } from "../matchcenter/EventIcon";
 
 interface MatchDetailViewProps {
   match: any;
@@ -58,6 +60,7 @@ export default function MatchDetailView({
 }: MatchDetailViewProps) {
   
   const [activeTab, setActiveTab] = useState<"timeline" | "news" | "lineups" | "h2h">("timeline");
+  const [eventFilter, setEventFilter] = useState<"all" | "goals" | "cards" | "subs">("all");
   const [matchNews, setMatchNews] = useState<any[]>([]);
   const isPlayed = match.status === "live" || match.status === "finished";
   const isLive = match.status === "live";
@@ -142,8 +145,7 @@ export default function MatchDetailView({
   const homeSubs = defaultLineups.homeSubs || [];
   const awaySubs = defaultLineups.awaySubs || [];
 
-  // --- 3b. Extract events per player from match.events (single source of truth) ---
-  // Identity-first: an event carrying a playerId only ever belongs to that
+  // --- 3b. Extract events per player from match.events (single source of truth) ---  // Identity-first: an event carrying a playerId only ever belongs to that
   // id. Bare names are used solely for legacy events without any ids, so two
   // same-name players can never share one event.
   const getPlayerEvents = (playerId: string, playerName: string) => {
@@ -154,6 +156,13 @@ export default function MatchDetailView({
       if (ev.playerId != null || ev.player2Id != null) return false;
       return ev.playerName === playerName || ev.player2Name === playerName;
     });
+  };
+
+  const filterTimelineItem = (item: any) => {
+    if (eventFilter === "goals") return item.type === "goal" || item.type === "penalty" || item.type === "own-goal";
+    if (eventFilter === "cards") return item.type === "yellow-card" || item.type === "red-card";
+    if (eventFilter === "subs") return item.type === "substitution";
+    return true;
   };
 
   // --- 3c. Pitch enrichment: photo, events, sub-in minute, MVP, coords ---
@@ -223,6 +232,26 @@ export default function MatchDetailView({
   });
 
   const totalEncounters = h2hMatches.length;
+
+  // Recent form (last 5 finished matches per team, real data only).
+  const teamForm = (teamName: string): ("W" | "D" | "L")[] => {
+    return allMatches
+      .filter(m => m.status === "finished" && (m.teamHome === teamName || m.teamAway === teamName))
+      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+      .slice(0, 5)
+      .map(m => {
+        const isHome = m.teamHome === teamName;
+        const gf = isHome ? (m.scoreHome ?? 0) : (m.scoreAway ?? 0);
+        const ga = isHome ? (m.scoreAway ?? 0) : (m.scoreHome ?? 0);
+        return gf > ga ? "W" : gf < ga ? "L" : "D";
+      });
+  };
+  const homeForm = teamForm(match.teamHome);
+  const awayForm = teamForm(match.teamAway);
+  const h2hTotal = Math.max(1, totalEncounters);
+  const homeWinPct = Math.round((homeWins / h2hTotal) * 100);
+  const awayWinPct = Math.round((awayWins / h2hTotal) * 100);
+  const drawPct = Math.max(0, 100 - homeWinPct - awayWinPct);
 
   // --- 5. LIVE STANDINGS RANK LOOKUP (varzesh3-style "رتبه در جدول") ---
   const getTeamRank = (teamName: string, teamId?: string): { rank: number; total: number } | null => {
@@ -319,6 +348,12 @@ export default function MatchDetailView({
                     رتبه {formatStatNumber(homeRank.rank)} جدول
                   </span>
                 )}
+                <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-400 font-bold">
+                  <span className="font-mono text-emerald-400/90" dir="ltr">{defaultLineups.formationHome || inferFormation(homeLineup)}</span>
+                  {pitchCoaches.some(c => c.side === "home") && (
+                    <><span className="text-slate-600">•</span><span className="truncate max-w-[110px]">{pitchCoaches.find(c => c.side === "home")?.name}</span></>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -382,6 +417,12 @@ export default function MatchDetailView({
                     رتبه {formatStatNumber(awayRank.rank)} جدول
                   </span>
                 )}
+                <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-400 font-bold">
+                  <span className="font-mono text-cyan-400/90" dir="ltr">{defaultLineups.formationAway || inferFormation(awayLineup)}</span>
+                  {pitchCoaches.some(c => c.side === "away") && (
+                    <><span className="text-slate-600">•</span><span className="truncate max-w-[110px]">{pitchCoaches.find(c => c.side === "away")?.name}</span></>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -433,7 +474,7 @@ export default function MatchDetailView({
               </div>
             ) : sortedTimeline.length > 0 ? (
               <>
-                {/* Goals strip (FotMob-style) */}
+                {/* Goals strip */}
                 {match.scorersList && match.scorersList.length > 0 && (
                   <div className="flex flex-wrap gap-2 justify-center">
                     {match.scorersList.map((sc: any, idx: number) => {
@@ -445,7 +486,7 @@ export default function MatchDetailView({
                             ? "bg-cyan-500/10 border-cyan-500/25 text-cyan-400"
                             : "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
                         }`}>
-                          ⚽ {name}
+                          <EventIcon type="goal" size={14} /> {name}
                           {sc.minute && <span className="font-mono text-[10px] opacity-80">{formatStatNumber(sc.minute)}'</span>}
                         </span>
                       );
@@ -453,76 +494,120 @@ export default function MatchDetailView({
                   </div>
                 )}
 
-                {/* Center-split timeline */}
-                <div className="relative">
-                  {/* Vertical center line */}
-                  <div className="absolute top-2 bottom-2 left-1/2 -translate-x-1/2 w-px bg-white/10" />
-                  <div className="space-y-2.5">
-                    {sortedTimeline.map((item, idx) => {
+                {/* Event filter bar (figma) */}
+                <div className="flex items-center justify-between bg-[#131924] p-2.5 rounded-2xl border border-white/5 shadow-md">
+                  <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
+                    {([
+                      { key: "all", label: "همه رویدادها", icon: null },
+                      { key: "goals", label: "گل‌ها", icon: "goal" },
+                      { key: "cards", label: "کارت‌ها", icon: "yellow-card" },
+                      { key: "subs", label: "تعویض‌ها", icon: "substitution" },
+                    ] as const).map(f => (
+                      <button
+                        key={f.key}
+                        type="button"
+                        onClick={() => setEventFilter(f.key)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all cursor-pointer ${
+                          eventFilter === f.key
+                            ? "bg-emerald-600 text-white shadow-md shadow-emerald-950/40"
+                            : "bg-slate-900/60 text-slate-400 hover:text-slate-200"
+                        }`}
+                      >
+                        {f.icon && <EventIcon type={f.icon} size={14} />}
+                        <span>{f.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="text-[11px] text-slate-400 font-mono hidden sm:block shrink-0">
+                    {formatStatNumber(sortedTimeline.filter(filterTimelineItem).length)} رویداد ثبت‌شده
+                  </div>
+                </div>
+
+                {/* Center-rule timeline (figma) */}
+                <div className="bg-[#101622] rounded-3xl border border-white/5 p-4 sm:p-6 shadow-xl">
+                {sortedTimeline.filter(filterTimelineItem).length === 0 ? (
+                  <p className="text-center text-xs text-slate-500 py-6">در این دسته رویدادی ثبت نشده است.</p>
+                ) : (
+                <div className="relative flex flex-col gap-4">
+                  <div className="absolute top-4 bottom-4 left-1/2 -translate-x-1/2 w-0.5 bg-slate-800/80 hidden sm:block" />
+                  {sortedTimeline.filter(filterTimelineItem).map((item, idx) => {
                       const meta = EVENT_META[item.type] || EVENT_META.other;
                       const isHome = item.team === "home";
 
-                      let title = item.playerName || meta.label;
+                      const title = item.playerName || meta.label;
                       let subtitle = meta.label;
                       if (item.type === "goal" || item.type === "penalty") {
                         if (item.player2Name) subtitle += ` — پاس گل: ${item.player2Name}`;
-                      } else if (item.type === "substitution") {
-                        title = "تعویض";
-                        subtitle = `خروج ${item.playerName || "—"} / ورود ${item.player2Name || "—"}`;
                       }
                       if (item.details) subtitle += ` — ${item.details}`;
 
-                      const minuteBadge = (
+                      const card = (
+                        <div className={`rounded-2xl border p-2.5 sm:p-3 break-words w-full ${
+                          item.type === "goal" || item.type === "penalty"
+                            ? (isHome ? "bg-emerald-500/15 border-emerald-500/30 shadow-[0_0_20px_-6px_rgba(16,185,129,0.45)]" : "bg-cyan-500/15 border-cyan-500/30 shadow-[0_0_20px_-6px_rgba(6,182,212,0.45)]")
+                            : (isHome ? "bg-emerald-500/[0.06] border-emerald-500/15" : "bg-cyan-500/[0.06] border-cyan-500/15")
+                        }`}>
+                          {item.type === "substitution" ? (
+                            <div className="space-y-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-rose-400 font-black text-xs">↘</span>
+                                <span className="block text-[11px] sm:text-xs font-black text-white truncate">{item.playerName || "—"}</span>
+                                <span className="text-[9px] text-slate-500 mr-auto shrink-0">خروج</span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-emerald-400 font-black text-xs">↗</span>
+                                <span className="block text-[11px] sm:text-xs font-black text-white truncate">{item.player2Name || "—"}</span>
+                                <span className="text-[9px] text-slate-500 mr-auto shrink-0">ورود</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="shrink-0"><EventIcon type={item.type} size={18} /></span>
+                              <div className="min-w-0">
+                                <span className="block text-[11px] sm:text-xs font-black text-white truncate">{title}</span>
+                                <span className="block text-[9px] sm:text-[10px] text-slate-400 font-semibold truncate">{subtitle}</span>
+                              </div>
+                            </div>
+                          )}
+                          {item.type === "assist" && item.player2Name && (
+                            <div className="flex items-center gap-1.5 mt-1.5 pt-1.5 border-t border-white/5">
+                              <EventIcon type="assist" size={14} />
+                              <span className="text-[10px] text-slate-300">برای {item.player2Name}</span>
+                            </div>
+                          )}
+                          {(item.type === "goal" || item.type === "penalty") && item.player2Name && (
+                            <div className="flex items-center gap-1.5 mt-1.5 pt-1.5 border-t border-white/5">
+                              <EventIcon type="assist" size={14} />
+                              <span className="text-[10px] text-slate-300">پاس گل: {item.player2Name}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+
+                      const minutePill = (
                         <div className="flex justify-center">
-                          <span className={`h-8 w-8 sm:h-9 sm:w-9 rounded-full border flex items-center justify-center font-mono font-black text-[10px] shadow-md ${
-                            item.type === "goal" || item.type === "penalty"
-                              ? "bg-emerald-500/90 border-emerald-400/40 text-black"
-                              : item.type === "yellow-card"
-                              ? "bg-amber-500/90 border-amber-400/40 text-black"
-                              : item.type === "red-card"
-                              ? "bg-red-500/90 border-red-400/40 text-white"
-                              : "bg-[#1c1c21] border-white/10 text-slate-200"
-                          }`}>
+                          <span className="w-11 h-11 rounded-2xl bg-gradient-to-b from-slate-800 to-slate-900 border-2 border-slate-700 shadow-xl flex items-center justify-center text-[11px] font-black font-mono tabular-nums text-slate-200">
                             {formatStatNumber(item.minute)}'
                           </span>
                         </div>
                       );
 
-                      const card = (
-                        <div className={`rounded-xl border p-2 sm:p-2.5 break-words ${
-                          item.type === "goal" || item.type === "penalty"
-                            ? (isHome ? "bg-emerald-500/15 border-emerald-500/30 shadow-[0_0_20px_-6px_rgba(16,185,129,0.45)]" : "bg-cyan-500/15 border-cyan-500/30 shadow-[0_0_20px_-6px_rgba(6,182,212,0.45)]")
-                            : (isHome ? "bg-emerald-500/[0.06] border-emerald-500/15" : "bg-cyan-500/[0.06] border-cyan-500/15")
-                        }`}>
-                          <div className="flex items-center gap-1.5 sm:gap-2">
-                            <span className="text-sm sm:text-base shrink-0">{meta.icon}</span>
-                            <div className="min-w-0">
-                              <span className="block text-[11px] sm:text-xs font-black text-white">{title}</span>
-                              <span className="block text-[9px] sm:text-[10px] text-slate-400 font-semibold">{subtitle}</span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-
                       return (
-                        <div key={idx} className="grid grid-cols-[1fr_36px_1fr] sm:grid-cols-[1fr_40px_1fr] items-center gap-1.5 sm:gap-2">
-                          {isHome ? (
-                            <>
-                              <div className="flex justify-end">{card}</div>
-                              {minuteBadge}
-                              <div />
-                            </>
-                          ) : (
-                            <>
-                              <div />
-                              {minuteBadge}
-                              <div className="flex justify-start">{card}</div>
-                            </>
-                          )}
+                        <div key={idx} className="relative z-10 grid grid-cols-1 sm:grid-cols-12 items-center gap-2 sm:gap-3">
+                          <div className="sm:col-span-5 sm:flex sm:justify-end">
+                            {isHome && card}
+                          </div>
+                          <div className="sm:col-span-2 flex sm:justify-center order-first sm:order-none">
+                            {minutePill}
+                          </div>
+                          <div className="sm:col-span-5 sm:flex sm:justify-start">
+                            {!isHome && card}
+                          </div>
                         </div>
                       );
                     })}
                   </div>
+                  )}
                 </div>
               </>
             ) : (
@@ -595,6 +680,8 @@ export default function MatchDetailView({
                 awaySubs={awaySubs.map(toPitchPlayer)}
                 homeName={match.teamHome}
                 awayName={match.teamAway}
+                homeLogo={match.teamHomeLogo}
+                awayLogo={match.teamAwayLogo}
                 formationHome={defaultLineups.formationHome}
                 formationAway={defaultLineups.formationAway}
                 onSelectPlayer={onSelectPlayer}
@@ -609,39 +696,64 @@ export default function MatchDetailView({
         {activeTab === "h2h" && (
           <div className="space-y-6 animate-in fade-in duration-300">
             <h3 className="font-black text-base text-white border-r-4 border-emerald-500 pr-2">تاریخچه رویارویی‌های مستقیم این دو تیم (H2H)</h3>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
-                <span className="text-[10px] text-slate-500 font-bold block truncate">بردهای {match.teamHome}</span>
-                <span className="text-2xl font-mono font-black text-emerald-400">{formatStatNumber(homeWins)} برد</span>
-                <span className="text-[9px] text-slate-500 block">در بازی‌های پیشین</span>
-              </div>
 
-              <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
-                <span className="text-[10px] text-slate-500 font-bold block">تساوی‌ها</span>
-                <span className="text-2xl font-mono font-black text-slate-100">{formatStatNumber(draws)} مساوی</span>
-                <span className="text-[9px] text-slate-500 block">رقابت پایاپای</span>
-              </div>
-
-              <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
-                <span className="text-[10px] text-slate-500 font-bold block truncate">بردهای {match.teamAway}</span>
-                <span className="text-2xl font-mono font-black text-cyan-400">{formatStatNumber(awayWins)} برد</span>
-                <span className="text-[9px] text-slate-500 block">در بازی‌های پیشین</span>
+            {/* Recent form cards (figma) */}
+            <div className="bg-[#151c28] rounded-2xl border border-white/5 p-4 sm:p-5">
+              <h4 className="text-xs font-black text-white mb-4">فرم اخیر دو تیم در ۵ بازی گذشته</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {([
+                  { name: match.teamHome, form: homeForm, dot: "bg-emerald-400" },
+                  { name: match.teamAway, form: awayForm, dot: "bg-cyan-400" },
+                ]).map(t => (
+                  <div key={t.name} className="p-3.5 rounded-xl bg-slate-900/60 border border-white/5 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`w-3 h-3 rounded-full shrink-0 ${t.dot}`} />
+                      <span className="text-xs font-bold text-white truncate">{t.name}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0" dir="ltr">
+                      {t.form.length > 0 ? t.form.map((r, i) => (
+                        <span
+                          key={i}
+                          className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold font-mono text-white ${
+                            r === "W" ? "bg-emerald-600" : r === "D" ? "bg-amber-600" : "bg-rose-600"
+                          }`}
+                        >
+                          {r}
+                        </span>
+                      )) : (
+                        <span className="text-[10px] text-slate-500">بدون سابقه</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1 text-center">
-                <span className="text-[10px] text-slate-500 font-bold block">کل رویارویی‌ها</span>
-                <span className="text-2xl font-mono font-black text-white">{formatStatNumber(totalEncounters)}</span>
+            {/* Win/Draw/Loss distribution bar (figma) */}
+            <div className="bg-[#151c28] rounded-2xl border border-white/5 p-4 sm:p-5">
+              <div className="flex items-center justify-between text-xs font-bold mb-2">
+                <span className="text-emerald-400">{match.teamHome} ({formatStatNumber(homeWins)})</span>
+                <span className="text-slate-400">تساوی ({formatStatNumber(draws)})</span>
+                <span className="text-cyan-400">({formatStatNumber(awayWins)}) {match.teamAway}</span>
               </div>
-              <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1 text-center">
-                <span className="text-[10px] text-slate-500 font-bold block">گل‌های ردوبدل‌شده</span>
-                <span className="text-2xl font-mono font-black text-amber-400">{formatStatNumber(totalGoals)}</span>
+              <div className="w-full h-2.5 rounded-full overflow-hidden bg-slate-800 flex" dir="ltr">
+                <div style={{ width: `${homeWinPct}%` }} className="bg-emerald-500" />
+                <div style={{ width: `${drawPct}%` }} className="bg-slate-500" />
+                <div style={{ width: `${awayWinPct}%` }} className="bg-cyan-500" />
               </div>
-              <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1 text-center">
-                <span className="text-[10px] text-slate-500 font-bold block">میانگین گل هر بازی</span>
-                <span className="text-2xl font-mono font-black text-cyan-300">{formatStatNumber(totalEncounters ? (totalGoals / totalEncounters).toFixed(1) : "—")}</span>
+              <div className="grid grid-cols-3 gap-4 mt-4">
+                <div className="p-3 rounded-xl bg-black/20 border border-white/5 space-y-1 text-center">
+                  <span className="text-[10px] text-slate-500 font-bold block">کل رویارویی‌ها</span>
+                  <span className="text-xl font-mono font-black text-white">{formatStatNumber(totalEncounters)}</span>
+                </div>
+                <div className="p-3 rounded-xl bg-black/20 border border-white/5 space-y-1 text-center">
+                  <span className="text-[10px] text-slate-500 font-bold block">گل‌های ردوبدل‌شده</span>
+                  <span className="text-xl font-mono font-black text-amber-400">{formatStatNumber(totalGoals)}</span>
+                </div>
+                <div className="p-3 rounded-xl bg-black/20 border border-white/5 space-y-1 text-center">
+                  <span className="text-[10px] text-slate-500 font-bold block">میانگین گل</span>
+                  <span className="text-xl font-mono font-black text-cyan-300">{formatStatNumber(totalEncounters ? (totalGoals / totalEncounters).toFixed(1) : "—")}</span>
+                </div>
               </div>
             </div>
 
@@ -652,28 +764,25 @@ export default function MatchDetailView({
               </h4>
 
               {h2hMatches.length > 0 ? (
-                <div className="grid gap-2.5">
+                <div className="flex flex-col divide-y divide-white/5 rounded-2xl border border-white/5 bg-[#161619]/60 overflow-hidden">
                   {h2hMatches.map((m) => (
-                    <div 
-                      key={m.id} 
-                      className="p-3.5 rounded-xl bg-[#161619]/60 border border-white/5 flex items-center justify-between text-xs hover:border-emerald-500/30 transition"
+                    <div
+                      key={m.id}
+                      className="py-3 px-3.5 flex items-center justify-between gap-2 text-xs hover:bg-white/[0.02] transition"
                     >
-                      <div className="space-y-1">
-                          <span className="text-slate-100 font-bold flex items-center gap-2 flex-wrap">
-                            <TeamLogo logo={m.teamHomeLogo} fallback="⚽" size="sm" />
-                            <span>{m.teamHome}</span>
-                            <span className="text-[10px] text-slate-500 font-medium font-mono">در برابر</span>
-                            <TeamLogo logo={m.teamAwayLogo} fallback="⚽" size="sm" />
-                            <span>{m.teamAway}</span>
-                          </span>
-                        <span className="font-mono text-[9px] text-slate-500 block">
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-semibold text-slate-300 text-[11px]">{m.league ? (LEAGUE_NAMES[m.league] || m.league) : ""}</span>
+                        <span className="font-mono text-[9px] text-slate-500">
                           {convertGregorianToShamsi(m.date)} | ساعت {formatStatNumber(m.time)}
                         </span>
                       </div>
-
-                      <span className="font-mono font-black text-xs bg-black/30 px-3 py-1 rounded-lg border border-white/5 text-slate-50 select-none">
-                        {formatStatNumber(m.scoreHome)} - {formatStatNumber(m.scoreAway)}
-                      </span>
+                      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                        <span className="font-medium text-slate-200 hidden sm:inline">{m.teamHome}</span>
+                        <span className="px-2.5 py-1 rounded bg-slate-900 border border-slate-700 font-bold font-mono text-white tabular-nums text-xs" dir="ltr">
+                          {formatStatNumber(m.scoreHome)} - {formatStatNumber(m.scoreAway)}
+                        </span>
+                        <span className="font-medium text-slate-200 hidden sm:inline">{m.teamAway}</span>
+                      </div>
                     </div>
                   ))}
                 </div>
