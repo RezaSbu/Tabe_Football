@@ -21,6 +21,7 @@ import {
 import { formatStatNumber, normalizePersianString } from "../utils";
 import { parseMatchMinute } from "../shared/matchMinute";
 import { getLeagueLabel } from "../shared/leagueLabel";
+import LineupBuilder from "../matchcenter/LineupBuilder";
 
 interface MatchEvent {
   id: string;
@@ -177,6 +178,7 @@ export default function AdminLiveMatchConsole({
     awaySubs: (match as any).lineups?.awaySubs || []
   });
   const [showLineupMgmt, setShowLineupMgmt] = useState<boolean>(false);
+  const [lineupMode, setLineupMode] = useState<"list" | "pitch">("pitch");
 
   // Real clock: the minute is derived from how many real 60s intervals have
   // elapsed since the play/resume moment, anchored to the minute the admin had
@@ -513,7 +515,34 @@ export default function AdminLiveMatchConsole({
       </div>
 
       {showLineupMgmt && (
-        <div className="grid gap-4 md:grid-cols-2 mb-6" id="starting-lineup-settings-panel">
+        <div className="mb-6 space-y-4" id="starting-lineup-settings-panel">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setLineupMode("pitch")}
+              className={`flex-1 py-2 rounded-xl text-xs font-black border transition min-h-[44px] ${lineupMode === "pitch" ? "bg-emerald-500 text-black border-emerald-500" : "bg-white/5 text-slate-300 border-white/10"}`}
+            >
+              تخته تاکتیکی (زمین فوتبال)
+            </button>
+            <button
+              type="button"
+              onClick={() => setLineupMode("list")}
+              className={`flex-1 py-2 rounded-xl text-xs font-black border transition min-h-[44px] ${lineupMode === "list" ? "bg-emerald-500 text-black border-emerald-500" : "bg-white/5 text-slate-300 border-white/10"}`}
+            >
+              لیست کلاسیک
+            </button>
+          </div>
+          {lineupMode === "pitch" ? (
+            <LineupBuilder
+              homeName={match.teamHome}
+              awayName={match.teamAway}
+              homeRoster={homeRoster}
+              awayRoster={awayRoster}
+              value={localLineups}
+              onChange={v => setLocalLineups(prev => ({ ...prev, ...v }))}
+            />
+          ) : (
+          <div className="grid gap-4 md:grid-cols-2">
           {/* Home Team Lineup Config */}
           <div className="bg-[#0b0b0f] border border-white/5 p-4 rounded-xl space-y-3">
             <div className="flex justify-between items-center border-b border-white/5 pb-2">
@@ -818,6 +847,8 @@ export default function AdminLiveMatchConsole({
               </div>
             </div>
           </div>
+        </div>
+          )}
         </div>
       )}
 
