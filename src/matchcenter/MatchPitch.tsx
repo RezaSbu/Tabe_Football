@@ -178,14 +178,25 @@ export default function MatchPitch(props: MatchPitchProps) {
 
   const renderCoachCard = (side: "home" | "away") => {
     const c = coaches.find(k => k.side === side);
-    if (!c) return null;
     const teamName = side === "home" ? homeName : awayName;
+    const cardCls = "w-full flex items-center gap-2.5 rounded-2xl border border-white/5 bg-[#141418] px-4 py-2.5 text-right min-h-[62px]";
+    if (!c) {
+      return (
+        <div key={`coach-${side}-empty`} className={`${cardCls} opacity-60`} aria-hidden="true">
+          <span className="w-9 h-9 rounded-full bg-slate-800 border border-white/5 shrink-0" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-xs font-bold text-slate-600">سرمربی ثبت نشده است</span>
+            <span className="block text-[10px] text-slate-600">سرمربی {teamName}</span>
+          </span>
+        </div>
+      );
+    }
     return (
       <button
         key={`coach-${side}`}
         type="button"
         onClick={() => onSelectCoach && onSelectCoach(c.id)}
-        className={`w-full flex items-center gap-2.5 rounded-2xl border border-white/5 bg-[#141418] px-4 py-2.5 transition cursor-pointer text-right ${side === "home" ? "hover:border-emerald-500/30" : "hover:border-cyan-500/30"}`}
+        className={`${cardCls} transition cursor-pointer ${side === "home" ? "hover:border-emerald-500/30" : "hover:border-cyan-500/30"}`}
       >
         {c.image ? (
           <img src={getSafeImageUrl(c.image)} alt={c.name} loading="lazy" referrerPolicy="no-referrer" className="w-9 h-9 rounded-full object-cover border border-white/15 bg-slate-800 shrink-0" />
@@ -244,19 +255,25 @@ export default function MatchPitch(props: MatchPitchProps) {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
+        <div className="space-y-4">
           <div className="rounded-2xl bg-[#141418] border border-white/5 overflow-hidden">
-            <div className="px-4 py-2.5 border-b border-white/5 text-xs font-black text-emerald-400">ذخیره‌های {homeName}</div>
-            <div className="divide-y divide-white/[0.04] max-h-[260px] overflow-y-auto">
+            <div className="px-4 py-2.5 border-b border-white/5 text-xs font-black text-emerald-400 flex items-center justify-between gap-2">
+              <span className="truncate">ذخیره‌های {homeName}</span>
+              <span className="font-mono text-[10px] text-slate-500 bg-white/5 rounded-full px-2 py-0.5 shrink-0" dir="ltr">{formatStatNumber(homeSubs.length)}</span>
+            </div>
+            <div className="divide-y divide-white/[0.04] h-[260px] overflow-y-auto scrollbar-thin">
               {homeSubs.length > 0 ? homeSubs.map(p => renderSubRow(p)) : <p className="px-4 py-3 text-[11px] text-slate-500">بازیکن ذخیره‌ای ثبت نشده است.</p>}
             </div>
           </div>
           {renderCoachCard("home")}
         </div>
-        <div>
+        <div className="space-y-4">
           <div className="rounded-2xl bg-[#141418] border border-white/5 overflow-hidden">
-            <div className="px-4 py-2.5 border-b border-white/5 text-xs font-black text-cyan-400">ذخیره‌های {awayName}</div>
-            <div className="divide-y divide-white/[0.04] max-h-[260px] overflow-y-auto">
+            <div className="px-4 py-2.5 border-b border-white/5 text-xs font-black text-cyan-400 flex items-center justify-between gap-2">
+              <span className="truncate">ذخیره‌های {awayName}</span>
+              <span className="font-mono text-[10px] text-slate-500 bg-white/5 rounded-full px-2 py-0.5 shrink-0" dir="ltr">{formatStatNumber(awaySubs.length)}</span>
+            </div>
+            <div className="divide-y divide-white/[0.04] h-[260px] overflow-y-auto scrollbar-thin">
               {awaySubs.length > 0 ? awaySubs.map(p => renderSubRow(p)) : <p className="px-4 py-3 text-[11px] text-slate-500">بازیکن ذخیره‌ای ثبت نشده است.</p>}
             </div>
           </div>
