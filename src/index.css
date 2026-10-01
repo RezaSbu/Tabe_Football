@@ -447,6 +447,17 @@ html.light .via-\[\#0d0d11\] { --tw-gradient-via: #f1f5f9; }
 html.light .bg-\[\#0e1017\] { background-color: #f1f5f9; }
 html.light .to-\[\#0e1017\] { --tw-gradient-to: #f1f5f9; }
 
+/* هگزهای صفحه مسابقه -> سطوح روشن (کارت/فرعی) */
+html.light .bg-\[\#141418\] { background-color: var(--surface-card); }
+html.light .bg-\[\#131924\] { background-color: var(--surface-card); }
+html.light .bg-\[\#101622\] { background-color: var(--surface-muted); }
+html.light .bg-\[\#151c28\] { background-color: var(--surface-card); }
+html.light .hover\:bg-\[\#161d2b\]:hover { background-color: var(--surface-sunken); }
+
+/* جداکننده‌های سفید لیست‌ها -> خط ظریف روی روشن */
+html.light .divide-white\/5 > :not([hidden]) ~ :not([hidden]) { border-color: var(--border-soft); }
+html.light .divide-white\/\[0\.04\] > :not([hidden]) ~ :not([hidden]) { border-color: var(--border-soft); }
+
 /* روی دکمه‌های پررنگ و گرادیان‌های رنگی، متن سفید حفظ شود.
    چیپ‌های اکسنت تیره (زنده/داغ) در تم روشن تیره می‌مانند؛ متن اکسنت داخل آن‌ها
    به نسخه روشن‌تر همان اکسنت تغییر می‌کند تا روی زمینه تیره خوانا بماند. */
@@ -679,78 +690,85 @@ html.light .match-hero .border-white\/20 { border-color: color-mix(in srgb, #fff
 html.light .match-hero .border-white\/10 { border-color: color-mix(in srgb, #ffffff 10%, transparent); }
 
 /* ==========================================================================
-   محتوای کامل صفحه مسابقه (MatchDetailView) در تم روشن:
-   کل کارت — از جمله تب‌ها، تایم‌لاین، ترکیب و آمار — روی بک‌گراند تیره
-   نمایش داده می‌شود؛ پس تمام توکن‌های رنگی باید در این حوزه به مقادیر
-   تم تیره بازگردند تا متن‌ها، بوردرها و دایره‌های دقیقه خوانا بمانند.
+   محتوای صفحه مسابقه (MatchDetailView) در تم روشن:
+   برخلاف هیرو (که روی عکس تیره می‌ماند)، بدنه صفحه از تم روشن پیروی
+   می‌کند: کارت سفید، متن تیره، بوردرهای قابل‌رؤیت و سایه ملایم.
    ========================================================================== */
 html.light .match-scope {
-  /* رنگ‌های متن اصلی */
-  --color-white: #ffffff;
-  --color-slate-50: #f8fafc;
-  --color-slate-100: #f1f5f9;
-  --color-slate-200: #e2e8f0;
-  --color-slate-300: #cbd5e1;
-  --color-slate-400: #94a3b8;
-  --color-slate-500: #64748b;
-
-  /* اکسنت‌های اصلی */
-  --color-emerald-300: #6ee7b7;
-  --color-emerald-400: #34d399;
-  --color-emerald-500: #10b981;
-  --color-emerald-600: #059669;
-  --color-emerald-950: #022c22;
-  --color-cyan-300: #67e8f9;
-  --color-cyan-400: #22d3ee;
-  --color-cyan-500: #06b6d4;
-  --color-cyan-950: #083344;
-  --color-red-300: #fca5a5;
-  --color-red-400: #f87171;
-  --color-red-500: #ef4444;
-  --color-red-950: #450a0a;
-  --color-amber-300: #fcd34d;
-  --color-amber-400: #fbbf24;
-  --color-amber-500: #f59e0b;
-  --color-purple-400: #c084fc;
-  --color-purple-500: #a855f7;
-  --color-orange-400: #fb923c;
-  --color-orange-500: #f97316;
-  --color-rose-400: #fb7185;
-  --color-slate-900: #0f172a;
-  --color-slate-950: #020617;
+  background-color: var(--surface-card);
+  border-color: var(--border-soft);
+  box-shadow: var(--shadow-raised);
+  color-scheme: light;
 }
-/* سطوح نیمه‌شفاف و بوردرها در محتوای مسابقه باید تیره بمانند */
-html.light .match-scope .bg-black\/10 { background-color: color-mix(in srgb, #000 10%, transparent); }
-html.light .match-scope .bg-black\/15 { background-color: color-mix(in srgb, #000 15%, transparent); }
-html.light .match-scope .bg-black\/20 { background-color: color-mix(in srgb, #000 20%, transparent); }
-html.light .match-scope .bg-black\/30 { background-color: color-mix(in srgb, #000 30%, transparent); }
-html.light .match-scope .bg-black\/35 { background-color: color-mix(in srgb, #000 35%, transparent); }
-html.light .match-scope .bg-black\/40 { background-color: color-mix(in srgb, #000 40%, transparent); }
-html.light .match-scope .bg-white\/\[0\.02\] { background-color: color-mix(in srgb, #ffffff 2%, transparent); }
-html.light .match-scope .bg-white\/\[0\.04\] { background-color: color-mix(in srgb, #ffffff 4%, transparent); }
-html.light .match-scope :is(.bg-white\/5, .bg-white\/10) { background-color: color-mix(in srgb, #ffffff 8%, transparent); }
-html.light .match-scope .bg-white\/15 { background-color: color-mix(in srgb, #ffffff 15%, transparent); }
-html.light .match-scope .border-white\/5 { border-color: color-mix(in srgb, #ffffff 5%, transparent); }
-html.light .match-scope .border-white\/10 { border-color: color-mix(in srgb, #ffffff 10%, transparent); }
-html.light .match-scope .border-white\/15 { border-color: color-mix(in srgb, #ffffff 15%, transparent); }
-html.light .match-scope .border-white\/20 { border-color: color-mix(in srgb, #ffffff 20%, transparent); }
-html.light .match-scope .border-white\/25 { border-color: color-mix(in srgb, #ffffff 25%, transparent); }
-html.light .match-scope .divide-y > :is(+ *) { border-color: color-mix(in srgb, #ffffff 4%, transparent); }
+/* سطوح نیمه‌شفاف داخل بدنه روشن -> تینت اسلیت */
+html.light .match-scope .bg-black\/10 { background-color: color-mix(in srgb, #0f172a 6%, transparent); }
+html.light .match-scope .bg-black\/15 { background-color: color-mix(in srgb, #0f172a 8%, transparent); }
+html.light .match-scope .bg-black\/20 { background-color: color-mix(in srgb, #0f172a 10%, transparent); }
+html.light .match-scope .bg-black\/30 { background-color: color-mix(in srgb, #0f172a 14%, transparent); }
+html.light .match-scope .bg-black\/35 { background-color: color-mix(in srgb, #0f172a 16%, transparent); }
+html.light .match-scope .bg-black\/40 { background-color: color-mix(in srgb, #0f172a 18%, transparent); }
+html.light .match-scope .bg-white\/\[0\.02\] { background-color: color-mix(in srgb, #0f172a 3%, transparent); }
+html.light .match-scope .bg-white\/\[0\.04\] { background-color: color-mix(in srgb, #0f172a 5%, transparent); }
+html.light .match-scope :is(.bg-white\/5, .bg-white\/10) { background-color: color-mix(in srgb, #0f172a 7%, transparent); }
+html.light .match-scope .bg-white\/15 { background-color: color-mix(in srgb, #0f172a 10%, transparent); }
+html.light .match-scope .border-white\/5 { border-color: var(--border-soft); }
+html.light .match-scope .border-white\/10 { border-color: var(--border-strong); }
+html.light .match-scope .border-white\/15 { border-color: var(--border-strong); }
+html.light .match-scope .border-white\/20 { border-color: var(--border-strong); }
+html.light .match-scope .border-white\/25 { border-color: var(--border-strong); }
+html.light .match-scope .divide-y > :is(+ *) { border-color: var(--border-soft); }
 /* hover روی ردیف‌های لیست */
 html.light .match-scope .hover\:bg-white\/\[0\.01\]:hover { background-color: color-mix(in srgb, #ffffff 1%, transparent); }
 html.light .match-scope .hover\:bg-white\/\[0\.04\]:hover { background-color: color-mix(in srgb, #ffffff 4%, transparent); }
 html.light .match-scope .hover\:bg-white\/\[0\.05\]:hover { background-color: color-mix(in srgb, #ffffff 5%, transparent); }
 html.light .match-scope .hover\:bg-emerald-500\/\[0\.03\]:hover { background-color: color-mix(in srgb, #10b981 3%, transparent); }
 html.light .match-scope .hover\:border-emerald-500\/30:hover { border-color: color-mix(in srgb, #10b981 30%, transparent); }
-/* گرادیان‌ها و سایه‌های رادیال روی بک‌گراند تیره */
-html.light .match-scope .bg-\[\#0c0f14\] { background-color: #0c0f14; }
-html.light .match-scope .bg-\[\#121215\] { background-color: #121215; }
-html.light .match-scope .bg-\[\#141418\] { background-color: #141418; }
-html.light .match-scope .bg-\[\#161619\] { background-color: #161619; }
-html.light .match-scope .bg-\[\#18181c\] { background-color: #18181c; }
-html.light .match-scope .bg-\[\#1c1c21\] { background-color: #1c1c21; }
-html.light .match-scope .bg-gray-900\/10 { background-color: color-mix(in srgb, #0f172a 10%, transparent); }
+/* گرادیان‌ها و سایه‌ها در بدنه روشن */
+html.light .match-scope .bg-\[\#0c0f14\] { background-color: var(--surface-sunken); }
+html.light .match-scope .bg-\[\#121215\] { background-color: var(--surface-card); }
+html.light .match-scope .bg-\[\#141418\] { background-color: var(--surface-card); }
+html.light .match-scope .bg-\[\#161619\] { background-color: var(--surface-muted); }
+html.light .match-scope .bg-\[\#18181c\] { background-color: var(--surface-card); }
+html.light .match-scope .bg-\[\#1c1c21\] { background-color: var(--surface-sunken); }
+html.light .match-scope .bg-gray-900\/10 { background-color: color-mix(in srgb, #0f172a 6%, transparent); }
 /* متن‌های رنگی روی بوردر/سطوح */
 html.light .match-scope .border-r-4 { border-right-color: var(--color-emerald-500); }
 /* shadow و backdrop */
-html.light .match-scope .shadow-2xl { box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.35); }
+html.light .match-scope .shadow-2xl { box-shadow: var(--shadow-raised); }
+
+/* زمین فوتبال در تم روشن: چمن روشن‌تر + خطوط تیره */
+html.light .pitch-stripes {
+  background-color: #3d9e63;
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.10) 0px,
+    rgba(255, 255, 255, 0.10) 56px,
+    rgba(0, 0, 0, 0.05) 56px,
+    rgba(0, 0, 0, 0.05) 112px
+  );
+}
+html.light .mc-pitch-markings [stroke] {
+  stroke: rgba(15, 40, 25, 0.85);
+}
+html.light .mc-pitch-markings [fill="#ffffff"] {
+  fill: #0f2819;
+}
+
+/* نودهای بازیکن روی چمن در هر دو تم تیره می‌مانند (خوانایی روی چمن) */
+html.light .pitch-stripes .mc-node {
+  --color-white: #ffffff;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-amber-300: #fcd34d;
+  --color-emerald-300: #6ee7b7;
+  --color-emerald-400: #34d399;
+  --color-rose-300: #fda4af;
+  --color-rose-400: #fb7185;
+  --color-cyan-400: #22d3ee;
+}
+html.light .pitch-stripes .mc-node .bg-black\/55 { background-color: color-mix(in srgb, #000 55%, transparent); }
+html.light .pitch-stripes .mc-node .bg-black\/85,
+html.light .pitch-stripes .mc-node .bg-black\/90 { background-color: color-mix(in srgb, #000 87%, transparent); }
+html.light .pitch-stripes .mc-node .border-white\/15 { border-color: color-mix(in srgb, #ffffff 15%, transparent); }
+html.light .pitch-stripes .mc-node .border-white\/20 { border-color: color-mix(in srgb, #ffffff 20%, transparent); }
+html.light .pitch-stripes .mc-node .border-white\/25 { border-color: color-mix(in srgb, #ffffff 25%, transparent); }

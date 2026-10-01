@@ -472,7 +472,7 @@ export default function LineupBuilder({ homeName, awayName, homeRoster, awayRost
         <div className="md:col-span-6">
           <div className="w-full overflow-x-auto pb-2">
             <div className="relative rounded-2xl overflow-hidden border-2 border-emerald-700/60 mx-auto pitch-stripes" style={{ width: "100%", minWidth: 640, height: 460 }}>
-              <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 68" preserveAspectRatio="none" aria-hidden="true">
+              <svg className="mc-pitch-markings absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 68" preserveAspectRatio="none" aria-hidden="true">
                 <rect x="2" y="2" width="96" height="64" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="0.6" />
                 <line x1="50" y1="2" x2="50" y2="66" stroke="rgba(255,255,255,0.65)" strokeWidth="0.6" />
                 <circle cx="50" cy="34" r="8" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="0.6" />
