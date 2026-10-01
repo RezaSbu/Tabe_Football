@@ -4,6 +4,7 @@ import { getSafeImageUrl, formatStatNumber, normalizePersianString } from "../ut
 import { coachOfTeamAt } from "../shared/coachTenure";
 import { resolveTeam } from "../shared/teamMatch";
 import SeasonSwitcher, { defaultSeasonValue } from "./SeasonSwitcher";
+import ShareButton from "./ui/ShareButton";
 import MovementTimeline from "./MovementTimeline";
 import CareerSection from "./CareerSection";
 
@@ -180,12 +181,13 @@ export default function CoachDetail({
             </div>
 
             <div>
-              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-tight">
+              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-tight flex items-center justify-center gap-1.5">
                 {coach.teamName ? (
                   <button onClick={() => onSelectTeam && onSelectTeam(coach.teamName)} className="hover:text-emerald-400 transition cursor-pointer">
                     {coach.name}
                   </button>
                 ) : coach.name}
+                <ShareButton title={coach.name} />
               </h2>
               <div className="flex items-center gap-2 justify-center mt-1.5 text-[10px] flex-wrap">
                 <span className="bg-white/5 border border-white/5 px-2.5 py-1 rounded-lg text-slate-300 font-bold">

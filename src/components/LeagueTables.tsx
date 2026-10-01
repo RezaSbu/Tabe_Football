@@ -599,11 +599,12 @@ export default function LeagueTables({
                   </h3>
                 </div>
 
-                <table className="w-full text-right text-xs">
-                  <thead>
-                    <tr className="text-gray-400 border-b border-white/5 font-semibold">
+                <table className="w-full text-right text-xs min-w-[640px]">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="text-gray-400 border-b border-white/5 font-semibold bg-gray-900/95 backdrop-blur">
                       <th className="py-2.5 text-center w-10">رتبه</th>
                       <th className="py-2.5">باشگاه</th>
+                      <th className="py-2.5 text-center hidden sm:table-cell">فرم</th>
                       <th className="py-2.5 text-center">بازی</th>
                       <th className="py-2.5 text-center">برد</th>
                       <th className="py-2.5 text-center">مساوی</th>
@@ -627,6 +628,25 @@ export default function LeagueTables({
                       const isRelegation = currentStandings.length >= 10 && i >= currentStandings.length - relegationCount;
                       const isDangerZone = dangerZoneCount > 0 && !isRelegation && i >= currentStandings.length - relegationCount - dangerZoneCount;
 
+                      // Real last-5 form from finished matches (no fake data).
+                      const form: ("W" | "D" | "L")[] = (matches || [])
+                        .filter(m => m.status === "finished" && (m.teamHome === row.team || m.teamAway === row.team))
+                        .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+                        .slice(0, 5)
+                        .map(m => {
+                          const gf = m.teamHome === row.team ? (m.scoreHome ?? 0) : (m.scoreAway ?? 0);
+                          const ga = m.teamHome === row.team ? (m.scoreAway ?? 0) : (m.scoreHome ?? 0);
+                          return gf > ga ? "W" : gf < ga ? "L" : "D";
+                        });
+
+                      const zoneBar = isPromotion
+                        ? "border-r-4 border-r-emerald-500/70 bg-emerald-500/[0.04]"
+                        : isDangerZone
+                          ? "border-r-4 border-r-orange-500/70 bg-orange-500/[0.04]"
+                          : isRelegation
+                            ? "border-r-4 border-r-red-500/70 bg-red-500/[0.04]"
+                            : "border-r-4 border-r-transparent";
+
                       return (
                         <tr
                           key={`${row.team}-${i}`}
@@ -637,7 +657,7 @@ export default function LeagueTables({
                               onSelectTeam(row.team);
                             }
                           }}
-                          className="hover:bg-white/[0.02] cursor-pointer transition"
+                          className={`hover:bg-white/[0.03] cursor-pointer transition ${zoneBar}`}
                         >
                           <td className="py-3 text-center">
                             <span className={`inline-flex items-center justify-center font-mono font-bold h-6 w-6 rounded-md text-[11px] ${
@@ -656,6 +676,18 @@ export default function LeagueTables({
                             <TeamLogo logo={correlatedTeam?.logo} fallback="⚽" size="sm" />
                             <span>{row.team}</span>
                           </td>
+                          <td className="py-3 text-center hidden sm:table-cell">
+                            <span className="inline-flex items-center gap-1" dir="ltr" title="فرم ۵ بازی آخر">
+                              {form.length > 0 ? form.map((r, fi) => (
+                                <span
+                                  key={fi}
+                                  className={`h-2 w-2 rounded-full ${r === "W" ? "bg-emerald-400" : r === "D" ? "bg-slate-400" : "bg-red-400"}`}
+                                />
+                              )) : (
+                                <span className="text-[9px] text-slate-600">—</span>
+                              )}
+                            </span>
+                          </td>
                           <td className="py-3 text-center font-mono text-slate-300">{row.played}</td>
                           <td className="py-3 text-center font-mono text-slate-400">{row.won}</td>
                           <td className="py-3 text-center font-mono text-slate-400">{row.drawn}</td>
@@ -666,7 +698,7 @@ export default function LeagueTables({
                           <td className={`py-3 text-center font-mono font-bold ${row.goalDifference > 0 ? "text-emerald-400" : row.goalDifference < 0 ? "text-red-400" : "text-gray-400"}`}>
                             {row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}
                           </td>
-                          <td className="py-3 text-center font-mono font-black text-white bg-slate-950/20">{row.points}</td>
+                          <td className="py-3 text-center font-mono font-black text-white bg-emerald-500/10 rounded-lg">{row.points}</td>
                         </tr>
                       );
                     })}

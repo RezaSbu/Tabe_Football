@@ -7,6 +7,7 @@ import { getSafeImageUrl, isTeamInDb, convertGregorianToShamsi, formatStatNumber
 import { resolveTeam } from "../shared/teamMatch";
 import { realMinute } from "../shared/matchMinute";
 import { buildPlayerIdentityIndex, findMatchLineupPlacement, isSamePlayer } from "../shared/playerIdentity";
+import ShareButton from "./ui/ShareButton";
 import SeasonSwitcher, { defaultSeasonValue } from "./SeasonSwitcher";
 import MovementTimeline from "./MovementTimeline";
 import CareerSection from "./CareerSection";
@@ -484,6 +485,7 @@ export default function PlayerDetail({
             <div>
               <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-tight flex items-center justify-center gap-1.5">
                 {player.name}
+                <ShareButton title={player.name} />
               </h2>
               <div className="flex items-center gap-2 justify-center mt-1.5 text-[10px] flex-wrap">
                 <span className="bg-white/5 border border-white/5 px-2.5 py-1 rounded-lg text-slate-300 font-bold">

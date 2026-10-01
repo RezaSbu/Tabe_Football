@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { TransferItem, NewsItem } from "../types";
 import { Shuffle, ArrowLeft, Calendar, Search, ArrowDownLeft, ArrowUpRight, Shield, Eye, Tag } from "lucide-react";
 import TeamLogo from "./TeamLogo";
+import EmptyState from "./ui/EmptyState";
 
 interface TransfersListProps {
   transfers: TransferItem[];
@@ -403,9 +404,13 @@ export default function TransfersList({ transfers, teamTransfersList = [], teams
               ))}
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-500 text-sm">
-              هیچ تیمی با نتایج فیلتر شده پیدا نشد.
-            </div>
+            <EmptyState
+              icon="search"
+              title="تیمی با این فیلتر پیدا نشد"
+              hint="عبارت جستجو یا فیلتر لیگ را تغییر دهید."
+              actionLabel="حذف فیلترها"
+              onAction={() => { setSearchQuery(""); setLeagueFilter("all"); }}
+            />
           )}
         </div>
       )}

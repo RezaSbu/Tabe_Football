@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ImageItem, GalleryPhoto } from "../types";
-import { Camera, Search, Eye, Tag, User, Clock, Images } from "lucide-react";
+import { Camera, Search, Eye, Tag, User, Clock, Images, ZoomIn } from "lucide-react";
 import { getSafeImageUrl, getTimeAgoPersian, formatStatNumber } from "../utils";
 
 interface PhotoGalleryProps {
@@ -160,6 +160,14 @@ export default function PhotoGallery({ images, initialSearchTag = "" }: PhotoGal
                   <span className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-black/70 backdrop-blur border border-white/10 px-2 py-1 text-[9px] font-bold text-white">
                     <Eye className="h-3 w-3 text-emerald-400" />
                     {formatStatNumber(viewCount)}
+                  </span>
+
+                  {/* Hover overlay: loupe + photo count */}
+                  <span className="absolute inset-0 flex items-center justify-center gap-2 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition duration-300">
+                    <span className="flex items-center gap-1.5 rounded-full bg-black/70 backdrop-blur border border-white/20 px-3 py-1.5 text-[11px] font-black text-white">
+                      <ZoomIn className="h-4 w-4 text-emerald-400" />
+                      مشاهده آلبوم
+                    </span>
                   </span>
                 </div>
 

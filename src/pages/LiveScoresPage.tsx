@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { MatchItem } from "../types";
 import TeamLogo from "../components/TeamLogo";
 import EmptyState from "../components/ui/EmptyState";
@@ -38,6 +38,18 @@ export default function LiveScoresPage({
   convertGregorianToShamsi,
   formatStatNumber,
 }: LiveScoresPageProps) {
+  const [dayOffset, setDayOffset] = useState(0);
+  const targetDateStr = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + dayOffset);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+  const dayLabel = dayOffset === -1 ? "دیروز" : dayOffset === 1 ? "فردا" : "امروز";
+  const matchVisible = (m: any) => {
+    if (m.date !== targetDateStr) return false;
+    if (livescoreFilter === "all") return true;
+    return m.status === livescoreFilter;
+  };
   return (
     <div className="space-y-6 animate-in fade-in" dir="rtl">
       <div className="rounded-2xl bg-gradient-to-r from-red-950/20 via-slate-900 to-slate-900 p-5 border border-white/5">
@@ -51,6 +63,24 @@ export default function LiveScoresPage({
           </div>
           
           <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 rounded-xl bg-white/5 border border-white/10 p-1" dir="rtl">
+              {[
+                { offset: -1, label: "دیروز" },
+                { offset: 0, label: "امروز" },
+                { offset: 1, label: "فردا" },
+              ].map(d => (
+                <button
+                  key={d.offset}
+                  type="button"
+                  onClick={() => setDayOffset(d.offset)}
+                  className={`focus-ring px-3 py-1.5 rounded-lg text-[11px] font-black transition min-h-[36px] ${
+                    dayOffset === d.offset ? "bg-red-600 text-white shadow-lg shadow-red-900/35" : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
             <span className="rounded-full bg-red-500/10 border border-red-500/20 px-3 py-1 text-xs text-red-400 font-bold flex items-center gap-1.5 animate-pulse">
               <span className="h-2 w-2 rounded-full bg-red-500" />
               سیستم هوشمند رادیویی
@@ -102,43 +132,18 @@ export default function LiveScoresPage({
           </button>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          {matches
-            .filter((m) => {
-              const d = new Date();
-              const yyyy = d.getFullYear();
-              const mm = String(d.getMonth() + 1).padStart(2, "0");
-              const dd = String(d.getDate()).padStart(2, "0");
-              const todayStr = `${yyyy}-${mm}-${dd}`;
-              
-              const isToday = m.date === todayStr;
-              if (!isToday) return false;
-
-              if (livescoreFilter === "all") return true;
-              return m.status === livescoreFilter;
-            }).length === 0 ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            {matches.filter(matchVisible).length === 0 ? (
               <div className="col-span-full">
                 <EmptyState
                   icon="calendar"
-                  title="مسابقه‌ای برای امروز یافت نشد"
-                  hint="دسته‌بندی دیگری را امتحان کنید یا فردا برگردید."
+                  title={`مسابقه‌ای برای ${dayLabel} یافت نشد`}
+                  hint="دسته‌بندی یا روز دیگری را امتحان کنید."
                 />
               </div>
             ) : (
               matches
-                .filter((m) => {
-                  const d = new Date();
-                  const yyyy = d.getFullYear();
-                  const mm = String(d.getMonth() + 1).padStart(2, "0");
-                  const dd = String(d.getDate()).padStart(2, "0");
-                  const todayStr = `${yyyy}-${mm}-${dd}`;
-                  
-                  const isToday = m.date === todayStr;
-                  if (!isToday) return false;
-
-                  if (livescoreFilter === "all") return true;
-                  return m.status === livescoreFilter;
-                })
+                .filter(matchVisible)
                 .map((m) => {
                   const isSubbedHome = subscribedTeams.includes(m.teamHome);
                   const isSubbedAway = subscribedTeams.includes(m.teamAway);

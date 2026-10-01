@@ -41,8 +41,13 @@ function StatRow({
       title={onSelectPlayer && p.id ? `مشاهده پروفایل ${name}` : undefined}
     >
       <span className="font-bold flex items-center gap-1.5 min-w-0">
-        <span className="text-gray-550 font-mono text-[10px] shrink-0">
-          {p.rank || idx + 1}.
+        <span className={`font-mono text-[10px] shrink-0 w-5 h-5 rounded-full inline-flex items-center justify-center font-black ${
+          idx === 0 ? "bg-amber-400 text-black shadow-[0_0_12px_-2px_rgba(251,191,36,0.7)]" :
+          idx === 1 ? "bg-slate-300 text-black" :
+          idx === 2 ? "bg-amber-700 text-white" :
+          "text-gray-550"
+        }`}>
+          {p.rank || idx + 1}
         </span>
         <span className="truncate">{name}</span>
         <span className="text-[10px] text-gray-500 shrink-0">

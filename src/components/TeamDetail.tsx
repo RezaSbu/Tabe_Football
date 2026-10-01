@@ -6,6 +6,7 @@ import {
 import { StandingRow } from "../types";
 import { getSafeImageUrl, convertGregorianToShamsi, formatStatNumber, normalizePersianString } from "../utils";
 import TeamLogo from "./TeamLogo";
+import ShareButton from "./ui/ShareButton";
 import { getLeagueLabel } from "../shared/leagueLabel";
 import SeasonSwitcher, { defaultSeasonValue } from "./SeasonSwitcher";
 
@@ -244,6 +245,7 @@ export default function TeamDetail({
                   رتبه {formatStatNumber(teamInStandings.rank)} جدول زنده
                 </span>
               )}
+              <ShareButton title={team.name} />
             </h1>
             <p className="text-xs text-slate-400 mt-1 sm:mt-2 max-w-lg truncate">تاسیس: {founded ? formatStatNumber(founded) : "—"}</p>
           </div>
@@ -551,6 +553,28 @@ export default function TeamDetail({
               <h2 className="font-black text-base text-white border-r-4 border-emerald-500 pr-2 pb-0.5 flex items-center gap-2">
                 <Trophy className="h-5 w-5 text-emerald-500" />
                 <span>نتایج کل مسابقات اخیر باشگاه ({formatStatNumber(finishedMatches.length)})</span>
+                {(() => {
+                  const last5 = [...finishedMatches]
+                    .sort((a: any, b: any) => String(b.date || "").localeCompare(String(a.date || "")))
+                    .slice(0, 5)
+                    .map((m: any) => {
+                      const isH = m.teamHome === team.name;
+                      const gf = isH ? (m.scoreHome ?? 0) : (m.scoreAway ?? 0);
+                      const ga = isH ? (m.scoreAway ?? 0) : (m.scoreHome ?? 0);
+                      return gf > ga ? "W" : gf < ga ? "L" : "D";
+                    });
+                  if (last5.length === 0) return null;
+                  return (
+                    <span className="flex items-center gap-1 mr-2" dir="ltr" title="فرم ۵ بازی آخر">
+                      {last5.map((r, i) => (
+                        <span
+                          key={i}
+                          className={`h-2.5 w-2.5 rounded-full ${r === "W" ? "bg-emerald-400" : r === "D" ? "bg-slate-400" : "bg-red-400"}`}
+                        />
+                      ))}
+                    </span>
+                  );
+                })()}
               </h2>
 
               {finishedMatches.length > 0 ? (

@@ -70,7 +70,8 @@ export default function Navbar({
             <span className="text-xs font-bold text-slate-400">ناوبری سریع</span>
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 rounded-lg bg-white/5 text-slate-400 hover:text-white transition"
+              className="focus-ring p-2.5 rounded-xl bg-white/5 text-slate-400 hover:text-white transition min-h-[44px] min-w-[44px] flex items-center justify-center"
+              aria-label={isMobileMenuOpen ? "بستن منو" : "باز کردن منو"}
             >
               {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
@@ -84,10 +85,10 @@ export default function Navbar({
                 <li key={item.id}>
                   <Link
                     to={TAB_TO_PATH[item.id] || "/"}
-                    className={`flex items-center gap-1.5 px-3.5 py-3 text-sm font-medium transition-all ${
+                    className={`flex items-center gap-1.5 px-3.5 py-2 my-1 text-sm font-medium transition-all rounded-full border ${
                       active
-                        ? "text-emerald-400 border-b-2 border-emerald-500 bg-white/5"
-                        : "text-gray-300 hover:text-white hover:bg-white/5"
+                        ? "text-emerald-300 border-emerald-500/40 bg-emerald-500/15 shadow-[0_0_16px_-4px_rgba(16,185,129,0.5)]"
+                        : "text-gray-300 border-transparent hover:text-white hover:bg-white/5"
                     }`}
                   >
                     <IconComp className={`h-4 w-4 ${active ? "text-emerald-400" : "text-slate-400"}`} />

@@ -4,6 +4,7 @@ import { Helmet } from "react-helmet-async";
 import { ArrowRight, Loader2, Tag, Clock } from "lucide-react";
 import { getSafeImageUrl, formatStatNumber } from "../utils";
 import { useSmartNavigate } from "../hooks/useSmartNavigate";
+import ShareButton from "../components/ui/ShareButton";
 
 export default function NewsDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -144,6 +145,7 @@ export default function NewsDetailPage() {
             <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400 border-b border-white/5 pb-3">
               <span>{new Date(article.createdAt).toLocaleDateString("fa-IR-u-nu-latn", { dateStyle: "long" })}</span>
               <span>{formatStatNumber(article.viewCount ?? 0)} بازدید</span>
+              <span className="mr-auto"><ShareButton title={article.title} /></span>
             </div>
           </header>
 
