@@ -80,8 +80,8 @@ export default function StatisticsWidget({ stats, onSelectPlayerName }: Statisti
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <span className="text-xs font-mono font-bold text-slate-500 bg-[#121215] h-5 w-5 flex items-center justify-center rounded">
-                  {p.rank}
+<span className="font-mono font-black h-5 w-5 flex items-center justify-center rounded-full text-[10px] bg-white/5 border border-white/10 text-slate-300">
+                {p.rank}
                 </span>
                 <div>
                   <strong className={`text-xs text-slate-200 block ${exists ? "hover:text-emerald-400 hover:underline" : ""}`}>{p.name}</strong>
@@ -113,8 +113,8 @@ export default function StatisticsWidget({ stats, onSelectPlayerName }: Statisti
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <span className="text-xs font-mono font-bold text-slate-500 bg-[#121215] h-5 w-5 flex items-center justify-center rounded">
-                  {p.rank}
+<span className="font-mono font-black h-5 w-5 flex items-center justify-center rounded-full text-[10px] bg-white/5 border border-white/10 text-slate-300">
+                {p.rank}
                 </span>
                 <div>
                   <strong className={`text-xs text-slate-200 block ${exists ? "hover:text-emerald-400 hover:underline" : ""}`}>{p.name}</strong>
@@ -145,8 +145,8 @@ export default function StatisticsWidget({ stats, onSelectPlayerName }: Statisti
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <span className="text-xs font-mono font-bold text-slate-500 bg-[#121215] h-5 w-5 flex items-center justify-center rounded">
-                  {p.rank}
+<span className="font-mono font-black h-5 w-5 flex items-center justify-center rounded-full text-[10px] bg-white/5 border border-white/10 text-slate-300">
+                {p.rank}
                 </span>
                 <div>
                   <strong className={`text-xs text-slate-200 block ${exists ? "hover:text-emerald-400 hover:underline" : ""}`}>{p.name}</strong>
@@ -177,8 +177,8 @@ export default function StatisticsWidget({ stats, onSelectPlayerName }: Statisti
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <span className="text-xs font-mono font-bold text-slate-500 bg-[#121215] h-5 w-5 flex items-center justify-center rounded">
-                  {p.rank}
+<span className="font-mono font-black h-5 w-5 flex items-center justify-center rounded-full text-[10px] bg-white/5 border border-white/10 text-slate-300">
+                {p.rank}
                 </span>
                 <div>
                   <strong className={`text-xs text-slate-200 block ${exists ? "hover:text-emerald-400 hover:underline" : ""}`}>{p.name}</strong>

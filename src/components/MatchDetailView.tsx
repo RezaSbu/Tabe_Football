@@ -1,40 +1,57 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   ArrowLeft, Calendar, MapPin, Clock, Shield, 
-  AlertCircle, Sparkles, Trophy, ListOrdered, Shirt, GitCompareArrows, RefreshCw, Newspaper 
+  AlertCircle, Sparkles, Trophy, ListOrdered, Shirt, GitCompareArrows, Newspaper 
 } from "lucide-react";
 import { StandingRow } from "../types";
 import { convertGregorianToShamsi, formatStatNumber, normalizePersianString, getSafeImageUrl } from "../utils";
 import { minuteSortKey } from "../shared/matchMinute";
 import TeamLogo from "./TeamLogo";
+import MatchPitch from "../matchcenter/MatchPitch";
+import { enrichMatchForPitch } from "../matchcenter/toPitchPlayer";
+import { inferFormation } from "../matchcenter/MatchPitch";
+import { EventIcon } from "../matchcenter/EventIcon";
 
 interface MatchDetailViewProps {
   match: any;
   allMatches?: any[];
   allTeams?: any[];
   players?: any[];
+  coaches?: any[];
   standings?: Record<string, StandingRow[]>;
   onBack: () => void;
   onSelectPlayer?: (playerId: string) => void;
   onSelectNews?: (newsId: string) => void;
+  onSelectCoach?: (coachId: string) => void;
 }
 
-const EVENT_META: Record<string, { label: string; icon: string }> = {
-  goal: { label: "گل", icon: "⚽" },
-  penalty: { label: "گل پنالتی", icon: "🥅" },
-  "own-goal": { label: "گل به خودی", icon: "🎯" },
-  assist: { label: "پاس گل", icon: "👟" },
-  "yellow-card": { label: "کارت زرد", icon: "🟨" },
-  "red-card": { label: "کارت قرمز", icon: "🟥" },
-  substitution: { label: "تعویض", icon: "🔄" },
-  "missed-penalty": { label: "پنالتی از دست رفته", icon: "❌" },
-  injury: { label: "مصدومیت", icon: "🩹" },
-  var: { label: "بررسی VAR", icon: "📺" },
-  other: { label: "رویداد", icon: "💬" },
+const EVENT_META: Record<string, { label: string }> = {
+  goal: { label: "گل" },
+  penalty: { label: "گل پنالتی" },
+  "own-goal": { label: "گل به خودی" },
+  assist: { label: "پاس گل" },
+  "yellow-card": { label: "کارت زرد" },
+  "red-card": { label: "کارت قرمز" },
+  substitution: { label: "تعویض" },
+  "missed-penalty": { label: "پنالتی از دست رفته" },
+  injury: { label: "مصدومیت" },
+  var: { label: "بررسی VAR" },
+  other: { label: "رویداد" },
 };
 
-const LEAGUE_NAMES: Record<string, string> = {
-  "pro-league": "لیگ برتر خلیج فارس",
+const relativeFaTime = (iso?: string): string => {
+  if (!iso) return "";
+  const t = new Date(iso).getTime();
+  if (isNaN(t)) return "";
+  const mins = Math.max(0, Math.floor((Date.now() - t) / 60000));
+  if (mins < 1) return "لحظاتی پیش";
+  if (mins < 60) return `${formatStatNumber(mins)} دقیقه پیش`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${formatStatNumber(hours)} ساعت پیش`;
+  return `${formatStatNumber(Math.floor(hours / 24))} روز پیش`;
+};
+
+const LEAGUE_NAMES: Record<string, string> = {  "pro-league": "لیگ برتر خلیج فارس",
   "hazfi-cup": "جام حذفی فوتبال",
   "league-1": "لیگ آزادگان",
   "league-2": "لیگ دسته دوم",
@@ -46,13 +63,16 @@ export default function MatchDetailView({
   allMatches = [], 
   allTeams = [], 
   players = [], 
+  coaches = [],
   standings = {},
   onBack, 
   onSelectPlayer,
-  onSelectNews 
+  onSelectNews,
+  onSelectCoach
 }: MatchDetailViewProps) {
   
   const [activeTab, setActiveTab] = useState<"timeline" | "news" | "lineups" | "h2h">("timeline");
+  const [eventFilter, setEventFilter] = useState<"all" | "goals" | "cards" | "subs">("all");
   const [matchNews, setMatchNews] = useState<any[]>([]);
   const isPlayed = match.status === "live" || match.status === "finished";
   const isLive = match.status === "live";
@@ -73,32 +93,35 @@ export default function MatchDetailView({
   }, [match?.id]);
 
   const leagueName = LEAGUE_NAMES[match.league] || (match.league ? match.league : "لیگ فوتبال کشور");
+  const leagueDisplayName = match.league === "league-2" && (match.group === "a" || match.group === "b")
+    ? `${leagueName} (گروه ${match.group === "a" ? "الف" : "ب"})`
+    : leagueName;
 
   // --- 1. DYNAMIC TIMELINE ---
   const describeEvent = (type: string, p1: string, p2: string, details: string): string => {
     switch (type) {
       case "goal":
-        return `⚽ گل توسط ${p1}${p2 ? ` (پاس گل: ${p2})` : ""}${details ? ` — ${details}` : ""}`;
+        return `گل توسط ${p1}${p2 ? ` (پاس گل: ${p2})` : ""}${details ? ` — ${details}` : ""}`;
       case "assist":
-        return `👟 پاس گل توسط ${p1}${p2 ? ` برای ${p2}` : ""}${details ? ` — ${details}` : ""}`;
+        return `پاس گل توسط ${p1}${p2 ? ` برای ${p2}` : ""}${details ? ` — ${details}` : ""}`;
       case "penalty":
-        return `🥅 گل پنالتی توسط ${p1}${details ? ` — ${details}` : ""}`;
+        return `گل پنالتی توسط ${p1}${details ? ` — ${details}` : ""}`;
       case "own-goal":
-        return `🎯 گل به خودی توسط ${p1}${details ? ` — ${details}` : ""}`;
+        return `گل به خودی توسط ${p1}${details ? ` — ${details}` : ""}`;
       case "missed-penalty":
-        return `❌ پنالتی از دست رفته توسط ${p1}${details ? ` — ${details}` : ""}`;
+        return `پنالتی از دست رفته توسط ${p1}${details ? ` — ${details}` : ""}`;
       case "yellow-card":
-        return `🟨 کارت زرد برای ${p1}${details ? ` — ${details}` : ""}`;
+        return `کارت زرد برای ${p1}${details ? ` — ${details}` : ""}`;
       case "red-card":
-        return `🟥 کارت قرمز برای ${p1}${details ? ` — ${details}` : ""}`;
+        return `کارت قرمز برای ${p1}${details ? ` — ${details}` : ""}`;
       case "substitution":
-        return `🔁 تعویض: خروج ${p1} / ورود ${p2 || "بازیکن جدید"}${details ? ` — ${details}` : ""}`;
+        return `تعویض: خروج ${p1} / ورود ${p2 || "بازیکن جدید"}${details ? ` — ${details}` : ""}`;
       case "injury":
-        return `🩹 مصدومیت ${p1}${details ? ` — ${details}` : ""}`;
+        return `مصدومیت ${p1}${details ? ` — ${details}` : ""}`;
       case "var":
-        return `📺 تصمیم VAR ${p1 ? `برای ${p1}` : ""}${details ? ` — ${details}` : ""}`;
+        return `تصمیم VAR ${p1 ? `برای ${p1}` : ""}${details ? ` — ${details}` : ""}`;
       case "other":
-        return `💬 ${details || "رویداد بازی"}${p1 ? ` (${p1})` : ""}`;
+        return `${details || "رویداد بازی"}${p1 ? ` (${p1})` : ""}`;
       default:
         return `${p1} — ${details || type}`;
     }
@@ -137,18 +160,21 @@ export default function MatchDetailView({
   const homeSubs = defaultLineups.homeSubs || [];
   const awaySubs = defaultLineups.awaySubs || [];
 
-  // --- 3b. Extract events per player from match.events (single source of truth) ---
-  // Identity-first: an event carrying a playerId only ever belongs to that
-  // id. Bare names are used solely for legacy events without any ids, so two
-  // same-name players can never share one event.
-  const getPlayerEvents = (playerId: string, playerName: string) => {
-    const events = match.events || [];
-    return events.filter((ev: any) => {
-      if (!ev) return false;
-      if (ev.playerId === playerId || ev.player2Id === playerId) return true;
-      if (ev.playerId != null || ev.player2Id != null) return false;
-      return ev.playerName === playerName || ev.player2Name === playerName;
-    });
+  // --- 3b/c. Pitch enrichment via the shared matchcenter module (single
+  // source of truth shared with the homepage week widget). Identity-first:
+  // an event carrying a playerId only ever belongs to that id.
+  const pitchData = useMemo(
+    () => enrichMatchForPitch(match, players, coaches),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [match?.id, match?.lineups, match?.events, match?.mvpId, players, coaches]
+  );
+  const { coaches: pitchCoaches } = pitchData;
+
+  const filterTimelineItem = (item: any) => {
+    if (eventFilter === "goals") return item.type === "goal" || item.type === "penalty" || item.type === "own-goal";
+    if (eventFilter === "cards") return item.type === "yellow-card" || item.type === "red-card";
+    if (eventFilter === "subs") return item.type === "substitution";
+    return true;
   };
 
   // --- 4. HEAD TO HEAD ---
@@ -180,6 +206,26 @@ export default function MatchDetailView({
   });
 
   const totalEncounters = h2hMatches.length;
+
+  // Recent form (last 5 finished matches per team, real data only).
+  const teamForm = (teamName: string): ("W" | "D" | "L")[] => {
+    return allMatches
+      .filter(m => m.status === "finished" && (m.teamHome === teamName || m.teamAway === teamName))
+      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+      .slice(0, 5)
+      .map(m => {
+        const isHome = m.teamHome === teamName;
+        const gf = isHome ? (m.scoreHome ?? 0) : (m.scoreAway ?? 0);
+        const ga = isHome ? (m.scoreAway ?? 0) : (m.scoreHome ?? 0);
+        return gf > ga ? "W" : gf < ga ? "L" : "D";
+      });
+  };
+  const homeForm = teamForm(match.teamHome);
+  const awayForm = teamForm(match.teamAway);
+  const h2hTotal = Math.max(1, totalEncounters);
+  const homeWinPct = Math.round((homeWins / h2hTotal) * 100);
+  const awayWinPct = Math.round((awayWins / h2hTotal) * 100);
+  const drawPct = Math.max(0, 100 - homeWinPct - awayWinPct);
 
   // --- 5. LIVE STANDINGS RANK LOOKUP (varzesh3-style "رتبه در جدول") ---
   const getTeamRank = (teamName: string, teamId?: string): { rank: number; total: number } | null => {
@@ -213,94 +259,9 @@ export default function MatchDetailView({
     return null;
   };
 
-  // Lineup rendering helpers
-  const positionOrder = (pos: string) => {
-    if (pos.includes("دروازه")) return 0;
-    if (pos.includes("مدافع")) return 1;
-    if (pos.includes("هافبک") || pos.includes("وینگر")) return 2;
-    return 3;
-  };
-
-  const renderLineupColumn = (players: any[], subs: any[], teamName: string, accent: "emerald" | "cyan") => {
-    const sorted = [...players].sort(
-      (a, b) => positionOrder(a.position || "") - positionOrder(b.position || "") || String(a.name || "").localeCompare(String(b.name || ""))
-    );
-    const sortedSubs = [...subs].sort(
-      (a, b) => positionOrder(a.position || "") - positionOrder(b.position || "") || String(a.name || "").localeCompare(String(b.name || ""))
-    );
-
-    const renderRow = (p: any) => {
-      const rating = typeof p.rating === "number" ? p.rating : (p.rating ? parseFloat(p.rating) : undefined);
-      
-      // Extract events from match.events (single source of truth)
-      const playerEvents = getPlayerEvents(p.id, p.name);
-      const goals = playerEvents.filter((e: any) => e.type === "goal" || e.type === "penalty").length;
-      const assists = playerEvents.filter((e: any) => e.type === "assist").length;
-      const yellowCards = playerEvents.filter((e: any) => e.type === "yellow-card").length;
-      const redCards = playerEvents.filter((e: any) => e.type === "red-card").length;
-      const substitution = playerEvents.find((e: any) => e.type === "substitution");
-      
-      return (
-        <button
-          key={String(p.id || p.name)}
-          onClick={() => onSelectPlayer && onSelectPlayer(p.id)}
-          className="w-full flex items-center justify-between gap-2 px-3.5 py-2.5 hover:bg-white/[0.04] transition cursor-pointer text-right"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="min-w-0">
-              <span className="block text-xs font-bold text-white truncate">{p.name}</span>
-              <span className="block text-[10px] text-slate-500">{p.position || "بازیکن"}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-1.5 shrink-0">
-            {goals > 0 && <span className="text-[10px] font-black text-emerald-400">⚽{formatStatNumber(goals)}</span>}
-            {assists > 0 && <span className="text-[10px] font-black text-cyan-400">👟{formatStatNumber(assists)}</span>}
-            {yellowCards > 0 && <span className="text-[10px]">🟨</span>}
-            {redCards > 0 && <span className="text-[10px]">🟥</span>}
-            {substitution && (
-              <span className="text-[10px] font-black text-amber-400" title={`خروج ${substitution.playerName} / ورود ${substitution.player2Name || ""}`}>
-                🔄{substitution.minute && <span className="font-mono">{formatStatNumber(substitution.minute)}'</span>}
-              </span>
-            )}
-            {rating != null && rating > 0 && (
-              <span className={`font-mono text-[10px] font-black px-1.5 py-0.5 rounded ${
-                rating >= 7.5 ? "bg-emerald-500/10 text-emerald-400" : rating >= 6.5 ? "bg-amber-500/10 text-amber-400" : "bg-white/5 text-slate-400"
-              }`}>
-                {formatStatNumber(rating.toFixed(1))}
-              </span>
-            )}
-          </div>
-        </button>
-      );
-    };
-
-    return (
-      <div className="rounded-2xl bg-[#141418] border border-white/5 overflow-hidden">
-        <div className={`px-4 py-3 border-b border-white/5 flex items-center justify-between gap-2 bg-gradient-to-l ${accent === "emerald" ? "from-emerald-500/10" : "from-cyan-500/10"}`}>
-          <span className="text-xs font-black text-white truncate">{teamName}</span>
-          <span className={`text-[10px] font-bold shrink-0 ${accent === "emerald" ? "text-emerald-400" : "text-cyan-400"}`}>
-            {formatStatNumber(sorted.length)} بازیکن
-          </span>
-        </div>
-
-        <div className="divide-y divide-white/[0.04] max-h-[420px] overflow-y-auto scrollbar-thin">
-          {sorted.map(renderRow)}
-          {sortedSubs.length > 0 && (
-            <>
-              <div className="px-3.5 py-2 text-[10px] font-black text-slate-500 bg-white/[0.02] flex items-center gap-1.5">
-                <RefreshCw className="h-3 w-3" /> بازیکنان ذخیره
-              </div>
-              {sortedSubs.map(renderRow)}
-            </>
-          )}
-        </div>
-      </div>
-    );
-  };
-
   const extraResult = match.halfTimeScore || match.halftime || match.ht;
   const infoChips: { icon: React.ReactNode; text: string }[] = [
-    { icon: <Trophy className="h-3.5 w-3.5" />, text: leagueName },
+    { icon: <Trophy className="h-3.5 w-3.5" />, text: leagueDisplayName },
     ...(match.week ? [{ icon: <ListOrdered className="h-3.5 w-3.5" />, text: `هفته ${formatStatNumber(match.week)}` }] : []),
     { icon: <Calendar className="h-3.5 w-3.5" />, text: `${convertGregorianToShamsi(match.date)} | ساعت ${formatStatNumber(match.time)}` },
     ...(match.venue ? [{ icon: <MapPin className="h-3.5 w-3.5" />, text: `ورزشگاه: ${match.venue}` }] : []),
@@ -341,7 +302,7 @@ export default function MatchDetailView({
 
           <span className="hidden sm:flex items-center gap-1.5 bg-white/10 backdrop-blur border border-white/15 text-slate-100 px-3 py-1.5 rounded-full text-[11px] font-black">
             <Trophy className="h-3.5 w-3.5 text-emerald-400" />
-            {leagueName}
+            {leagueDisplayName}
           </span>
         </div>
 
@@ -361,6 +322,12 @@ export default function MatchDetailView({
                     رتبه {formatStatNumber(homeRank.rank)} جدول
                   </span>
                 )}
+                <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-400 font-bold">
+                  <span className="font-mono text-emerald-400/90" dir="ltr">{defaultLineups.formationHome || inferFormation(homeLineup)}</span>
+                  {pitchCoaches.some(c => c.side === "home") && (
+                    <><span className="text-slate-600">•</span><span className="truncate max-w-[110px]">{pitchCoaches.find(c => c.side === "home")?.name}</span></>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -424,6 +391,12 @@ export default function MatchDetailView({
                     رتبه {formatStatNumber(awayRank.rank)} جدول
                   </span>
                 )}
+                <div className="flex items-center justify-center gap-1.5 text-[10px] text-slate-400 font-bold">
+                  <span className="font-mono text-cyan-400/90" dir="ltr">{defaultLineups.formationAway || inferFormation(awayLineup)}</span>
+                  {pitchCoaches.some(c => c.side === "away") && (
+                    <><span className="text-slate-600">•</span><span className="truncate max-w-[110px]">{pitchCoaches.find(c => c.side === "away")?.name}</span></>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -432,11 +405,11 @@ export default function MatchDetailView({
 
       {/* ===== MATCH INFO CHIPS ===== */}
       {infoChips.length > 0 && (
-        <div className="px-4 sm:px-6 py-3 border-b border-white/5 bg-black/10">
+        <div className="px-4 sm:px-6 py-3 border-b border-white/5 bg-gradient-to-b from-white/[0.04] to-transparent">
           <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-center gap-2 text-[11px]">
             {infoChips.map((chip, idx) => (
-              <span key={idx} className="flex items-center gap-1.5 rounded-full bg-black/30 border border-white/5 px-3 py-1.5 text-slate-300 font-bold">
-                <span className="text-emerald-400">{chip.icon}</span>
+              <span key={idx} className="flex items-center gap-1.5 rounded-full bg-white/[0.07] border border-white/10 px-3 py-1.5 text-white font-bold backdrop-blur hover:border-emerald-500/40 hover:shadow-[0_0_12px_-4px_rgba(16,185,129,0.5)] transition">
+                <span className="text-emerald-400 drop-shadow-[0_0_6px_rgba(16,185,129,0.5)]">{chip.icon}</span>
                 {chip.text}
               </span>
             ))}
@@ -468,14 +441,14 @@ export default function MatchDetailView({
         {activeTab === "timeline" && (
           <div className="space-y-5 animate-in fade-in duration-200">
             {!isPlayed ? (
-              <div className="p-8 text-center text-slate-400 bg-black/15 border border-white/5 border-dashed rounded-2xl max-w-md mx-auto space-y-3">
+              <div className="p-8 text-center text-slate-200 bg-emerald-500/[0.05] border border-emerald-500/25 border-dashed rounded-2xl max-w-md mx-auto space-y-3 shadow-[inset_0_0_30px_rgba(16,185,129,0.08)]">
                 <Clock className="h-10 w-10 text-emerald-400 mx-auto animate-pulse" />
                 <h4 className="font-extrabold text-sm text-white">این مسابقه هنوز آغاز نشده است</h4>
                 <p className="text-xs text-slate-400">گزارش لحظه‌به‌لحظه وقایع، کارت‌ها و گل‌های بازی بلافاصله پس از شروع مسابقه در این قسمت نمایش خواهد یافت.</p>
               </div>
             ) : sortedTimeline.length > 0 ? (
               <>
-                {/* Goals strip (FotMob-style) */}
+                {/* Goals strip */}
                 {match.scorersList && match.scorersList.length > 0 && (
                   <div className="flex flex-wrap gap-2 justify-center">
                     {match.scorersList.map((sc: any, idx: number) => {
@@ -487,7 +460,7 @@ export default function MatchDetailView({
                             ? "bg-cyan-500/10 border-cyan-500/25 text-cyan-400"
                             : "bg-emerald-500/10 border-emerald-500/25 text-emerald-400"
                         }`}>
-                          ⚽ {name}
+                          <EventIcon type="goal" size={14} /> {name}
                           {sc.minute && <span className="font-mono text-[10px] opacity-80">{formatStatNumber(sc.minute)}'</span>}
                         </span>
                       );
@@ -495,81 +468,126 @@ export default function MatchDetailView({
                   </div>
                 )}
 
-                {/* Center-split timeline */}
-                <div className="relative">
-                  {/* Vertical center line */}
-                  <div className="absolute top-2 bottom-2 left-1/2 -translate-x-1/2 w-px bg-white/10" />
-                  <div className="space-y-2.5">
-                    {sortedTimeline.map((item, idx) => {
+                {/* Event filter bar (figma) */}
+                <div className="flex items-center justify-between bg-[#131924] p-2.5 rounded-2xl border border-white/5 shadow-md">
+                  <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
+                    {([
+                      { key: "all", label: "همه رویدادها", icon: null },
+                      { key: "goals", label: "گل‌ها", icon: "goal" },
+                      { key: "cards", label: "کارت‌ها", icon: "yellow-card" },
+                      { key: "subs", label: "تعویض‌ها", icon: "substitution" },
+                    ] as const).map(f => (
+                      <button
+                        key={f.key}
+                        type="button"
+                        onClick={() => setEventFilter(f.key)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all cursor-pointer ${
+                          eventFilter === f.key
+                            ? "bg-emerald-600 text-white shadow-md shadow-emerald-950/40"
+                            : "bg-slate-900/60 text-slate-400 hover:text-slate-200"
+                        }`}
+                      >
+                        {f.icon && <EventIcon type={f.icon} size={14} />}
+                        <span>{f.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="text-[11px] text-slate-400 font-mono hidden sm:block shrink-0">
+                    {formatStatNumber(sortedTimeline.filter(filterTimelineItem).length)} رویداد ثبت‌شده
+                  </div>
+                </div>
+
+                {/* Center-rule timeline (figma) */}
+                <div className="bg-[#101622] rounded-3xl border border-white/5 p-4 sm:p-6 shadow-xl">
+                {sortedTimeline.filter(filterTimelineItem).length === 0 ? (
+                  <p className="text-center text-xs text-slate-500 py-6">در این دسته رویدادی ثبت نشده است.</p>
+                ) : (
+                <div className="relative flex flex-col gap-3 sm:gap-4">
+                  {/* Center axis: visible on all widths so home/away sides never merge */}
+                  <div className="absolute top-4 bottom-4 left-1/2 -translate-x-1/2 w-0.5 bg-slate-800/80" />
+                  {sortedTimeline.filter(filterTimelineItem).map((item, idx) => {
                       const meta = EVENT_META[item.type] || EVENT_META.other;
                       const isHome = item.team === "home";
 
-                      let title = item.playerName || meta.label;
+                      const title = item.playerName || meta.label;
                       let subtitle = meta.label;
                       if (item.type === "goal" || item.type === "penalty") {
                         if (item.player2Name) subtitle += ` — پاس گل: ${item.player2Name}`;
-                      } else if (item.type === "substitution") {
-                        title = "تعویض";
-                        subtitle = `خروج ${item.playerName || "—"} / ورود ${item.player2Name || "—"}`;
                       }
                       if (item.details) subtitle += ` — ${item.details}`;
 
-                      const minuteBadge = (
+                      const card = (
+                        <div className={`rounded-2xl border p-2.5 sm:p-3 break-words w-full ${
+                          item.type === "goal" || item.type === "penalty"
+                            ? (isHome ? "bg-emerald-500/15 border-emerald-500/30 shadow-[0_0_20px_-6px_rgba(16,185,129,0.45)]" : "bg-cyan-500/15 border-cyan-500/30 shadow-[0_0_20px_-6px_rgba(6,182,212,0.45)]")
+                            : (isHome ? "bg-emerald-500/[0.06] border-emerald-500/15" : "bg-cyan-500/[0.06] border-cyan-500/15")
+                        }`}>
+                          {item.type === "substitution" ? (
+                            <div className="space-y-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-rose-400 font-black text-xs">↘</span>
+                                <span className="block text-[11px] sm:text-xs font-black text-white truncate">{item.playerName || "—"}</span>
+                                <span className="text-[9px] text-slate-500 mr-auto shrink-0">خروج</span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-emerald-400 font-black text-xs">↗</span>
+                                <span className="block text-[11px] sm:text-xs font-black text-white truncate">{item.player2Name || "—"}</span>
+                                <span className="text-[9px] text-slate-500 mr-auto shrink-0">ورود</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className="shrink-0"><EventIcon type={item.type} size={18} /></span>
+                              <div className="min-w-0">
+                                <span className="block text-[11px] sm:text-xs font-black text-white truncate">{title}</span>
+                                <span className="block text-[9px] sm:text-[10px] text-slate-400 font-semibold truncate">{subtitle}</span>
+                              </div>
+                            </div>
+                          )}
+                          {item.type === "assist" && item.player2Name && (
+                            <div className="flex items-center gap-1.5 mt-1.5 pt-1.5 border-t border-white/5">
+                              <EventIcon type="assist" size={14} />
+                              <span className="text-[10px] text-slate-300">برای {item.player2Name}</span>
+                            </div>
+                          )}
+                          {(item.type === "goal" || item.type === "penalty") && item.player2Name && (
+                            <div className="flex items-center gap-1.5 mt-1.5 pt-1.5 border-t border-white/5">
+                              <EventIcon type="assist" size={14} />
+                              <span className="text-[10px] text-slate-300">پاس گل: {item.player2Name}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+
+                      const minutePill = (
                         <div className="flex justify-center">
-                          <span className={`h-8 w-8 sm:h-9 sm:w-9 rounded-full border flex items-center justify-center font-mono font-black text-[10px] shadow-md ${
-                            item.type === "goal" || item.type === "penalty"
-                              ? "bg-emerald-500/90 border-emerald-400/40 text-black"
-                              : item.type === "yellow-card"
-                              ? "bg-amber-500/90 border-amber-400/40 text-black"
-                              : item.type === "red-card"
-                              ? "bg-red-500/90 border-red-400/40 text-white"
-                              : "bg-[#1c1c21] border-white/10 text-slate-200"
-                          }`}>
+                          <span className="w-8 h-8 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-gradient-to-b from-slate-800 to-slate-900 border-2 border-slate-700 shadow-xl flex items-center justify-center text-[9px] sm:text-[11px] font-black font-mono tabular-nums text-slate-200">
                             {formatStatNumber(item.minute)}'
                           </span>
                         </div>
                       );
 
-                      const card = (
-                        <div className={`rounded-xl border p-2 sm:p-2.5 break-words ${
-                          item.type === "goal" || item.type === "penalty"
-                            ? (isHome ? "bg-emerald-500/15 border-emerald-500/30 shadow-[0_0_20px_-6px_rgba(16,185,129,0.45)]" : "bg-cyan-500/15 border-cyan-500/30 shadow-[0_0_20px_-6px_rgba(6,182,212,0.45)]")
-                            : (isHome ? "bg-emerald-500/[0.06] border-emerald-500/15" : "bg-cyan-500/[0.06] border-cyan-500/15")
-                        }`}>
-                          <div className="flex items-center gap-1.5 sm:gap-2">
-                            <span className="text-sm sm:text-base shrink-0">{meta.icon}</span>
-                            <div className="min-w-0">
-                              <span className="block text-[11px] sm:text-xs font-black text-white">{title}</span>
-                              <span className="block text-[9px] sm:text-[10px] text-slate-400 font-semibold">{subtitle}</span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-
                       return (
-                        <div key={idx} className="grid grid-cols-[1fr_36px_1fr] sm:grid-cols-[1fr_40px_1fr] items-center gap-1.5 sm:gap-2">
-                          {isHome ? (
-                            <>
-                              <div className="flex justify-end">{card}</div>
-                              {minuteBadge}
-                              <div />
-                            </>
-                          ) : (
-                            <>
-                              <div />
-                              {minuteBadge}
-                              <div className="flex justify-start">{card}</div>
-                            </>
-                          )}
+                        <div key={idx} className="relative z-10 grid grid-cols-[1fr_34px_1fr] sm:grid-cols-12 items-center gap-1.5 sm:gap-3">
+                          <div className="col-span-1 sm:col-span-5 flex justify-end min-w-0">
+                            {isHome && card}
+                          </div>
+                          <div className="col-span-1 sm:col-span-2 flex justify-center">
+                            {minutePill}
+                          </div>
+                          <div className="col-span-1 sm:col-span-5 flex justify-start min-w-0">
+                            {!isHome && card}
+                          </div>
                         </div>
                       );
                     })}
                   </div>
+                  )}
                 </div>
               </>
             ) : (
-              <div className="p-8 text-center text-slate-400 bg-black/15 border border-white/5 border-dashed rounded-2xl max-w-md mx-auto space-y-3">
-                <AlertCircle className="h-10 w-10 text-slate-500 mx-auto" />
+              <div className="p-8 text-center text-slate-200 bg-emerald-500/[0.05] border border-emerald-500/25 border-dashed rounded-2xl max-w-md mx-auto space-y-3 shadow-[inset_0_0_30px_rgba(16,185,129,0.08)]">
+                <AlertCircle className="h-10 w-10 text-emerald-400/70 mx-auto drop-shadow-[0_0_10px_rgba(16,185,129,0.4)]" />
                 <h4 className="font-extrabold text-sm text-white">رویدادی برای این مسابقه ثبت نشده است</h4>
                 <p className="text-xs text-slate-400">گزارش زنده یا وقایع بازی (کارت‌ها، گل‌ها، تعویض‌ها) در این مسابقه وارد نشده است.</p>
               </div>
@@ -577,42 +595,98 @@ export default function MatchDetailView({
           </div>
         )}
 
-        {/* ===== TAB 2: MATCH NEWS ===== */}
+        {/* ===== TAB 2: MATCH NEWS (figma: hero + grid) ===== */}
         {activeTab === "news" && (
-          <div className="space-y-3 max-w-xl mx-auto animate-in fade-in duration-200">
+          <div className="space-y-4 animate-in fade-in duration-200">
             {matchNews.length > 0 ? (
-              matchNews.map((nw: any) => (
-                <button
-                  key={nw.id}
-                  onClick={() => onSelectNews && onSelectNews(nw.id)}
-                  className="w-full flex items-start gap-3 text-right p-2.5 rounded-xl bg-white/[0.02] hover:bg-white/[0.05] border border-white/5 hover:border-emerald-500/30 transition cursor-pointer group"
-                >
-                  {nw.image ? (
-                    <img
-                      src={getSafeImageUrl(nw.image)}
-                      alt={nw.title}
-                      loading="lazy"
-                      className="w-16 h-16 rounded-lg object-cover shrink-0 bg-slate-800"
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-lg shrink-0 bg-slate-800 flex items-center justify-center text-lg">📰</div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <h4 className="text-xs font-bold text-white leading-snug line-clamp-2 group-hover:text-emerald-400 transition">
-                      {nw.title}
-                    </h4>
-                    {nw.summary && (
-                      <p className="text-[10px] text-slate-500 line-clamp-2 mt-1 leading-relaxed">
-                        {nw.summary}
-                      </p>
-                    )}
-                  </div>
-                </button>
-              ))
+              <>
+                {(() => {
+                  const [hero, ...rest] = matchNews;
+                  return (
+                    <>
+                      <button
+                        key={hero.id}
+                        onClick={() => onSelectNews && onSelectNews(hero.id)}
+                        className="w-full text-right rounded-2xl border border-white/5 bg-gradient-to-br from-[#151d2d] to-[#0f1420] p-5 sm:p-6 shadow-xl relative overflow-hidden group cursor-pointer hover:border-emerald-500/25 transition"
+                      >
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            خبر اصلی مسابقه
+                          </span>
+                          <span className="text-[11px] text-slate-400">{relativeFaTime(hero.createdAt)} • {match.teamHome} - {match.teamAway}</span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-4">
+                          {hero.image && (
+                            <img
+                              src={getSafeImageUrl(hero.image)}
+                              alt={hero.title}
+                              loading="lazy"
+                              className="w-full sm:w-56 h-40 sm:h-36 rounded-xl object-cover shrink-0 bg-slate-800"
+                              referrerPolicy="no-referrer"
+                            />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <h2 className="text-base sm:text-xl font-black text-white leading-snug mb-2 group-hover:text-emerald-300 transition-colors line-clamp-3">
+                              {hero.title}
+                            </h2>
+                            {hero.summary && (
+                              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed line-clamp-3">
+                                {hero.summary}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </button>
+                      {rest.length > 0 && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {rest.map((nw: any) => (
+                            <button
+                              key={nw.id}
+                              onClick={() => onSelectNews && onSelectNews(nw.id)}
+                              className="bg-[#131924] rounded-2xl border border-white/5 p-5 flex flex-col justify-between hover:border-white/15 hover:bg-[#161d2b] transition-all cursor-pointer group shadow-lg text-right"
+                            >
+                              <div>
+                                {nw.image && (
+                                  <img
+                                    src={getSafeImageUrl(nw.image)}
+                                    alt={nw.title}
+                                    loading="lazy"
+                                    className="w-full h-32 rounded-xl object-cover bg-slate-800 mb-3"
+                                    referrerPolicy="no-referrer"
+                                  />
+                                )}
+                                <div className="flex items-center justify-between gap-2 mb-2">
+                                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold border bg-sky-500/20 text-sky-300 border-sky-500/30">
+                                    اخبار مسابقه
+                                  </span>
+                                  <span className="text-[11px] text-slate-400 font-mono">{relativeFaTime(nw.createdAt)}</span>
+                                </div>
+                                <h3 className="font-bold text-sm text-slate-100 group-hover:text-emerald-300 transition-colors leading-snug mb-2 line-clamp-2">
+                                  {nw.title}
+                                </h3>
+                                {nw.summary && (
+                                  <p className="text-xs text-slate-400 leading-relaxed line-clamp-3">
+                                    {nw.summary}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="flex items-center justify-end text-[11px] text-slate-400 pt-3 mt-4 border-t border-white/5">
+                                <span className="group-hover:text-emerald-400 flex items-center gap-1 transition-colors">
+                                  ادامه خبر ←
+                                </span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </>
             ) : (
-              <div className="p-8 text-center text-slate-400 bg-black/15 border border-white/5 border-dashed rounded-2xl max-w-md mx-auto space-y-3">
-                <Newspaper className="h-10 w-10 text-slate-500 mx-auto" strokeWidth={1.5} />
+              <div className="p-8 text-center text-slate-200 bg-emerald-500/[0.05] border border-emerald-500/25 border-dashed rounded-2xl max-w-md mx-auto space-y-3 shadow-[inset_0_0_30px_rgba(16,185,129,0.08)]">
+                <Newspaper className="h-10 w-10 text-emerald-400/70 mx-auto drop-shadow-[0_0_10px_rgba(16,185,129,0.4)]" strokeWidth={1.5} />
                 <h4 className="font-extrabold text-sm text-white">خبری برای این مسابقه ثبت نشده است</h4>
                 <p className="text-xs text-slate-400">اخباری که همزمان از هر دو تیم نام برده باشند، اینجا نمایش داده می‌شوند.</p>
               </div>
@@ -620,20 +694,31 @@ export default function MatchDetailView({
           </div>
         )}
 
-        {/* ===== TAB 3: LINEUPS ===== */}
+        {/* ===== TAB 3: LINEUPS (pitch) ===== */}
         {activeTab === "lineups" && (
           <div className="space-y-5 animate-in fade-in duration-200">
             {homeLineup.length === 0 && awayLineup.length === 0 && homeSubs.length === 0 && awaySubs.length === 0 ? (
-              <div className="p-8 text-center text-slate-400 bg-black/15 border border-white/5 border-dashed rounded-2xl max-w-md mx-auto space-y-3">
-                <Shirt className="h-10 w-10 text-slate-500 mx-auto" />
+              <div className="p-8 text-center text-slate-200 bg-emerald-500/[0.05] border border-emerald-500/25 border-dashed rounded-2xl max-w-md mx-auto space-y-3 shadow-[inset_0_0_30px_rgba(16,185,129,0.08)]">
+                <Shirt className="h-10 w-10 text-emerald-400/70 mx-auto drop-shadow-[0_0_10px_rgba(16,185,129,0.4)]" />
                 <h4 className="font-extrabold text-sm text-white">ترکیب و نمرات دو تیم ثبت نشده است</h4>
                 <p className="text-xs text-slate-400">اطلاعات یازده‌نفر اصلی و ذخیره‌های این مسابقه پس از تأیید توسط کادر فنی در این بخش نمایش داده می‌شود.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {renderLineupColumn(homeLineup, homeSubs, match.teamHome, "emerald")}
-                {renderLineupColumn(awayLineup, awaySubs, match.teamAway, "cyan")}
-              </div>
+              <MatchPitch
+                home={pitchData.home}
+                away={pitchData.away}
+                homeSubs={pitchData.homeSubs}
+                awaySubs={pitchData.awaySubs}
+                homeName={match.teamHome}
+                awayName={match.teamAway}
+                homeLogo={match.teamHomeLogo}
+                awayLogo={match.teamAwayLogo}
+                formationHome={defaultLineups.formationHome}
+                formationAway={defaultLineups.formationAway}
+                onSelectPlayer={onSelectPlayer}
+                coaches={pitchCoaches}
+                onSelectCoach={onSelectCoach}
+              />
             )}
           </div>
         )}
@@ -642,39 +727,64 @@ export default function MatchDetailView({
         {activeTab === "h2h" && (
           <div className="space-y-6 animate-in fade-in duration-300">
             <h3 className="font-black text-base text-white border-r-4 border-emerald-500 pr-2">تاریخچه رویارویی‌های مستقیم این دو تیم (H2H)</h3>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
-                <span className="text-[10px] text-slate-500 font-bold block truncate">بردهای {match.teamHome}</span>
-                <span className="text-2xl font-mono font-black text-emerald-400">{formatStatNumber(homeWins)} برد</span>
-                <span className="text-[9px] text-slate-500 block">در بازی‌های پیشین</span>
-              </div>
 
-              <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
-                <span className="text-[10px] text-slate-500 font-bold block">تساوی‌ها</span>
-                <span className="text-2xl font-mono font-black text-slate-100">{formatStatNumber(draws)} مساوی</span>
-                <span className="text-[9px] text-slate-500 block">رقابت پایاپای</span>
-              </div>
-
-              <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1">
-                <span className="text-[10px] text-slate-500 font-bold block truncate">بردهای {match.teamAway}</span>
-                <span className="text-2xl font-mono font-black text-cyan-400">{formatStatNumber(awayWins)} برد</span>
-                <span className="text-[9px] text-slate-500 block">در بازی‌های پیشین</span>
+            {/* Recent form cards (figma) */}
+            <div className="bg-[#151c28] rounded-2xl border border-white/5 p-4 sm:p-5">
+              <h4 className="text-xs font-black text-white mb-4">فرم اخیر دو تیم در ۵ بازی گذشته</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {([
+                  { name: match.teamHome, form: homeForm, dot: "bg-emerald-400" },
+                  { name: match.teamAway, form: awayForm, dot: "bg-cyan-400" },
+                ]).map(t => (
+                  <div key={t.name} className="p-3.5 rounded-xl bg-slate-900/60 border border-white/5 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`w-3 h-3 rounded-full shrink-0 ${t.dot}`} />
+                      <span className="text-xs font-bold text-white truncate">{t.name}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0" dir="ltr">
+                      {t.form.length > 0 ? t.form.map((r, i) => (
+                        <span
+                          key={i}
+                          className={`w-6 h-6 rounded-md flex items-center justify-center text-xs font-bold font-mono text-white ${
+                            r === "W" ? "bg-emerald-600" : r === "D" ? "bg-amber-600" : "bg-rose-600"
+                          }`}
+                        >
+                          {r}
+                        </span>
+                      )) : (
+                        <span className="text-[10px] text-slate-500">بدون سابقه</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1 text-center">
-                <span className="text-[10px] text-slate-500 font-bold block">کل رویارویی‌ها</span>
-                <span className="text-2xl font-mono font-black text-white">{formatStatNumber(totalEncounters)}</span>
+            {/* Win/Draw/Loss distribution bar (figma) */}
+            <div className="bg-[#151c28] rounded-2xl border border-white/5 p-4 sm:p-5">
+              <div className="flex items-center justify-between text-xs font-bold mb-2">
+                <span className="text-emerald-400">{match.teamHome} ({formatStatNumber(homeWins)})</span>
+                <span className="text-slate-400">تساوی ({formatStatNumber(draws)})</span>
+                <span className="text-cyan-400">({formatStatNumber(awayWins)}) {match.teamAway}</span>
               </div>
-              <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1 text-center">
-                <span className="text-[10px] text-slate-500 font-bold block">گل‌های ردوبدل‌شده</span>
-                <span className="text-2xl font-mono font-black text-amber-400">{formatStatNumber(totalGoals)}</span>
+              <div className="w-full h-2.5 rounded-full overflow-hidden bg-slate-800 flex" dir="ltr">
+                <div style={{ width: `${homeWinPct}%` }} className="bg-emerald-500" />
+                <div style={{ width: `${drawPct}%` }} className="bg-slate-500" />
+                <div style={{ width: `${awayWinPct}%` }} className="bg-cyan-500" />
               </div>
-              <div className="p-4 rounded-xl bg-black/20 border border-white/5 space-y-1 text-center">
-                <span className="text-[10px] text-slate-500 font-bold block">میانگین گل هر بازی</span>
-                <span className="text-2xl font-mono font-black text-cyan-300">{formatStatNumber(totalEncounters ? (totalGoals / totalEncounters).toFixed(1) : "—")}</span>
+              <div className="grid grid-cols-3 gap-4 mt-4">
+                <div className="p-3 rounded-xl bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 space-y-1 text-center">
+                  <span className="text-[10px] text-slate-400 font-bold block">کل رویارویی‌ها</span>
+                  <span className="text-xl font-mono font-black text-white drop-shadow-[0_0_10px_rgba(16,185,129,0.35)]">{formatStatNumber(totalEncounters)}</span>
+                </div>
+                <div className="p-3 rounded-xl bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 space-y-1 text-center">
+                  <span className="text-[10px] text-slate-400 font-bold block">گل‌های ردوبدل‌شده</span>
+                  <span className="text-xl font-mono font-black text-amber-400 drop-shadow-[0_0_10px_rgba(245,158,11,0.4)]">{formatStatNumber(totalGoals)}</span>
+                </div>
+                <div className="p-3 rounded-xl bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 space-y-1 text-center">
+                  <span className="text-[10px] text-slate-400 font-bold block">میانگین گل</span>
+                  <span className="text-xl font-mono font-black text-cyan-300 drop-shadow-[0_0_10px_rgba(6,182,212,0.4)]">{formatStatNumber(totalEncounters ? (totalGoals / totalEncounters).toFixed(1) : "—")}</span>
+                </div>
               </div>
             </div>
 
@@ -685,28 +795,25 @@ export default function MatchDetailView({
               </h4>
 
               {h2hMatches.length > 0 ? (
-                <div className="grid gap-2.5">
+                <div className="flex flex-col divide-y divide-white/5 rounded-2xl border border-white/5 bg-[#161619]/60 overflow-hidden">
                   {h2hMatches.map((m) => (
-                    <div 
-                      key={m.id} 
-                      className="p-3.5 rounded-xl bg-[#161619]/60 border border-white/5 flex items-center justify-between text-xs hover:border-emerald-500/30 transition"
+                    <div
+                      key={m.id}
+                      className="py-3 px-3.5 flex items-center justify-between gap-2 text-xs hover:bg-white/[0.02] transition"
                     >
-                      <div className="space-y-1">
-                          <span className="text-slate-100 font-bold flex items-center gap-2 flex-wrap">
-                            <TeamLogo logo={m.teamHomeLogo} fallback="⚽" size="sm" />
-                            <span>{m.teamHome}</span>
-                            <span className="text-[10px] text-slate-500 font-medium font-mono">در برابر</span>
-                            <TeamLogo logo={m.teamAwayLogo} fallback="⚽" size="sm" />
-                            <span>{m.teamAway}</span>
-                          </span>
-                        <span className="font-mono text-[9px] text-slate-500 block">
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-semibold text-slate-300 text-[11px]">{m.league ? (LEAGUE_NAMES[m.league] || m.league) : ""}</span>
+                        <span className="font-mono text-[9px] text-slate-500">
                           {convertGregorianToShamsi(m.date)} | ساعت {formatStatNumber(m.time)}
                         </span>
                       </div>
-
-                      <span className="font-mono font-black text-xs bg-black/30 px-3 py-1 rounded-lg border border-white/5 text-slate-50 select-none">
-                        {formatStatNumber(m.scoreHome)} - {formatStatNumber(m.scoreAway)}
-                      </span>
+                      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                        <span className="font-medium text-slate-200 hidden sm:inline">{m.teamHome}</span>
+                        <span className="px-2.5 py-1 rounded bg-slate-900 border border-slate-700 font-bold font-mono text-white tabular-nums text-xs" dir="ltr">
+                          {formatStatNumber(m.scoreHome)} - {formatStatNumber(m.scoreAway)}
+                        </span>
+                        <span className="font-medium text-slate-200 hidden sm:inline">{m.teamAway}</span>
+                      </div>
                     </div>
                   ))}
                 </div>

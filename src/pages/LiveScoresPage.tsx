@@ -1,6 +1,7 @@
 import React from "react";
 import { MatchItem } from "../types";
 import TeamLogo from "../components/TeamLogo";
+import EmptyState from "../components/ui/EmptyState";
 import { getLeagueLabel } from "../shared/leagueLabel";
 
 interface LiveGoal {
@@ -37,6 +38,16 @@ export default function LiveScoresPage({
   convertGregorianToShamsi,
   formatStatNumber,
 }: LiveScoresPageProps) {
+  const targetDateStr = (() => {
+    const d = new Date();
+    d.setDate(d.getDate());
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+  const matchVisible = (m: any) => {
+    if (m.date !== targetDateStr) return false;
+    if (livescoreFilter === "all") return true;
+    return m.status === livescoreFilter;
+  };
   return (
     <div className="space-y-6 animate-in fade-in" dir="rtl">
       <div className="rounded-2xl bg-gradient-to-r from-red-950/20 via-slate-900 to-slate-900 p-5 border border-white/5">
@@ -101,39 +112,18 @@ export default function LiveScoresPage({
           </button>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          {matches
-            .filter((m) => {
-              const d = new Date();
-              const yyyy = d.getFullYear();
-              const mm = String(d.getMonth() + 1).padStart(2, "0");
-              const dd = String(d.getDate()).padStart(2, "0");
-              const todayStr = `${yyyy}-${mm}-${dd}`;
-              
-              const isToday = m.date === todayStr;
-              if (!isToday) return false;
-
-              if (livescoreFilter === "all") return true;
-              return m.status === livescoreFilter;
-            }).length === 0 ? (
-              <div className="col-span-full py-12 text-center rounded-2xl bg-slate-900/40 border border-dashed border-white/5">
-                <p className="text-sm text-slate-400">هیچ مسابقه‌ای در این دسته‌بندی برای امروز یافت نشد.</p>
+          <div className="grid gap-4 md:grid-cols-2">
+            {matches.filter(matchVisible).length === 0 ? (
+              <div className="col-span-full">
+                <EmptyState
+                  icon="calendar"
+                  title="مسابقه‌ای برای امروز یافت نشد"
+                  hint="دسته‌بندی یا روز دیگری را امتحان کنید."
+                />
               </div>
             ) : (
               matches
-                .filter((m) => {
-                  const d = new Date();
-                  const yyyy = d.getFullYear();
-                  const mm = String(d.getMonth() + 1).padStart(2, "0");
-                  const dd = String(d.getDate()).padStart(2, "0");
-                  const todayStr = `${yyyy}-${mm}-${dd}`;
-                  
-                  const isToday = m.date === todayStr;
-                  if (!isToday) return false;
-
-                  if (livescoreFilter === "all") return true;
-                  return m.status === livescoreFilter;
-                })
+                .filter(matchVisible)
                 .map((m) => {
                   const isSubbedHome = subscribedTeams.includes(m.teamHome);
                   const isSubbedAway = subscribedTeams.includes(m.teamAway);

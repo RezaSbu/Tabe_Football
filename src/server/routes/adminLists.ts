@@ -8,27 +8,22 @@ import { getEffectiveStatus } from "../../shared/matchStatus";
 // The admin UI previously downloaded the whole 9.5MB /api/data payload and
 // filtered in React. These endpoints return only the requested page.
 
-// Week bucket helper: same-week grouping for the match filters.
-function weekBucket(dateStr: string): string {
-  if (!dateStr) return "";
-  const d = new Date(String(dateStr).slice(0, 10) + "T00:00:00");
-  if (isNaN(d.getTime())) return "";
-  const day = (d.getDay() + 6) % 7; // Monday-first
-  d.setDate(d.getDate() - day);
-  return d.toISOString().slice(0, 10);
+// Numeric week helper: match `week` is stored as "هفته N" (FA or EN digits).
+// Mirrors the client-side getMatchWeekNumber in LeagueTables/FutsalPage.
+function matchWeekNumber(w: unknown): number | null {
+  if (w == null) return null;
+  const en = String(w).replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
+  const num = en.match(/\d+/);
+  return num ? parseInt(num[0], 10) : null;
 }
 
-function thisWeekBucket(): string {
-  const d = new Date();
-  const day = (d.getDay() + 6) % 7;
-  d.setDate(d.getDate() - day);
-  return d.toISOString().slice(0, 10);
-}
-
-function addWeeks(bucket: string, delta: number): string {
-  const d = new Date(bucket + "T00:00:00");
-  d.setDate(d.getDate() + delta * 7);
-  return d.toISOString().slice(0, 10);
+// League-2 group filter: "league-2-a" / "league-2-b" match the stored
+// `group` column ("a" | "b"); plain "league-2" matches every league-2 row.
+function leagueMatches(m: any, league: string): boolean {
+  if (league === "all") return true;
+  if (league === "league-2-a") return String(m.league) === "league-2" && String(m.group || "").toLowerCase() === "a";
+  if (league === "league-2-b") return String(m.league) === "league-2" && String(m.group || "").toLowerCase() === "b";
+  return String(m.league) === league;
 }
 
 function paginate<T>(rows: T[], page: number, limit: number) {
@@ -56,6 +51,7 @@ function slimMatch(m: any, nowMs: number) {
     status: m.status,
     effectiveStatus: getEffectiveStatus(m, nowMs),
     league: m.league,
+    group: m.group ?? null,
     season: m.season,
     week: m.week,
     teamHome: m.teamHome,
@@ -87,35 +83,39 @@ export function registerAdminListRoutes(app: Express) {
     const season = String(req.query.season || "all");
     const team = String(req.query.team || "").trim().toLowerCase();
     const q = String(req.query.q || "").trim().toLowerCase();
-    const week = String(req.query.week || "all"); // this | prev | next | all | YYYY-MM-DD
+    const week = String(req.query.week || "all"); // all | N (numeric match week)
     const sort = String(req.query.sort || "date_desc");
 
     const norm = (s: any) => normalizePersianString(String(s || ""));
-    const thisWeek = thisWeekBucket();
+    const wantWeek = week === "all" ? null : matchWeekNumber(week);
     const nowMs = Date.now();
 
-    const rows = (db.matches || []).filter((m: any) => {
+    const baseFilter = (m: any) => {
       if (!m) return false;
       if (sport !== "all" && String(m.sport) !== sport) return false;
       // Tabs follow the wall-clock status (same as the public site), not the
       // stored value: a future match past kickoff lists under "live" without
       // any write. Stored `status` is untouched (explicit start preserved).
       if (status !== "all" && getEffectiveStatus(m, nowMs) !== status) return false;
-      if (league !== "all" && String(m.league) !== league) return false;
+      if (!leagueMatches(m, league)) return false;
       if (season !== "all" && String(m.season) !== season) return false;
       if (team && !(norm(m.teamHomeId) === team || norm(m.teamAwayId) === team ||
         norm(m.teamHome) === team || norm(m.teamAway) === team)) return false;
-      if (week !== "all") {
-        const b = weekBucket(m.date || "");
-        const want = week === "this" ? thisWeek : week === "prev" ? addWeeks(thisWeek, -1) : week === "next" ? addWeeks(thisWeek, 1) : week;
-        if (b !== want) return false;
-      }
       if (q) {
         const hay = `${m.teamHome || ""} ${m.teamAway || ""} ${m.venue || ""} ${m.referee || ""} ${m.league || ""}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
-    });
+    };
+
+    const base = (db.matches || []).filter(baseFilter);
+    // Week options reflect the other active filters (league/sport/search...),
+    // so the dropdown only offers weeks that actually have rows.
+    const availableWeeks = Array.from(new Set<number>(
+      base.map((m: any) => matchWeekNumber(m.week)).filter((n: number | null): n is number => n !== null)
+    )).sort((a, b) => a - b);
+
+    const rows = wantWeek == null ? base : base.filter((m: any) => matchWeekNumber(m.week) === wantWeek);
 
     rows.sort((a: any, b: any) => {
       const da = String(a.date || ""), dbb = String(b.date || "");
@@ -126,7 +126,7 @@ export function registerAdminListRoutes(app: Express) {
 
     const result = paginate(rows.map((m: any) => slimMatch(m, nowMs)), page, limit);
     res.setHeader("Cache-Control", "no-cache");
-    res.json({ success: true, ...result, weekBucket: thisWeek });
+    res.json({ success: true, ...result, availableWeeks });
   });
 
   // Slim lookup lists for admin forms/consoles (no stats histories).

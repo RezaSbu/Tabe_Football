@@ -1,7 +1,9 @@
 import React, { useState } from "react";
 import { MatchItem } from "../types";
-import { Calendar, MapPin, AlignLeft, Trophy, ChevronRight, ChevronLeft } from "lucide-react";
+import { Calendar, MapPin, Trophy, ChevronRight, ChevronLeft } from "lucide-react";
 import TeamLogo from "./TeamLogo";
+import { formatStatNumber } from "../utils";
+import EmptyState from "./ui/EmptyState";
 
 interface MatchTickerProps {
   matches: MatchItem[];
@@ -63,6 +65,16 @@ export default function MatchTicker({ matches, selectedLeagueFilter, onSelectMat
     return matchesDate && matchesLeague && matchesGlobalLeague;
   });
 
+  const getLeagueBadgeTint = (league: string) => {
+    switch (league) {
+      case "pro-league": return "text-red-300 border-red-500/25 bg-red-500/10";
+      case "hazfi-cup": return "text-purple-300 border-purple-500/25 bg-purple-500/10";
+      case "league-1": return "text-sky-300 border-sky-500/25 bg-sky-500/10";
+      case "league-2": return "text-teal-300 border-teal-500/25 bg-teal-500/10";
+      default: return "text-slate-300 border-white/10 bg-white/5";
+    }
+  };
+
   const getLeagueBadgeName = (league: string) => {
     switch (league) {
       case "pro-league": return "لیگ برتر ایران";
@@ -112,19 +124,32 @@ export default function MatchTicker({ matches, selectedLeagueFilter, onSelectMat
       <div className="mb-5 grid grid-cols-5 gap-1.5 border-b border-white/5 pb-3 overflow-x-auto min-w-[320px]">
         {datesToToggle.map((day) => {
           const isSelected = activeDateKey === day.key;
+          const dayCount = matches.filter((m) => m.date === day.key).length;
           return (
             <button
               key={day.key}
               onClick={() => setActiveDateKey(day.key)}
-              className={`flex flex-col items-center rounded-xl p-2.5 transition text-center ${
+              className={`flex flex-col items-center rounded-xl p-2.5 transition text-center min-h-[64px] ${
                 isSelected
                   ? "bg-emerald-500/10 text-emerald-400 shadow-lg shadow-emerald-950/20 font-bold scale-102 border-b-2 border-emerald-500"
-                  : "bg-[#0a0a0c]/70 text-gray-400 hover:bg-[#0a0a0c] hover:text-white"
+                  : "bg-[#0a0a0c]/70 text-gray-400 hover:bg-[#0a0a0c] hover:text-white hover:border-white/15 border border-transparent"
               }`}
             >
               <span className="text-[10px] font-semibold opacity-75">{day.dayLabel}</span>
               <span className="text-xs sm:text-sm font-bold mt-0.5">{day.weekday}</span>
               <span className="text-[10px] sm:text-xs mt-0.5 opacity-90">{day.dateText}</span>
+              <span className="mt-1 flex items-center gap-0.5" aria-hidden="true">
+                {dayCount > 0 ? (
+                  <>
+                    {Array.from({ length: Math.min(3, dayCount) }).map((_, i) => (
+                      <span key={i} className="h-1 w-1 rounded-full bg-emerald-400" />
+                    ))}
+                    <span className="font-mono text-[9px] text-slate-400 mr-0.5">{formatStatNumber(dayCount)}</span>
+                  </>
+                ) : (
+                  <span className="h-1 w-4 rounded-full bg-slate-800" />
+                )}
+              </span>
             </button>
           );
         })}
@@ -132,11 +157,11 @@ export default function MatchTicker({ matches, selectedLeagueFilter, onSelectMat
 
       {/* Matches List Grid */}
       {filteredMatches.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl bg-[#0a0a0c]/40 py-10 border border-white/5 text-center">
-          <AlignLeft className="h-8 w-8 text-gray-600 mb-2" />
-          <p className="text-sm text-gray-400">هیچ مسابقه‌ای برای تاریخ انتخابی در این بخش ثبت نشده است.</p>
-          <p className="text-[11px] text-gray-500 mt-1">از پنل مدیریت می‌توانید مسابقه جدید اضافه نمایید.</p>
-        </div>
+        <EmptyState
+          icon="calendar"
+          title="مسابقه‌ای برای این تاریخ ثبت نشده است"
+          hint="از پنل مدیریت می‌توانید مسابقه جدید اضافه نمایید."
+        />
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
           {filteredMatches.map((match) => {
@@ -147,17 +172,20 @@ export default function MatchTicker({ matches, selectedLeagueFilter, onSelectMat
               <div 
                 key={match.id} 
                 onClick={() => onSelectMatch?.(match)}
-                className={`relative flex flex-col justify-between rounded-xl p-4 transition-all hover:border-emerald-500/20 bg-[#0a0a0c]/60 border cursor-pointer hover:scale-[1.01] ${
+                className={`relative flex flex-col justify-between rounded-xl p-4 transition-all hover:scale-[1.01] bg-gradient-to-b from-[#15151a] to-[#0a0a0c] border cursor-pointer hover:shadow-[0_8px_28px_-10px_rgba(16,185,129,0.35)] ${
                   isLive 
                     ? "border-emerald-500/30 hover:border-emerald-500/50 bg-gradient-to-l from-emerald-950/10 to-transparent" 
-                    : "border-white/5 hover:border-red-500/20"
+                    : "border-white/10 hover:border-emerald-500/30"
                 }`}
               >
                 {/* Header: League & Status */}
                 <div className="mb-2.5 flex items-center justify-between">
-                  <span className="flex items-center gap-1 rounded bg-[#0a0a0c] px-2 py-0.5 text-[10px] font-bold text-slate-400 border border-white/5">
-                    <Trophy className="h-2.5 w-2.5 text-emerald-400" />
+                  <span className={`flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-bold border ${getLeagueBadgeTint(match.league)}`}>
+                    <Trophy className="h-2.5 w-2.5 opacity-80" />
                     {getLeagueBadgeName(match.league)}
+                    {match.league === "league-2" && (match.group === "a" || match.group === "b") && (
+                      <span className="font-black">• {match.group === "a" ? "الف" : "ب"}</span>
+                    )}
                   </span>
                   
                   {isLive && (
@@ -203,13 +231,27 @@ export default function MatchTicker({ matches, selectedLeagueFilter, onSelectMat
                       </div>
                     ) : (
                       <div className="flex items-center gap-3">
-                        <span className={`text-xl font-black font-mono px-2.5 py-1 rounded bg-[#0a0a0c] border ${isLive ? "text-emerald-400 border-emerald-500/40" : "text-white border border-white/5"}`}>
-                          {match.scoreHome}
-                        </span>
-                        <span className="text-gray-600 font-bold">:</span>
-                        <span className={`text-xl font-black font-mono px-2.5 py-1 rounded bg-[#0a0a0c] border ${isLive ? "text-emerald-400 border-emerald-500/40" : "text-white border border-white/5"}`}>
-                          {match.scoreAway}
-                        </span>
+                        {(() => {
+                          const hs = match.scoreHome ?? 0;
+                          const as = match.scoreAway ?? 0;
+                          const homeWon = isFinished && hs > as;
+                          const awayWon = isFinished && as > hs;
+                          const scoreCls = (won: boolean) =>
+                            `text-xl font-black font-mono px-2.5 py-1 rounded bg-[#0a0a0c] border ${
+                              isLive
+                                ? "text-emerald-400 border-emerald-500/40 shadow-[0_0_14px_-4px_rgba(16,185,129,0.6)]"
+                                : won
+                                  ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                                  : "text-slate-400 border-white/10"
+                            }`;
+                          return (
+                            <>
+                              <span className={scoreCls(homeWon)}>{match.scoreHome}</span>
+                              <span className="text-gray-500 font-bold">:</span>
+                              <span className={scoreCls(awayWon)}>{match.scoreAway}</span>
+                            </>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>

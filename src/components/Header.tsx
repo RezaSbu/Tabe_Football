@@ -80,7 +80,7 @@ export default function Header({
   };
 
   return (
-    <div className="w-full bg-[#121215] text-white border-b border-white/5" id="app-header" dir="rtl">
+      <div className="w-full bg-gradient-to-b from-[#18181f] to-[#121215] text-white border-b border-emerald-500/15 shadow-[0_1px_24px_-12px_rgba(16,185,129,0.35)]" id="app-header" dir="rtl">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3 flex items-center gap-4">
         {/* Right: Brand & Logo */}
         <div 
@@ -99,7 +99,7 @@ export default function Header({
             <span className="font-black text-lg tracking-tight bg-gradient-to-l from-emerald-400 to-cyan-400 bg-clip-text text-transparent leading-none" style={{fontStyle: "normal", WebkitTextStroke: "0"}}>
               تب فوتبال
             </span>
-            <p className="text-[10px] text-slate-400 mt-1 font-medium">پورتال تحلیلی، نتایج زنده و آمار عمیق مسابقات</p>
+            <p className="text-[11px] text-slate-300 mt-1 font-medium">پورتال تحلیلی، نتایج زنده و آمار عمیق مسابقات</p>
           </div>
         </div>
 

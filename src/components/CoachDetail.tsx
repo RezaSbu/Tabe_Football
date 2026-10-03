@@ -4,6 +4,7 @@ import { getSafeImageUrl, formatStatNumber, normalizePersianString } from "../ut
 import { coachOfTeamAt } from "../shared/coachTenure";
 import { resolveTeam } from "../shared/teamMatch";
 import SeasonSwitcher, { defaultSeasonValue } from "./SeasonSwitcher";
+import ShareButton from "./ui/ShareButton";
 import MovementTimeline from "./MovementTimeline";
 import CareerSection from "./CareerSection";
 
@@ -180,12 +181,13 @@ export default function CoachDetail({
             </div>
 
             <div>
-              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-tight">
+              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-tight flex items-center justify-center gap-1.5">
                 {coach.teamName ? (
                   <button onClick={() => onSelectTeam && onSelectTeam(coach.teamName)} className="hover:text-emerald-400 transition cursor-pointer">
                     {coach.name}
                   </button>
                 ) : coach.name}
+                <ShareButton title={coach.name} />
               </h2>
               <div className="flex items-center gap-2 justify-center mt-1.5 text-[10px] flex-wrap">
                 <span className="bg-white/5 border border-white/5 px-2.5 py-1 rounded-lg text-slate-300 font-bold">
@@ -208,21 +210,21 @@ export default function CoachDetail({
           </div>
 
           <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-3.5 rounded-2xl bg-black/35 border border-white/5 text-center">
-              <span className="block text-[9px] text-[#808092] font-black mb-1">سن</span>
+            <div className="p-3.5 rounded-2xl bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 hover:border-emerald-500/30 hover:shadow-[0_0_20px_-6px_rgba(16,185,129,0.4)] hover:-translate-y-0.5 transition text-center">
+              <span className="block text-[9px] text-slate-400 font-black mb-1">سن</span>
               <span className="text-sm font-black text-slate-100 font-mono">{formatStatNumber(coach.age || "—")} سال</span>
             </div>
-            <div className="p-3.5 rounded-2xl bg-black/35 border border-white/5 text-center">
-              <span className="block text-[9px] text-[#808092] font-black mb-1">مدرک مربیگری</span>
+            <div className="p-3.5 rounded-2xl bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 hover:border-emerald-500/30 hover:shadow-[0_0_20px_-6px_rgba(16,185,129,0.4)] hover:-translate-y-0.5 transition text-center">
+              <span className="block text-[9px] text-slate-400 font-black mb-1">مدرک مربیگری</span>
               <span className="text-sm font-black text-emerald-400">{coach.licenseLevel || "—"}</span>
             </div>
-            <div className="p-3.5 rounded-2xl bg-black/35 border border-white/5 text-center">
-              <span className="block text-[9px] text-[#808092] font-black mb-1">سابقه مربیگری</span>
+            <div className="p-3.5 rounded-2xl bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 hover:border-emerald-500/30 hover:shadow-[0_0_20px_-6px_rgba(16,185,129,0.4)] hover:-translate-y-0.5 transition text-center">
+              <span className="block text-[9px] text-slate-400 font-black mb-1">سابقه مربیگری</span>
               <span className="text-sm font-black text-slate-100 font-mono">{formatStatNumber(coach.experienceYears || "0")} سال</span>
             </div>
-            <div className="p-3.5 rounded-2xl bg-black/35 border border-white/5 text-center">
-              <span className="block text-[9px] text-[#808092] font-black mb-1">درصد برد</span>
-              <span className="text-sm font-black text-emerald-400 font-mono">{formatStatNumber(winRate)}%</span>
+            <div className="p-3.5 rounded-2xl bg-gradient-to-b from-amber-500/[0.12] to-transparent border border-amber-500/30 ring-1 ring-amber-500/20 shadow-[0_0_20px_-8px_rgba(245,158,11,0.4)] text-center">
+              <span className="block text-[9px] text-amber-300/80 font-black mb-1">درصد برد</span>
+              <span className="text-sm font-black text-amber-300 font-mono drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]">{formatStatNumber(winRate)}%</span>
             </div>
           </div>
         </div>
@@ -292,57 +294,57 @@ export default function CoachDetail({
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="p-4 rounded-2xl bg-[#131317] border border-white/5">
-              <h3 className="text-xs font-black text-slate-400 mb-3 flex items-center gap-1.5">
+            <div className="p-4 rounded-2xl bg-gradient-to-b from-white/[0.04] to-transparent border border-white/10">
+              <h3 className="text-xs font-black text-white mb-3 flex items-center gap-1.5">
                 <TrendingUp className="h-4 w-4 text-emerald-500" />
                 <span>آمار کلی فصل</span>
               </h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500">بازی‌ها</span>
+              <div className="space-y-1">
+                <div className="flex justify-between items-center text-xs border-b border-white/[0.04] pb-2 hover:bg-white/[0.02] px-1 rounded transition">
+                  <span className="text-slate-400">بازی‌ها</span>
                   <span className="font-bold text-white font-mono">{formatStatNumber(matches)}</span>
                 </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500">برد</span>
-                  <span className="font-bold text-emerald-400 font-mono">{formatStatNumber(wins)}</span>
+                <div className="flex justify-between items-center text-xs border-b border-white/[0.04] pb-2 hover:bg-white/[0.02] px-1 rounded transition">
+                  <span className="text-slate-400">برد</span>
+                  <span className="font-bold text-emerald-400 font-mono drop-shadow-[0_0_6px_rgba(16,185,129,0.4)]">{formatStatNumber(wins)}</span>
                 </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500">مساوی</span>
+                <div className="flex justify-between items-center text-xs border-b border-white/[0.04] pb-2 hover:bg-white/[0.02] px-1 rounded transition">
+                  <span className="text-slate-400">مساوی</span>
                   <span className="font-bold text-amber-400 font-mono">{formatStatNumber(draws)}</span>
                 </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500">باخت</span>
+                <div className="flex justify-between items-center text-xs border-b border-white/[0.04] pb-2 hover:bg-white/[0.02] px-1 rounded transition">
+                  <span className="text-slate-400">باخت</span>
                   <span className="font-bold text-red-400 font-mono">{formatStatNumber(losses)}</span>
                 </div>
-                <div className="pt-2 border-t border-white/5 flex justify-between items-center text-xs">
-                  <span className="text-slate-500">درصد برد</span>
+                <div className="pt-2 flex justify-between items-center text-xs">
+                  <span className="text-slate-400">درصد برد</span>
                   <span className="font-bold text-emerald-400 font-mono">{formatStatNumber(winRate)}%</span>
                 </div>
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl bg-[#131317] border border-white/5">
-              <h3 className="text-xs font-black text-slate-400 mb-3 flex items-center gap-1.5">
+            <div className="p-4 rounded-2xl bg-gradient-to-b from-white/[0.04] to-transparent border border-white/10">
+              <h3 className="text-xs font-black text-white mb-3 flex items-center gap-1.5">
                 <Target className="h-4 w-4 text-emerald-500" />
                 <span>آمار گل و امتیاز</span>
               </h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500">گل زده</span>
-                  <span className="font-bold text-emerald-400 font-mono">{formatStatNumber(goalsFor)}</span>
+              <div className="space-y-1">
+                <div className="flex justify-between items-center text-xs border-b border-white/[0.04] pb-2 hover:bg-white/[0.02] px-1 rounded transition">
+                  <span className="text-slate-400">گل زده</span>
+                  <span className="font-bold text-emerald-400 font-mono drop-shadow-[0_0_6px_rgba(16,185,129,0.4)]">{formatStatNumber(goalsFor)}</span>
                 </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500">گل خورده</span>
+                <div className="flex justify-between items-center text-xs border-b border-white/[0.04] pb-2 hover:bg-white/[0.02] px-1 rounded transition">
+                  <span className="text-slate-400">گل خورده</span>
                   <span className="font-bold text-red-400 font-mono">{formatStatNumber(goalsAgainst)}</span>
                 </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500">تفاضل گل</span>
+                <div className="flex justify-between items-center text-xs border-b border-white/[0.04] pb-2 hover:bg-white/[0.02] px-1 rounded transition">
+                  <span className="text-slate-400">تفاضل گل</span>
                   <span className={`font-bold font-mono ${goalsFor - goalsAgainst >= 0 ? "text-emerald-400" : "text-red-400"}`}>
                     {formatStatNumber(goalsFor - goalsAgainst)}
                   </span>
                 </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500">میانگین گل زده هر بازی</span>
+                <div className="flex justify-between items-center text-xs px-1">
+                  <span className="text-slate-400">میانگین گل زده هر بازی</span>
                   <span className="font-bold text-slate-100 font-mono">
                     {formatStatNumber(matches > 0 ? (goalsFor / matches).toFixed(1) : "0")}
                   </span>

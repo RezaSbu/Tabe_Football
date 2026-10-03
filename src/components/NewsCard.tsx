@@ -23,34 +23,45 @@ export default function NewsCard({ newsItem, onClick, onTagClick }: NewsCardProp
     }
   };
 
+  const categoryTint = (cat: string) => {
+    switch (cat) {
+      case "pro-league": return "bg-red-500/15 text-red-300 border-red-500/30";
+      case "transfers": return "bg-emerald-500/15 text-emerald-300 border-emerald-500/30";
+      case "legionnaires": return "bg-sky-500/15 text-sky-300 border-sky-500/30";
+      case "hazfi-cup": return "bg-purple-500/15 text-purple-300 border-purple-500/30";
+      default: return "bg-white/5 text-slate-300 border-white/10";
+    }
+  };
+
   return (
     <div
       onClick={() => onClick(newsItem)}
-      className="group bg-[#18181c]/40 border border-white/5 rounded-xl overflow-hidden hover:bg-[#18181c] hover:border-emerald-500/25 transition duration-300 cursor-pointer shadow flex flex-col justify-between"
+      className="group bg-[#18181c]/40 border border-white/5 rounded-xl overflow-hidden hover:bg-[#18181c] hover:border-emerald-500/40 hover:-translate-y-1 hover:shadow-[0_12px_36px_-10px_rgba(16,185,129,0.4)] transition-all duration-300 cursor-pointer shadow flex flex-col justify-between"
       dir="rtl"
     >
       <div>
-        <div className="relative h-44 w-full overflow-hidden bg-slate-900">
-          <span className="absolute top-2 right-2 z-10 rounded bg-[#121215]/85 backdrop-blur px-2.5 py-1 text-[10px] font-bold text-emerald-400">
+        <div className="relative w-full overflow-hidden bg-slate-900 h-44">
+          <span className={`absolute top-2 right-2 z-10 rounded px-2.5 py-1 text-[10px] font-bold border backdrop-blur ${categoryTint(newsItem.category)}`}>
             {getPersianCategory(newsItem.category)}
           </span>
           <img loading="lazy" decoding="async" src={getSafeImageUrl(newsItem.image)}
             alt={newsItem.title}
-            className="w-full h-full object-cover group-hover:scale-103 transition duration-500"
+            className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
             referrerPolicy="no-referrer"
           />
         </div>
 
         <div className="p-4 space-y-2">
-          <h3 className="font-extrabold text-sm text-white line-clamp-2 leading-snug group-hover:text-emerald-400 transition">
+          <h3 className="font-extrabold text-white line-clamp-2 leading-snug group-hover:text-emerald-400 transition text-sm">
             {newsItem.title}
           </h3>
-          <p className="text-[11px] text-slate-400 leading-relaxed line-clamp-2 text-justify">
+          <p className="text-slate-400 leading-relaxed line-clamp-2 text-justify text-[11px]">
             {newsItem.summary}
           </p>
         </div>
       </div>
 
+      <div>
       {newsItem.tags && newsItem.tags.length > 0 && (
         <div className="px-4 pb-2 flex flex-wrap gap-1">
           {newsItem.tags.slice(0, 3).map((tag: string) => (
@@ -66,15 +77,19 @@ export default function NewsCard({ newsItem, onClick, onTagClick }: NewsCardProp
         </div>
       )}
 
-      <div className="p-4 pt-0 border-t border-white/[0.03] mt-2 flex items-center justify-between text-[10px] text-slate-500 font-medium">
-        <span className="flex items-center gap-1">
-          <Eye className="h-3 w-3 text-slate-450" />
-          {formatStatNumber(newsItem.viewCount)} بازدید
-        </span>
+        <div className="p-4 pt-0 border-t border-white/[0.03] mt-2 flex items-center justify-between text-[10px] text-slate-400 font-medium">
+          <span className="flex items-center gap-1">
+            <Eye className="h-3 w-3 text-slate-500" />
+            {formatStatNumber(newsItem.viewCount)} بازدید
+            {(newsItem.viewCount ?? 0) > 5000 && (
+              <span className="mr-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-1.5 py-px text-[9px] font-black text-amber-300">داغ</span>
+            )}
+          </span>
         <div className="flex items-center gap-1 text-emerald-400 font-extrabold group-hover:translate-x-1 transition-transform">
           <span>ادامه خبر</span>
           <ArrowLeft className="h-3 w-3" />
         </div>
+      </div>
       </div>
     </div>
   );

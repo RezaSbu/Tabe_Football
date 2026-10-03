@@ -4,6 +4,7 @@ import { Helmet } from "react-helmet-async";
 import { ArrowRight, Loader2, Tag, Clock } from "lucide-react";
 import { getSafeImageUrl, formatStatNumber } from "../utils";
 import { useSmartNavigate } from "../hooks/useSmartNavigate";
+import ShareButton from "../components/ui/ShareButton";
 
 export default function NewsDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -144,13 +145,14 @@ export default function NewsDetailPage() {
             <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400 border-b border-white/5 pb-3">
               <span>{new Date(article.createdAt).toLocaleDateString("fa-IR-u-nu-latn", { dateStyle: "long" })}</span>
               <span>{formatStatNumber(article.viewCount ?? 0)} بازدید</span>
+              <span className="mr-auto"><ShareButton title={article.title} /></span>
             </div>
           </header>
 
           <div className="grid gap-0 lg:grid-cols-12">
             {/* Main content column */}
             <div className="order-2 lg:col-span-8 p-4 sm:p-6 space-y-4">
-              <blockquote className="border-r-4 border-red-655 bg-[#0a0a0c]/55 p-4 rounded-l-xl text-gray-300 text-sm sm:text-base leading-loose text-justify">
+              <blockquote className="border-r-4 border-red-655 bg-gradient-to-l from-red-500/[0.10] to-transparent p-4 rounded-l-xl text-slate-100 text-sm sm:text-base leading-loose text-justify shadow-[0_0_24px_-10px_rgba(239,68,68,0.45)]">
                 {article.summary}
               </blockquote>
               <p className="text-gray-300 text-sm sm:text-base leading-loose whitespace-pre-line text-justify">
@@ -214,14 +216,14 @@ export default function NewsDetailPage() {
 
                 {/* Tags */}
                 {article.tags && article.tags.length > 0 && (
-                  <div className="rounded-xl border border-white/5 bg-gray-955 p-4">
+                  <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
                     <h2 className="font-bold text-xs text-white mb-2.5">برچسب‌ها</h2>
                     <div className="flex flex-wrap gap-1.5">
                       {article.tags.map((tag: string) => (
                         <Link
                           key={tag}
                           to={`/news?tag=${encodeURIComponent(tag)}`}
-                          className="rounded-lg bg-gray-950 px-2.5 py-1 text-[11px] text-gray-300 border border-white/5 hover:bg-emerald-950/30 hover:text-emerald-400 hover:border-emerald-900/40 transition inline-flex items-center gap-1 cursor-pointer"
+                          className="rounded-lg bg-gray-950 px-2.5 py-1 text-[11px] font-semibold text-slate-200 border border-white/10 hover:bg-red-500/15 hover:text-red-200 hover:border-red-500/40 hover:shadow-[0_0_12px_rgba(239,68,68,0.4)] transition inline-flex items-center gap-1 cursor-pointer"
                         >
                           <Tag className="h-2.5 w-2.5" />{tag}
                         </Link>
@@ -231,7 +233,7 @@ export default function NewsDetailPage() {
                 )}
 
                 {/* Latest News */}
-                <div className={`rounded-xl border border-white/5 bg-gray-955 ${!article.read_more?.content && !article.read_more?.content2 ? "max-h-[calc(100vh-22rem)] overflow-y-auto" : ""}`}>
+                <div className={`rounded-xl border border-white/10 bg-white/[0.02] ${!article.read_more?.content && !article.read_more?.content2 ? "max-h-[calc(100vh-22rem)] overflow-y-auto" : ""}`}>
                   <h2 className="font-bold text-xs text-white p-4 pb-0">آخرین اخبار</h2>
                   {latestLoading ? (
                     <div className="flex items-center justify-center py-6">
@@ -243,14 +245,14 @@ export default function NewsDetailPage() {
                         <Link
                           key={item.id}
                           to={`/news/${item.id}`}
-                          className="flex items-start gap-2 px-4 py-2.5 hover:bg-white/[0.02] transition group cursor-pointer"
+                          className="flex items-start gap-2 px-4 py-2.5 border-r-2 border-transparent hover:border-red-500/60 hover:bg-red-500/[0.05] transition group cursor-pointer"
                         >
-                          <Clock className="h-3 w-3 text-gray-600 mt-0.5 shrink-0 group-hover:text-emerald-500/50" />
+                          <Clock className="h-3 w-3 text-slate-500 mt-0.5 shrink-0 group-hover:text-red-400" />
                           <div className="min-w-0">
-                            <p className="text-[12px] text-gray-300 group-hover:text-emerald-400 transition line-clamp-2 leading-relaxed">
+                            <p className="text-[12px] text-slate-200 group-hover:text-red-300 transition line-clamp-2 leading-relaxed">
                               {item.title}
                             </p>
-                            <span className="text-[10px] text-gray-600 mt-0.5 block">
+                            <span className="text-[10px] text-slate-500 mt-0.5 block">
                               {toRelativeDate(item.createdAt)}
                             </span>
                           </div>

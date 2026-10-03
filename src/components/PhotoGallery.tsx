@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ImageItem, GalleryPhoto } from "../types";
-import { Camera, Search, Eye, Tag, User, Clock, Images } from "lucide-react";
+import EmptyState from "./ui/EmptyState";
+import { Camera, Search, Eye, Tag, User, Clock, Images, ZoomIn } from "lucide-react";
 import { getSafeImageUrl, getTimeAgoPersian, formatStatNumber } from "../utils";
 
 interface PhotoGalleryProps {
@@ -86,31 +87,34 @@ export default function PhotoGallery({ images, initialSearchTag = "" }: PhotoGal
           >
             همه
           </button>
-          {allUniqueTags.map((tag) => (
+          {allUniqueTags.map((tag) => {
+            const tagCount = images.filter((img: any) => (img.tags || []).includes(tag)).length;
+            return (
             <button
               key={tag}
               onClick={() => setSearchTag(tag)}
-              className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition cursor-pointer ${
+              className={`rounded-full px-2.5 py-1 text-[10px] font-semibold transition cursor-pointer min-h-[32px] ${
                 searchTag === tag
-                  ? "bg-emerald-500 text-black font-black"
+                  ? "bg-emerald-500 text-black font-black ring-2 ring-emerald-300"
                   : "bg-[#121215] text-slate-400 hover:bg-white/5 hover:text-white"
               }`}
             >
-              #{tag}
+              #{tag} <span className="font-mono bg-white/10 rounded-full px-1.5 text-[9px]">{formatStatNumber(tagCount)}</span>
             </button>
-          ))}
+            );
+          })}
         </div>
       )}
 
       {/* Album boxes */}
       {filteredAlbums.length === 0 ? (
-        <div className="text-center py-12 text-slate-500 text-sm">
-          {images.length === 0 ? (
-            <>هیچ آلبوم تصویری‌ای ثبت نشده است. <span className="text-emerald-400">از پنل مدیریت اقدام کنید.</span></>
-          ) : (
-            <>هیچ گالری‌ای با برچسب <strong className="text-emerald-400">"{searchTag}"</strong> پیدا نشد.</>
-          )}
-        </div>
+        <EmptyState
+          icon="inbox"
+          title={images.length === 0 ? "هیچ آلبوم تصویری‌ای ثبت نشده است" : `هیچ گالری‌ای با برچسب "${searchTag}" پیدا نشد`}
+          hint={images.length === 0 ? "از پنل مدیریت اقدام کنید." : "برچسب دیگری را امتحان کنید."}
+          actionLabel={images.length === 0 ? undefined : "حذف جستجو"}
+          onAction={images.length === 0 ? undefined : () => setSearchTag("")}
+        />
       ) : (
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {filteredAlbums.map((album) => {
@@ -151,15 +155,23 @@ export default function PhotoGallery({ images, initialSearchTag = "" }: PhotoGal
                   </div>
 
                   {/* Photo count badge */}
-                  <span className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-black/70 backdrop-blur border border-white/10 px-2 py-1 text-[9px] font-bold text-white">
-                    <Images className="h-3 w-3 text-emerald-400" />
+                  <span className="absolute top-2 right-2 flex items-center gap-1 rounded-full bg-emerald-500 px-2 py-1 text-[9px] font-black text-black shadow-lg">
+                    <Images className="h-3 w-3" />
                     {formatStatNumber(photos.length)} عکس
                   </span>
 
                   {/* View badge */}
-                  <span className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-black/70 backdrop-blur border border-white/10 px-2 py-1 text-[9px] font-bold text-white">
-                    <Eye className="h-3 w-3 text-emerald-400" />
+                  <span className="absolute bottom-2 left-2 flex items-center gap-1 rounded-full bg-black/70 backdrop-blur border border-amber-500/20 px-2 py-1 text-[9px] font-bold text-amber-300">
+                    <Eye className="h-3 w-3" />
                     {formatStatNumber(viewCount)}
+                  </span>
+
+                  {/* Hover overlay: loupe + photo count */}
+                  <span className="absolute inset-0 flex items-center justify-center gap-2 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition duration-300">
+                    <span className="flex items-center gap-1.5 rounded-full bg-black/70 backdrop-blur border border-white/20 px-3 py-1.5 text-[11px] font-black text-white">
+                      <ZoomIn className="h-4 w-4 text-emerald-400" />
+                      مشاهده آلبوم
+                    </span>
                   </span>
                 </div>
 

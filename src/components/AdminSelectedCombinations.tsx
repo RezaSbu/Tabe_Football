@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { SelectedCombination, PlayerItem, TeamItem } from "../types";
 import { formatStatNumber, getSafeImageUrl } from "../utils";
+import EmptyState from "./ui/EmptyState";
 import { Award, Plus, Trash2, Edit2, Search, Check, X, Shield, Star, Save, LayoutGrid, LayoutList } from "lucide-react";
 
 interface AdminSelectedCombinationsProps {
@@ -241,9 +242,13 @@ export default function AdminSelectedCombinations({
           </div>
 
           {combinations.length === 0 ? (
-            <div className="text-center py-10 bg-gray-950/40 rounded-2xl border border-white/5">
-              <p className="text-xs text-gray-500">هیچ ترکیب منتخبی تاکنون ثبت نشده است.</p>
-            </div>
+            <EmptyState
+              icon="trophy"
+              title="هیچ ترکیب منتخبی تاکنون ثبت نشده است"
+              hint="اولین ترکیب هفته را بسازید تا در سایت نمایش داده شود."
+              actionLabel="ایجاد ترکیب هفته جدید"
+              onAction={handleCreateNew}
+            />
           ) : (
             <div className="grid gap-3">
               {combinations.map(item => (

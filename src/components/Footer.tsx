@@ -8,7 +8,8 @@ interface FooterProps {
 
 export default function Footer({ setActiveTab }: FooterProps) {
   return (
-    <footer className="w-full bg-[#0a0a0c] text-slate-300 border-t border-white/5 py-10" dir="rtl">
+    <footer className="w-full bg-gradient-to-b from-[#121215] to-[#0a0a0c] text-slate-300 border-t border-emerald-500/10 py-10 relative overflow-hidden" dir="rtl">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(50%_100%_at_50%_0%,rgba(16,185,129,0.08),transparent)]" aria-hidden="true" />
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="grid gap-8 md:grid-cols-5 border-b border-white/5 pb-8">
           
@@ -111,12 +112,12 @@ export default function Footer({ setActiveTab }: FooterProps) {
 
         </div>
 
-        <div className="flex flex-col sm:flex-row items-center justify-between pt-6 text-[10px] text-slate-500">
+        <div className="flex flex-col sm:flex-row items-center justify-between pt-6 text-[11px] text-slate-400">
           <p>© {new Date().getFullYear()} پورتال تب فوتبال ایران. تمامی حقوق مادی و معنوی و محفوظ است.</p>
           <div className="flex items-center gap-3 mt-3 sm:mt-0">
-            <span className="hover:text-slate-400 cursor-pointer">سند قوانین و مقررات</span>
+            <span className="text-white font-bold hover:text-emerald-400 cursor-pointer transition">سند قوانین و مقررات</span>
             <span className="text-slate-700">|</span>
-            <span className="hover:text-slate-400 cursor-pointer">حفظ حریم خصوصی</span>
+            <span className="text-white font-bold hover:text-emerald-400 cursor-pointer transition">حفظ حریم خصوصی</span>
           </div>
         </div>
 

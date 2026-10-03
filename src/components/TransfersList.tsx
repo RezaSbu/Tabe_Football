@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { TransferItem, NewsItem } from "../types";
 import { Shuffle, ArrowLeft, Calendar, Search, ArrowDownLeft, ArrowUpRight, Shield, Eye, Tag } from "lucide-react";
 import TeamLogo from "./TeamLogo";
+import EmptyState from "./ui/EmptyState";
+import { formatStatNumber } from "../utils";
 
 interface TransfersListProps {
   transfers: TransferItem[];
@@ -326,7 +328,7 @@ export default function TransfersList({ transfers, teamTransfersList = [], teams
               {filteredTeamTransfers.map((item: any) => (
                 <div 
                   key={item.id} 
-                  className="bg-[#0c0c0f] border border-white/5 rounded-2xl p-4 md:p-5 grid grid-cols-1 md:grid-cols-12 gap-4 hover:border-white/10 transition-all duration-150 relative items-center text-right"
+                  className="bg-[#0c0c0f] border border-white/5 rounded-2xl p-4 md:p-5 grid grid-cols-1 md:grid-cols-12 gap-4 hover:border-emerald-500/25 hover:shadow-[0_8px_28px_-10px_rgba(16,185,129,0.35)] hover:bg-[#0e0e12] transition-all duration-200 relative items-center text-right"
                 >
                   {/* Column 1: Team identity Section */}
                   <div className="md:col-span-2 flex items-center gap-3 pt-1 md:pt-0 border-b border-white/5 pb-2 md:pb-0 md:border-b-0 md:border-l md:border-white/5 md:pl-2">
@@ -335,6 +337,11 @@ export default function TransfersList({ transfers, teamTransfersList = [], teams
                       <h3 className="font-extrabold text-white text-sm leading-tight">{item.teamName}</h3>
                       <span className="text-[9px] inline-block mt-1 bg-emerald-950/40 border border-emerald-800/30 text-emerald-400 px-1.5 py-0.5 rounded font-bold">
                         {getLeagueLabel(item.league || "pro-league")}
+                      </span>
+                      <span className="block mt-1 font-mono text-[10px] font-black">
+                        <span className="text-emerald-400">+{formatStatNumber((item.incomings || []).length)}</span>
+                        <span className="text-slate-600"> / </span>
+                        <span className="text-rose-400">-{formatStatNumber((item.outgoings || []).length)}</span>
                       </span>
                     </div>
                   </div>
@@ -403,9 +410,13 @@ export default function TransfersList({ transfers, teamTransfersList = [], teams
               ))}
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-500 text-sm">
-              هیچ تیمی با نتایج فیلتر شده پیدا نشد.
-            </div>
+            <EmptyState
+              icon="search"
+              title="تیمی با این فیلتر پیدا نشد"
+              hint="عبارت جستجو یا فیلتر لیگ را تغییر دهید."
+              actionLabel="حذف فیلترها"
+              onAction={() => { setSearchQuery(""); setLeagueFilter("all"); }}
+            />
           )}
         </div>
       )}

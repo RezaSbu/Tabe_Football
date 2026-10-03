@@ -552,6 +552,29 @@ export async function migrateCoachMatchColumns(): Promise<void> {
   }
 }
 
+export async function migrateMatchGroupColumn(): Promise<void> {
+  // League-2 group split (الف/ب) per match. Additive nullable column;
+  // backfill is deliberately NULL (ungrouped = legacy behavior everywhere).
+  // Runs once via guard.
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, applied_at TIMESTAMPTZ DEFAULT NOW())`);
+    const { rows } = await pool.query(`SELECT 1 FROM schema_migrations WHERE name = 'match_group_column_v1'`);
+    if (rows.length > 0) return;
+    await pool.query(`ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS group_key varchar(10)`);
+    await pool.query(`DO $$ BEGIN
+      IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'chk_matches_group') THEN
+        ALTER TABLE public.matches ADD CONSTRAINT chk_matches_group CHECK (group_key IS NULL OR group_key IN ('a', 'b'));
+      END IF;
+    END $$`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_matches_group ON public.matches(group_key)`);
+    await pool.query(`INSERT INTO schema_migrations (name) VALUES ('match_group_column_v1')`);
+    logMessage("info", "database", "مهاجرت یکبار اجرا: ستون group_key به matches اضافه شد.");
+  } catch (err: any) {
+    logMessage("warn", "database", "خطا در مهاجرت match_group_column_v1:", err.message || err);
+  }
+}
+
 export async function migrateCoachUniqueTeam(): Promise<void> {
   // One head coach per team, enforced at DB level (free agents exempt via
   // partial index). Fails loudly while a duplicate exists — guard is recorded
@@ -1301,6 +1324,7 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
           status: m.status || 'not-started',
           minutes: m.minutes,
           league: m.league,
+          group: m.group_key === "a" || m.group_key === "b" ? m.group_key : null,
           date: m.date,
           time: m.time,
           venue: m.venue,
@@ -1813,6 +1837,7 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
           status: m.status || 'not-started',
           minutes: m.minutes || null,
           league: m.league,
+          group_key: m.group === "a" || m.group === "b" ? m.group : null,
           date: m.date,
           time: m.time,
           venue: m.venue,

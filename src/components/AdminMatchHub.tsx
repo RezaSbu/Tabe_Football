@@ -15,6 +15,8 @@ import {
   ClipboardEdit
 } from "lucide-react";
 import TeamLogo from "./TeamLogo";
+import { SkeletonList } from "./ui/Skeleton";
+import EmptyState from "./ui/EmptyState";
 import { MatchItem, TeamItem, PlayerItem, StandingRow } from "../types";
 import { formatStatNumber } from "../utils";
 import AdminFeatureMatchForm from "./AdminFeatureMatchForm";
@@ -67,6 +69,7 @@ export default function AdminMatchHub({
   const [listItems, setListItems] = useState<MatchItem[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [availableWeeks, setAvailableWeeks] = useState<number[]>([]);
   const [listLoading, setListLoading] = useState(true);
   const [refreshTick, setRefreshTick] = useState(0);
 
@@ -107,6 +110,9 @@ export default function AdminMatchHub({
         setListItems(Array.isArray(data.items) ? data.items : []);
         setTotal(Number(data.total) || 0);
         setTotalPages(Math.max(1, Number(data.totalPages) || 1));
+        setAvailableWeeks(Array.isArray(data.availableWeeks)
+          ? data.availableWeeks.map((n: unknown) => Number(n)).filter((n: number) => Number.isFinite(n)).sort((a: number, b: number) => a - b)
+          : []);
         if (Number(data.page) && Number(data.page) !== page) setPage(Number(data.page));
       })
       .catch((e) => { if (e?.name !== "AbortError") {} })
@@ -357,9 +363,9 @@ export default function AdminMatchHub({
               className="text-xs bg-slate-950 border border-white/5 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-red-655 font-bold"
             >
               <option value="all">همه هفته‌ها</option>
-              <option value="prev">هفته قبل</option>
-              <option value="this">هفته جاری</option>
-              <option value="next">هفته بعد</option>
+              {availableWeeks.map(w => (
+                <option key={w} value={String(w)}>هفته {formatStatNumber(w)}</option>
+              ))}
             </select>
             <select
               value={leagueFilter}
@@ -370,6 +376,8 @@ export default function AdminMatchHub({
               <option value="pro-league">لیگ برتر</option>
               <option value="league-1">لیگ یک</option>
               <option value="league-2">لیگ دو</option>
+              <option value="league-2-a">لیگ دو (گروه الف)</option>
+              <option value="league-2-b">لیگ دو (گروه ب)</option>
               <option value="hazfi-cup">جام حذفی</option>
               <option value="futsal">فوتسال</option>
             </select>
@@ -400,13 +408,13 @@ export default function AdminMatchHub({
 
         {/* List items */}
         {listLoading ? (
-          <div className="py-10 text-center space-y-2">
-            <p className="text-xs text-slate-500 italic">در حال بارگذاری مسابقات...</p>
-          </div>
+          <SkeletonList count={6} />
         ) : getFilteredMatches().length === 0 ? (
-          <div className="py-10 text-center space-y-2">
-            <p className="text-xs text-slate-500 italic">هیچ بازی منطبق با فیلترها و جستجوی شما یافت نشد.</p>
-          </div>
+          <EmptyState
+            icon="calendar"
+            title="بازی منطبق با فیلترها یافت نشد"
+            hint="فیلتر مرحله، لیگ یا عبارت جستجو را تغییر دهید."
+          />
         ) : (
           <>
           <div className="grid gap-3 md:grid-cols-2">
@@ -421,7 +429,7 @@ export default function AdminMatchHub({
                       : m.league === "league-1" 
                       ? "لیگ یک (آزادگان)" 
                       : m.league === "league-2" 
-                      ? "لیگ دو کشوری" 
+                      ? `لیگ دو کشوری${m.group === "a" ? " (گروه الف)" : m.group === "b" ? " (گروه ب)" : ""}` 
                       : m.league === "futsal" 
                       ? "لیگ برتر فوتسال" 
                       : "رقابت‌های کشوری"}

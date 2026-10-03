@@ -167,6 +167,7 @@ CREATE TABLE public.matches (
   team_away_logo text,
   minutes varchar(10),
   league varchar(50),
+  group_key varchar(10),
   date varchar(20),
   time varchar(10),
   venue text,

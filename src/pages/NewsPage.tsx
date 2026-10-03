@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import NewsCard from "../components/NewsCard";
+import { SkeletonGrid } from "../components/ui/Skeleton";
+import EmptyState from "../components/ui/EmptyState";
 import { NewsItem } from "../types";
 import { formatStatNumber } from "../utils";
 
@@ -143,17 +145,21 @@ export default function NewsPage({
       </div>
 
       {loading ? (
-        <div className="p-12 text-center rounded-2xl border border-dashed border-white/5 text-xs text-slate-500 font-bold bg-[#121215]/40">
-          در حال بارگذاری خبرها...
-        </div>
+        <SkeletonGrid count={6} />
       ) : loadError ? (
-        <div className="p-12 text-center rounded-2xl border border-dashed border-white/5 text-xs text-slate-500 font-bold bg-[#121215]/40">
-          خطا در دریافت خبرها. لطفا دوباره تلاش کنید.
-        </div>
+        <EmptyState
+          icon="search"
+          title="خطا در دریافت خبرها"
+          hint="اتصال را بررسی کنید و دوباره تلاش کنید."
+          actionLabel="تلاش مجدد"
+          onAction={() => window.location.reload()}
+        />
       ) : items.length === 0 ? (
-        <div className="p-12 text-center rounded-2xl border border-dashed border-white/5 text-xs text-slate-500 font-bold bg-[#121215]/40">
-          هیچ رویداد یا اخباری با فیلتر جستجوی شما مطابقت ندارد.
-        </div>
+        <EmptyState
+          icon="search"
+          title="خبری با این فیلتر پیدا نشد"
+          hint="فیلتر یا عبارت جستجو را تغییر دهید."
+        />
       ) : (
         <>
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">

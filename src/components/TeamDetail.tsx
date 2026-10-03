@@ -6,6 +6,7 @@ import {
 import { StandingRow } from "../types";
 import { getSafeImageUrl, convertGregorianToShamsi, formatStatNumber, normalizePersianString } from "../utils";
 import TeamLogo from "./TeamLogo";
+import ShareButton from "./ui/ShareButton";
 import { getLeagueLabel } from "../shared/leagueLabel";
 import SeasonSwitcher, { defaultSeasonValue } from "./SeasonSwitcher";
 
@@ -244,6 +245,7 @@ export default function TeamDetail({
                   رتبه {formatStatNumber(teamInStandings.rank)} جدول زنده
                 </span>
               )}
+              <ShareButton title={team.name} />
             </h1>
             <p className="text-xs text-slate-400 mt-1 sm:mt-2 max-w-lg truncate">تاسیس: {founded ? formatStatNumber(founded) : "—"}</p>
           </div>
@@ -305,18 +307,18 @@ export default function TeamDetail({
               {/* Top highlights grid for best players */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
                 {bestScorer && (
-                  <div className="p-4 rounded-xl bg-[#161619]/60 border border-white/5 space-y-2">
-                    <span className="block text-[10px] text-emerald-400 font-bold tracking-tight">⚽ برترین گلزن فصل</span>
-                    <strong className="text-slate-100 text-xs block truncate">{bestScorer.name}</strong>
-                    <span className="text-[10px] font-mono text-slate-500 block">{formatStatNumber(bestScorer.seasonStats?.goals || 0)} گل در بازی‌ها</span>
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-emerald-500/[0.10] to-transparent border border-emerald-500/25 shadow-[0_0_24px_-8px_rgba(16,185,129,0.45)] space-y-2">
+                    <span className="block text-[10px] text-emerald-300 font-bold tracking-tight">⚽ برترین گلزن فصل</span>
+                    <strong className="text-white text-sm block truncate">{bestScorer.name}</strong>
+                    <span className="text-[10px] font-mono text-slate-400 block">{formatStatNumber(bestScorer.seasonStats?.goals || 0)} گل در بازی‌ها</span>
                   </div>
                 )}
 
                 {bestAssister && (
-                  <div className="p-4 rounded-xl bg-[#161619]/60 border border-white/5 space-y-2">
-                    <span className="block text-[10px] text-cyan-400 font-bold tracking-tight font-extrabold">🎯 مهندس پاس گل</span>
-                    <strong className="text-slate-100 text-xs block truncate">{bestAssister.name}</strong>
-                    <span className="text-[10px] font-mono text-slate-500 block">{formatStatNumber(bestAssister.seasonStats?.assists || 0)} پاس گل موفق</span>
+                  <div className="p-4 rounded-xl bg-gradient-to-br from-cyan-500/[0.10] to-transparent border border-cyan-500/25 shadow-[0_0_24px_-8px_rgba(6,182,212,0.45)] space-y-2">
+                    <span className="block text-[10px] text-cyan-300 font-bold tracking-tight font-extrabold">🎯 مهندس پاس گل</span>
+                    <strong className="text-white text-sm block truncate">{bestAssister.name}</strong>
+                    <span className="text-[10px] font-mono text-slate-400 block">{formatStatNumber(bestAssister.seasonStats?.assists || 0)} پاس گل موفق</span>
                   </div>
                 )}
 
@@ -373,19 +375,19 @@ export default function TeamDetail({
                     </div>
                     
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
-                      <div className="p-3.5 bg-black/25 rounded-2xl border border-white/5">
+                      <div className="p-3.5 bg-gradient-to-b from-white/[0.05] to-transparent rounded-2xl border border-white/10 hover:border-emerald-500/30 hover:shadow-[0_0_20px_-6px_rgba(16,185,129,0.4)] transition">
                         <span className="block text-[10px] text-slate-450 mb-1">بردها</span>
                         <span className="text-lg font-mono font-black text-emerald-400">{formatStatNumber(targetStats.won || 0)}</span>
                       </div>
-                      <div className="p-3.5 bg-black/25 rounded-2xl border border-white/5">
+                      <div className="p-3.5 bg-gradient-to-b from-white/[0.05] to-transparent rounded-2xl border border-white/10 hover:border-emerald-500/30 hover:shadow-[0_0_20px_-6px_rgba(16,185,129,0.4)] transition">
                         <span className="block text-[10px] text-slate-450 mb-1">تساوی‌ها</span>
                         <span className="text-lg font-mono font-black text-slate-300">{formatStatNumber(targetStats.drawn || 0)}</span>
                       </div>
-                      <div className="p-3.5 bg-black/25 rounded-2xl border border-white/5">
+                      <div className="p-3.5 bg-gradient-to-b from-white/[0.05] to-transparent rounded-2xl border border-white/10 hover:border-emerald-500/30 hover:shadow-[0_0_20px_-6px_rgba(16,185,129,0.4)] transition">
                         <span className="block text-[10px] text-slate-450 mb-1">باخت‌ها</span>
                         <span className="text-lg font-mono font-black text-red-500">{formatStatNumber(targetStats.lost || 0)}</span>
                       </div>
-                      <div className="p-3.5 bg-black/25 rounded-2xl border border-white/5">
+                      <div className="p-3.5 bg-gradient-to-b from-white/[0.05] to-transparent rounded-2xl border border-white/10 hover:border-emerald-500/30 hover:shadow-[0_0_20px_-6px_rgba(16,185,129,0.4)] transition">
                         <span className="block text-[10px] text-slate-450 mb-1">گل زده</span>
                         <span className="text-lg font-mono font-black text-emerald-400">{formatStatNumber(targetStats.goalsFor || 0)}</span>
                       </div>
@@ -551,6 +553,28 @@ export default function TeamDetail({
               <h2 className="font-black text-base text-white border-r-4 border-emerald-500 pr-2 pb-0.5 flex items-center gap-2">
                 <Trophy className="h-5 w-5 text-emerald-500" />
                 <span>نتایج کل مسابقات اخیر باشگاه ({formatStatNumber(finishedMatches.length)})</span>
+                {(() => {
+                  const last5 = [...finishedMatches]
+                    .sort((a: any, b: any) => String(b.date || "").localeCompare(String(a.date || "")))
+                    .slice(0, 5)
+                    .map((m: any) => {
+                      const isH = m.teamHome === team.name;
+                      const gf = isH ? (m.scoreHome ?? 0) : (m.scoreAway ?? 0);
+                      const ga = isH ? (m.scoreAway ?? 0) : (m.scoreHome ?? 0);
+                      return gf > ga ? "W" : gf < ga ? "L" : "D";
+                    });
+                  if (last5.length === 0) return null;
+                  return (
+                    <span className="flex items-center gap-1 mr-2" dir="ltr" title="فرم ۵ بازی آخر">
+                      {last5.map((r, i) => (
+                        <span
+                          key={i}
+                          className={`h-2.5 w-2.5 rounded-full ${r === "W" ? "bg-emerald-400" : r === "D" ? "bg-slate-400" : "bg-red-400"}`}
+                        />
+                      ))}
+                    </span>
+                  );
+                })()}
               </h2>
 
               {finishedMatches.length > 0 ? (
