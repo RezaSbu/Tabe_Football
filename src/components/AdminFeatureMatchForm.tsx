@@ -42,6 +42,7 @@ export default function AdminFeatureMatchForm({
   // Local state for all fields
   const [selectedSport, setSelectedSport] = useState<"football" | "futsal">(sport);
   const [league, setLeague] = useState("");
+  const [group, setGroup] = useState<"a" | "b" | "">("");
   const [season, setSeason] = useState(formatSeasonDefault(currentSeason));
   const [week, setWeek] = useState("هفته 1");
   const [teamHome, setTeamHome] = useState("");
@@ -70,6 +71,7 @@ export default function AdminFeatureMatchForm({
     if (match) {
       setSelectedSport(match.sport || sport);
       setLeague(match.league || "");
+      setGroup(match.league === "league-2" && (match.group === "a" || match.group === "b") ? match.group : "");
       setSeason(match.season || formatSeasonDefault(currentSeason));
       setWeek(normalizeWeekLabel(match.week));
       setTeamHome(match.teamHome || "");
@@ -158,6 +160,7 @@ export default function AdminFeatureMatchForm({
     const payload = {
       sport: selectedSport,
       league,
+      group: league === "league-2" && (group === "a" || group === "b") ? group : null,
       season,
       week,
       teamHome,
@@ -249,9 +252,13 @@ export default function AdminFeatureMatchForm({
                 <option value="futsal">لیگ برتر فوتسال ایران</option>
               </select>
             ) : (
+              <>
               <select
                 value={league}
-                onChange={(e) => setLeague(e.target.value)}
+                onChange={(e) => {
+                  setLeague(e.target.value);
+                  if (e.target.value !== "league-2") setGroup("");
+                }}
                 className="w-full text-xs rounded-lg bg-[#07070a] border border-white/5 p-2.5 text-white font-bold focus:outline-none focus:border-emerald-500"
               >
                 <option value="pro-league">لیگ برتر (خلیج فارس)</option>
@@ -259,6 +266,21 @@ export default function AdminFeatureMatchForm({
                 <option value="league-2">لیگ دو</option>
                 <option value="hazfi-cup">جام حذفی</option>
               </select>
+              {league === "league-2" && (
+                <div className="mt-2">
+                  <label className="block text-xs text-slate-400 mb-1.5 font-bold">گروه لیگ دو</label>
+                  <select
+                    value={group}
+                    onChange={(e) => setGroup(e.target.value as "a" | "b" | "")}
+                    className="w-full text-xs rounded-lg bg-[#07070a] border border-white/5 p-2.5 text-white font-bold focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="">بدون گروه (نمایش در هر دو)</option>
+                    <option value="a">گروه الف</option>
+                    <option value="b">گروه ب</option>
+                  </select>
+                </div>
+              )}
+              </>
             )}
           </div>
 

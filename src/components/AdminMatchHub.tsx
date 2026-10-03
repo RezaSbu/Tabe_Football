@@ -423,7 +423,7 @@ export default function AdminMatchHub({
                       : m.league === "league-1" 
                       ? "لیگ یک (آزادگان)" 
                       : m.league === "league-2" 
-                      ? "لیگ دو کشوری" 
+                      ? `لیگ دو کشوری${m.group === "a" ? " (گروه الف)" : m.group === "b" ? " (گروه ب)" : ""}` 
                       : m.league === "futsal" 
                       ? "لیگ برتر فوتسال" 
                       : "رقابت‌های کشوری"}
