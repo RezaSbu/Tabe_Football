@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { getFormationPositions, isFormationKey, defaultFormation } from "./formations";
 import { EventIcon, MvpStarIcon, ratingColor } from "./EventIcon";
 import { formatStatNumber, getSafeImageUrl } from "../utils";
@@ -40,6 +40,26 @@ interface MatchPitchProps {
   onSelectPlayer?: (playerId: string) => void;
   coaches?: PitchCoach[];
   onSelectCoach?: (coachId: string) => void;
+  /** "auto" (default): vertical below 640px, horizontal otherwise. */
+  orientation?: "auto" | "horizontal" | "vertical";
+}
+
+// Physical orientation is RTL-independent: positions are always % based.
+// Vertical mapping: right side of the pitch (home) -> top,
+// left side (away) -> bottom. left% = y, top% = (1 - x).
+function useVerticalAuto(): boolean {
+  const [vertical, setVertical] = useState<boolean>(() =>
+    typeof window !== "undefined" ? window.innerWidth < 640 : false
+  );
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+    const mq = window.matchMedia("(max-width: 639px)");
+    const onChange = (e: MediaQueryListEvent) => setVertical(e.matches);
+    setVertical(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return vertical;
 }
 
 // Infer a formation key from coarse Persian position buckets when the
@@ -81,7 +101,7 @@ function NodeAvatar({ p, size = 44 }: { p: PitchPlayer; size?: number }) {
   );
 }
 
-function PlayerNode({ p, onSelect }: { p: PitchPlayer; onSelect?: (id: string) => void }) {
+function PlayerNode({ p, onSelect, vertical = false }: { p: PitchPlayer; onSelect?: (id: string) => void; vertical?: boolean }) {
   // Role-aware counting: a goal event where this player is the assister
   // (player2) counts as an assist, never as a goal. Falls back to legacy
   // type-only logic when no role was attached.
@@ -101,7 +121,9 @@ function PlayerNode({ p, onSelect }: { p: PitchPlayer; onSelect?: (id: string) =
       type="button"
       onClick={() => onSelect && p.id && onSelect(p.id)}
       className="mc-node absolute flex flex-col items-center gap-0.5 cursor-pointer group"
-      style={{ left: `${p.x ?? 50}%`, top: `${p.y ?? 50}%`, transform: "translate(-50%, -50%)" }}
+      style={vertical
+        ? { left: `${p.y ?? 50}%`, top: `${100 - (p.x ?? 50)}%`, transform: "translate(-50%, -50%)" }
+        : { left: `${p.x ?? 50}%`, top: `${p.y ?? 50}%`, transform: "translate(-50%, -50%)" }}
       title={p.name}
     >
       <span className="relative inline-flex">
@@ -133,6 +155,8 @@ function PlayerNode({ p, onSelect }: { p: PitchPlayer; onSelect?: (id: string) =
 
 export default function MatchPitch(props: MatchPitchProps) {
   const { home, away, homeSubs, awaySubs, homeName, awayName, homeLogo, awayLogo, onSelectPlayer, coaches = [], onSelectCoach } = props;
+  const autoVertical = useVerticalAuto();
+  const vertical = props.orientation === "vertical" || (props.orientation !== "horizontal" && autoVertical);
 
   const formHome = isFormationKey(props.formationHome) ? props.formationHome : inferFormation(home);
   const formAway = isFormationKey(props.formationAway) ? props.formationAway : inferFormation(away);
@@ -228,7 +252,34 @@ export default function MatchPitch(props: MatchPitchProps) {
       </div>
 
       <div className="w-full overflow-x-auto pb-2">
-        <div className="relative rounded-2xl overflow-hidden border-2 border-emerald-700/60 mx-auto pitch-stripes" style={{ width: "100%", minWidth: 720, height: 500 }}>
+        <div
+          className="relative rounded-2xl overflow-hidden border-2 border-emerald-700/60 mx-auto pitch-stripes"
+          style={vertical
+            ? { width: "100%", maxWidth: 440, height: 640 }
+            : { width: "100%", minWidth: 720, height: 500 }}
+        >
+          {vertical ? (
+          <svg className="mc-pitch-markings absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 68 100" preserveAspectRatio="none" aria-hidden="true">
+            <rect x="2" y="2" width="64" height="96" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="0.6" />
+            <line x1="2" y1="50" x2="66" y2="50" stroke="rgba(255,255,255,0.65)" strokeWidth="0.6" />
+            <circle cx="34" cy="50" r="8" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="0.6" />
+            <circle cx="34" cy="50" r="0.6" fill="#ffffff" />
+            <rect x="14" y="2" width="40" height="16" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="0.6" />
+            <rect x="23" y="2" width="22" height="6" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="0.6" />
+            <circle cx="34" cy="12" r="0.6" fill="#ffffff" />
+            <path d="M 26 18 A 8 8 0 0 0 42 18" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="0.6" />
+            <rect x="28" y="0.5" width="12" height="1.5" fill="rgba(255,255,255,0.2)" stroke="#ffffff" strokeWidth="0.6" />
+            <rect x="14" y="82" width="40" height="16" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="0.6" />
+            <rect x="23" y="92" width="22" height="6" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="0.6" />
+            <circle cx="34" cy="88" r="0.6" fill="#ffffff" />
+            <path d="M 26 82 A 8 8 0 0 1 42 82" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="0.6" />
+            <rect x="28" y="98" width="12" height="1.5" fill="rgba(255,255,255,0.2)" stroke="#ffffff" strokeWidth="0.6" />
+            <path d="M 2 4 A 2 2 0 0 0 4 2" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="0.6" />
+            <path d="M 64 2 A 2 2 0 0 0 66 4" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="0.6" />
+            <path d="M 2 94 A 2 2 0 0 1 4 98" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="0.6" />
+            <path d="M 64 98 A 2 2 0 0 1 66 94" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="0.6" />
+          </svg>
+          ) : (
           <svg className="mc-pitch-markings absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 68" preserveAspectRatio="none" aria-hidden="true">
             <rect x="2" y="2" width="96" height="64" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="0.6" />
             <line x1="50" y1="2" x2="50" y2="66" stroke="rgba(255,255,255,0.65)" strokeWidth="0.6" />
@@ -249,8 +300,9 @@ export default function MatchPitch(props: MatchPitchProps) {
             <path d="M 2 64 A 2 2 0 0 1 4 66" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="0.6" />
             <path d="M 96 66 A 2 2 0 0 1 98 64" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="0.6" />
           </svg>
-          {placedHome.map(p => <PlayerNode key={`h-${p.id || p.name}`} p={p} onSelect={onSelectPlayer} />)}
-          {placedAway.map(p => <PlayerNode key={`a-${p.id || p.name}`} p={p} onSelect={onSelectPlayer} />)}
+          )}
+          {placedHome.map(p => <PlayerNode key={`h-${p.id || p.name}`} p={p} onSelect={onSelectPlayer} vertical={vertical} />)}
+          {placedAway.map(p => <PlayerNode key={`a-${p.id || p.name}`} p={p} onSelect={onSelectPlayer} vertical={vertical} />)}
         </div>
       </div>
 
