@@ -12,6 +12,11 @@ jobs:
   deploy:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
+    # Overlapping deploys reset/prune/build on top of each other and fail
+    # randomly — queue them instead.
+    concurrency:
+      group: production
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
 
@@ -28,7 +33,23 @@ jobs:
             git fetch origin
             git reset --hard origin/main
             bash scripts/backup.sh
-            docker compose -f docker-compose.yml -f docker-compose.prod.yml build --no-cache app
+            # NOTE: no `--no-cache` here on purpose. A full no-cache rebuild
+            # re-downloads Alpine packages + npm on EVERY deploy, so any
+            # transient mirror hiccup (e.g. Alpine CDN TLS errors) kills the
+            # whole deploy. Cached layers are reused, and the app/backend
+            # stages still rebuild because COPY src/ changes every deploy.
+            for attempt in 1 2 3; do
+              if docker compose -f docker-compose.yml -f docker-compose.prod.yml build app; then
+                echo "[CD] build ok (attempt $attempt)."
+                break
+              fi
+              if [ "$attempt" = "3" ]; then
+                echo "[CD] build failed 3 times — aborting deploy (old containers untouched)."
+                exit 1
+              fi
+              echo "[CD] build attempt $attempt failed (likely transient mirror/network error) — retrying in 30s..."
+              sleep 30
+            done
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
             docker image prune -f
             echo "[CD] waiting for app health..."
