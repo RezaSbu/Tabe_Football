@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   ArrowLeft, Calendar, MapPin, Clock, Shield, 
   AlertCircle, Sparkles, Trophy, ListOrdered, Shirt, GitCompareArrows, Newspaper 
@@ -8,6 +8,7 @@ import { convertGregorianToShamsi, formatStatNumber, normalizePersianString, get
 import { minuteSortKey } from "../shared/matchMinute";
 import TeamLogo from "./TeamLogo";
 import MatchPitch from "../matchcenter/MatchPitch";
+import { enrichMatchForPitch } from "../matchcenter/toPitchPlayer";
 import { inferFormation } from "../matchcenter/MatchPitch";
 import { EventIcon } from "../matchcenter/EventIcon";
 
@@ -159,18 +160,15 @@ export default function MatchDetailView({
   const homeSubs = defaultLineups.homeSubs || [];
   const awaySubs = defaultLineups.awaySubs || [];
 
-  // --- 3b. Extract events per player from match.events (single source of truth) ---  // Identity-first: an event carrying a playerId only ever belongs to that
-  // id. Bare names are used solely for legacy events without any ids, so two
-  // same-name players can never share one event.
-  const getPlayerEvents = (playerId: string, playerName: string) => {
-    const events = match.events || [];
-    return events.filter((ev: any) => {
-      if (!ev) return false;
-      if (ev.playerId === playerId || ev.player2Id === playerId) return true;
-      if (ev.playerId != null || ev.player2Id != null) return false;
-      return ev.playerName === playerName || ev.player2Name === playerName;
-    });
-  };
+  // --- 3b/c. Pitch enrichment via the shared matchcenter module (single
+  // source of truth shared with the homepage week widget). Identity-first:
+  // an event carrying a playerId only ever belongs to that id.
+  const pitchData = useMemo(
+    () => enrichMatchForPitch(match, players, coaches),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [match?.id, match?.lineups, match?.events, match?.mvpId, players, coaches]
+  );
+  const { coaches: pitchCoaches } = pitchData;
 
   const filterTimelineItem = (item: any) => {
     if (eventFilter === "goals") return item.type === "goal" || item.type === "penalty" || item.type === "own-goal";
@@ -178,60 +176,6 @@ export default function MatchDetailView({
     if (eventFilter === "subs") return item.type === "substitution";
     return true;
   };
-
-  // --- 3c. Pitch enrichment: photo, events, sub-in minute, MVP, coords ---
-  const photoById = (id: string) => (players || []).find((pl: any) => String(pl.id) === String(id))?.image;
-  const toPitchPlayer = (p: any) => {
-    const evs = getPlayerEvents(p.id, p.name);
-    const subIn = (match.events || []).find((e: any) =>
-      e.type === "substitution" &&
-      (e.player2Id === p.id || (e.player2Id == null && e.player2Name === p.name))
-    );
-    const rating = typeof p.rating === "number" ? p.rating : (p.rating ? parseFloat(p.rating) : null);
-    return {
-      id: String(p.id || ""),
-      name: p.name,
-      position: p.position,
-      rating: rating != null && !isNaN(rating) ? rating : null,
-      image: photoById(p.id),
-      captain: !!p.captain,
-      x: typeof p.x === "number" ? p.x : undefined,
-      y: typeof p.y === "number" ? p.y : undefined,
-      events: evs.map((e: any) => ({ type: e.type, minute: e.minute, player2Name: e.player2Name, role: eventRoleFor(e, p.id, p.name) })),
-      subInMinute: subIn?.minute,
-      isMvp: match.mvpId != null && String(match.mvpId) === String(p.id),
-    };
-  };
-
-  // Role of a player within one event: a goal/penalty event counts as a GOAL
-  // for its scorer (playerId) but as an ASSIST for its assister (player2Id).
-  // Without this, assisters render a ball badge instead of the assist badge.
-  const eventRoleFor = (e: any, pid: string, pname: string): "goal" | "assist" | "sub-out" | "sub-in" | "other" => {
-    const iamFirst = e.playerId === pid || (e.playerId == null && e.player2Id == null && e.playerName === pname);
-    const iamSecond = e.player2Id === pid || (e.player2Id == null && e.player2Name === pname && !iamFirst);
-    if (e.type === "substitution") {
-      if (iamSecond && !iamFirst) return "sub-in";
-      return "sub-out";
-    }
-    if ((e.type === "goal" || e.type === "penalty") && iamSecond && !iamFirst) return "assist";
-    if (e.type === "assist") return "assist";
-    if (e.type === "goal" || e.type === "penalty") return "goal";
-    return "other";
-  };
-
-  const pitchCoaches = (() => {
-    const out: { id: string; name: string; side: "home" | "away"; image?: string }[] = [];
-    const findCoach = (id: any) => (coaches || []).find((c: any) => String(c.id) === String(id));
-    if (match.coachHomeId) {
-      const c = findCoach(match.coachHomeId);
-      if (c) out.push({ id: String(c.id), name: c.name, side: "home", image: c.image });
-    }
-    if (match.coachAwayId) {
-      const c = findCoach(match.coachAwayId);
-      if (c) out.push({ id: String(c.id), name: c.name, side: "away", image: c.image });
-    }
-    return out;
-  })();
 
   // --- 4. HEAD TO HEAD ---
   const h2hMatches = allMatches.filter(m => 
@@ -761,10 +705,10 @@ export default function MatchDetailView({
               </div>
             ) : (
               <MatchPitch
-                home={homeLineup.map(toPitchPlayer)}
-                away={awayLineup.map(toPitchPlayer)}
-                homeSubs={homeSubs.map(toPitchPlayer)}
-                awaySubs={awaySubs.map(toPitchPlayer)}
+                home={pitchData.home}
+                away={pitchData.away}
+                homeSubs={pitchData.homeSubs}
+                awaySubs={pitchData.awaySubs}
                 homeName={match.teamHome}
                 awayName={match.teamAway}
                 homeLogo={match.teamHomeLogo}
