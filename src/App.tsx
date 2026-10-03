@@ -312,17 +312,8 @@ export default function App() {
     }
   }, [d.activeTab, initialSyncDone]);
 
-  if (d.isLoading) {
-    return (
-      <div className="flex h-screen w-full flex-col items-center justify-center bg-gray-950 text-white" dir="rtl">
-        <div className="text-center space-y-4">
-          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-t-red-650 border-r-transparent border-gray-800" />
-          <h1 className="font-bold text-lg">در حال بارگذاری پورتال تب فوتبال...</h1>
-          <p className="text-xs text-gray-500">در حال همگام‌سازی با سرور مرکزی...</p>
-        </div>
-      </div>
-    );
-  }
+  // No fullscreen splash: the shell (header/nav/footer) renders immediately
+  // and each surface fills in with its own in-place loading state.
 
   if (d.isAdminLoggedIn && d.activeTab === "admin" && !isDetailPath(location.pathname)) {
     return (
