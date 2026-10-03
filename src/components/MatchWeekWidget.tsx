@@ -93,108 +93,123 @@ export default function MatchWeekWidget({
     <div className="rounded-2xl bg-[#121215] border border-white/5 shadow-xl overflow-hidden" dir="rtl">
       <div className="px-4 sm:px-5 pt-4 pb-3 border-b border-white/5">
         <h2 className="font-black text-base sm:text-lg text-white">ترکیب هفته به تفکیک بازی</h2>
-        <p className="text-[11px] text-slate-400 mt-1">لیگ، هفته و بازی را انتخاب کنید تا ترکیب همان بازی روی زمین نمایش داده شود.</p>
+        <p className="text-[11px] text-slate-400 mt-1">لیگ، هفته و بازی را به ترتیب انتخاب کنید تا ترکیب همان بازی روی زمین نمایش داده شود.</p>
       </div>
 
-      <div className="grid gap-0 md:grid-cols-12">
-        {/* League picker: first DOM column = visual right side in RTL */}
-        <div className="md:col-span-3 border-b md:border-b-0 md:border-l border-white/5 p-3 space-y-1.5 bg-black/20">
-          <div className="text-[10px] font-black text-slate-500 px-1">لیگ</div>
-          {LEAGUE_TABS.map(t => {
-            const count = (matches || []).filter(m => matchInTab(m, t.key, teams)).length;
-            const active = leagueTab === t.key;
-            return (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => pickLeague(t.key)}
-                aria-pressed={active}
-                className={`w-full flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-xs font-black transition cursor-pointer min-h-[44px] ${
-                  active
-                    ? "bg-emerald-500 text-black shadow-md shadow-emerald-950/40"
-                    : "bg-white/[0.03] text-slate-300 border border-white/5 hover:border-emerald-500/30 hover:text-white"
-                }`}
-              >
-                <span>{t.label}</span>
-                <span className={`font-mono text-[10px] rounded-full px-1.5 py-0.5 ${active ? "bg-black/20" : "bg-white/5 text-slate-400"}`} dir="ltr">
-                  {formatStatNumber(count)}
-                </span>
-              </button>
-            );
-          })}
+      <div className="p-3 sm:p-4 space-y-4">
+        {/* Step 1 — league */}
+        <div>
+          <div className="flex items-center gap-2 px-1 mb-1.5">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 font-mono text-[10px] font-black text-black" dir="ltr">1</span>
+            <span className="text-[10px] font-black text-slate-400">انتخاب لیگ</span>
+          </div>
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
+            {LEAGUE_TABS.map(t => {
+              const count = (matches || []).filter(m => matchInTab(m, t.key, teams)).length;
+              const active = leagueTab === t.key;
+              return (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => pickLeague(t.key)}
+                  aria-pressed={active}
+                  className={`flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2.5 text-xs font-black transition cursor-pointer min-h-[44px] border ${
+                    active
+                      ? "bg-emerald-500 text-black border-emerald-500 shadow-md shadow-emerald-950/40"
+                      : "bg-white/[0.03] text-slate-300 border-white/5 hover:border-emerald-500/30 hover:text-white"
+                  }`}
+                >
+                  <span>{t.label}</span>
+                  <span className={`font-mono text-[10px] rounded-full px-1.5 py-0.5 ${active ? "bg-black/20" : "bg-white/5 text-slate-400"}`} dir="ltr">
+                    {formatStatNumber(count)}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="md:col-span-9 p-3 sm:p-4 space-y-3">
-          {/* Week picker */}
+        {/* Step 2 — week */}
+        <div>
+          <div className="flex items-center gap-2 px-1 mb-1.5">
+            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 font-mono text-[10px] font-black text-black" dir="ltr">2</span>
+            <span className="text-[10px] font-black text-slate-400">انتخاب هفته</span>
+          </div>
+          {weeks.length > 0 ? (
+            <div className="flex gap-1.5 overflow-x-auto pb-1">
+              {weeks.map(w => (
+                <button
+                  key={w}
+                  type="button"
+                  onClick={() => pickWeek(w)}
+                  aria-pressed={activeWeek === w}
+                  className={`shrink-0 rounded-xl px-3.5 py-2 text-xs font-black transition cursor-pointer min-h-[40px] border ${
+                    activeWeek === w
+                      ? "bg-emerald-500 text-black border-emerald-500 shadow-md"
+                      : "bg-white/[0.03] text-slate-300 border-white/5 hover:border-emerald-500/30 hover:text-white"
+                  }`}
+                >
+                  {formatStatNumber(w.replace(/[^\d\u06F0-\u06F9]/g, "") || w)}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[11px] text-slate-500 px-1">برای این لیگ هفته‌ای ثبت نشده است.</p>
+          )}
+        </div>
+
+        {/* Step 3 — match */}
+        {activeWeek && (
           <div>
-            <div className="text-[10px] font-black text-slate-500 px-1 mb-1.5">هفته</div>
-            {weeks.length > 0 ? (
-              <div className="flex gap-1.5 overflow-x-auto pb-1">
-                {weeks.map(w => (
-                  <button
-                    key={w}
-                    type="button"
-                    onClick={() => pickWeek(w)}
-                    aria-pressed={activeWeek === w}
-                    className={`shrink-0 rounded-xl px-3.5 py-2 text-xs font-black transition cursor-pointer min-h-[40px] border ${
-                      activeWeek === w
-                        ? "bg-emerald-500 text-black border-emerald-500 shadow-md"
-                        : "bg-white/[0.03] text-slate-300 border-white/5 hover:border-emerald-500/30 hover:text-white"
-                    }`}
-                  >
-                    {formatStatNumber(w.replace(/[^\d\u06F0-\u06F9]/g, "") || w)}
-                  </button>
-                ))}
+            <div className="flex items-center gap-2 px-1 mb-1.5">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 font-mono text-[10px] font-black text-black" dir="ltr">3</span>
+              <span className="text-[10px] font-black text-slate-400">انتخاب بازی‌های {activeWeek}</span>
+            </div>
+            {weekMatches.length > 0 ? (
+              <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+                {weekMatches.map(m => {
+                  const active = String(m.id) === String(matchId);
+                  const hasXI = (m.lineups?.home || []).length > 0 || (m.lineups?.away || []).length > 0;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setMatchId(String(m.id))}
+                      aria-pressed={active}
+                      className={`rounded-xl border px-3 py-2.5 text-right transition cursor-pointer min-h-[44px] ${
+                        active
+                          ? "bg-emerald-500/10 border-emerald-500/40 shadow-[0_0_16px_-6px_rgba(16,185,129,0.5)]"
+                          : "bg-white/[0.02] border-white/5 hover:border-white/15"
+                      }`}
+                    >
+                      <span className="flex items-center justify-between gap-2 text-xs font-black text-white">
+                        <span className="truncate">{m.teamHome}</span>
+                        <span className="font-mono text-[11px] text-emerald-300 shrink-0" dir="ltr">
+                          {m.status === "not-started" ? "vs" : `${m.scoreHome ?? 0}-${m.scoreAway ?? 0}`}
+                        </span>
+                        <span className="truncate">{m.teamAway}</span>
+                      </span>
+                      <span className="mt-1 flex items-center justify-between gap-2 text-[10px] text-slate-500">
+                        <span>{m.status === "finished" ? "پایان یافته" : m.status === "live" ? "زنده" : "پیش‌رو"}</span>
+                        {hasXI && <span className="text-emerald-400 font-bold">ترکیب ثبت شده</span>}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             ) : (
-              <p className="text-[11px] text-slate-500 px-1">برای این لیگ هفته‌ای ثبت نشده است.</p>
+              <p className="text-[11px] text-slate-500 px-1">بازی‌ای در این هفته ثبت نشده است.</p>
             )}
           </div>
+        )}
 
-          {/* Match list */}
-          {activeWeek && (
-            <div>
-              <div className="text-[10px] font-black text-slate-500 px-1 mb-1.5">بازی‌های {activeWeek}</div>
-              {weekMatches.length > 0 ? (
-                <div className="grid gap-1.5 sm:grid-cols-2">
-                  {weekMatches.map(m => {
-                    const active = String(m.id) === String(matchId);
-                    const hasXI = (m.lineups?.home || []).length > 0 || (m.lineups?.away || []).length > 0;
-                    return (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => setMatchId(String(m.id))}
-                        aria-pressed={active}
-                        className={`rounded-xl border px-3 py-2.5 text-right transition cursor-pointer min-h-[44px] ${
-                          active
-                            ? "bg-emerald-500/10 border-emerald-500/40 shadow-[0_0_16px_-6px_rgba(16,185,129,0.5)]"
-                            : "bg-white/[0.02] border-white/5 hover:border-white/15"
-                        }`}
-                      >
-                        <span className="flex items-center justify-between gap-2 text-xs font-black text-white">
-                          <span className="truncate">{m.teamHome}</span>
-                          <span className="font-mono text-[11px] text-emerald-300 shrink-0" dir="ltr">
-                            {m.status === "not-started" ? "vs" : `${m.scoreHome ?? 0}-${m.scoreAway ?? 0}`}
-                          </span>
-                          <span className="truncate">{m.teamAway}</span>
-                        </span>
-                        <span className="mt-1 flex items-center justify-between gap-2 text-[10px] text-slate-500">
-                          <span>{m.status === "finished" ? "پایان یافته" : m.status === "live" ? "زنده" : "پیش‌رو"}</span>
-                          {hasXI && <span className="text-emerald-400 font-bold">ترکیب ثبت شده</span>}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-[11px] text-slate-500 px-1">بازی‌ای در این هفته ثبت نشده است.</p>
-              )}
+        {/* Step 4 — pitch, full width */}
+        {activeMatch && (
+          <div>
+            <div className="flex items-center gap-2 px-1 mb-1.5">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 font-mono text-[10px] font-black text-black" dir="ltr">4</span>
+              <span className="text-[10px] font-black text-slate-400">ترکیب بازی</span>
             </div>
-          )}
-
-          {/* Pitch */}
-          {activeMatch && (
             <div className="rounded-2xl border border-emerald-500/20 bg-black/20 p-3 sm:p-4 space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="text-xs font-black text-white truncate">
@@ -228,8 +243,8 @@ export default function MatchWeekWidget({
                 <p className="text-[11px] text-slate-500 text-center py-4">برای این بازی ترکیبی ثبت نشده است.</p>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
