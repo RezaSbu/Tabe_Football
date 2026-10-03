@@ -27,6 +27,9 @@ export interface MatchItem {
   minutes?: string;
   period?: 'First Half' | 'HT' | 'Second Half' | string;
   league: 'pro-league' | 'league-1' | 'league-2' | 'hazfi-cup' | 'futsal' | string;
+  // League-2 group split (الف/ب). Only meaningful when league === "league-2".
+  // null/undefined = ungrouped (legacy behavior preserved everywhere).
+  group?: "a" | "b" | null;
   date: string;
   time: string;
   venue: string;
