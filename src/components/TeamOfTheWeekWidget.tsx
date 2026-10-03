@@ -212,7 +212,7 @@ export default function TeamOfTheWeekWidget({ combinations = [], allPlayers = []
                   <div 
                     key={posKey}
                     onClick={() => player.id && onSelectPlayer?.(player.id)}
-                    className="group flex items-center justify-between p-3 rounded-2xl bg-gray-950/40 hover:bg-gray-950 border border-white/5 hover:border-amber-500/30 transition shadow-sm cursor-pointer"
+                    className="group flex items-center justify-between p-3 rounded-2xl bg-gray-950/40 hover:bg-amber-500/[0.06] border border-white/5 hover:border-amber-500/40 hover:shadow-[0_0_16px_-4px_rgba(245,158,11,0.4)] transition cursor-pointer shadow-sm"
                   >
                     <div className="flex items-center gap-3">
                       <div className="relative shrink-0">
@@ -222,7 +222,12 @@ export default function TeamOfTheWeekWidget({ combinations = [], allPlayers = []
                           className="w-10 h-10 rounded-full border border-white/10 object-cover"
                           referrerPolicy="no-referrer"
                         />
-                        <span className="absolute -bottom-1 -right-1 bg-gray-950 border border-white/10 text-[8px] px-1 rounded font-black text-gray-400">
+                        <span className={`absolute -bottom-1 -right-1 border text-[8px] px-1 rounded font-black ${
+                          posKey === "gk" ? "bg-sky-500/15 border-sky-500/30 text-sky-300" :
+                          ["cb1","cb2","cb3"].includes(posKey) ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300" :
+                          ["lm","cm1","cm2","cm3","rm"].includes(posKey) ? "bg-purple-500/15 border-purple-500/30 text-purple-300" :
+                          "bg-red-500/15 border-red-500/30 text-red-300"
+                        }`}>
                           {posInfo.shortCode}
                         </span>
                       </div>
@@ -233,6 +238,17 @@ export default function TeamOfTheWeekWidget({ combinations = [], allPlayers = []
                           <span className="text-gray-600">•</span>
                           <span className="text-amber-400">{posInfo.title}</span>
                         </div>
+                        {typeof player.rating === "number" && (
+                          <div className="mt-1.5 flex items-center gap-1.5">
+                            <span className="w-16 h-1 rounded-full bg-white/10 overflow-hidden" aria-hidden="true">
+                              <span
+                                className="block h-full rounded-full bg-gradient-to-l from-amber-400 to-amber-600"
+                                style={{ width: `${Math.min(100, Math.max(0, (player.rating / 10) * 100))}%` }}
+                              />
+                            </span>
+                            <span className="font-mono text-[10px] font-black text-amber-300">{formatStatNumber(player.rating.toFixed(1))}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     

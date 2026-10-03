@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { MatchItem } from "../types";
 import TeamLogo from "../components/TeamLogo";
 import EmptyState from "../components/ui/EmptyState";
@@ -38,13 +38,11 @@ export default function LiveScoresPage({
   convertGregorianToShamsi,
   formatStatNumber,
 }: LiveScoresPageProps) {
-  const [dayOffset, setDayOffset] = useState(0);
   const targetDateStr = (() => {
     const d = new Date();
-    d.setDate(d.getDate() + dayOffset);
+    d.setDate(d.getDate());
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   })();
-  const dayLabel = dayOffset === -1 ? "دیروز" : dayOffset === 1 ? "فردا" : "امروز";
   const matchVisible = (m: any) => {
     if (m.date !== targetDateStr) return false;
     if (livescoreFilter === "all") return true;
@@ -63,24 +61,6 @@ export default function LiveScoresPage({
           </div>
           
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 rounded-xl bg-white/5 border border-white/10 p-1" dir="rtl">
-              {[
-                { offset: -1, label: "دیروز" },
-                { offset: 0, label: "امروز" },
-                { offset: 1, label: "فردا" },
-              ].map(d => (
-                <button
-                  key={d.offset}
-                  type="button"
-                  onClick={() => setDayOffset(d.offset)}
-                  className={`focus-ring px-3 py-1.5 rounded-lg text-[11px] font-black transition min-h-[36px] ${
-                    dayOffset === d.offset ? "bg-red-600 text-white shadow-lg shadow-red-900/35" : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  {d.label}
-                </button>
-              ))}
-            </div>
             <span className="rounded-full bg-red-500/10 border border-red-500/20 px-3 py-1 text-xs text-red-400 font-bold flex items-center gap-1.5 animate-pulse">
               <span className="h-2 w-2 rounded-full bg-red-500" />
               سیستم هوشمند رادیویی
@@ -137,7 +117,7 @@ export default function LiveScoresPage({
               <div className="col-span-full">
                 <EmptyState
                   icon="calendar"
-                  title={`مسابقه‌ای برای ${dayLabel} یافت نشد`}
+                  title="مسابقه‌ای برای امروز یافت نشد"
                   hint="دسته‌بندی یا روز دیگری را امتحان کنید."
                 />
               </div>

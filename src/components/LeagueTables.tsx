@@ -459,10 +459,11 @@ export default function LeagueTables({
   return (
     <div className="space-y-6 animate-in fade-in" dir="rtl" id={`league-page-${leagueKey}`}>
       {/* 1. Header Hero Banner */}
-      <div className={`rounded-2xl bg-gradient-to-l from-gray-900 via-gray-900 to-gray-900 p-5 border border-white/5 relative overflow-hidden`}>
+      <div className={`rounded-2xl bg-gradient-to-l from-red-950/40 via-gray-900 to-gray-900 p-5 border border-red-500/10 shadow-[0_0_30px_-12px_rgba(239,68,68,0.4)] relative overflow-hidden`}>
         {/* Decorative corner glows */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-32 h-32 bg-sky-500/5 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute top-0 right-0 w-48 h-48 bg-red-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 inset-x-0 h-0.5 bg-gradient-to-l from-red-600 via-red-500/40 to-transparent" aria-hidden="true" />
         
         <div className="relative flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
@@ -628,9 +629,11 @@ export default function LeagueTables({
                       const isRelegation = currentStandings.length >= 10 && i >= currentStandings.length - relegationCount;
                       const isDangerZone = dangerZoneCount > 0 && !isRelegation && i >= currentStandings.length - relegationCount - dangerZoneCount;
 
-                      // Real last-5 form from finished matches (no fake data).
+                      // Real last-5 form from SAME-LEAGUE finished matches only (no fake data).
+                      // league-2 group tables share the league-2 match pool (matches carry no group tag).
+                      const sameLeague = (a: string, b: string) => a === b || (a.startsWith("league-2") && String(b || "").startsWith("league-2"));
                       const form: ("W" | "D" | "L")[] = (matches || [])
-                        .filter(m => m.status === "finished" && (m.teamHome === row.team || m.teamAway === row.team))
+                        .filter(m => m.status === "finished" && sameLeague(leagueKey, m.league) && (m.teamHome === row.team || m.teamAway === row.team))
                         .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
                         .slice(0, 5)
                         .map(m => {
@@ -681,7 +684,7 @@ export default function LeagueTables({
                               {form.length > 0 ? form.map((r, fi) => (
                                 <span
                                   key={fi}
-                                  className={`h-2 w-2 rounded-full ${r === "W" ? "bg-emerald-400" : r === "D" ? "bg-slate-400" : "bg-red-400"}`}
+                                  className={`h-2.5 w-2.5 rounded-full ring-1 ring-black/40 ${r === "W" ? "bg-emerald-400" : r === "D" ? "bg-slate-400" : "bg-red-400"}`}
                                 />
                               )) : (
                                 <span className="text-[9px] text-slate-600">—</span>

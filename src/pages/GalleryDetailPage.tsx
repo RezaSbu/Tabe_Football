@@ -188,33 +188,33 @@ export default function GalleryDetailPage() {
 
         {/* Meta row */}
         <div className="mb-4 flex flex-wrap items-center gap-2 text-[10px]">
-          <span className="flex items-center gap-1 rounded-lg bg-black/40 border border-white/5 px-2.5 py-1 text-slate-400">
+          <span className="flex items-center gap-1 rounded-lg bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 px-2.5 py-1 text-slate-200">
             <Lock className="h-3 w-3 text-emerald-400" />
             کد خبر: {album.id}
           </span>
           {album.createdAt && (
-            <span className="flex items-center gap-1 rounded-lg bg-black/40 border border-white/5 px-2.5 py-1 text-slate-400">
+            <span className="flex items-center gap-1 rounded-lg bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 px-2.5 py-1 text-slate-200">
               <Calendar className="h-3 w-3 text-emerald-400" />
               {formatPersianDateTime(album.createdAt)}
             </span>
           )}
           {timeAgo && (
-            <span className="flex items-center gap-1 rounded-lg bg-black/40 border border-white/5 px-2.5 py-1 text-slate-400">
+            <span className="flex items-center gap-1 rounded-lg bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 px-2.5 py-1 text-slate-200">
               <Clock className="h-3 w-3 text-emerald-400" />
               {timeAgo}
             </span>
           )}
-          <span className="flex items-center gap-1 rounded-lg bg-black/40 border border-white/5 px-2.5 py-1 text-slate-400">
+          <span className="flex items-center gap-1 rounded-lg bg-emerald-500/[0.08] border border-emerald-500/30 px-2.5 py-1 text-emerald-200 shadow-[0_0_12px_-4px_rgba(16,185,129,0.5)]">
             <Eye className="h-3 w-3 text-emerald-400" />
             {formatStatNumber(album.viewCount || 0)} بازدید
           </span>
           {photographer && (
-            <span className="flex items-center gap-1 rounded-lg bg-black/40 border border-white/5 px-2.5 py-1 text-slate-400">
+            <span className="flex items-center gap-1 rounded-lg bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 px-2.5 py-1 text-slate-200">
               <User className="h-3 w-3 text-emerald-400" />
               {photographer}
             </span>
           )}
-          <span className="flex items-center gap-1 rounded-lg bg-black/40 border border-white/5 px-2.5 py-1 text-slate-400">
+          <span className="flex items-center gap-1 rounded-lg bg-emerald-500/[0.08] border border-emerald-500/30 px-2.5 py-1 text-emerald-200">
             <Images className="h-3 w-3 text-emerald-400" />
             {formatStatNumber(photos.length)} عکس
           </span>
@@ -222,9 +222,9 @@ export default function GalleryDetailPage() {
 
         {/* Title + description */}
         <div className="mb-5">
-          <h1 className="text-base sm:text-xl font-black text-white leading-relaxed">{title}</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-white leading-relaxed tracking-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.6)]">{title}</h1>
           {desc && (
-            <p className="mt-2 text-xs leading-relaxed text-gray-400">{desc}</p>
+            <p className="mt-3 text-sm text-slate-300 leading-relaxed border-r-2 border-emerald-500/50 pr-3 bg-gradient-to-l from-emerald-500/[0.06] to-transparent py-2 rounded-l-lg">{desc}</p>
           )}
         </div>
 
@@ -251,15 +251,16 @@ export default function GalleryDetailPage() {
             ))}
           </div>
         ) : (
-          <div className="rounded-xl border border-dashed border-white/10 py-12 text-center text-xs text-slate-500">
-            عکسی برای این آلبوم ثبت نشده است.
+          <div className="rounded-xl border border-dashed border-emerald-500/25 bg-emerald-500/[0.05] py-12 text-center">
+            <Images className="h-10 w-10 mx-auto mb-2 text-emerald-400/50" />
+            <p className="text-xs font-bold text-slate-300">عکسی برای این آلبوم ثبت نشده است.</p>
           </div>
         )}
 
         {/* Tags */}
         {album.tags && album.tags.length > 0 && (
-          <div className="mt-6 rounded-xl bg-[#0a0a0c] border border-white/5 p-4">
-            <h4 className="mb-3 flex items-center gap-1.5 text-xs font-bold text-gray-400">
+          <div className="mt-6 rounded-xl bg-[#0a0a0c] border border-white/10 p-4">
+            <h4 className="mb-3 flex items-center gap-1.5 text-xs font-bold text-slate-200">
               <Tag className="h-3.5 w-3.5 text-emerald-400" /> برچسب‌ها
             </h4>
             <div className="flex flex-wrap gap-1.5">
@@ -267,7 +268,7 @@ export default function GalleryDetailPage() {
                 <Link
                   key={tag}
                   to={`/gallery?tag=${encodeURIComponent(tag)}`}
-                  className="rounded-lg bg-[#121215] hover:bg-emerald-950/40 hover:text-emerald-400 px-2.5 py-1 text-[11px] text-gray-400 border border-white/5 transition"
+                  className="rounded-lg bg-[#121215] hover:bg-emerald-500/15 hover:text-emerald-200 px-2.5 py-1 text-[11px] font-semibold text-slate-300 border border-white/10 hover:border-emerald-500/40 hover:shadow-[0_0_12px_rgba(16,185,129,0.35)] transition"
                 >
                   #{tag}
                 </Link>

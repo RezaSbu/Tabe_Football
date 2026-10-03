@@ -66,8 +66,9 @@ export default function TransferDetailPage() {
           <div className="grid md:grid-cols-12">
 
             {/* Image column — fixed aspect ratio, always consistent */}
-            <div className="md:col-span-4 bg-gradient-to-br from-gray-900 to-gray-950 p-6 flex flex-col items-center justify-center relative">
-              <div className="relative w-full aspect-[3/4] max-w-[260px] mx-auto rounded-2xl overflow-hidden bg-gray-800/50 border border-white/5 shadow-lg">
+            <div className="md:col-span-4 bg-gradient-to-br from-emerald-950/50 via-gray-900 to-gray-950 p-6 flex flex-col items-center justify-center relative overflow-hidden">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.15),transparent_70%)]" aria-hidden="true" />
+              <div className="relative w-full aspect-[3/4] max-w-[260px] mx-auto rounded-2xl overflow-hidden bg-gray-800/50 border border-emerald-500/20 ring-2 ring-emerald-500/30 shadow-[0_0_30px_-8px_rgba(16,185,129,0.55)]">
                 <img
                   loading="lazy" decoding="async"
                   src={imgSrc}
@@ -107,16 +108,16 @@ export default function TransferDetailPage() {
               </div>
 
               {/* Transfer flow */}
-              <div className="rounded-xl bg-[#0a0a0c] border border-white/5 p-5">
+              <div className="rounded-xl bg-gradient-to-l from-emerald-500/[0.08] via-[#0a0a0c] to-cyan-500/[0.08] border border-emerald-500/25 p-5 shadow-[0_0_24px_-10px_rgba(16,185,129,0.4)]">
                 <div className="flex items-center gap-3">
                   {/* From */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 shrink-0 rounded-xl bg-[#121215] border border-white/5 flex items-center justify-center overflow-hidden">
+                      <div className="w-12 h-12 shrink-0 rounded-xl bg-[#121215] border border-emerald-500/25 shadow-[0_0_12px_-4px_rgba(16,185,129,0.4)] flex items-center justify-center overflow-hidden">
                         <TeamLogo logo={transfer.fromTeamLogo} fallback="🔴" size="md" />
                       </div>
                       <div className="min-w-0">
-                        <div className="text-[10px] text-gray-600 uppercase tracking-wider font-medium">مبدأ</div>
+                        <div className="text-[10px] text-emerald-300/70 uppercase tracking-wider font-medium">مبدأ</div>
                         <div className="font-bold text-sm text-white truncate">{transfer.fromTeam}</div>
                       </div>
                     </div>
@@ -135,10 +136,10 @@ export default function TransferDetailPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 justify-end">
                       <div className="min-w-0 text-right">
-                        <div className="text-[10px] text-gray-600 uppercase tracking-wider font-medium">مقصد</div>
+                        <div className="text-[10px] text-emerald-300/70 uppercase tracking-wider font-medium">مقصد</div>
                         <div className="font-bold text-sm text-white truncate">{transfer.toTeam}</div>
                       </div>
-                      <div className="w-12 h-12 shrink-0 rounded-xl bg-[#121215] border border-white/5 flex items-center justify-center overflow-hidden">
+                      <div className="w-12 h-12 shrink-0 rounded-xl bg-[#121215] border border-emerald-500/25 shadow-[0_0_12px_-4px_rgba(16,185,129,0.4)] flex items-center justify-center overflow-hidden">
                         <TeamLogo logo={transfer.toTeamLogo} fallback="🔵" size="md" />
                       </div>
                     </div>
@@ -148,9 +149,9 @@ export default function TransferDetailPage() {
 
               {/* Description */}
               {(transfer.description || transfer.details) && (
-                <div className="rounded-xl bg-[#0a0a0c] border border-white/5 p-5">
+                <div className="rounded-xl bg-[#0a0a0c] border border-white/5 border-r-2 border-r-emerald-500/50 bg-gradient-to-l from-emerald-500/[0.06] to-transparent p-5">
                   <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">جزئیات انتقال</h2>
-                  <p className="text-sm text-gray-300 leading-relaxed whitespace-pre-line">{transfer.description || transfer.details}</p>
+                  <p className="text-sm text-slate-100 leading-relaxed whitespace-pre-line">{transfer.description || transfer.details}</p>
                 </div>
               )}
 
@@ -158,8 +159,8 @@ export default function TransferDetailPage() {
               {transfer.tags && transfer.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {transfer.tags.map((tag: string) => (
-                    <span key={tag} className="inline-flex items-center gap-1 rounded-lg bg-[#0a0a0c] px-2.5 py-1 text-[11px] text-gray-400 border border-white/5">
-                      <Tag className="h-3 w-3 text-emerald-500/40" />{tag}
+                    <span key={tag} className="inline-flex items-center gap-1 rounded-lg bg-[#0a0a0c] px-2.5 py-1 text-[11px] text-gray-400 border border-white/5 hover:border-amber-500/40 hover:text-amber-300 hover:bg-amber-500/10 transition">
+                      <Tag className="h-3 w-3 text-emerald-400" />{tag}
                     </span>
                   ))}
                 </div>

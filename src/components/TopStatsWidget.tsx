@@ -53,16 +53,16 @@ function MiniColumn({
               key={`${p.name}-${idx}`}
               onClick={() => p.id && onSelectPlayer?.(p.id)}
               className={`flex justify-between items-center text-[11px] text-gray-300 border-b border-white/5 pb-1.5 last:border-0 last:pb-0 ${
-                p.id && onSelectPlayer ? "cursor-pointer hover:bg-white/5 hover:rounded-lg hover:px-1 transition" : ""
+                p.id && onSelectPlayer ? "cursor-pointer hover:bg-emerald-500/[0.07] hover:border-emerald-500/30 hover:rounded-lg hover:px-1 transition" : ""
               }`}
               title={p.id && onSelectPlayer ? `مشاهده پروفایل ${p.name}` : undefined}
             >
               <span className="font-bold flex items-center gap-1.5 truncate">
-                <span className="text-gray-550 font-mono text-[9px]">
-                  {p.rank || idx + 1}.
-                </span>
+<span className="font-mono text-[9px] font-black shrink-0 w-4 h-4 rounded-full inline-flex items-center justify-center bg-white/5 border border-white/10 text-slate-300">
+                                  {p.rank || idx + 1}
+                                </span>
                 <span className="truncate max-w-[100px]">{p.name}</span>
-                <span className="text-[9px] text-gray-500 truncate max-w-[60px]">
+                <span className="text-[10px] font-semibold text-slate-400 truncate max-w-[60px]">
                   ({p.team})
                 </span>
               </span>

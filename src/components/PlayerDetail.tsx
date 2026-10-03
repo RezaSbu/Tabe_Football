@@ -509,24 +509,24 @@ export default function PlayerDetail({
           {/* Quick Vital Specs Card Grid */}
           <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
             
-            <div className="p-3.5 rounded-2xl bg-black/35 border border-white/5 text-center">
-              <span className="block text-[9px] text-[#808092] font-black mb-1">سن بازیکن</span>
+            <div className="p-3.5 rounded-2xl bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 hover:border-emerald-500/30 hover:shadow-[0_0_20px_-6px_rgba(16,185,129,0.4)] hover:-translate-y-0.5 transition text-center">
+              <span className="block text-[9px] text-slate-400 font-black mb-1">سن بازیکن</span>
               <span className="text-sm font-black text-slate-100 font-mono">{formatStatNumber(player.age || "24")} سال</span>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-black/35 border border-white/5 text-center">
-              <span className="block text-[9px] text-[#808092] font-black mb-1">قد</span>
+            <div className="p-3.5 rounded-2xl bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 hover:border-emerald-500/30 hover:shadow-[0_0_20px_-6px_rgba(16,185,129,0.4)] hover:-translate-y-0.5 transition text-center">
+              <span className="block text-[9px] text-slate-400 font-black mb-1">قد</span>
               <span className="text-sm font-black text-slate-100 font-mono">{formatStatNumber(player.height || "180")} cm</span>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-black/35 border border-white/5 text-center">
-              <span className="block text-[9px] text-[#808092] font-black mb-1">وزن</span>
+            <div className="p-3.5 rounded-2xl bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 hover:border-emerald-500/30 hover:shadow-[0_0_20px_-6px_rgba(16,185,129,0.4)] hover:-translate-y-0.5 transition text-center">
+              <span className="block text-[9px] text-slate-400 font-black mb-1">وزن</span>
               <span className="text-sm font-black text-slate-100 font-mono">{formatStatNumber(player.weight || "75")} kg</span>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-black/35 border border-white/5 text-center">
-              <span className="block text-[9px] text-[#808092] font-black mb-1">پای تخصصی</span>
-              <span className="text-sm font-black text-emerald-400">{player.foot || "راست‌پا"}</span>
+            <div className="p-3.5 rounded-2xl bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 hover:border-emerald-500/30 hover:shadow-[0_0_20px_-6px_rgba(16,185,129,0.4)] hover:-translate-y-0.5 transition text-center">
+              <span className="block text-[9px] text-emerald-300/70 font-black mb-1">پای تخصصی</span>
+              <span className="text-sm font-black text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]">{player.foot || "راست‌پا"}</span>
             </div>
 
           </div>
@@ -570,13 +570,13 @@ export default function PlayerDetail({
             
             {/* Left Column: Player Bio card */}
             <div className="lg:col-span-4 space-y-4">
-              <div className="p-4.5 rounded-2xl bg-[#131317] border border-white/5 space-y-4 shadow-lg text-xs leading-relaxed">
+              <div className="p-4.5 rounded-2xl bg-gradient-to-bl from-emerald-500/[0.07] to-transparent border border-emerald-500/20 border-r-2 space-y-4 shadow-lg text-xs leading-relaxed">
                 <h3 className="font-black text-sm text-white flex items-center gap-1.5">
                   <Activity className="h-4 w-4 text-emerald-500" />
                   <span>درباره و شرح ویژگی‌های فیزیکی</span>
                 </h3>
                 
-                <p className="text-slate-400 font-medium">
+                <p className="text-slate-200 font-medium text-[13px] leading-loose">
                   {player.bio || "توضیحات و نمایه فیزیکی یا خلاصه عملکرد فنی ترنسفر این بازیکن در سیستم فوتبال کشور به طور تفصیلی ثبت نشده است."}
                 </p>
 
