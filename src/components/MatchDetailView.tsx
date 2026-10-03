@@ -92,6 +92,9 @@ export default function MatchDetailView({
   }, [match?.id]);
 
   const leagueName = LEAGUE_NAMES[match.league] || (match.league ? match.league : "لیگ فوتبال کشور");
+  const leagueDisplayName = match.league === "league-2" && (match.group === "a" || match.group === "b")
+    ? `${leagueName} (گروه ${match.group === "a" ? "الف" : "ب"})`
+    : leagueName;
 
   // --- 1. DYNAMIC TIMELINE ---
   const describeEvent = (type: string, p1: string, p2: string, details: string): string => {
@@ -314,7 +317,7 @@ export default function MatchDetailView({
 
   const extraResult = match.halfTimeScore || match.halftime || match.ht;
   const infoChips: { icon: React.ReactNode; text: string }[] = [
-    { icon: <Trophy className="h-3.5 w-3.5" />, text: leagueName },
+    { icon: <Trophy className="h-3.5 w-3.5" />, text: leagueDisplayName },
     ...(match.week ? [{ icon: <ListOrdered className="h-3.5 w-3.5" />, text: `هفته ${formatStatNumber(match.week)}` }] : []),
     { icon: <Calendar className="h-3.5 w-3.5" />, text: `${convertGregorianToShamsi(match.date)} | ساعت ${formatStatNumber(match.time)}` },
     ...(match.venue ? [{ icon: <MapPin className="h-3.5 w-3.5" />, text: `ورزشگاه: ${match.venue}` }] : []),
@@ -355,7 +358,7 @@ export default function MatchDetailView({
 
           <span className="hidden sm:flex items-center gap-1.5 bg-white/10 backdrop-blur border border-white/15 text-slate-100 px-3 py-1.5 rounded-full text-[11px] font-black">
             <Trophy className="h-3.5 w-3.5 text-emerald-400" />
-            {leagueName}
+            {leagueDisplayName}
           </span>
         </div>
 
@@ -458,11 +461,11 @@ export default function MatchDetailView({
 
       {/* ===== MATCH INFO CHIPS ===== */}
       {infoChips.length > 0 && (
-        <div className="px-4 sm:px-6 py-3 border-b border-white/5 bg-black/10">
+        <div className="px-4 sm:px-6 py-3 border-b border-white/5 bg-gradient-to-b from-white/[0.04] to-transparent">
           <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-center gap-2 text-[11px]">
             {infoChips.map((chip, idx) => (
-              <span key={idx} className="flex items-center gap-1.5 rounded-full bg-black/30 border border-white/5 px-3 py-1.5 text-slate-300 font-bold">
-                <span className="text-emerald-400">{chip.icon}</span>
+              <span key={idx} className="flex items-center gap-1.5 rounded-full bg-white/[0.07] border border-white/10 px-3 py-1.5 text-white font-bold backdrop-blur hover:border-emerald-500/40 hover:shadow-[0_0_12px_-4px_rgba(16,185,129,0.5)] transition">
+                <span className="text-emerald-400 drop-shadow-[0_0_6px_rgba(16,185,129,0.5)]">{chip.icon}</span>
                 {chip.text}
               </span>
             ))}
@@ -494,7 +497,7 @@ export default function MatchDetailView({
         {activeTab === "timeline" && (
           <div className="space-y-5 animate-in fade-in duration-200">
             {!isPlayed ? (
-              <div className="p-8 text-center text-slate-400 bg-black/15 border border-white/5 border-dashed rounded-2xl max-w-md mx-auto space-y-3">
+              <div className="p-8 text-center text-slate-200 bg-emerald-500/[0.05] border border-emerald-500/25 border-dashed rounded-2xl max-w-md mx-auto space-y-3 shadow-[inset_0_0_30px_rgba(16,185,129,0.08)]">
                 <Clock className="h-10 w-10 text-emerald-400 mx-auto animate-pulse" />
                 <h4 className="font-extrabold text-sm text-white">این مسابقه هنوز آغاز نشده است</h4>
                 <p className="text-xs text-slate-400">گزارش لحظه‌به‌لحظه وقایع، کارت‌ها و گل‌های بازی بلافاصله پس از شروع مسابقه در این قسمت نمایش خواهد یافت.</p>
@@ -639,8 +642,8 @@ export default function MatchDetailView({
                 </div>
               </>
             ) : (
-              <div className="p-8 text-center text-slate-400 bg-black/15 border border-white/5 border-dashed rounded-2xl max-w-md mx-auto space-y-3">
-                <AlertCircle className="h-10 w-10 text-slate-500 mx-auto" />
+              <div className="p-8 text-center text-slate-200 bg-emerald-500/[0.05] border border-emerald-500/25 border-dashed rounded-2xl max-w-md mx-auto space-y-3 shadow-[inset_0_0_30px_rgba(16,185,129,0.08)]">
+                <AlertCircle className="h-10 w-10 text-emerald-400/70 mx-auto drop-shadow-[0_0_10px_rgba(16,185,129,0.4)]" />
                 <h4 className="font-extrabold text-sm text-white">رویدادی برای این مسابقه ثبت نشده است</h4>
                 <p className="text-xs text-slate-400">گزارش زنده یا وقایع بازی (کارت‌ها، گل‌ها، تعویض‌ها) در این مسابقه وارد نشده است.</p>
               </div>
@@ -738,8 +741,8 @@ export default function MatchDetailView({
                 })()}
               </>
             ) : (
-              <div className="p-8 text-center text-slate-400 bg-black/15 border border-white/5 border-dashed rounded-2xl max-w-md mx-auto space-y-3">
-                <Newspaper className="h-10 w-10 text-slate-500 mx-auto" strokeWidth={1.5} />
+              <div className="p-8 text-center text-slate-200 bg-emerald-500/[0.05] border border-emerald-500/25 border-dashed rounded-2xl max-w-md mx-auto space-y-3 shadow-[inset_0_0_30px_rgba(16,185,129,0.08)]">
+                <Newspaper className="h-10 w-10 text-emerald-400/70 mx-auto drop-shadow-[0_0_10px_rgba(16,185,129,0.4)]" strokeWidth={1.5} />
                 <h4 className="font-extrabold text-sm text-white">خبری برای این مسابقه ثبت نشده است</h4>
                 <p className="text-xs text-slate-400">اخباری که همزمان از هر دو تیم نام برده باشند، اینجا نمایش داده می‌شوند.</p>
               </div>
@@ -751,8 +754,8 @@ export default function MatchDetailView({
         {activeTab === "lineups" && (
           <div className="space-y-5 animate-in fade-in duration-200">
             {homeLineup.length === 0 && awayLineup.length === 0 && homeSubs.length === 0 && awaySubs.length === 0 ? (
-              <div className="p-8 text-center text-slate-400 bg-black/15 border border-white/5 border-dashed rounded-2xl max-w-md mx-auto space-y-3">
-                <Shirt className="h-10 w-10 text-slate-500 mx-auto" />
+              <div className="p-8 text-center text-slate-200 bg-emerald-500/[0.05] border border-emerald-500/25 border-dashed rounded-2xl max-w-md mx-auto space-y-3 shadow-[inset_0_0_30px_rgba(16,185,129,0.08)]">
+                <Shirt className="h-10 w-10 text-emerald-400/70 mx-auto drop-shadow-[0_0_10px_rgba(16,185,129,0.4)]" />
                 <h4 className="font-extrabold text-sm text-white">ترکیب و نمرات دو تیم ثبت نشده است</h4>
                 <p className="text-xs text-slate-400">اطلاعات یازده‌نفر اصلی و ذخیره‌های این مسابقه پس از تأیید توسط کادر فنی در این بخش نمایش داده می‌شود.</p>
               </div>
@@ -826,17 +829,17 @@ export default function MatchDetailView({
                 <div style={{ width: `${awayWinPct}%` }} className="bg-cyan-500" />
               </div>
               <div className="grid grid-cols-3 gap-4 mt-4">
-                <div className="p-3 rounded-xl bg-black/20 border border-white/5 space-y-1 text-center">
-                  <span className="text-[10px] text-slate-500 font-bold block">کل رویارویی‌ها</span>
-                  <span className="text-xl font-mono font-black text-white">{formatStatNumber(totalEncounters)}</span>
+                <div className="p-3 rounded-xl bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 space-y-1 text-center">
+                  <span className="text-[10px] text-slate-400 font-bold block">کل رویارویی‌ها</span>
+                  <span className="text-xl font-mono font-black text-white drop-shadow-[0_0_10px_rgba(16,185,129,0.35)]">{formatStatNumber(totalEncounters)}</span>
                 </div>
-                <div className="p-3 rounded-xl bg-black/20 border border-white/5 space-y-1 text-center">
-                  <span className="text-[10px] text-slate-500 font-bold block">گل‌های ردوبدل‌شده</span>
-                  <span className="text-xl font-mono font-black text-amber-400">{formatStatNumber(totalGoals)}</span>
+                <div className="p-3 rounded-xl bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 space-y-1 text-center">
+                  <span className="text-[10px] text-slate-400 font-bold block">گل‌های ردوبدل‌شده</span>
+                  <span className="text-xl font-mono font-black text-amber-400 drop-shadow-[0_0_10px_rgba(245,158,11,0.4)]">{formatStatNumber(totalGoals)}</span>
                 </div>
-                <div className="p-3 rounded-xl bg-black/20 border border-white/5 space-y-1 text-center">
-                  <span className="text-[10px] text-slate-500 font-bold block">میانگین گل</span>
-                  <span className="text-xl font-mono font-black text-cyan-300">{formatStatNumber(totalEncounters ? (totalGoals / totalEncounters).toFixed(1) : "—")}</span>
+                <div className="p-3 rounded-xl bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 space-y-1 text-center">
+                  <span className="text-[10px] text-slate-400 font-bold block">میانگین گل</span>
+                  <span className="text-xl font-mono font-black text-cyan-300 drop-shadow-[0_0_10px_rgba(6,182,212,0.4)]">{formatStatNumber(totalEncounters ? (totalGoals / totalEncounters).toFixed(1) : "—")}</span>
                 </div>
               </div>
             </div>
