@@ -6,6 +6,7 @@ import TopStatsWidget from "../components/TopStatsWidget";
 import MatchTicker from "../components/MatchTicker";
 import TeamOfTheWeekWidget from "../components/TeamOfTheWeekWidget";
 import TeamOfTheWeekWidgetLight from "../components/TeamOfTheWeekWidgetLight";
+import MatchWeekWidget from "../components/MatchWeekWidget";
 import useLightTheme from "../hooks/useLightTheme";
 import AdSlot, { isAdActive } from "../components/AdSlot";
 import AdBannerWidget from "../components/AdBannerWidget";
@@ -32,9 +33,12 @@ interface HomePageProps {
   setSelectedLeagueFilterOnStats: (v: string) => void;
   standings: Record<string, any[]>;
   players: any[];
+  coaches?: any[];
+  teams?: any[];
   selectedCombinations: any[];
   setSelectedPlayerId: (id: string | null) => void;
   setSelectedTeamId: (id: string | null) => void;
+  onSelectCoach?: (id: string) => void;
   ads: AdItem[];
   onSelectTransfer?: (transferId: string) => void;
 }
@@ -67,9 +71,12 @@ export default function HomePage({
   getSafeImageUrl,
   standings,
   players,
+  coaches = [],
+  teams = [],
   selectedCombinations,
   setSelectedPlayerId,
   setSelectedTeamId,
+  onSelectCoach,
   ads = [],
   onSelectTransfer,
   stats,
@@ -158,9 +165,11 @@ export default function HomePage({
           <MatchTicker matches={matches} onSelectMatch={setSelectedMatch} />
 
           <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-[#121215] p-4 rounded-2xl border border-white/5 shadow">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-gradient-to-l from-[#15151a] to-[#121215] p-4 rounded-2xl border border-white/10 shadow">
               <div className="flex items-center gap-2">
-                <Newspaper className="h-5 w-5 text-red-500" />
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-500/15 border border-red-500/30">
+                  <Newspaper className="h-4 w-4 text-red-400" />
+                </span>
                 <h2 className="font-black text-lg text-white">آخرین خبرها</h2>
               </div>
 
@@ -209,19 +218,19 @@ export default function HomePage({
                       key={art.id}
                       to={`/news/${art.id}`}
                       onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-                      className="group flex flex-col sm:flex-row gap-4 rounded-xl bg-gray-900 border border-white/5 p-3.5 hover:border-gray-800 transition cursor-pointer shadow hover:shadow-lg"
+                      className="group flex flex-col sm:flex-row gap-4 rounded-xl bg-gray-900 border border-white/5 p-3.5 hover:border-red-500/30 hover:bg-[#15151a] hover:shadow-[0_8px_30px_-12px_rgba(217,27,35,0.35)] hover:-translate-y-0.5 transition-all duration-300 cursor-pointer shadow hover:shadow-lg"
                     >
-                      <div className="sm:w-48 h-32 w-full shrink-0 overflow-hidden rounded-lg bg-gray-950 border border-white/5">
+                      <div className="sm:w-48 h-32 w-full shrink-0 overflow-hidden rounded-lg bg-gray-950 border border-white/10">
                         <img loading="lazy" decoding="async"                           src={getSafeImageUrl(art.image)}
                           alt={art.title}
                           referrerPolicy="no-referrer"
-                          className="h-full w-full object-cover transition group-hover:scale-102"
+                          className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                         />
                       </div>
 
                       <div className="flex flex-col justify-between py-1 flex-1">
                         <div>
-                          <div className="flex items-center gap-1.5 text-[10px] text-gray-400 font-bold mb-1.5 flex-wrap">
+                          <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold mb-1.5 flex-wrap">
                             <span className="rounded bg-gray-950 border border-white/5 px-2 py-0.5 text-red-400 font-black">
                               {getPersianCategory(art.category)}
                             </span>
@@ -236,7 +245,7 @@ export default function HomePage({
                         {art.tags && art.tags.length > 0 && (
                           <div className="mt-3 flex flex-wrap gap-1">
                             {art.tags.slice(0, 3).map((tg: string) => (
-                              <button key={tg} onClick={(e) => { e.preventDefault(); e.stopPropagation(); setNewsSearch(tg); }} className="rounded bg-gray-955 text-[9px] text-gray-500 border border-white/5 px-1.5 py-0.5 hover:bg-red-950/40 hover:text-red-400 hover:border-red-900/40 transition cursor-pointer">
+                              <button key={tg} onClick={(e) => { e.preventDefault(); e.stopPropagation(); setNewsSearch(tg); }} className="rounded bg-gray-955 text-[10px] font-semibold text-slate-400 border border-white/10 px-1.5 py-0.5 hover:bg-red-950/40 hover:text-red-400 hover:border-red-900/40 transition cursor-pointer">
                                 #{tg}
                               </button>
                             ))}
@@ -340,6 +349,19 @@ export default function HomePage({
           </div>
         </div>
       </div>
+
+      <MatchWeekWidget
+        matches={matches}
+        players={players}
+        coaches={coaches}
+        teams={teams}
+        onSelectPlayer={(id: string) => setSelectedPlayerId(id)}
+        onSelectCoach={(id: string) => onSelectCoach && onSelectCoach(id)}
+        onOpenMatch={(id: string) => {
+          const m = (matches || []).find((x: any) => String(x.id) === String(id));
+          if (m) setSelectedMatch(m);
+        }}
+      />
 
       {isLight ? (
         <TeamOfTheWeekWidgetLight

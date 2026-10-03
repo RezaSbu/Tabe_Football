@@ -142,7 +142,9 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
               selectedLeagueFilterOnStats={d.selectedLeagueFilterOnStats}
               setSelectedLeagueFilterOnStats={d.setSelectedLeagueFilterOnStats}
               standings={d.standings} players={d.players} selectedCombinations={d.selectedCombinations}
+              coaches={d.coaches} teams={d.teams}
               setSelectedPlayerId={(id: string | null) => id && navigate(`/player/${id}`)} setSelectedTeamId={(id: string | null) => id && navigate(`/team/${id}`)}
+              onSelectCoach={(id: string) => navigate(`/coach/${id}`)}
               ads={d.ads} onSelectTransfer={(id: string) => navigate(`/transfer/${id}`)} />
           </>
         )}
@@ -343,7 +345,8 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 font-sans text-gray-200 antialiased" style={{ contentVisibility: "auto" }}>
+    <div className="min-h-screen bg-gray-950 font-sans text-gray-200 antialiased relative" style={{ contentVisibility: "auto" }}>
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[420px] bg-[radial-gradient(60%_100%_at_50%_0%,rgba(16,185,129,0.07),transparent)]" aria-hidden="true" />
       <Header
         news={d.news} teams={d.teams} players={d.players} coaches={d.coaches}
         onSelectArticle={(art: any) => navigate(`/news/${art.id}`)}
