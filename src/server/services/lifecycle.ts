@@ -60,6 +60,71 @@ function fail(status: number, message: string, extra?: any): LifecycleResult {
   return { ok: false, status, payload: { success: false, message, ...(extra || {}) } };
 }
 
+// ---------- movement-ledger mirror (tenure single source) ----------
+// CoachDetail + career stats attribute matches via coach_club_movements
+// ONLY (see shared/coachTenure + CoachDetail tenure fallback). Lifecycle
+// writes (wizard appoint/end, swap) MUST mirror here, otherwise every
+// transfer rewrites history: with no movement rows the tenure fallback
+// degrades to current-team mapping and a newly appointed coach inherits
+// all past matches of the club (e.g. a coach appointed today showing the
+// whole season). The mirror runs inside the same PG transaction as the
+// event, so the two ledgers can never diverge half-way.
+export interface CoachMovementMirrorRow {
+  id: string;
+  coachId: string;
+  fromTeamId: string | null;
+  toTeamId: string | null;
+  seasonId: string | null;
+  movementDate: string;
+  note: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export function coachMirrorId(): string {
+  return `ccm-lc-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+}
+
+export function buildCoachMovementMirror(input: {
+  id: string;
+  coachId: string;
+  fromTeamId: string | null;
+  toTeamId: string | null;
+  seasonId: string | null;
+  movementDate: string;
+  note: string | null;
+  nowIso: string;
+}): CoachMovementMirrorRow {
+  return {
+    id: String(input.id),
+    coachId: String(input.coachId),
+    fromTeamId: input.fromTeamId != null ? String(input.fromTeamId) : null,
+    toTeamId: input.toTeamId != null ? String(input.toTeamId) : null,
+    seasonId: input.seasonId != null ? String(input.seasonId) : null,
+    movementDate: String(input.movementDate),
+    note: input.note ?? null,
+    createdAt: String(input.nowIso),
+    updatedAt: String(input.nowIso),
+  };
+}
+
+// Idempotent insert: same (coach,from,to,date) twice (e.g. retried request
+// after a crash between COMMIT and response) mirrors once. Returns true
+// when a row was actually inserted.
+export async function insertCoachMovementMirror(client: any, row: CoachMovementMirrorRow): Promise<boolean> {
+  const dup = await client.query(
+    `SELECT 1 FROM coach_club_movements WHERE coach_id = $1 AND COALESCE(from_team_id,'') = $2 AND COALESCE(to_team_id,'') = $3 AND movement_date = $4`,
+    [row.coachId, row.fromTeamId || "", row.toTeamId || "", row.movementDate]
+  );
+  if (dup.rows.length > 0) return false;
+  await client.query(
+    `INSERT INTO coach_club_movements (id, coach_id, from_team_id, to_team_id, season_id, movement_date, note, created_at, updated_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8)`,
+    [row.id, row.coachId, row.fromTeamId, row.toTeamId, row.seasonId, row.movementDate, row.note, row.createdAt]
+  );
+  return true;
+}
+
 export function validateReason(
   db: any,
   personKind: PersonKind,
@@ -212,6 +277,10 @@ export async function recordLifecycleEvent(
 
   const nowIso = new Date().toISOString();
   const eventId = `le-${Date.now()}-${String(personId).slice(-6)}`;
+  // Holds the movement-ledger mirror row once its PG insert succeeds inside
+  // the transaction below; the memory mirror (after COMMIT) only replays
+  // committed rows so the two ledgers stay identical.
+  let mirroredCoachMovement: CoachMovementMirrorRow | null = null;
   // Sequence auto-assignment: when the caller omits it, take dayMax+1 inside
   // the transaction (wizard flows never do seq math; explicit values still
   // validated for ascending order).
@@ -308,6 +377,23 @@ export async function recordLifecycleEvent(
             );
           }
         }
+        // Mirror the departure into the movement ledger (tenure single
+        // source): without it the coach's past matches lose their holder
+        // and a future holder inherits them via the legacy fallback.
+        const depFrom = teamId || (appt.team_id != null ? String(appt.team_id) : null);
+        const depMirrorRow = buildCoachMovementMirror({
+          id: coachMirrorId(),
+          coachId: String(personId),
+          fromTeamId: depFrom,
+          toTeamId: null,
+          seasonId: input.seasonId || null,
+          movementDate: eventDate,
+          note: `lifecycle mirror: ${input.eventKind} ${eventId}`,
+          nowIso,
+        });
+        if (await insertCoachMovementMirror(client, depMirrorRow)) {
+          mirroredCoachMovement = depMirrorRow;
+        }
       } else {
         // Appointment: team required, no open appointment, no overlap, unique dugout.
         const teamId = input.teamId != null ? String(input.teamId) : null;
@@ -356,6 +442,11 @@ export async function recordLifecycleEvent(
           [apptId, personId, teamId, eventDate, status, input.reasonCode || null, eventId, nowIso]
         );
         if (!isFuture) {
+          // Capture the previous holder side BEFORE the update below: the
+          // mirror's `from` must be where the coach actually comes from
+          // (usually null = free agent).
+          const prevTeamRow = await client.query(`SELECT team_id FROM coaches WHERE id = $1`, [personId]);
+          const prevTeamIdForMirror = prevTeamRow.rows[0]?.team_id != null ? String(prevTeamRow.rows[0].team_id) : null;
           const teamName = (await client.query(`SELECT name FROM teams WHERE id = $1`, [teamId])).rows[0]?.name || null;
           await client.query(
             `UPDATE coaches SET team_id = $1, team_name = $2, is_retired = false, updated_at = now() WHERE id = $3`,
@@ -365,6 +456,22 @@ export async function recordLifecycleEvent(
             `UPDATE teams SET stats = jsonb_set(COALESCE(stats,'{}'::jsonb), '{coach}', to_jsonb($1::text)) WHERE id = $2`,
             [(db.coaches || []).find((c: any) => String(c.id) === String(personId))?.name || "", teamId]
           );
+          // Mirror the appointment into the movement ledger (tenure single
+          // source): without it a newly appointed coach inherits the whole
+          // past of the club via the legacy fallback.
+          const apptMirrorRow = buildCoachMovementMirror({
+            id: coachMirrorId(),
+            coachId: String(personId),
+            fromTeamId: prevTeamIdForMirror,
+            toTeamId: teamId,
+            seasonId: input.seasonId || null,
+            movementDate: eventDate,
+            note: `lifecycle mirror: ${input.eventKind} ${eventId}`,
+            nowIso,
+          });
+          if (await insertCoachMovementMirror(client, apptMirrorRow)) {
+            mirroredCoachMovement = apptMirrorRow;
+          }
         }
       }
     } else {
@@ -465,6 +572,16 @@ export async function recordLifecycleEvent(
       }
       // Person assignment mirror (coaches/players + denorm team strings).
       syncPersonAssignment(db, personKind, personId, input, eventDate, isFuture, isDeparture);
+      // Replay the committed movement mirror into memory so /api/data,
+      // detail payloads and the recalc see the same tenure PG has.
+      const mirroredRow = mirroredCoachMovement;
+      if (mirroredRow) {
+        if (!Array.isArray(db.coachMovements)) db.coachMovements = [];
+        if (!db.coachMovements.some((m: any) => String(m.id) === String(mirroredRow.id))) {
+          db.coachMovements.unshift({ ...mirroredRow });
+        }
+        markTablesDirty("coachMovements");
+      }
       markLifecycleDirty();
       await saveDB();
     } catch (mirrorErr: any) {
@@ -638,6 +755,26 @@ export async function swapCoaches(
       `UPDATE teams SET stats = jsonb_set(COALESCE(stats,'{}'::jsonb), '{coach}', to_jsonb($1::text)) WHERE id = $2`,
       [y.name, teamA]
     );
+    // Mirror the two appointment legs into the movement ledger (tenure
+    // single source). The same-day dismissal legs are transient states and
+    // are intentionally NOT mirrored: tenure closes the previous stint at
+    // the re-hire date (see tenureIntervals), so legs alone are exact.
+    const swapMirrorRows: CoachMovementMirrorRow[] = [
+      buildCoachMovementMirror({
+        id: coachMirrorId(), coachId: xId, fromTeamId: teamA, toTeamId: teamB,
+        seasonId: input.seasonId || null, movementDate: eventDate,
+        note: `lifecycle mirror: swap ${eidX}`, nowIso,
+      }),
+      buildCoachMovementMirror({
+        id: coachMirrorId(), coachId: yId, fromTeamId: teamB, toTeamId: teamA,
+        seasonId: input.seasonId || null, movementDate: eventDate,
+        note: `lifecycle mirror: swap ${eidY}`, nowIso,
+      }),
+    ];
+    const swapMirrored: CoachMovementMirrorRow[] = [];
+    for (const row of swapMirrorRows) {
+      if (await insertCoachMovementMirror(client, row)) swapMirrored.push(row);
+    }
     await client.query("COMMIT");
 
     // Memory mirror (same rows PG just committed).
@@ -672,6 +809,15 @@ export async function swapCoaches(
           team.stats.coach = holder;
           team.coach = holder;
         }
+      }
+      if (swapMirrored.length > 0) {
+        if (!Array.isArray(mdb.coachMovements)) mdb.coachMovements = [];
+        for (const row of swapMirrored) {
+          if (!mdb.coachMovements.some((m: any) => String(m.id) === String(row.id))) {
+            mdb.coachMovements.unshift({ ...row });
+          }
+        }
+        markTablesDirty("coachMovements");
       }
       markLifecycleDirty();
       await saveDB();
