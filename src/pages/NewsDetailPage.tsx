@@ -5,6 +5,8 @@ import { ArrowRight, Loader2, Tag, Clock } from "lucide-react";
 import { getSafeImageUrl, formatStatNumber } from "../utils";
 import { useSmartNavigate } from "../hooks/useSmartNavigate";
 import ShareButton from "../components/ui/ShareButton";
+import AdSlot, { isAdActive } from "../components/AdSlot";
+import type { AdItem } from "../types";
 
 export default function NewsDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -14,6 +16,7 @@ export default function NewsDetailPage() {
   const [error, setError] = useState(false);
   const [latestNews, setLatestNews] = useState<any[]>([]);
   const [latestLoading, setLatestLoading] = useState(true);
+  const [newsEndAd, setNewsEndAd] = useState<AdItem | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -53,6 +56,21 @@ export default function NewsDetailPage() {
     if (!id) return;
     fetch(`/api/detail/news/${id}/view`, { method: "POST" }).catch(() => {});
   }, [id]);
+
+  // End-of-article ad slot (same on every news post): highest-priority
+  // active slot ad with placement "news-end" (recommended 728x90).
+  useEffect(() => {
+    fetch("/api/ads")
+      .then(res => res.json())
+      .then((data: any) => {
+        const list = Array.isArray(data) ? data : [];
+        const hit = list
+          .filter((ad: any) => ad && ad.type === "slot" && (ad.placement || "").toLowerCase().includes("news-end") && isAdActive(ad))
+          .sort((a: any, b: any) => (b.priority || 0) - (a.priority || 0))[0];
+        setNewsEndAd(hit || null);
+      })
+      .catch(() => {});
+  }, []);
 
   const getPersianCategory = (cat: string) => {
     const map: Record<string, string> = {
@@ -181,6 +199,13 @@ export default function NewsDetailPage() {
                       {article.read_more.content2}
                     </p>
                   )}
+                </div>
+              )}
+
+              {/* End-of-article ad (all news posts) */}
+              {newsEndAd && (
+                <div className="pt-3" id="news-end-ad">
+                  <AdSlot slot={newsEndAd} />
                 </div>
               )}
             </div>
