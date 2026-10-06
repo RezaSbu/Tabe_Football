@@ -1,11 +1,13 @@
 import React, { useState } from "react";
 import { SelectedCombination, SelectedCombinationPlayer } from "../types";
 import { formatStatNumber, getSafeImageUrl } from "../utils";
+import { buildWeekRatings, resolveTotwRating } from "../shared/totwRatings";
 import { Award, Calendar, Layers, Star, Shield, HelpCircle, Trophy } from "lucide-react";
 
 interface TeamOfTheWeekWidgetProps {
   combinations: SelectedCombination[];
   allPlayers?: any[];
+  matches?: any[];
   onSelectPlayer?: (playerId: string) => void;
 }
 
@@ -26,7 +28,7 @@ function matchesTab(c: SelectedCombination, tabKey: string) {
     && (tab.group === "" || (c.group || "a") === tab.group);
 }
 
-export default function TeamOfTheWeekWidget({ combinations = [], allPlayers = [], onSelectPlayer }: TeamOfTheWeekWidgetProps) {
+export default function TeamOfTheWeekWidget({ combinations = [], allPlayers = [], matches = [], onSelectPlayer }: TeamOfTheWeekWidgetProps) {
   const [selectedLeague, setSelectedLeague] = useState<string>("pro-league");
 
   const combosForTab = (tabKey: string) => combinations.filter(
@@ -72,6 +74,13 @@ export default function TeamOfTheWeekWidget({ combinations = [], allPlayers = []
 
   const rawActivePlayers = activeCombination?.players || {};
 
+  // Real ratings from this league-week's matches (auto). Falls back to
+  // live/stored ratings only when the player has no rated lineup entry.
+  const weekRatings = React.useMemo(() => {
+    const tab = tabOf(selectedLeague);
+    return buildWeekRatings(matches, tab.leagueKey, tab.group, currentWeek);
+  }, [matches, selectedLeague, currentWeek]);
+
   const activePlayers = React.useMemo(() => {
     if (!rawActivePlayers) return {};
     const resolved: Record<string, any> = {};
@@ -87,17 +96,17 @@ export default function TeamOfTheWeekWidget({ combinations = [], allPlayers = []
           name: livePlayer.name || player.name,
           image: livePlayer.image || player.image,
           teamName: livePlayer.teamName || player.teamName,
-          rating: Number(livePlayer.rating) || Number(player.rating) || null,
+          rating: resolveTotwRating(weekRatings, player.id, livePlayer.rating, player.rating),
         };
       } else {
         resolved[posKey] = {
           ...player,
-          rating: Number(player.rating) || null,
+          rating: resolveTotwRating(weekRatings, player.id, null, player.rating),
         };
       }
     });
     return resolved;
-  }, [rawActivePlayers, allPlayers]);
+  }, [rawActivePlayers, allPlayers, weekRatings]);
 
   return (
     <div className="team-of-week-card bg-gradient-to-b from-[#0c0d12] to-[#07070a] border border-white/5 rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden select-none" dir="rtl" id="team-of-the-week-section">
@@ -353,6 +362,11 @@ export default function TeamOfTheWeekWidget({ combinations = [], allPlayers = []
                             <span className="block text-[5.5px] xs:text-[7.5px] sm:text-[8px] text-amber-500 font-black truncate max-w-[34px] xs:max-w-[48px] sm:max-w-[56px] mx-auto scale-95 leading-none">
                               {player.teamName}
                             </span>
+                            {typeof player.rating === "number" && (
+                              <span className="block text-[7px] xs:text-[8px] sm:text-[9px] font-black text-amber-300 font-mono leading-none mt-0.5">
+                                {formatStatNumber(player.rating.toFixed(1))}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
