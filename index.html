@@ -3,6 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // Desktop-style mobile (pre-paint): touch devices with narrow screens
+      // render the desktop layout at a fixed 1200px viewport, scaled down by
+      // the browser with free pinch-zoom — instead of a stacked mobile UI.
+      // Admin routes always keep device-width. No zoom limits are ever set.
+      try {
+        var applyScaledViewport = function () {
+          var tag = document.querySelector('meta[name="viewport"]');
+          if (!tag) return;
+          var narrow = Math.min(window.screen.width || 9999, window.innerWidth || 9999) < 1024;
+          var coarse = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+          var admin = /^\/admin(\/|$)/.test(window.location.pathname || "");
+          tag.setAttribute("content", (narrow && coarse && !admin)
+            ? "width=1200, initial-scale=1"
+            : "width=device-width, initial-scale=1.0");
+        };
+        applyScaledViewport();
+        var vpT;
+        var vpDebounced = function () { clearTimeout(vpT); vpT = setTimeout(applyScaledViewport, 250); };
+        window.addEventListener("orientationchange", vpDebounced);
+        window.addEventListener("resize", vpDebounced);
+      } catch (e) {}
+    </script>
     <link rel="icon" type="image/webp" href="/logo.webp" />
     <link rel="icon" type="image/png" href="/logo-512.png" />
 
