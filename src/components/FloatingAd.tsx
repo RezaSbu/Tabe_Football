@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { X, ExternalLink } from "lucide-react";
 import { AdItem } from "../types";
 import { isAdActive, trackAdView, trackAdClick } from "./AdSlot";
+import { useIsScaledMobile } from "../utils/viewport";
 
 interface FloatingAdProps {
   ad: AdItem;
@@ -9,6 +10,8 @@ interface FloatingAdProps {
 
 export default function FloatingAd({ ad }: FloatingAdProps) {
   const [dismissed, setDismissed] = useState(false);
+  // Suppressed on the scaled desktop viewport (would be tiny/off-screen).
+  const scaledMobile = useIsScaledMobile();
 
   useEffect(() => {
     if (!ad || !isAdActive(ad)) return;
@@ -18,7 +21,7 @@ export default function FloatingAd({ ad }: FloatingAdProps) {
     return () => clearTimeout(timer);
   }, [ad]);
 
-  if (!ad || !isAdActive(ad) || dismissed) return null;
+  if (!ad || !isAdActive(ad) || dismissed || scaledMobile) return null;
 
   const corner = ad.settings?.corner || "bottom-left";
   const positionClass =
