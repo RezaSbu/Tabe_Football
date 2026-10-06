@@ -18,7 +18,6 @@ import Footer from "./components/Footer";
 import { useAppData } from "./hooks/useAppData";
 import { useGoalNotifications } from "./hooks/useGoalNotifications";
 import { useSmartNavigate } from "./hooks/useSmartNavigate";
-import { applyViewport } from "./utils/viewport";
 import { GoalNotification } from "./components/GoalNotification";
 import PopupAd from "./components/PopupAd";
 import FloatingAd from "./components/FloatingAd";
@@ -302,9 +301,6 @@ export default function App() {
       d.setActiveTab(pathTab);
     }
     setInitialSyncDone(true);
-    // Re-apply the viewport rule on SPA navigation (e.g. entering/leaving
-    // /admin, which is excluded from the scaled desktop viewport).
-    applyViewport();
   }, [location.pathname]);
 
   useEffect(() => {
