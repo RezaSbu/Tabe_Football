@@ -12,7 +12,22 @@ const AD_TYPES: { value: AdItem["type"]; label: string }[] = [
   { value: "slide_in", label: "لغزنده کنار صفحه" },
 ];
 
-const PLACEMENTS = ["top", "sidebar", "feed", "campaign", "square", "general", "skyscraper", "inline"];
+const PLACEMENTS = ["top", "sidebar", "feed", "campaign", "square", "general", "skyscraper", "inline", "matchweek", "news-end"];
+
+// Persian labels + recommended creative sizes shown in the form so the
+// admin knows what to ask the advertiser for.
+export const PLACEMENT_META: Record<string, { label: string; size: string }> = {
+  top: { label: "بالا (top)", size: "پیش‌فرض 728×90" },
+  sidebar: { label: "کناری (sidebar)", size: "پیش‌فرض 300×250" },
+  feed: { label: "درون فید (feed)", size: "پیش‌فرض 336×280" },
+  campaign: { label: "کمپین (campaign)", size: "پیش‌فرض 728×90" },
+  square: { label: "مربعی (square)", size: "پیش‌فرض 336×280" },
+  general: { label: "عمومی (general)", size: "پیش‌فرض 728×90" },
+  skyscraper: { label: "آسمان‌خراش (skyscraper)", size: "پیش‌فرض 300×600" },
+  inline: { label: "درون‌متنی (inline)", size: "پیش‌فرض 336×280" },
+  matchweek: { label: "بالای ترکیب هفته — دو جایگاه کنار هم (matchweek)", size: "هر جایگاه 336×280 — دقیقاً ۲ عدد فعال بگذارید" },
+  "news-end": { label: "پایان متن خبر، همه خبرها (news-end)", size: "728×90 (در موبایل خودکار کوچک می‌شود)" },
+};
 
 const TYPE_LABEL: Record<string, string> = {
   banner: "بنر",
@@ -202,8 +217,11 @@ export default function AdsManager({ ads, onRefreshData }: AdsManagerProps) {
             <div>
               <label className="block text-[10px] text-slate-500 mb-1 font-bold">جایگاه نمایش (slot)</label>
               <select value={form.placement} onChange={e => updateField("placement", e.target.value)} className="w-full text-xs rounded-lg bg-black border border-white/5 p-2 text-white">
-                {PLACEMENTS.map(p => <option key={p} value={p}>{p}</option>)}
+                {PLACEMENTS.map(p => <option key={p} value={p}>{PLACEMENT_META[p]?.label || p}</option>)}
               </select>
+              {PLACEMENT_META[form.placement] && (
+                <p className="text-[10px] text-emerald-400/90 font-bold mt-1">ابعاد پیشنهادی خلاقیت: {PLACEMENT_META[form.placement].size}</p>
+              )}
             </div>
           </div>
 

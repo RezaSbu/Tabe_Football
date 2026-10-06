@@ -8,6 +8,7 @@ import { logMessage } from "../utils/logger";
 import { auditLog } from "../utils/audit";
 import { requirePermission } from "../middleware/auth";
 import { saveDB, markTablesDirty } from "../services/database";
+import { flushViewCountsNow } from "../services/viewTracker";
 import {
   getSystemMetrics,
   getPostgresMetrics,
@@ -322,6 +323,20 @@ export function registerDiagnosticsRoutes(app: Express) {
     } catch (e: any) {
       logMessage("warn", "database", "خطا در VACUUM", e?.message || e);
       res.status(500).json({ success: false, message: `خطا در اجرای VACUUM: ${e?.message || e}` });
+    }
+  });
+
+  // ---------- اعمال فوری بازدیدهای انباشته (ادمین) ----------
+  // شمارنده‌های نمایش هر ۳۰ دقیقه خودکار اعمال می‌شوند؛ این اندپوینت
+  // همان فلاش را دستی اجرا می‌کند (تست‌ها و دکمه مدیریتی).
+  app.post("/api/admin/views/flush", requirePermission("diagnostics"), async (req: Request, res: Response) => {
+    const user = (req as any).user;
+    auditLog({ username: user?.username || "unknown", role: user?.role, action: "views_flush", method: "POST", path: "/api/admin/views/flush", ip: getClientIp(req) });
+    try {
+      const result = await flushViewCountsNow();
+      res.json({ success: true, ...result });
+    } catch (e: any) {
+      res.status(500).json({ success: false, message: `خطا در اعمال بازدیدها: ${e?.message || e}` });
     }
   });
 

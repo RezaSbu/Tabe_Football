@@ -350,6 +350,22 @@ export default function HomePage({
         </div>
       </div>
 
+      {/* AD SLOTS above MatchWeekWidget: exactly two side-by-side placements.
+          Admin creates 2 active slot ads with placement "matchweek"
+          (recommended creative 336x280 each). */}
+      {(() => {
+        const mw = activeSlots
+          .filter((ad: AdItem) => (ad.placement || "").toLowerCase().includes("matchweek"))
+          .sort((a, b) => (b.priority || 0) - (a.priority || 0))
+          .slice(0, 2);
+        if (mw.length === 0) return null;
+        return (
+          <div className="grid gap-4 sm:grid-cols-2" id="matchweek-ads">
+            {mw.map((ad: AdItem) => <AdSlot key={ad.id} slot={ad} />)}
+          </div>
+        );
+      })()}
+
       <MatchWeekWidget
         matches={matches}
         players={players}
@@ -367,6 +383,7 @@ export default function HomePage({
         <TeamOfTheWeekWidgetLight
           combinations={selectedCombinations}
           allPlayers={players}
+          matches={matches}
           onSelectPlayer={(id: string) => {
             setSelectedPlayerId(id);
             setSelectedTeamId(null);
@@ -378,6 +395,7 @@ export default function HomePage({
         <TeamOfTheWeekWidget
           combinations={selectedCombinations}
           allPlayers={players}
+          matches={matches}
           onSelectPlayer={(id: string) => {
             setSelectedPlayerId(id);
             setSelectedTeamId(null);
