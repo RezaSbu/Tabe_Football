@@ -43,8 +43,10 @@ export default function MatchWeekWidget({
   const [week, setWeek] = useState<string | null>(null);
   const [matchId, setMatchId] = useState<string | null>(null);
 
+  // Only finished matches are selectable: no upcoming/live games, so the
+  // week list never offers unplayed weeks (e.g. no week 8/9 before played).
   const leagueMatches = useMemo(
-    () => (matches || []).filter(m => matchInTab(m, leagueTab, teams)),
+    () => (matches || []).filter(m => matchInTab(m, leagueTab, teams) && m.status === "finished"),
     [matches, leagueTab, teams]
   );
 
@@ -69,7 +71,19 @@ export default function MatchWeekWidget({
       .sort((a, b) => String(a.date || "").localeCompare(String(b.date || "")) || String(a.time || "").localeCompare(String(b.time || "")));
   }, [leagueMatches, activeWeek]);
 
-  const activeMatch = weekMatches.find(m => String(m.id) === String(matchId)) || null;
+  // Default selection: the latest finished match of the active week
+  // (preferring one with a registered lineup) so the pitch is never
+  // empty on first paint. An explicit user pick always wins.
+  const defaultMatchId = useMemo(() => {
+    if (weekMatches.length === 0) return null;
+    const withXI = weekMatches.filter(m => (m.lineups?.home || []).length > 0 || (m.lineups?.away || []).length > 0);
+    const pick = withXI.length > 0 ? withXI[withXI.length - 1] : weekMatches[weekMatches.length - 1];
+    return String(pick.id);
+  }, [weekMatches]);
+
+  const effectiveMatchId = matchId && weekMatches.some(m => String(m.id) === String(matchId)) ? matchId : defaultMatchId;
+
+  const activeMatch = weekMatches.find(m => String(m.id) === String(effectiveMatchId)) || null;
   const pitch = useMemo(
     () => (activeMatch ? enrichMatchForPitch(activeMatch, players, coaches) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -168,7 +182,7 @@ export default function MatchWeekWidget({
             {weekMatches.length > 0 ? (
               <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
                 {weekMatches.map(m => {
-                  const active = String(m.id) === String(matchId);
+                  const active = String(m.id) === String(effectiveMatchId);
                   const hasXI = (m.lineups?.home || []).length > 0 || (m.lineups?.away || []).length > 0;
                   return (
                     <button
