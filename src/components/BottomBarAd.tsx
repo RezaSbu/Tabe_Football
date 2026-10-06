@@ -2,7 +2,6 @@ import React, { useEffect, useState } from "react";
 import { X, ExternalLink } from "lucide-react";
 import { AdItem } from "../types";
 import { isAdActive, trackAdView, trackAdClick } from "./AdSlot";
-import { useIsScaledMobile } from "../utils/viewport";
 
 interface BottomBarAdProps {
   ad: AdItem;
@@ -13,8 +12,6 @@ const STORAGE_KEY = "bottombar_ad_dismissed";
 export default function BottomBarAd({ ad }: BottomBarAdProps) {
   const [dismissed, setDismissed] = useState(false);
   const [mounted, setMounted] = useState(false);
-  // Suppressed on the scaled desktop viewport (would be tiny/off-screen).
-  const scaledMobile = useIsScaledMobile();
 
   useEffect(() => {
     const t = setTimeout(() => setMounted(true), 1000);
@@ -27,7 +24,7 @@ export default function BottomBarAd({ ad }: BottomBarAdProps) {
     trackAdView(ad.id);
   }, [ad, mounted, dismissed]);
 
-  if (!ad || !isAdActive(ad) || !mounted || dismissed || scaledMobile) return null;
+  if (!ad || !isAdActive(ad) || !mounted || dismissed) return null;
 
   const handleDismiss = () => {
     sessionStorage.setItem(STORAGE_KEY, "true");

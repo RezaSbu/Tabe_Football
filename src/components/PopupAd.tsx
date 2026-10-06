@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { X, ExternalLink } from "lucide-react";
 import { AdItem } from "../types";
 import { isAdActive, trackAdView, trackAdClick } from "./AdSlot";
-import { useIsScaledMobile } from "../utils/viewport";
 
 interface PopupAdProps {
   ad: AdItem;
@@ -12,8 +11,6 @@ const STORAGE_KEY = "popup_ad_closed";
 
 export default function PopupAd({ ad }: PopupAdProps) {
   const [visible, setVisible] = useState(false);
-  // Suppressed on the scaled desktop viewport (would be tiny/off-screen).
-  const scaledMobile = useIsScaledMobile();
 
   useEffect(() => {
     if (!ad || !isAdActive(ad)) return;
@@ -29,7 +26,7 @@ export default function PopupAd({ ad }: PopupAdProps) {
     setVisible(false);
   };
 
-  if (!ad || !isAdActive(ad) || !visible || scaledMobile) return null;
+  if (!ad || !isAdActive(ad) || !visible) return null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" dir="rtl">
