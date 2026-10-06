@@ -1,6 +1,6 @@
 import express, { Express, Request, Response } from "express";
 import { loadDB } from "../state";
-import { markViewDirty, VIEW_BOT_RE } from "../services/viewTracker";
+import { recordView, VIEW_BOT_RE } from "../services/viewTracker";
 import { normalizePersianString } from "../utils/persian";
 import {
   buildPlayerIdentityIndex,
@@ -13,7 +13,6 @@ import {
   tagMentionsBothTeams,
   normTag,
 } from "../../shared/newsRelated";
-import { VIEW_MULTIPLIER } from "../config";
 
 export function registerDetailRoutes(app: Express) {
   // Phase 5: slim season/history embeds for profile pages. All reads come
@@ -84,13 +83,13 @@ export function registerDetailRoutes(app: Express) {
     }
 
     if (item) {
-      item.viewCount = (item.viewCount || 0) + VIEW_MULTIPLIER;
       const viewTableMap: Record<string, any> = {
         news: "news", team: "teams", player: "players", match: "matches",
         coach: "coaches", legionnaire: "legionnaires", transfer: "transfers", image: "images",
       };
-      markViewDirty(viewTableMap[type] || "news");
-      return res.json({ success: true, viewCount: item.viewCount });
+      const table = viewTableMap[type] || "news";
+      recordView(table, item.id);
+      return res.json({ success: true, queued: true, viewCount: item.viewCount });
     }
     return res.status(404).json({ success: false, message: "یافت نشد." });
   });

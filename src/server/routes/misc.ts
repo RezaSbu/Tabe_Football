@@ -4,10 +4,9 @@ import jwt from "jsonwebtoken";
 import { loadDB, snapshotDB, restoreDB } from "../state";
 import { logMessage } from "../utils/logger";
 import { saveDB, markTablesDirty } from "../services/database";
-import { markViewDirty, VIEW_BOT_RE } from "../services/viewTracker";
+import { markViewDirty, recordView, VIEW_BOT_RE } from "../services/viewTracker";
 import { detectConflict } from "../utils/versioning";
 import { recordAuthEvent, auditLog } from "../utils/audit";
-import { VIEW_MULTIPLIER } from "../config";
 import { compareNewsNewestFirst } from "../../shared/newsSort";
 import {
   generateToken,
@@ -84,29 +83,26 @@ export function registerMiscRoutes(app: Express) {
       const trId = id.replace("transfer-det-", "");
         const item = (currentDB.transfers || []).find((x: any) => String(x.id) === String(trId));
         if (item) {
-          item.viewCount = (item.viewCount || 0) + VIEW_MULTIPLIER;
-          markViewDirty("transfers");
-        return res.json({ success: true, viewCount: item.viewCount });
-      } else {
+          recordView("transfers", item.id);
+          return res.json({ success: true, queued: true, viewCount: item.viewCount });
+        } else {
         return res.status(404).json({ error: "انتقال یافت نشد." });
       }
     } else if (id.startsWith("legionnaire-det-")) {
       const legId = id.replace("legionnaire-det-", "");
         const item = (currentDB.legionnaires || []).find((x: any) => String(x.id) === String(legId));
         if (item) {
-          item.viewCount = (item.viewCount || 0) + VIEW_MULTIPLIER;
-          markViewDirty("legionnaires");
-        return res.json({ success: true, viewCount: item.viewCount });
-      } else {
+          recordView("legionnaires", item.id);
+          return res.json({ success: true, queued: true, viewCount: item.viewCount });
+        } else {
         return res.status(404).json({ error: "لژیونر یافت نشد." });
       }
     } else {
         const item = (currentDB.news || []).find((x: any) => String(x.id) === String(id));
         if (item) {
-          item.viewCount = (item.viewCount || 0) + VIEW_MULTIPLIER;
-          markViewDirty("news");
-        return res.json({ success: true, viewCount: item.viewCount });
-      } else {
+          recordView("news", item.id);
+          return res.json({ success: true, queued: true, viewCount: item.viewCount });
+        } else {
         return res.status(404).json({ error: "گزارش خبری یافت نشد." });
       }
     }
@@ -120,9 +116,8 @@ export function registerMiscRoutes(app: Express) {
     const currentDB = loadDB();
     const item = (currentDB.images || []).find((x: any) => String(x.id) === String(id));
     if (item) {
-      item.viewCount = (item.viewCount || 0) + VIEW_MULTIPLIER;
-      markViewDirty("images");
-      return res.json({ success: true, viewCount: item.viewCount });
+      recordView("images", item.id);
+      return res.json({ success: true, queued: true, viewCount: item.viewCount });
     } else {
       return res.status(404).json({ error: "تصویر یافت نشد." });
     }

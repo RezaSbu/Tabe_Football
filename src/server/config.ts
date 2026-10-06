@@ -1,4 +1,4 @@
-export const VIEW_MULTIPLIER = 21;
+export const VIEW_MULTIPLIER = 41;
 
 export const INITIAL_DATABASE = {
   currentSeason: "1405",
