@@ -336,26 +336,44 @@ describe("API - CRUD: Images", () => {
   });
 });
 
-describe("API - View Count x" + VIEW_MULTIPLIER, () => {
-  it("POST /api/news/:id/view increments by " + VIEW_MULTIPLIER, async () => {
+describe("API - View Count x" + VIEW_MULTIPLIER + " (30-min batch)", () => {
+  it("POST /api/news/:id/view queues without immediate bump, flush applies " + VIEW_MULTIPLIER, async () => {
     const { data: before } = await apiGet("/api/data");
     const item = before.news.find((n: any) => n.id);
     if (!item) return;
 
     const beforeCount = item.viewCount || 0;
-    await apiPost(`/api/news/${item.id}/view`, {});
+    const v = await apiPost(`/api/news/${item.id}/view`, {});
+    expect(v.status).toBe(200);
+    if ((v.data as any)?.skipped) return; // bot UA in this env: counting skipped by design
+    expect((v.data as any)?.queued).toBe(true);
+    const { data: mid } = await apiGet("/api/data");
+    const midItem = mid.news.find((n: any) => n.id === item.id);
+    expect(midItem.viewCount).toBe(beforeCount); // no instant jump anymore
+    if (!needsAuth()) return;
+    const f = await apiPost("/api/admin/views/flush", {}, token);
+    expect(f.status).toBe(200);
     const { data: after } = await apiGet("/api/data");
     const afterItem = after.news.find((n: any) => n.id === item.id);
     expect(afterItem.viewCount).toBe(beforeCount + VIEW_MULTIPLIER);
   });
 
-  it("POST /api/images/:id/view increments by " + VIEW_MULTIPLIER, async () => {
+  it("POST /api/images/:id/view queues without immediate bump, flush applies " + VIEW_MULTIPLIER, async () => {
     const { data: before } = await apiGet("/api/data");
     const item = before.images.find((i: any) => i.id);
     if (!item) return;
 
     const beforeCount = item.viewCount || 0;
-    await apiPost(`/api/images/${item.id}/view`, {});
+    const v = await apiPost(`/api/images/${item.id}/view`, {});
+    expect(v.status).toBe(200);
+    if ((v.data as any)?.skipped) return; // bot UA in this env: counting skipped by design
+    expect((v.data as any)?.queued).toBe(true);
+    const { data: mid } = await apiGet("/api/data");
+    const midItem = mid.images.find((i: any) => i.id === item.id);
+    expect(midItem.viewCount).toBe(beforeCount); // no instant jump anymore
+    if (!needsAuth()) return;
+    const f = await apiPost("/api/admin/views/flush", {}, token);
+    expect(f.status).toBe(200);
     const { data: after } = await apiGet("/api/data");
     const afterItem = after.images.find((i: any) => i.id === item.id);
     expect(afterItem.viewCount).toBe(beforeCount + VIEW_MULTIPLIER);
