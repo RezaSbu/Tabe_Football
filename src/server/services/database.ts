@@ -553,6 +553,7 @@ export async function migrateCoachMatchColumns(): Promise<void> {
 }
 
 export async function migrateMatchGroupColumn(): Promise<void> {
+
   // League-2 group split (الف/ب) per match. Additive nullable column;
   // backfill is deliberately NULL (ungrouped = legacy behavior everywhere).
   // Runs once via guard.
@@ -572,6 +573,25 @@ export async function migrateMatchGroupColumn(): Promise<void> {
     logMessage("info", "database", "مهاجرت یکبار اجرا: ستون group_key به matches اضافه شد.");
   } catch (err: any) {
     logMessage("warn", "database", "خطا در مهاجرت match_group_column_v1:", err.message || err);
+  }
+}
+
+export async function migrateMatchMvpColumn(): Promise<void> {
+  // Match MVP (best player picked in the admin live console). The UI only
+  // ever held it in memory (match.mvpId), so every saveDB dropped it and
+  // pgAdmin showed nothing. Additive nullable column; backfill stays NULL.
+  // Runs once via guard.
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, applied_at TIMESTAMPTZ DEFAULT NOW())`);
+    const { rows } = await pool.query(`SELECT 1 FROM schema_migrations WHERE name = 'match_mvp_column_v1'`);
+    if (rows.length > 0) return;
+    await pool.query(`ALTER TABLE public.matches ADD COLUMN IF NOT EXISTS mvp_id varchar(50)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_matches_mvp ON public.matches(mvp_id)`);
+    await pool.query(`INSERT INTO schema_migrations (name) VALUES ('match_mvp_column_v1')`);
+    logMessage("info", "database", "مهاجرت یکبار اجرا: ستون mvp_id به matches اضافه شد.");
+  } catch (err: any) {
+    logMessage("warn", "database", "خطا در مهاجرت match_mvp_column_v1:", err.message || err);
   }
 }
 
@@ -1338,6 +1358,7 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
           seasonId: m.season_id || null,
           coachHomeId: m.coach_home_id || null,
           coachAwayId: m.coach_away_id || null,
+          mvpId: m.mvp_id || null,
           tag: m.tag,
           isAutoFinished: m.is_auto_finished || false,
           lineups: m.lineups,
@@ -1830,6 +1851,7 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
           team_away_id: m.teamAwayId && teamIdSet.has(m.teamAwayId) ? m.teamAwayId : null,
           coach_home_id: m.coachHomeId && coachIdSet.has(String(m.coachHomeId)) ? String(m.coachHomeId) : null,
           coach_away_id: m.coachAwayId && coachIdSet.has(String(m.coachAwayId)) ? String(m.coachAwayId) : null,
+          mvp_id: m.mvpId != null && String(m.mvpId).trim() !== "" ? String(m.mvpId) : null,
           team_home_logo: m.teamHomeLogo,
           team_away_logo: m.teamAwayLogo,
           score_home: m.scoreHome || 0,

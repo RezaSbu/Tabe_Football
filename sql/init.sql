@@ -191,6 +191,7 @@ CREATE TABLE public.matches (
   season_id varchar(50),
   coach_home_id varchar(50),
   coach_away_id varchar(50),
+  mvp_id varchar(50),
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now(),
   CONSTRAINT matches_pkey PRIMARY KEY (id),
