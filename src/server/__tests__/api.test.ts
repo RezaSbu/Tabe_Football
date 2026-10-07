@@ -165,6 +165,17 @@ describe("API - CRUD: Teams", () => {
     const { status } = await apiDelete(`/api/teams/${createdId}`, token);
     expect(status).toBe(200);
   });
+
+  it("POST /api/teams rejects normalized duplicate names", async () => {
+    if (!needsAuth()) return;
+    const first = await apiPost("/api/teams", { name: "TEST_TEAM_DUP" }, token);
+    expect(first.status).toBe(200);
+    const second = await apiPost("/api/teams", { name: "  TEST_TEAM_DUP " }, token);
+    expect(second.status).toBe(409);
+    const { data: allData } = await apiGet("/api/data");
+    const found = allData.teams.find((t: any) => t.name === "TEST_TEAM_DUP");
+    if (found) await apiDelete(`/api/teams/${found.id}`, token);
+  });
 });
 
 describe("API - CRUD: Players", () => {
@@ -172,13 +183,20 @@ describe("API - CRUD: Players", () => {
 
   it("POST /api/players creates player", async () => {
     if (!needsAuth()) return;
-    const { status } = await apiPost("/api/players", { name: "TEST_PLAYER", position: "FW", teamName: "t", rating: 8.0, averageRating: 8.0, seasonStats: {} }, token);
+    const { status } = await apiPost("/api/players", { name: "TEST_PLAYER", position: "FW", rating: 8.0, averageRating: 8.0, seasonStats: {} }, token);
     expect(status).toBe(200);
 
     const { data: allData } = await apiGet("/api/data");
     const found = allData.players.find((p: any) => p.name === "TEST_PLAYER");
     expect(found).toBeDefined();
     createdId = found.id;
+  });
+
+  it("POST /api/players rejects free-text teamName without teamId", async () => {
+    if (!needsAuth()) return;
+    const { status, data } = await apiPost("/api/players", { name: "TEST_PLAYER_TYPO", position: "FW", teamName: "تیم خیالی", seasonStats: {} }, token);
+    expect(status).toBe(400);
+    expect(data.success).toBe(false);
   });
 
   it("PUT /api/players/:id updates player", async () => {
