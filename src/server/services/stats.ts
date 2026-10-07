@@ -1272,6 +1272,7 @@ export function recalculateAndSyncDatabase(): void {
       .sort((a: any, b: any) => b.goals - a.goals)
       .map((item: any, idx: number) => ({
         rank: idx + 1,
+        id: item.p.id,
         name: item.p.name,
         team: item.p.teamName,
         goals: item.goals,
@@ -1287,6 +1288,7 @@ export function recalculateAndSyncDatabase(): void {
       .sort((a: any, b: any) => b.assists - a.assists)
       .map((item: any, idx: number) => ({
         rank: idx + 1,
+        id: item.p.id,
         name: item.p.name,
         team: item.p.teamName,
         assists: item.assists
@@ -1301,6 +1303,7 @@ export function recalculateAndSyncDatabase(): void {
       .sort((a: any, b: any) => b.cleanSheets - a.cleanSheets)
       .map((item: any, idx: number) => ({
         rank: idx + 1,
+        id: item.p.id,
         name: item.p.name,
         team: item.p.teamName,
         cleanSheets: item.cleanSheets
@@ -1319,6 +1322,7 @@ export function recalculateAndSyncDatabase(): void {
       .sort((a: any, b: any) => b.rating - a.rating)
       .map((item: any, idx: number) => ({
         rank: idx + 1,
+        id: item.p.id,
         name: item.p.name,
         team: item.p.teamName,
         rating: item.rating,

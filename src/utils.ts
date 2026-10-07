@@ -472,24 +472,34 @@ export function computeDynamicAppletStats(
         cleanSheets: item.cleanSheets
       }));
 
-    const ratings = [...eligiblePlayers]
-      .map((p: any) => {
-        const rating = leagueKey === "hazfi-cup" 
-          ? (p.cupStats?.averageRating ?? p.averageRating ?? null) 
-          : (p.leagueStats?.averageRating ?? p.averageRating ?? null);
-        return { p, rating };
-      })
-      .filter((item: any) => item.rating > 0)
-      .sort((a, b) => b.rating - a.rating)
-      .map((item: any, idx) => ({
-        rank: idx + 1,
-        id: item.p.id,
-        name: item.p.name,
-        team: item.p.teamName,
-        rating: item.rating
-      }));
+    // Single source of truth for the ratings rank: the server leaderboard
+    // (min-5-rated-games rule applied there). The homepage widget renders the
+    // very same array, so the two surfaces can never disagree.
+    const serverRatings = (persistedStats && persistedStats[leagueKey] && Array.isArray(persistedStats[leagueKey].ratings))
+      ? persistedStats[leagueKey].ratings
+      : null;
 
-    if (scorers.length > 0 || assists.length > 0 || cleansheets.length > 0) {
+    const ratings = serverRatings && serverRatings.length > 0
+      ? serverRatings.map((r: any, idx: number) => ({ ...r, rank: idx + 1 }))
+      : [...eligiblePlayers]
+          .map((p: any) => {
+            const rating = (p.leagueStats?.averageRating ?? p.averageRating ?? null);
+            return { p, rating };
+          })
+          .filter((item: any) => item.rating > 0)
+          .sort((a, b) => b.rating - a.rating)
+          .map((item: any, idx) => ({
+            rank: idx + 1,
+            id: item.p.id,
+            name: item.p.name,
+            team: item.p.teamName,
+            rating: item.rating
+          }));
+
+    // Ratings may be the ONLY populated leaderboard (e.g. a season with no
+    // goals/assists/cleansheets yet): include them in the availability gate
+    // so a server-sourced (min-5) ratings array is never dropped.
+    if (scorers.length > 0 || assists.length > 0 || cleansheets.length > 0 || ratings.length > 0) {
       statsObj = { scorers, assists, cleansheets, ratings };
     } else if (persistedStats && persistedStats[leagueKey]) {
       // Deep clone to safely manipulate it without changing the reference
