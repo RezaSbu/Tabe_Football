@@ -9,6 +9,68 @@ import { requirePermission } from "../middleware/auth";
 import { detectConflict } from "../utils/versioning";
 import { auditLog } from "../utils/audit";
 import { stripServerManaged } from "../utils/fields";
+import { normalizePersianString } from "../utils/persian";
+
+// Labels that mean "no club" in UIs. A free-text teamName carrying one of
+// these with an empty teamId is legal (free agent); any other free-text
+// teamName without teamId is how unlinkable rows are born (typos land in
+// team_name with team_id NULL) and is rejected at creation.
+export const FREE_AGENT_LABELS = ["", "بازیکن آزاد", "مربی آزاد", "بدون باشگاه", "بدون تیم", "آزاد"];
+
+// Pure: creation-time team reference check (no DB). Returns ok:false when a
+// non-empty, non-free-agent teamName arrives without a teamId.
+export function validateCreateTeamRef(
+  teamId: unknown,
+  teamName: unknown
+): { ok: true } | { ok: false; message: string } {
+  const tid = teamId != null ? String(teamId).trim() : "";
+  const tname = teamName != null ? String(teamName).trim() : "";
+  if (tid === "" && tname !== "" && !FREE_AGENT_LABELS.includes(tname)) {
+    return { ok: false, message: "تیم را از لیست انتخاب کنید؛ ثبت متنی نام تیم مجاز نیست." };
+  }
+  return { ok: true };
+}
+
+// Pure: normalized duplicate-team lookup scoped by sport prefix
+// (football `team-*` vs futsal `futsal-*` same-name clubs stay legal).
+export function findDuplicateTeam(teams: any[], name: unknown, prefix: string): any | null {
+  const norm = normalizePersianString(String(name || ""));
+  if (!norm) return null;
+  return (
+    (teams || []).find(
+      (t: any) =>
+        normalizePersianString(t?.name || "") === norm &&
+        (String(t?.id || "").startsWith("futsal") ? "futsal" : "team") === prefix
+    ) || null
+  );
+}
+
+// Pure: reference counts blocking a team delete (deleting with refs would
+// manufacture team_id=NULL orphans via ON DELETE SET NULL everywhere).
+export function countTeamRefs(db: any, teamId: string): Record<string, number> {
+  const tid = String(teamId);
+  const eq = (v: any) => String(v || "") === tid && tid !== "";
+  // Legacy rows often carry only the team NAME (pre-id era, incl. spacing
+  // variants): match those too so a delete can't orphan them silently.
+  const teamName = normalizePersianString(
+    (db?.teams || []).find((t: any) => String(t?.id) === tid)?.name || ""
+  );
+  const nameEq = (v: any) =>
+    teamName !== "" && normalizePersianString(String(v || "")) === teamName;
+  const inList = (list: any[], fns: ((x: any) => boolean)[]) =>
+    (list || []).filter((x: any) => fns.some((f) => f(x))).length;
+  return {
+    players: inList(db?.players, [(p) => eq(p.teamId)]),
+    coaches: inList(db?.coaches, [(c) => eq(c.teamId)]),
+    matches: inList(db?.matches, [
+      (m) => eq(m.teamHomeId) || eq(m.teamAwayId) || nameEq(m.teamHome) || nameEq(m.teamAway),
+    ]),
+    movements: inList(db?.playerMovements, [(m) => eq(m.fromTeamId) || eq(m.toTeamId)]) +
+      inList(db?.coachMovements, [(m) => eq(m.fromTeamId) || eq(m.toTeamId)]),
+    lifecycle: inList(db?.lifecycleEvents, [(e) => eq(e.teamId)]) +
+      inList(db?.coachAppointments, [(a) => eq(a.teamId)]),
+  };
+}
 
 export function registerTeamRoutes(app: Express) {
   app.post("/api/teams", requirePermission("teams"), async (req: Request, res: Response) => {
@@ -19,6 +81,19 @@ export function registerTeamRoutes(app: Express) {
       ...cleanBody,
       id: `${idPrefix}-${Date.now()}`
     };
+
+    // Enforcement: normalized duplicate names (extra spaces, ي/ك variants)
+    // used to create ghost teams (e.g. a typo alongside the real club).
+    {
+      const dup = findDuplicateTeam(currentDB.teams || [], item.name, idPrefix);
+      if (dup) {
+        return res.status(409).json({
+          success: false,
+          message: `تیمی با همین نام از قبل وجود دارد (${dup.name}).`,
+          existingId: dup.id,
+        });
+      }
+    }
 
     const enteredPlayed = parseInt(item.stats?.played) || 0;
     const enteredWon = parseInt(item.stats?.won) || 0;
@@ -194,6 +269,18 @@ export function registerTeamRoutes(app: Express) {
 
   app.delete("/api/teams/:id", requirePermission("teams"), async (req: Request, res: Response) => {
     const currentDB = loadDB();
+    // Enforcement: deleting a referenced team manufactures team_id=NULL
+    // orphans (ON DELETE SET NULL keeps the name strings). Release/move
+    // the references first, or merge into the canonical team.
+    const refs = countTeamRefs(currentDB, req.params.id);
+    const total = Object.values(refs).reduce((a: number, b: number) => a + b, 0);
+    if (total > 0) {
+      return res.status(409).json({
+        success: false,
+        message: `این تیم ${total} رکورد وابسته دارد و قابل حذف نیست؛ اول آن‌ها را منتقل/آزاد کنید.`,
+        refs,
+      });
+    }
     currentDB.teams = currentDB.teams.filter((t: any) => t.id !== req.params.id);
     markTablesDirty("teams");
     await saveDB();
@@ -208,6 +295,16 @@ export function registerTeamRoutes(app: Express) {
       ...cleanBody,
       id: `player-${Date.now()}`
     };
+
+    // Enforcement: a free-text teamName without teamId is how unlinkable
+    // rows are born. Free-agent labels stay legal; anything else must come
+    // from the team dropdown (teamId, validated below with 404).
+    {
+      const check = validateCreateTeamRef(item.teamId, item.teamName);
+      if (!check.ok) {
+        return res.status(400).json({ success: false, message: check.message });
+      }
+    }
 
     const enteredMatches = parseInt(item.seasonStats?.matches) || 0;
     const enteredGoals = parseInt(item.seasonStats?.goals) || 0;
@@ -393,6 +490,14 @@ export function registerTeamRoutes(app: Express) {
       ...cleanBody,
       id: `coach-${Date.now()}`
     };
+
+    // Enforcement: same unlinkable-row guard as players (see above).
+    {
+      const check = validateCreateTeamRef(item.teamId, item.teamName);
+      if (!check.ok) {
+        return res.status(400).json({ success: false, message: check.message });
+      }
+    }
 
     const enteredMatches = parseInt(item.seasonStats?.matches) || 0;
     const enteredWins = parseInt(item.seasonStats?.wins) || 0;

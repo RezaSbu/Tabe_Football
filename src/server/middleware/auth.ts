@@ -252,6 +252,27 @@ export function requirePermission(permission: string) {
   };
 }
 
+// Owner-only gate (tabe_admin): seasons management and club transfers.
+// Role "owner" is exactly the ADMIN_USERNAME account; the username check
+// keeps the gate correct even if role labels ever change.
+export function requireOwner() {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const token = extractToken(req);
+    if (!token) {
+      return res.status(401).json({ error: "احراز هویت انجام نشده است." });
+    }
+    const decoded = verifyToken(token);
+    if (!decoded) {
+      return res.status(401).json({ error: "توکن نامعتبر یا منقضی شده است." });
+    }
+    if (decoded.role !== "owner" && decoded.username !== "tabe_admin") {
+      return res.status(403).json({ error: "این بخش فقط برای مدیر اصلی (tabe_admin) باز است." });
+    }
+    (req as any).user = { username: decoded.username, role: decoded.role };
+    next();
+  };
+}
+
 export function centralAuthGuard(req: express.Request, res: express.Response, next: express.NextFunction) {
   if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") return next();
   const p = req.originalUrl.split("?")[0];

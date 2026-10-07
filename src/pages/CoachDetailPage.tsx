@@ -13,6 +13,7 @@ export default function CoachDetailPage() {
   const [allMatches, setAllMatches] = useState<any[]>([]);
   const [allTeams, setAllTeams] = useState<any[]>([]);
   const [news, setNews] = useState<any[]>([]);
+  const [allAppointments, setAllAppointments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
@@ -41,6 +42,7 @@ export default function CoachDetailPage() {
           setAllMatches(d.matches || []);
           setAllTeams(d.teams || []);
           setNews(d.news || []);
+          setAllAppointments(d.coachAppointments || []);
         }
       })
       .catch(() => {});
@@ -94,6 +96,7 @@ export default function CoachDetailPage() {
         coach={coach}
         allMatches={allMatches}
         allTeams={allTeams}
+        allAppointments={allAppointments}
         news={news}
         onBack={() => navigate(-1)}
         onSelectTeam={(teamName: string) => navigate("/")}

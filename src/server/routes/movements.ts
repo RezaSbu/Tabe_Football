@@ -3,7 +3,7 @@ import { loadDB } from "../state";
 import { logMessage } from "../utils/logger";
 import { auditLog } from "../utils/audit";
 import { saveDB, markTablesDirty } from "../services/database";
-import { requirePermission } from "../middleware/auth";
+import { requirePermission, requireOwner } from "../middleware/auth";
 import { pool } from "../db";
 
 // Real club-movement ledger. Transfer News (`transfers`, /api/transfers) is a
@@ -261,7 +261,7 @@ export function registerMovementRoutes(app: Express) {
   // Atomic head-coach swap X(A) <-> Y(B): two ledger rows + both assignments
   // in ONE transaction. The only safe way to exchange occupied dugouts
   // (sequential single moves would 409 on the occupied side).
-  app.post("/api/coach-movements/swap", requirePermission("coaches"), async (req: Request, res: Response) => {
+  app.post("/api/coach-movements/swap", requireOwner(), async (req: Request, res: Response) => {
     const body = req.body || {};
     const xId = String(body.coachIdX || "").trim();
     const yId = String(body.coachIdY || "").trim();
@@ -370,12 +370,12 @@ export function registerMovementRoutes(app: Express) {
     return res.json({ success: true });
   });
 
-  app.post("/api/player-movements", requirePermission("players"), async (req: Request, res: Response) => {
+  app.post("/api/player-movements", requireOwner(), async (req: Request, res: Response) => {
     const result = await createMovement("player", req.body || {}, (req as any).user);
     res.status(result.status).json(result.payload);
   });
 
-  app.post("/api/coach-movements", requirePermission("coaches"), async (req: Request, res: Response) => {
+  app.post("/api/coach-movements", requireOwner(), async (req: Request, res: Response) => {
     const result = await createMovement("coach", req.body || {}, (req as any).user);
     res.status(result.status).json(result.payload);
   });

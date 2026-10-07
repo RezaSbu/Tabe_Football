@@ -12,6 +12,7 @@ interface CoachDetailProps {
   coach: any;
   allMatches?: any[];
   allTeams?: any[];
+  allAppointments?: any[];
   news?: any[];
   onBack: () => void;
   onSelectTeam?: (name: string) => void;
@@ -23,6 +24,7 @@ export default function CoachDetail({
   coach,
   allMatches = [],
   allTeams = [],
+  allAppointments = [],
   news = [],
   onBack,
   onSelectTeam,
@@ -94,6 +96,16 @@ export default function CoachDetail({
     toTeamId: m.toTeamId != null ? String(m.toTeamId) : null,
     movementDate: m.movementDate || null,
   }));
+  // Same appointment-aware tenure the server recalc uses: where dated
+  // appointment rows exist for a team they govern (so the list can never
+  // disagree with the stored summary); otherwise movement legacy applies.
+  const tenureAppointments = (allAppointments || []).map((a: any) => ({
+    coachId: a.coachId != null ? String(a.coachId) : null,
+    teamId: a.teamId != null ? String(a.teamId) : null,
+    startDate: a.startDate || null,
+    endDate: a.endDate || null,
+    status: a.status || null,
+  }));
   const teamIdOf = (id: any, name: any): string | null => {
     if (id != null && String(id).trim() !== "") return String(id);
     if (!name) return null;
@@ -108,8 +120,8 @@ export default function CoachDetail({
     if (!isHome && !isAway) {
       const homeTid = teamIdOf(match.teamHomeId, match.teamHome);
       const awayTid = teamIdOf(match.teamAwayId, match.teamAway);
-      isHome = !!homeTid && coachOfTeamAt(homeTid, match.date, tenureCoaches, tenureMovements) === String(coach.id);
-      isAway = !isHome && !!awayTid && coachOfTeamAt(awayTid, match.date, tenureCoaches, tenureMovements) === String(coach.id);
+      isHome = !!homeTid && coachOfTeamAt(homeTid, match.date, tenureCoaches, tenureMovements, tenureAppointments) === String(coach.id);
+      isAway = !isHome && !!awayTid && coachOfTeamAt(awayTid, match.date, tenureCoaches, tenureMovements, tenureAppointments) === String(coach.id);
     }
     if (!isHome && !isAway) return;
 

@@ -31,13 +31,15 @@ interface MatchWeekWidgetProps {
   players: any[];
   coaches: any[];
   teams: any[];
+  movements?: any[];
+  appointments?: any[];
   onSelectPlayer: (id: string) => void;
   onSelectCoach: (id: string) => void;
   onOpenMatch: (id: string) => void;
 }
 
 export default function MatchWeekWidget({
-  matches, players, coaches, teams, onSelectPlayer, onSelectCoach, onOpenMatch,
+  matches, players, coaches, teams, movements = [], appointments = [], onSelectPlayer, onSelectCoach, onOpenMatch,
 }: MatchWeekWidgetProps) {
   const [leagueTab, setLeagueTab] = useState<WeekLeagueTab>("pro-league");
   const [week, setWeek] = useState<string | null>(null);
@@ -85,9 +87,9 @@ export default function MatchWeekWidget({
 
   const activeMatch = weekMatches.find(m => String(m.id) === String(effectiveMatchId)) || null;
   const pitch = useMemo(
-    () => (activeMatch ? enrichMatchForPitch(activeMatch, players, coaches) : null),
+    () => (activeMatch ? enrichMatchForPitch(activeMatch, players, coaches, { movements, appointments, teams }) : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeMatch?.id, activeMatch?.lineups, activeMatch?.events, activeMatch?.mvpId, players, coaches]
+    [activeMatch?.id, activeMatch?.lineups, activeMatch?.events, activeMatch?.mvpId, players, coaches, movements, appointments, teams]
   );
   const hasLineups = !!activeMatch && (
     (activeMatch.lineups?.home || []).length > 0 || (activeMatch.lineups?.away || []).length > 0
