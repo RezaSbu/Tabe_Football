@@ -200,8 +200,14 @@ export default function MatchWeekWidget({
                     >
                       <span className="flex items-center justify-between gap-2 text-xs font-black text-white">
                         <span className="truncate">{m.teamHome}</span>
-                        <span className="font-mono text-[11px] text-emerald-300 shrink-0" dir="ltr">
-                          {m.status === "not-started" ? "vs" : `${m.scoreHome ?? 0}-${m.scoreAway ?? 0}`}
+                        <span className="font-mono text-[11px] text-emerald-300 shrink-0 flex items-center gap-1" dir="rtl">
+                          {m.status === "not-started" ? "vs" : (
+                            <>
+                              <span>{m.scoreHome ?? 0}</span>
+                              <span className="opacity-70">-</span>
+                              <span>{m.scoreAway ?? 0}</span>
+                            </>
+                          )}
                         </span>
                         <span className="truncate">{m.teamAway}</span>
                       </span>
@@ -229,7 +235,13 @@ export default function MatchWeekWidget({
             <div className="rounded-2xl border border-emerald-500/20 bg-black/20 p-3 sm:p-4 space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <div className="text-xs font-black text-white truncate">
-                  {activeMatch.teamHome} <span className="font-mono text-emerald-300" dir="ltr">{activeMatch.scoreHome ?? 0}-{activeMatch.scoreAway ?? 0}</span> {activeMatch.teamAway}
+                  {activeMatch.teamHome}{" "}
+                  <span className="font-mono text-emerald-300 inline-flex items-center gap-1" dir="rtl">
+                    {activeMatch.scoreHome ?? 0}
+                    <span className="opacity-70">-</span>
+                    {activeMatch.scoreAway ?? 0}
+                  </span>{" "}
+                  {activeMatch.teamAway}
                 </div>
                 <button
                   type="button"
