@@ -165,6 +165,11 @@ export default function StatsPage({
     const useCup = selectedLeagueFilterOnStats === "hazfi-cup";
     const split = useCup ? "cupStats" : "leagueStats";
     const wantLeague = useCup ? null : normalizeLeagueKey(selectedLeagueFilterOnStats);
+    // Single source of truth for the ratings rank: the server leaderboard
+    // (min-5-rated-games rule applied there). The homepage widget renders the
+    // very same array, so the two surfaces can never disagree. Local
+    // aggregation below covers scorers/assists/cleansheets only.
+    const serverRatings = ((stats || {})[useCup ? "hazfi-cup" : selectedLeagueFilterOnStats]?.ratings || []) as any[];
     // Same convention as the server leaderboards: eligibility AND display
     // club are the player's CURRENT club; only numbers are season-scoped.
     const pById = new Map<string, any>();
@@ -227,12 +232,7 @@ export default function StatsPage({
         "cleanSheets",
         (a) => ({ cleanSheets: a.cleanSheets })
       ),
-      ratings: all
-        .filter((a: any) => a.ratingCount > 0)
-        .map((a: any) => ({ ...a, rating: parseFloat((a.ratingSum / a.ratingCount).toFixed(1)) }))
-        .filter((a: any) => a.rating > 0)
-        .sort((a: any, b: any) => b.rating - a.rating)
-        .map((a: any, idx: number) => ({ rank: idx + 1, id: a.id, name: a.name, team: a.team, rating: a.rating })),
+      ratings: serverRatings,
     } as StatsData;
   };
 

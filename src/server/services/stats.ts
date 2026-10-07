@@ -1306,18 +1306,23 @@ export function recalculateAndSyncDatabase(): void {
         cleanSheets: item.cleanSheets
       }));
 
+    // Average-rating rank requires a minimum sample (5 rated games):
+    // a single 9.0 in 1-2 games must not top the season board.
     const ratings = [...eligiblePlayers]
       .map((p: any) => {
-        const rating = leagueKey === "hazfi-cup" ? (p.cupStats?.averageRating ?? null) : (p.leagueStats?.averageRating ?? null);
-        return { p, rating };
+        const cup = leagueKey === "hazfi-cup";
+        const rating = cup ? (p.cupStats?.averageRating ?? null) : (p.leagueStats?.averageRating ?? null);
+        const ratedGames = cup ? (p.cupStats?.ratingCount || 0) : (p.leagueStats?.ratingCount || 0);
+        return { p, rating, ratedGames };
       })
-      .filter((item: any) => item.rating != null && item.rating > 0)
+      .filter((item: any) => item.rating != null && item.rating > 0 && item.ratedGames >= 5)
       .sort((a: any, b: any) => b.rating - a.rating)
       .map((item: any, idx: number) => ({
         rank: idx + 1,
         name: item.p.name,
         team: item.p.teamName,
-        rating: item.rating
+        rating: item.rating,
+        matches: item.ratedGames
       }));
 
     db.stats[leagueKey] = { scorers, assists, cleansheets, ratings };
