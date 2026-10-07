@@ -2,7 +2,7 @@ import express, { Express, Request, Response } from "express";
 import { loadDB } from "../state";
 import { logMessage } from "../utils/logger";
 import { saveDB } from "../services/database";
-import { requirePermission } from "../middleware/auth";
+import { requirePermission, requireOwner } from "../middleware/auth";
 import { pool } from "../db";
 
 // Current-season management only. The multi-season archive system was
@@ -70,7 +70,7 @@ export function registerSeasonRoutes(app: Express) {
     res.json({ success: true, count: out.length, rows: out });
   });
 
-  app.post("/api/current-season", requirePermission("matches"), async (req: Request, res: Response) => {
+  app.post("/api/current-season", requireOwner(), async (req: Request, res: Response) => {
     const { currentSeason } = req.body;
     if (!currentSeason || !String(currentSeason).trim()) {
       return res.status(400).json({ error: "تگ فصل جاری الزامی است." });
@@ -93,7 +93,7 @@ export function registerSeasonRoutes(app: Express) {
   // Creates a new season row (status upcoming, inactive). Never touches any
   // stats, matches, or other data: a fresh season simply has zero rows until
   // its matches are played. Season tags are 4-digit years by convention.
-  app.post("/api/seasons", requirePermission("matches"), async (req: Request, res: Response) => {
+  app.post("/api/seasons", requireOwner(), async (req: Request, res: Response) => {
     const name = String(req.body?.name || "").trim();
     const label = req.body?.label != null ? String(req.body.label).trim() || null : null;
     const startDate = req.body?.startDate != null && String(req.body.startDate).trim() ? String(req.body.startDate).trim() : null;
@@ -132,7 +132,7 @@ export function registerSeasonRoutes(app: Express) {
   // system_info.currentSeason update, or nothing at all. Never snapshots,
   // zeroes, moves, or deletes any stats/matches/news data — historical rows
   // stay exactly where they are; the new current season simply starts empty.
-  app.post("/api/seasons/:id/make-current", requirePermission("matches"), async (req: Request, res: Response) => {
+  app.post("/api/seasons/:id/make-current", requireOwner(), async (req: Request, res: Response) => {
     const id = String(req.params.id || "").trim();
     if (!id) {
       return res.status(400).json({ success: false, message: "شناسه فصل الزامی است." });

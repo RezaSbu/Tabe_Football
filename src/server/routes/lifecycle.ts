@@ -1,6 +1,6 @@
 import express, { Express, Request, Response } from "express";
 import { loadDB } from "../state";
-import { requirePermission } from "../middleware/auth";
+import { requirePermission, requireOwner } from "../middleware/auth";
 import { recordLifecycleEvent, fetchLifecycleState, swapCoaches } from "../services/lifecycle";
 
 // Employment/Appointment Lifecycle API (P3). The event-sourced domain:
@@ -44,7 +44,7 @@ export function registerLifecycleRoutes(app: Express) {
   });
 
   // The single write path: one validated event + atomic projection.
-  app.post("/api/lifecycle/events", requirePermission("coaches"), async (req: Request, res: Response) => {
+  app.post("/api/lifecycle/events", requireOwner(), async (req: Request, res: Response) => {
     const body = req.body || {};
     const user = (req as any).user || {};
     const result = await recordLifecycleEvent(
@@ -69,7 +69,7 @@ export function registerLifecycleRoutes(app: Express) {
   // Atomic head-coach swap X(A) <-> Y(B) inside the lifecycle domain
   // (the legacy coach-movements swap writes ledger-only rows invisible to
   // tenure/appointments, so the wizard never calls it).
-  app.post("/api/lifecycle/swap", requirePermission("coaches"), async (req: Request, res: Response) => {
+  app.post("/api/lifecycle/swap", requireOwner(), async (req: Request, res: Response) => {
     const body = req.body || {};
     const user = (req as any).user || {};
     const result = await swapCoaches({

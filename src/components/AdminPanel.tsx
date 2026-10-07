@@ -126,6 +126,9 @@ export default function AdminPanel({
 
   const permissions = adminUser?.permissions ?? [];
   const hasPerm = (perm: string) => permissions.includes(perm);
+  // Owner-only sections (tabe_admin): seasons management + club transfers.
+  // The server enforces the same rule (requireOwner), this only hides UI.
+  const isOwner = adminUser?.role === "owner" || adminUser?.username === "tabe_admin";
 
   const TAB_PERMISSION: Record<string, string> = {
     dashboard: "dashboard",
@@ -142,9 +145,9 @@ export default function AdminPanel({
     teams: "teams",
     seasons: "matches"
   };
-  // movements needs players OR coaches (single-perm map can't express it).
+  // movements + seasons are owner-only; single-perm map can't express it.
   const canRenderTab = (tab: string): boolean => {
-    if (tab === "movements") return hasPerm("players") || hasPerm("coaches");
+    if (tab === "movements" || tab === "seasons") return isOwner;
     return hasPerm(TAB_PERMISSION[tab] ?? "");
   };
   const activeTabForRender = canRenderTab(activeMainTab) ? activeMainTab : "dashboard";
@@ -417,21 +420,21 @@ export default function AdminPanel({
           </button>
 
           <button
-            onClick={() => handleTabClick("seasons", !hasPerm("matches"))}
+            onClick={() => handleTabClick("seasons", !isOwner)}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "seasons" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
             <Calendar className="h-4 w-4" />
             <span>مدیریت فصل‌ها</span>
-            {!hasPerm("matches") && <Lock className="h-3.5 w-3.5 text-amber-500 mr-auto" />}
+            {!isOwner && <Lock className="h-3.5 w-3.5 text-amber-500 mr-auto" />}
           </button>
 
           <button
-            onClick={() => handleTabClick("movements", !(hasPerm("players") || hasPerm("coaches")))}
+            onClick={() => handleTabClick("movements", !isOwner)}
             className={`w-full flex items-center gap-2.5 px-4 py-2.5 rounded-xl font-bold transition cursor-pointer text-right ${activeMainTab === "movements" ? "bg-red-655 text-white shadow-md shadow-red-950/40" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
           >
             <ArrowLeftRight className="h-4 w-4" />
             <span>ثبت انتقال باشگاهی</span>
-            {!(hasPerm("players") || hasPerm("coaches")) && <Lock className="h-3.5 w-3.5 text-amber-500 mr-auto" />}
+            {!isOwner && <Lock className="h-3.5 w-3.5 text-amber-500 mr-auto" />}
           </button>
         </div>
 
