@@ -142,7 +142,7 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
               selectedLeagueFilterOnStats={d.selectedLeagueFilterOnStats}
               setSelectedLeagueFilterOnStats={d.setSelectedLeagueFilterOnStats}
               standings={d.standings} players={d.players} selectedCombinations={d.selectedCombinations}
-              coaches={d.coaches} teams={d.teams}
+              coaches={d.coaches} teams={d.teams} coachMovements={d.coachMovements} coachAppointments={d.coachAppointments}
               setSelectedPlayerId={(id: string | null) => id && navigate(`/player/${id}`)} setSelectedTeamId={(id: string | null) => id && navigate(`/team/${id}`)}
               onSelectCoach={(id: string) => navigate(`/coach/${id}`)}
               ads={d.ads} onSelectTransfer={(id: string) => navigate(`/transfer/${id}`)} />

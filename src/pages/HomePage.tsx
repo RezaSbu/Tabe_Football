@@ -35,6 +35,8 @@ interface HomePageProps {
   players: any[];
   coaches?: any[];
   teams?: any[];
+  coachMovements?: any[];
+  coachAppointments?: any[];
   selectedCombinations: any[];
   setSelectedPlayerId: (id: string | null) => void;
   setSelectedTeamId: (id: string | null) => void;
@@ -73,6 +75,8 @@ export default function HomePage({
   players,
   coaches = [],
   teams = [],
+  coachMovements = [],
+  coachAppointments = [],
   selectedCombinations,
   setSelectedPlayerId,
   setSelectedTeamId,
@@ -371,6 +375,8 @@ export default function HomePage({
         players={players}
         coaches={coaches}
         teams={teams}
+        movements={coachMovements}
+        appointments={coachAppointments}
         onSelectPlayer={(id: string) => setSelectedPlayerId(id)}
         onSelectCoach={(id: string) => onSelectCoach && onSelectCoach(id)}
         onOpenMatch={(id: string) => {

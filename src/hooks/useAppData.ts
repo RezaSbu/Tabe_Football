@@ -35,6 +35,8 @@ export function useAppData() {
   const [teams, setTeams] = useState<TeamItem[]>([]);
   const [players, setPlayers] = useState<PlayerItem[]>([]);
   const [coaches, setCoaches] = useState<CoachItem[]>([]);
+  const [coachMovements, setCoachMovements] = useState<any[]>([]);
+  const [coachAppointments, setCoachAppointments] = useState<any[]>([]);
   const [bracket, setBracket] = useState<Record<string, any> | null>(null);
   const [selectedCombinations, setSelectedCombinations] = useState<SelectedCombination[]>([]);
   const [heroSlides, setHeroSlides] = useState<HeroSlideItem[]>([]);
@@ -122,6 +124,8 @@ export function useAppData() {
     (window as any).db_players = statsResult.processedPlayers;
     (window as any).db_coaches = data.coaches || [];
     setCoaches(data.coaches || []);
+    setCoachMovements(data.coachMovements || []);
+    setCoachAppointments(data.coachAppointments || []);
     setBracket(data.bracket || null);
     setSelectedCombinations(data.selectedCombinations || []);
     setHeroSlides(data.heroSlides || []);
@@ -559,7 +563,7 @@ export function useAppData() {
     activeTab, setActiveTab,
     news, matches, standings, transfers, teamTransfersList,
     legionnaires, images, stats, submissions, lastScraped,
-    teams, players, coaches, bracket, selectedCombinations, heroSlides, setHeroSlides,
+    teams, players, coaches, coachMovements, coachAppointments, bracket, selectedCombinations, heroSlides, setHeroSlides,
     selectedTeamId, setSelectedTeamId,
     selectedPlayerId, setSelectedPlayerId,
     selectedCoachId, setSelectedCoachId,

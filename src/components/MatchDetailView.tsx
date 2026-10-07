@@ -18,6 +18,8 @@ interface MatchDetailViewProps {
   allTeams?: any[];
   players?: any[];
   coaches?: any[];
+  movements?: any[];
+  appointments?: any[];
   standings?: Record<string, StandingRow[]>;
   onBack: () => void;
   onSelectPlayer?: (playerId: string) => void;
@@ -64,6 +66,8 @@ export default function MatchDetailView({
   allTeams = [], 
   players = [], 
   coaches = [],
+  movements = [],
+  appointments = [],
   standings = {},
   onBack, 
   onSelectPlayer,
@@ -164,9 +168,9 @@ export default function MatchDetailView({
   // source of truth shared with the homepage week widget). Identity-first:
   // an event carrying a playerId only ever belongs to that id.
   const pitchData = useMemo(
-    () => enrichMatchForPitch(match, players, coaches),
+    () => enrichMatchForPitch(match, players, coaches, { movements, appointments, teams: allTeams }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [match?.id, match?.lineups, match?.events, match?.mvpId, players, coaches]
+    [match?.id, match?.lineups, match?.events, match?.mvpId, match?.coachHomeId, match?.coachAwayId, players, coaches, movements, appointments, allTeams]
   );
   const { coaches: pitchCoaches } = pitchData;
 

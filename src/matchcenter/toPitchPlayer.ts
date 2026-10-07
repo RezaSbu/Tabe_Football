@@ -5,6 +5,9 @@
  * two can never drift apart.
  */
 import type { PitchCoach, PitchPlayer } from "./MatchPitch";
+import { coachOfTeamAt } from "../shared/coachTenure";
+import { resolveTeam } from "../shared/teamMatch";
+import { normalizePersianString } from "../utils";
 
 type EventRole = "goal" | "assist" | "sub-out" | "sub-in" | "other";
 
@@ -54,6 +57,77 @@ export function toPitchPlayer(match: any, players: any[], p: any): PitchPlayer {
   };
 }
 
+export interface PitchTenureCtx {
+  movements?: any[];
+  appointments?: any[];
+  teams?: any[];
+}
+
+function toPitchCoach(c: any, side: "home" | "away"): PitchCoach {
+  return { id: String(c.id), name: c.name, side, image: c.image };
+}
+
+/**
+ * Coach for one side of a match, best evidence first:
+ * 1. stamped coach id on the match,
+ * 2. tenure holder on the match date (movements + appointments),
+ * 3. current holder of the team (never empty when the team is known).
+ */
+export function resolveSideCoach(
+  match: any,
+  side: "home" | "away",
+  coaches: any[] = [],
+  ctx: PitchTenureCtx = {}
+): PitchCoach | null {
+  const list = coaches || [];
+  const findCoach = (id: unknown) =>
+    id != null && String(id).trim() !== ""
+      ? list.find((c: any) => String(c?.id) === String(id))
+      : undefined;
+  const stampId = side === "home" ? match?.coachHomeId : match?.coachAwayId;
+  const stamped = findCoach(stampId);
+  if (stamped) return toPitchCoach(stamped, side);
+
+  let tid: string | null =
+    side === "home" ? match?.teamHomeId ?? null : match?.teamAwayId ?? null;
+  tid = tid != null && String(tid).trim() !== "" ? String(tid) : null;
+  const teamName = side === "home" ? match?.teamHome : match?.teamAway;
+  if (!tid && teamName && ctx.teams) {
+    const t: any = resolveTeam(ctx.teams, teamName);
+    if (t?.id != null) tid = String(t.id);
+  }
+  if (tid) {
+    const tenureCoaches = list.map((c: any) => ({
+      id: String(c.id),
+      teamId: c.teamId != null ? String(c.teamId) : null,
+    }));
+    const tenureMovements = (ctx.movements || []).map((m: any) => ({
+      coachId: m.coachId != null ? String(m.coachId) : null,
+      fromTeamId: m.fromTeamId != null ? String(m.fromTeamId) : null,
+      toTeamId: m.toTeamId != null ? String(m.toTeamId) : null,
+      movementDate: m.movementDate || null,
+    }));
+    const tenureAppointments = (ctx.appointments || []).map((a: any) => ({
+      coachId: a.coachId != null ? String(a.coachId) : null,
+      teamId: a.teamId != null ? String(a.teamId) : null,
+      startDate: a.startDate || null,
+      endDate: a.endDate || null,
+      status: a.status || null,
+    }));
+    const holderId = coachOfTeamAt(tid, match?.date, tenureCoaches, tenureMovements, tenureAppointments);
+    const holder = holderId && findCoach(holderId);
+    if (holder) return toPitchCoach(holder, side);
+  }
+  // Current holder fallback: a coach whose team matches this side.
+  const normName = normalizePersianString(teamName || "");
+  const current = list.find((c: any) => {
+    if (!c) return false;
+    if (tid != null && c.teamId != null && String(c.teamId) === tid) return true;
+    return normName !== "" && normalizePersianString(c.teamName || "") === normName;
+  });
+  return current ? toPitchCoach(current, side) : null;
+}
+
 export interface EnrichedPitch {
   home: PitchPlayer[];
   away: PitchPlayer[];
@@ -62,19 +136,14 @@ export interface EnrichedPitch {
   coaches: PitchCoach[];
 }
 
-export function enrichMatchForPitch(match: any, players: any[] = [], coaches: any[] = []): EnrichedPitch {
+export function enrichMatchForPitch(match: any, players: any[] = [], coaches: any[] = [], ctx: PitchTenureCtx = {}): EnrichedPitch {
   const lineups = match?.lineups || {};
   const mapList = (list: any[]) => (list || []).map((p: any) => toPitchPlayer(match, players, p));
-  const findCoach = (id: any) => (coaches || []).find((c: any) => String(c.id) === String(id));
   const out: PitchCoach[] = [];
-  if (match?.coachHomeId) {
-    const c = findCoach(match.coachHomeId);
-    if (c) out.push({ id: String(c.id), name: c.name, side: "home", image: c.image });
-  }
-  if (match?.coachAwayId) {
-    const c = findCoach(match.coachAwayId);
-    if (c) out.push({ id: String(c.id), name: c.name, side: "away", image: c.image });
-  }
+  const homeCoach = resolveSideCoach(match, "home", coaches, ctx);
+  const awayCoach = resolveSideCoach(match, "away", coaches, ctx);
+  if (homeCoach) out.push(homeCoach);
+  if (awayCoach) out.push(awayCoach);
   return {
     home: mapList(lineups.home),
     away: mapList(lineups.away),
