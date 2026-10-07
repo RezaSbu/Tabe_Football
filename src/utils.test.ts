@@ -187,6 +187,97 @@ describe('computeDynamicAppletStats — live minute persistence', () => {
   });
 });
 
+describe('computeDynamicAppletStats — ratings single source of truth', () => {
+  function team(id: string, name: string): any {
+    return {
+      id,
+      name,
+      divisionKey: 'pro-league',
+      stats: { played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 },
+    };
+  }
+
+  function playerRow(id: string, name: string, teamId: string, team: string, avgRating: number, games: number): any {
+    return {
+      id,
+      name,
+      teamName: team,
+      teamId,
+      position: 'مهاجم',
+      leagueStats: { goals: 0, assists: 0, cleanSheets: 0, averageRating: avgRating, ratingCount: games },
+      seasonStats: {},
+    };
+  }
+
+  const teams = [team('t-یک', 'یک'), team('t-دو', 'دو')];
+
+  it('prefers the server ratings (min-5 filtered) over a local recompute', () => {
+    // The server leaderboard only ever contains min-5-rated players (players
+    // with 1-4 rated games are excluded server-side). A local recompute without
+    // the min-5 rule WOULD rank a 1-game player first; the pass-through must
+    // never reintroduce such rows. The server array is rating-sorted already.
+    const persistedStats = {
+      'pro-league': {
+        scorers: [],
+        assists: [],
+        cleansheets: [],
+        ratings: [
+          { rank: 1, id: 'a', name: 'الف', team: 'یک', rating: 8.5, matches: 6 },
+          { rank: 2, id: 'b', name: 'ب', team: 'دو', rating: 7.2, matches: 5 },
+        ],
+      },
+    };
+    const players = [
+      playerRow('a', 'الف', 't-یک', 'یک', 8.5, 6),
+      // "ج" has a suspicious 9.5 from a single rated game: server excluded it,
+      // and the client must NOT recompute it back into the list.
+      playerRow('c', 'ج', 't-یک', 'یک', 9.5, 1),
+      playerRow('b', 'ب', 't-دو', 'دو', 7.2, 5),
+    ];
+    const { processedStats } = computeDynamicAppletStats([], teams, players, {}, persistedStats);
+    const ratings = processedStats['pro-league'].ratings;
+    // Pass-through: exactly the two server rows, still rating-sorted.
+    expect(ratings).toHaveLength(2);
+    expect(ratings[0].id).toBe('a');
+    expect(ratings[1].id).toBe('b');
+    expect(ratings[0].matches).toBe(6);
+    // The 1-game player ("ج") must stay absent regardless of its rating.
+    expect(ratings.some((r: any) => r.id === 'c')).toBe(false);
+  });
+
+  it('recomputes locally only when the server provides no ratings', () => {
+    const players = [
+      playerRow('a', 'الف', 't-یک', 'یک', 8.5, 2),
+      playerRow('b', 'ب', 't-دو', 'دو', 7.2, 1),
+    ];
+    const { processedStats } = computeDynamicAppletStats([], teams, players, {}, {});
+    const ratings = processedStats['pro-league'].ratings;
+    expect(ratings).toHaveLength(2);
+    expect(ratings[0].name).toBe('الف');
+    expect(ratings[1].name).toBe('ب');
+  });
+
+  it('keeps server ratings even when scorers/assists/cleansheets are empty', () => {
+    const persistedStats = {
+      'pro-league': {
+        scorers: [],
+        assists: [],
+        cleansheets: [],
+        ratings: [{ rank: 1, id: 'b', name: 'ب', team: 'دو', rating: 7.2, matches: 6 }],
+      },
+    };
+    const players = [
+      playerRow('a', 'الف', 't-یک', 'یک', 8.5, 3),
+      playerRow('b', 'ب', 't-دو', 'دو', 7.2, 6),
+    ];
+    const { processedStats } = computeDynamicAppletStats([], teams, players, {}, persistedStats);
+    const ratings = processedStats['pro-league'].ratings;
+    expect(ratings).toHaveLength(1);
+    expect(ratings[0].id).toBe('b');
+    expect(ratings[0].matches).toBe(6);
+  });
+});
+
 describe('formatJalaliDate', () => {
   it('converts the real live movement date 2026-09-23 to 1405/07/01', () => {
     expect(formatJalaliDate('2026-09-23')).toBe('1405/07/01');
