@@ -41,8 +41,39 @@ describe("computeTfRating", () => {
   it("applies the mid rating band and the low band", () => {
     // 70 +1 +1 (6.8 band) = 72
     expect(computeTfRating([G(0, 0, 6.8)])).toBe(72);
-    // 70 +1 -1 (5.5 band) = 70
-    expect(computeTfRating([G(0, 0, 5.5)])).toBe(70);
+    // Sub-6 earns NO appearance point: 70 +0 -1 (5.5 band) = 69
+    expect(computeTfRating([G(0, 0, 5.5)])).toBe(69);
+  });
+
+  it("gives a cameo clean sheet nothing (CS scales with minutes)", () => {
+    // 1-minute DF cameo in a 0-0 (the Aghaei shape): tier 0 zeroes the CS
+    // bonus too, while the unscaled -1 band still lands => 70 - 1 = 69.
+    expect(
+      computeTfRating(
+        [{ goals: 0, assists: 0, rating: 5.5, redCards: 0, ownGoals: 0, cleanSheets: 1, league: "league-1", minutes: 1, duration: 90 }],
+        "DF"
+      )
+    ).toBe(69);
+    // Same cameo without a rating at all: nothing happens => stays 70.
+    expect(
+      computeTfRating(
+        [{ goals: 0, assists: 0, rating: null, redCards: 0, ownGoals: 0, cleanSheets: 1, league: "league-1", minutes: 1, duration: 90 }],
+        "DF"
+      )
+    ).toBe(70);
+  });
+
+  it("drops TF on a bad full game but keeps the point for unrated games", () => {
+    // 1-minute league-1 cameo, 5.5 rating, no clean sheet: tier 0 kills the
+    // appearance point, but the unscaled -1 band still lands (-0.7 after the
+    // league coefficient) => 69.3 => displays 69. A bad outing always costs.
+    expect(
+      computeTfRating([{ goals: 0, assists: 0, rating: 5.5, redCards: 0, ownGoals: 0, league: "league-1", minutes: 1, duration: 90 }])
+    ).toBe(69);
+    // Same bad rating over full minutes: no appearance point, -1 band => 69.
+    expect(computeTfRating([G(0, 0, 5.5)])).toBe(69);
+    // Unrated full game still earns the appearance point.
+    expect(computeTfRating([G(0, 0, null)])).toBe(71);
   });
 
   it("penalizes red cards and own goals", () => {
@@ -63,10 +94,10 @@ describe("computeTfRating", () => {
   });
 
   it("replays chronologically (order matters at the floor)", () => {
-    // Bad stretch first (clamped at 60), then recovery.
+    // Bad stretch first (no appearance point now), then recovery.
     const seq = [G(0, 0, 4.0), G(0, 0, 4.0), G(1, 0, 8.0)];
-    // 70+1-1=70, 70+1-1=70, 70+1+1+2=74
-    expect(computeTfRating(seq)).toBe(74);
+    // 70+0-1=69, 69+0-1=68, 68+1+1+2=72
+    expect(computeTfRating(seq)).toBe(72);
   });
 
   it("detects the position group from the Persian position string", () => {
