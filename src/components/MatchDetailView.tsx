@@ -264,6 +264,24 @@ export default function MatchDetailView({
   };
 
   const extraResult = match.halfTimeScore || match.halftime || match.ht;
+
+  // --- 7. TEAM COMPARISON (all real: scores, events, lineup ratings) ---
+  const teamCompare = (() => {
+    const evs = match.events || [];
+    const count = (team: "home" | "away", types: string[]) =>
+      evs.filter((e: any) => e && e.team === team && types.includes(e.type)).length;
+    const avgRating = (side: any[]) => {
+      const rs = (side || []).map((p: any) => Number(p.rating) || 0).filter((r: number) => r > 0);
+      return rs.length > 0 ? rs.reduce((a: number, b: number) => a + b, 0) / rs.length : null;
+    };
+    return [
+      { label: "گل", home: Number(match.scoreHome) || 0, away: Number(match.scoreAway) || 0, mono: true },
+      { label: "کارت زرد", home: count("home", ["yellow-card"]), away: count("away", ["yellow-card"]), mono: true },
+      { label: "کارت قرمز", home: count("home", ["red-card"]), away: count("away", ["red-card"]), mono: true },
+      { label: "تعویض", home: count("home", ["substitution"]), away: count("away", ["substitution"]), mono: true },
+      { label: "میانگین نمره ترکیب", home: avgRating(homeLineup), away: avgRating(awayLineup), mono: true, digits: 1 },
+    ];
+  })();
   const infoChips: { icon: React.ReactNode; text: string }[] = [
     { icon: <Trophy className="h-3.5 w-3.5" />, text: leagueDisplayName },
     ...(match.week ? [{ icon: <ListOrdered className="h-3.5 w-3.5" />, text: `هفته ${formatStatNumber(match.week)}` }] : []),
@@ -278,6 +296,34 @@ export default function MatchDetailView({
     { id: "lineups" as const, label: "ترکیب و نمرات دو تیم", icon: Shirt },
     { id: "h2h" as const, label: "رویارویی‌ها (H2H)", icon: GitCompareArrows },
   ];
+
+  // --- 6. MATCH FACTS STRIP (goals / cards / subs / best-rated, all real) ---
+  const factEvents = match.events || [];
+  const factGoals = factEvents.filter((e: any) => e.type === "goal" || e.type === "penalty").length;
+  const factCards = factEvents.filter((e: any) => e.type === "yellow-card" || e.type === "red-card").length;
+  const factSubs = factEvents.filter((e: any) => e.type === "substitution").length;
+  let bestRated: any = null;
+  [...homeLineup, ...awayLineup].forEach((p: any) => {
+    if (p && p.rating != null && Number(p.rating) > 0 && (bestRated == null || Number(p.rating) > Number(bestRated.rating))) bestRated = p;
+  });
+
+  const renderFormDots = (form: ("W" | "D" | "L")[]) => {
+    if (!form || form.length === 0) return <span className="text-[9px] text-slate-500">بدون سابقه اخیر</span>;
+    return (
+      <span className="flex items-center gap-1" dir="ltr" title="فرم ۵ بازی اخیر">
+        {form.map((r, i) => (
+          <span
+            key={i}
+            className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black font-mono text-white ${
+              r === "W" ? "bg-emerald-600" : r === "D" ? "bg-amber-600" : "bg-rose-600"
+            }`}
+          >
+            {r}
+          </span>
+        ))}
+      </span>
+    );
+  };
 
   return (
     <div className="match-scope rounded-2xl bg-[#121215] border border-white/5 overflow-hidden shadow-2xl animate-in fade-in slide-in-from-bottom-3 duration-300 relative text-white" dir="rtl">
@@ -332,6 +378,7 @@ export default function MatchDetailView({
                     <><span className="text-slate-600">•</span><span className="truncate max-w-[110px]">{pitchCoaches.find(c => c.side === "home")?.name}</span></>
                   )}
                 </div>
+                {renderFormDots(homeForm)}
               </div>
             </div>
 
@@ -401,11 +448,31 @@ export default function MatchDetailView({
                     <><span className="text-slate-600">•</span><span className="truncate max-w-[110px]">{pitchCoaches.find(c => c.side === "away")?.name}</span></>
                   )}
                 </div>
+                {renderFormDots(awayForm)}
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* ===== MATCH FACTS STRIP ===== */}
+      {isPlayed && (
+        <div className="px-4 sm:px-8 py-3 bg-[#0c0f14] border-y border-white/5">
+          <div className="max-w-4xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[
+              { label: "گل‌ها", value: factGoals, tone: "text-emerald-400" },
+              { label: "کارت‌ها", value: factCards, tone: "text-amber-400" },
+              { label: "تعویض‌ها", value: factSubs, tone: "text-cyan-400" },
+              { label: "بهترین بازیکن", value: bestRated ? `${bestRated.name || ""} ${formatStatNumber(Number(bestRated.rating).toFixed(1))}` : "—", tone: "text-white", small: true },
+            ].map((f) => (
+              <div key={f.label} className="rounded-xl border border-white/10 bg-white/5 px-2 py-2 text-center">
+                <span className="block text-[10px] font-bold text-slate-400">{f.label}</span>
+                <span className={`mt-0.5 block font-mono font-black ${f.tone} ${f.small ? "text-xs" : "text-base"}`}>{typeof f.value === "number" ? formatStatNumber(f.value) : f.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ===== MATCH INFO CHIPS ===== */}
       {infoChips.length > 0 && (
@@ -435,6 +502,12 @@ export default function MatchDetailView({
           >
             <tab.icon className="h-3.5 w-3.5 shrink-0" />
             {tab.label}
+            {tab.id === "timeline" && sortedTimeline.length > 0 && (
+              <span className="rounded-full bg-white/10 px-1.5 py-0.5 font-mono text-[10px] text-slate-300">{formatStatNumber(sortedTimeline.length)}</span>
+            )}
+            {tab.id === "news" && matchNews.length > 0 && (
+              <span className="rounded-full bg-white/10 px-1.5 py-0.5 font-mono text-[10px] text-slate-300">{formatStatNumber(matchNews.length)}</span>
+            )}
           </button>
         ))}
       </div>
@@ -467,6 +540,33 @@ export default function MatchDetailView({
                           <EventIcon type="goal" size={14} /> {name}
                           {sc.minute && <span className="font-mono text-[10px] opacity-80">{formatStatNumber(sc.minute)}'</span>}
                         </span>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Team comparison (real events + lineup ratings) */}
+                {isPlayed && (
+                  <div className="bg-[#101622] rounded-3xl border border-white/5 p-4 sm:p-5 shadow-xl space-y-2.5">
+                    <h4 className="text-xs font-black text-white">مقایسه آماری دو تیم</h4>
+                    {teamCompare.map((row) => {
+                      const h = Number(row.home) || 0;
+                      const a = Number(row.away) || 0;
+                      const tot = h + a || 1;
+                      const fmt = (v: number | null) =>
+                        v == null ? "—" : formatStatNumber(row.digits ? v.toFixed(row.digits) : v);
+                      return (
+                        <div key={row.label} className="grid grid-cols-[44px_1fr_auto_1fr_44px] items-center gap-2">
+                          <span className="text-center font-mono text-sm font-black text-emerald-400">{fmt(row.home as number)}</span>
+                          <div className="h-2 overflow-hidden rounded-full bg-white/5" dir="ltr">
+                            <div className="h-full rounded-full bg-emerald-500" style={{ width: `${(h / tot) * 100}%` }} />
+                          </div>
+                          <span className="whitespace-nowrap text-[10px] font-bold text-slate-400">{row.label}</span>
+                          <div className="h-2 overflow-hidden rounded-full bg-white/5" dir="rtl">
+                            <div className="h-full rounded-full bg-cyan-500" style={{ width: `${(a / tot) * 100}%` }} />
+                          </div>
+                          <span className="text-center font-mono text-sm font-black text-cyan-400">{fmt(row.away as number)}</span>
+                        </div>
                       );
                     })}
                   </div>
