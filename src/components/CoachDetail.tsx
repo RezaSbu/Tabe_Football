@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from "react";
-import { ArrowLeft, Trophy, Award, UserRound, TrendingUp, Target, BookOpen, BadgeCheck, Clock, Flag, Sparkles, Activity, Newspaper } from "lucide-react";
-import { getSafeImageUrl, formatStatNumber, normalizePersianString } from "../utils";
+import { Link } from "react-router-dom";
+import { ArrowRight, Trophy, Award, UserRound, TrendingUp, Target, BookOpen, BadgeCheck, Clock, Flag, Newspaper } from "lucide-react";
+import { getSafeImageUrl, formatStatNumber, normalizePersianString, convertGregorianToShamsi } from "../utils";
 import { coachOfTeamAt } from "../shared/coachTenure";
 import { resolveTeam } from "../shared/teamMatch";
 import SeasonSwitcher, { defaultSeasonValue } from "./SeasonSwitcher";
 import ShareButton from "./ui/ShareButton";
 import MovementTimeline from "./MovementTimeline";
 import CareerSection from "./CareerSection";
+import TeamLogo from "./TeamLogo";
+import { FormRing, PresenceStrip, SeasonResultsBars } from "./player/PlayerCharts";
+import { MiniStat } from "./player/PlayerWidgets";
 
 interface CoachDetailProps {
   coach: any;
@@ -152,121 +156,173 @@ export default function CoachDetail({
     String(m.seasonId) === String(seasonId) ||
     (seasonTagForMatches != null && (String(m.season) === String(seasonTagForMatches) || String(m.seasonId) === `season-${seasonTagForMatches}`)));
 
+  // Results distribution + seasonal W/D/L (all real rows; seasonRows first).
+  const distribution = visibleCoachMatches.map((m: any) => m.result as "W" | "D" | "L");
+  const seasonResultsData = (() => {
+    const rows: any[] = Array.isArray(coach.seasonRows) ? coach.seasonRows : [];
+    if (rows.length > 0) {
+      const bySeason = new Map<string, { season: string; wins: number; draws: number; losses: number }>();
+      rows.forEach((r: any) => {
+        const nm = String(r.season || r.seasonId || "");
+        if (!nm) return;
+        const e = bySeason.get(nm) || { season: nm, wins: 0, draws: 0, losses: 0 };
+        e.wins += Number(r.wins) || 0;
+        e.draws += Number(r.draws) || 0;
+        e.losses += Number(r.losses) || 0;
+        bySeason.set(nm, e);
+      });
+      return [...bySeason.values()].sort((a, b) => a.season.localeCompare(b.season, "fa"));
+    }
+    return (coach.careerHistory || []).map((h: any) => ({
+      season: String(h.season),
+      wins: Number(h.wins) || 0,
+      draws: Number(h.draws) || 0,
+      losses: Number(h.losses) || 0,
+    }));
+  })();
+
+  const myClubRef = resolveTeam(allTeams, coach.teamId || coach.teamName);
+  const clubLogo: string | null = ((myClubRef as any)?.logo || null);
+
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-      <div className="flex items-center justify-between bg-[#131317]/80 backdrop-blur border border-white/5 p-3 rounded-2xl sticky top-2 z-40 select-none shadow-xl">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-2 text-slate-400 hover:text-white bg-white/5 active:bg-white/10 px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          <span>برگشت به خانه</span>
+    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-300" dir="rtl">
+      <div className="mb-2 flex items-center justify-between gap-2 px-1 text-[11px] font-bold text-slate-400">
+        <nav className="flex items-center gap-1.5" aria-label="breadcrumb">
+          <Link to="/" className="transition hover:text-emerald-400">خانه</Link>
+          <span className="text-slate-600">/</span>
+          <span>مربیان</span>
+          <span className="text-slate-600">/</span>
+          <span className="max-w-40 truncate text-slate-200">{coach.name}</span>
+        </nav>
+        <button type="button" onClick={onBack} className="flex shrink-0 items-center gap-1 transition hover:text-emerald-400">
+          <ArrowRight className="h-3.5 w-3.5" />
+          <span>برگشت</span>
         </button>
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-emerald-500 animate-pulse" />
-          <span className="text-[10px] text-slate-450 font-black">پروفایل فنی مربی</span>
-          <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-black px-1.5 py-0.5 rounded font-mono">
-            ID: {coach.id || "Unresolved"}
-          </span>
-        </div>
       </div>
 
-      <div className="relative overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-b from-[#131317] to-slate-950 shadow-2xl p-4 sm:p-6">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+      <div className="coach-hero overflow-hidden rounded-3xl bg-gradient-to-l from-[#0a1830] via-[#0d2140] to-[#12305c] shadow-xl">
+        <div className="grid grid-cols-1 items-center gap-5 p-4 sm:p-6 lg:grid-cols-12">
+          {/* KPI cards (right in RTL = first) */}
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:col-span-4">
+            <div className="rounded-2xl border border-white/10 bg-black/30 p-3 text-center backdrop-blur">
+              <span className="block text-[10px] font-bold text-emerald-300/80">درصد برد</span>
+              <div className="mt-1 flex items-center justify-center gap-2">
+                <span className="font-mono text-3xl font-black text-white">{formatStatNumber(winRate)}</span>
+                <FormRing value={matches > 0 ? Math.max(0, Math.min(100, Number(winRate))) : null} size={44} />
+              </div>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/30 p-3 text-center backdrop-blur">
+              <span className="block text-[10px] font-bold text-emerald-300/80">بازی‌ها</span>
+              <span className="mt-1 block font-mono text-3xl font-black text-white">{formatStatNumber(matches)}</span>
+              <span className="mt-1 block font-mono text-[10px] font-bold text-slate-400" dir="ltr">
+                <span className="text-emerald-300">{formatStatNumber(wins)}W</span>
+                {" - "}
+                <span className="text-slate-300">{formatStatNumber(draws)}D</span>
+                {" - "}
+                <span className="text-red-400">{formatStatNumber(losses)}L</span>
+              </span>
+            </div>
+            <div className="col-span-2 rounded-2xl border border-white/10 bg-black/30 p-3 backdrop-blur">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[10px] font-bold text-emerald-300/80">فرم اخیر</span>
+                <span className="font-mono text-[10px] text-slate-400" dir="ltr">
+                  {recentForm.length > 0 ? `${formatStatNumber(recentForm.length)} بازی` : "—"}
+                </span>
+              </div>
+              <div className="mt-2 flex gap-1.5" dir="ltr">
+                {recentForm.length > 0 ? recentForm.slice(0, 10).map((f: string, i: number) => {
+                  const formInfo = formLabels[f] || { label: f, color: "bg-slate-500" };
+                  return (
+                    <div
+                      key={i}
+                      className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-black text-white shadow ${formInfo.color}`}
+                      title={formInfo.label}
+                    >
+                      {f === "W" ? "ب" : f === "D" ? "م" : f === "L" ? "ش" : f}
+                    </div>
+                  );
+                }) : (
+                  <span className="text-[11px] text-slate-400">فرم اخیری ثبت نشده است</span>
+                )}
+              </div>
+            </div>
+          </div>
 
-        <div className="relative grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-          <div className="lg:col-span-4 flex flex-col items-center text-center space-y-4">
-            <div className="relative group select-none">
-              <div className="absolute -inset-1.5 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full blur opacity-15" />
-              <div className="relative h-28 w-28 sm:h-32 sm:w-32 rounded-full overflow-hidden border-2 border-white/10 bg-slate-900 flex items-center justify-center">
+          {/* Identity (middle) */}
+          <div className="text-center lg:col-span-5">
+            <h1 className="flex items-center justify-center gap-2 text-2xl font-black text-white sm:text-3xl">
+              <span className="truncate">{coach.name}</span>
+            </h1>
+            <div className="mt-2.5 flex flex-wrap items-center justify-center gap-2 text-xs font-bold">
+              <span className="rounded-lg bg-white/10 px-2.5 py-1 text-slate-200">{coach.coachingStyle || "مربی"}</span>
+              {clubLogo && <img src={getSafeImageUrl(clubLogo)} alt="" loading="lazy" className="h-6 w-6 rounded-full bg-white/10 object-cover" referrerPolicy="no-referrer" />}
+              {coach.teamName ? (
+                <button type="button" onClick={() => onSelectTeam && onSelectTeam(coach.teamName)} className="rounded-lg bg-emerald-500/15 px-2.5 py-1 text-emerald-300 transition hover:bg-emerald-500/25">
+                  {coach.teamName}
+                </button>
+              ) : (
+                <span className="text-slate-300">مربی آزاد</span>
+              )}
+            </div>
+            <p className="mt-2 flex items-center justify-center gap-1 text-[11px] font-bold text-slate-400">
+              <Flag className="h-3.5 w-3.5" />
+              <span>{coach.nationality || "نامشخص"}</span>
+            </p>
+            <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 font-mono text-xs font-bold text-slate-200">
+              <span title="سن">{formatStatNumber(coach.age || "—")} <span className="font-sans text-[10px] font-normal text-slate-400">سال</span></span>
+              <span title="مدرک" className="font-sans">{coach.licenseLevel || "—"}</span>
+              <span title="سابقه">{formatStatNumber(coach.experienceYears || "0")} <span className="font-sans text-[10px] font-normal text-slate-400">سال سابقه</span></span>
+            </div>
+          </div>
+
+          {/* Photo (left in RTL = last) */}
+          <div className="flex flex-col items-center gap-3 lg:col-span-3">
+            <div className="relative">
+              <div className="absolute -inset-1.5 rounded-3xl bg-gradient-to-b from-emerald-400/40 to-cyan-500/10 opacity-40 blur" />
+              <div className="relative h-44 w-36 overflow-hidden rounded-2xl border border-white/15 bg-white/5 sm:h-52 sm:w-44">
                 {!imageError && coach.image ? (
-                  <img loading="lazy" decoding="async"                     src={getSafeImageUrl(coach.image)}
-                    alt={coach.name}
-                    className="h-full w-full object-cover"
-                    onError={() => setImageError(true)}
-                    referrerPolicy="no-referrer"
-                  />
+                  <img src={getSafeImageUrl(coach.image)} alt={coach.name} loading="lazy" decoding="async" className="h-full w-full object-cover" onError={() => setImageError(true)} referrerPolicy="no-referrer" />
                 ) : (
-                  <UserRound className="h-14 w-14 text-slate-600" />
+                  <div className="flex h-full w-full items-center justify-center"><UserRound className="h-16 w-16 text-slate-500" /></div>
                 )}
               </div>
             </div>
-
-            <div>
-              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-tight flex items-center justify-center gap-1.5">
-                {coach.teamName ? (
-                  <button onClick={() => onSelectTeam && onSelectTeam(coach.teamName)} className="hover:text-emerald-400 transition cursor-pointer">
-                    {coach.name}
-                  </button>
-                ) : coach.name}
-                <ShareButton title={coach.name} />
-              </h2>
-              <div className="flex items-center gap-2 justify-center mt-1.5 text-[10px] flex-wrap">
-                <span className="bg-white/5 border border-white/5 px-2.5 py-1 rounded-lg text-slate-300 font-bold">
-                  {coach.coachingStyle || "مربی"}
-                </span>
-                <span className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg text-amber-400 font-bold">
-                  <Flag className="h-3 w-3" />
-                  {coach.nationality || "نامشخص"}
-                </span>
-                {coach.teamName && (
-                  <button
-                    onClick={() => onSelectTeam && onSelectTeam(coach.teamName)}
-                    className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg text-emerald-400 font-bold hover:bg-emerald-500/20 transition cursor-pointer"
-                  >
-                    <span>{coach.teamName}</span>
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-3.5 rounded-2xl bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 hover:border-emerald-500/30 hover:shadow-[0_0_20px_-6px_rgba(16,185,129,0.4)] hover:-translate-y-0.5 transition text-center">
-              <span className="block text-[9px] text-slate-400 font-black mb-1">سن</span>
-              <span className="text-sm font-black text-slate-100 font-mono">{formatStatNumber(coach.age || "—")} سال</span>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 hover:border-emerald-500/30 hover:shadow-[0_0_20px_-6px_rgba(16,185,129,0.4)] hover:-translate-y-0.5 transition text-center">
-              <span className="block text-[9px] text-slate-400 font-black mb-1">مدرک مربیگری</span>
-              <span className="text-sm font-black text-emerald-400">{coach.licenseLevel || "—"}</span>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 hover:border-emerald-500/30 hover:shadow-[0_0_20px_-6px_rgba(16,185,129,0.4)] hover:-translate-y-0.5 transition text-center">
-              <span className="block text-[9px] text-slate-400 font-black mb-1">سابقه مربیگری</span>
-              <span className="text-sm font-black text-slate-100 font-mono">{formatStatNumber(coach.experienceYears || "0")} سال</span>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-gradient-to-b from-amber-500/[0.12] to-transparent border border-amber-500/30 ring-1 ring-amber-500/20 shadow-[0_0_20px_-8px_rgba(245,158,11,0.4)] text-center">
-              <span className="block text-[9px] text-amber-300/80 font-black mb-1">درصد برد</span>
-              <span className="text-sm font-black text-amber-300 font-mono drop-shadow-[0_0_8px_rgba(245,158,11,0.5)]">{formatStatNumber(winRate)}%</span>
-            </div>
+            <ShareButton title={coach.name} />
           </div>
         </div>
       </div>
 
-      <div className="flex gap-1 p-1 bg-[#131317] border border-white/5 rounded-2xl text-xs select-none shadow-lg">
-        <button
-          onClick={() => setActiveTab("overview")}
-          className={`flex-1 py-3 rounded-xl font-black text-center transition cursor-pointer ${activeTab === "overview" ? "bg-emerald-500 text-black shadow font-black" : "text-slate-400 hover:text-white"}`}
-        >
-          خلاصه عملکرد
-        </button>
-        <button
-          onClick={() => setActiveTab("matches")}
-          className={`flex-1 py-3 rounded-xl font-black text-center transition cursor-pointer ${activeTab === "matches" ? "bg-emerald-500 text-black shadow font-black" : "text-slate-400 hover:text-white"}`}
-        >
-          ریز کارنامه مسابقات ({formatStatNumber(coachMatches.length)})
-        </button>
-        <button
-          onClick={() => setActiveTab("career")}
-          className={`flex-1 py-3 rounded-xl font-black text-center transition cursor-pointer ${activeTab === "career" ? "bg-emerald-500 text-black shadow font-black" : "text-slate-400 hover:text-white"}`}
-        >
-          افتخارات و سوابق
-        </button>
-        <button
-          onClick={() => setActiveTab("news")}
-          className={`flex-1 py-3 rounded-xl font-black text-center transition cursor-pointer ${activeTab === "news" ? "bg-emerald-500 text-black shadow font-black" : "text-slate-400 hover:text-white"}`}
-        >
-          اخبار ({formatStatNumber(coachNews.length)})
-        </button>
+      <div className="overflow-x-auto rounded-2xl border border-white/5 bg-[#121215] shadow-xl">
+        <div className="flex min-w-max items-center gap-1 p-1.5" role="tablist" aria-label="بخش‌های پروفایل مربی">
+          {([
+            { key: "overview", label: "خلاصه عملکرد", count: null },
+            { key: "matches", label: "ریز کارنامه مسابقات", count: coachMatches.length },
+            { key: "career", label: "افتخارات و سوابق", count: null },
+            { key: "news", label: "اخبار", count: coachNews.length },
+          ] as const).map((t) => {
+            const active = activeTab === t.key;
+            return (
+              <button
+                key={t.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setActiveTab(t.key)}
+                className={`relative shrink-0 rounded-xl px-4 py-2.5 text-xs font-black transition ${
+                  active ? "text-emerald-400" : "text-slate-400 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                {t.label}
+                {t.count != null && t.count > 0 && (
+                  <span className={`mr-1.5 rounded-full px-1.5 py-0.5 font-mono text-[10px] ${active ? "bg-emerald-500/15 text-emerald-300" : "bg-white/10 text-slate-400"}`}>
+                    {formatStatNumber(t.count)}
+                  </span>
+                )}
+                {active && <span className="absolute inset-x-3 -bottom-[1px] h-0.5 rounded-full bg-emerald-500" />}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {activeTab === "overview" && (
@@ -304,6 +360,23 @@ export default function CoachDetail({
               <p className="text-xs text-slate-300 leading-relaxed">{coach.biography}</p>
             </div>
           )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <MiniStat icon={<Trophy className="h-5 w-5" />} label="بازی‌ها" value={formatStatNumber(matches)} sub="حضور روی نیمکت" tone="slate" />
+            <MiniStat icon={<TrendingUp className="h-5 w-5" />} label="درصد برد" value={`${formatStatNumber(winRate)}%`} sub="نرخ پیروزی" tone="emerald" />
+            <MiniStat icon={<Target className="h-5 w-5" />} label="تفاضل گل" value={`${goalsFor - goalsAgainst >= 0 ? "+" : ""}${formatStatNumber(goalsFor - goalsAgainst)}`} sub="زده منهای خورده" tone="amber" />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="rounded-2xl border border-white/5 bg-[#121215] p-4 shadow-xl">
+              <h3 className="mb-3 text-sm font-black text-white">توزیع نتایج</h3>
+              <PresenceStrip results={distribution} />
+            </div>
+            <div className="rounded-2xl border border-white/5 bg-[#121215] p-4 shadow-xl">
+              <h3 className="mb-3 text-sm font-black text-white">نتایج فصلی</h3>
+              <SeasonResultsBars data={seasonResultsData} />
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="p-4 rounded-2xl bg-gradient-to-b from-white/[0.04] to-transparent border border-white/10">
@@ -365,28 +438,6 @@ export default function CoachDetail({
             </div>
           </div>
 
-          {recentForm.length > 0 && (
-            <div className="p-4 rounded-2xl bg-[#131317] border border-white/5">
-              <h3 className="text-xs font-black text-slate-400 mb-3 flex items-center gap-1.5">
-                <Activity className="h-4 w-4 text-emerald-500" />
-                <span>فرم اخیر</span>
-              </h3>
-              <div className="flex gap-2">
-                {recentForm.map((f: string, i: number) => {
-                  const formInfo = formLabels[f] || { label: f, color: "bg-slate-500" };
-                  return (
-                    <div
-                      key={i}
-                      className={`w-10 h-10 rounded-xl ${formInfo.color} flex items-center justify-center text-xs font-black text-white shadow-lg`}
-                      title={formInfo.label}
-                    >
-                      {f === "W" ? "ب" : f === "D" ? "م" : f === "L" ? "ش" : f}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -415,10 +466,16 @@ export default function CoachDetail({
                     }`}>
                       {m.result === "W" ? "برد" : m.result === "D" ? "تساوی" : "باخت"}
                     </span>
-                    <div className="flex items-center gap-1 text-[13px] text-white font-bold">
-                      <span>{m.teamName}</span>
-                      <span className="text-slate-500 text-xs">مقابل</span>
-                      <span>{m.opponent}</span>
+                    <TeamLogo logo={m.opponentLogo} fallback="🔵" size="xs" />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1 text-[13px] text-white font-bold">
+                        <span className="truncate">{m.teamName}</span>
+                        <span className="text-slate-500 text-xs shrink-0">مقابل</span>
+                        <span className="truncate">{m.opponent}</span>
+                      </div>
+                      {m.date && (
+                        <span className="mt-0.5 block font-mono text-[10px] text-slate-500">{formatStatNumber(convertGregorianToShamsi(String(m.date).slice(0, 10)))}</span>
+                      )}
                     </div>
                   </div>
 
@@ -470,6 +527,9 @@ export default function CoachDetail({
                     <h4 className="text-xs font-bold text-white leading-snug line-clamp-2 group-hover:text-emerald-400 transition">
                       {nw.title}
                     </h4>
+                    {nw.createdAt && (
+                      <span className="mt-1 block font-mono text-[10px] text-slate-500">{formatStatNumber(convertGregorianToShamsi(String(nw.createdAt).slice(0, 10)))}</span>
+                    )}
                     {nw.summary && (
                       <p className="text-[10px] text-slate-500 line-clamp-2 mt-1 leading-relaxed">{nw.summary}</p>
                     )}

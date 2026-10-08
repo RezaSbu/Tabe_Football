@@ -374,6 +374,78 @@ export default function AdminPlayerProfiles({
                 placeholder="https://images.unsplash.com/..."
               />
             </div>
+
+            <div>
+              <label className="block text-[11px] text-gray-400 font-bold mb-1.5">نام انگلیسی (نمایشی در پروفایل)</label>
+              <input
+                type="text"
+                dir="ltr"
+                value={(editingItem as any)?.nameEn || ""}
+                onChange={e => setEditingItem({ ...editingItem, nameEn: e.target.value } as any)}
+                className="w-full bg-slate-950 border border-white/5 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-red-655 font-mono text-left"
+                placeholder="Mehdi Taremi"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] text-gray-400 font-bold mb-1.5">نمره پایه TF (خالی = خودکار از میانگین)</label>
+              <input
+                type="number"
+                min="0"
+                max="10"
+                step="0.1"
+                value={(editingItem as any)?.baseRating ?? ""}
+                onChange={e => setEditingItem({ ...editingItem, baseRating: e.target.value === "" ? null : parseFloat(e.target.value) } as any)}
+                className="w-full bg-slate-950 border border-white/5 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-red-655 font-mono"
+                placeholder="مثال: 7.5"
+              />
+            </div>
+          </div>
+
+          {/* Market value box: admin sets the BASE; recalc prices 5-game blocks on top (floor 1e9). */}
+          <div className="bg-gray-950/40 p-4 border border-white/5 rounded-2xl space-y-3">
+            <h3 className="text-xs font-black text-red-400">ارزش بازار بازیکن</h3>
+            {(editingItem as any)?.marketValue?.value != null && (
+              <p className="text-[10px] text-slate-400">ارزش فعلی محاسباتی: <span className="font-mono font-black text-emerald-400">{formatStatNumber((editingItem as any).marketValue.value)}</span></p>
+            )}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+              <div>
+                <label className="block text-[10px] text-slate-450 mb-1">مبنای ارزش (پایه)</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1000"
+                  value={(editingItem as any)?.marketValue?.base ?? ""}
+                  onChange={e => setEditingItem({ ...editingItem, marketValue: { ...((editingItem as any)?.marketValue || { value: null, currency: "تومان", changePct: null, history: [] }), base: e.target.value === "" ? null : parseFloat(e.target.value) } } as any)}
+                  className="w-full bg-slate-950 border border-white/5 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-655 font-mono"
+                  placeholder="1000000000"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] text-slate-450 mb-1">واحد پول</label>
+                <select
+                  value={(editingItem as any)?.marketValue?.currency || "تومان"}
+                  onChange={e => setEditingItem({ ...editingItem, marketValue: { ...((editingItem as any)?.marketValue || { value: null, base: null, changePct: null, history: [] }), currency: e.target.value } } as any)}
+                  className="w-full bg-slate-950 border border-white/5 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-655 font-bold font-mono"
+                >
+                  <option value="تومان">تومان</option>
+                  <option value="€">€ یورو</option>
+                  <option value="$">$ دلار</option>
+                  <option value="£">£ پوند</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] text-slate-450 mb-1">تغییر ۳۰ روزه (٪)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={(editingItem as any)?.marketValue?.changePct ?? ""}
+                  onChange={e => setEditingItem({ ...editingItem, marketValue: { ...((editingItem as any)?.marketValue || { value: null, currency: "€", history: [] }), changePct: e.target.value === "" ? null : parseFloat(e.target.value) } } as any)}
+                  className="w-full bg-slate-950 border border-white/5 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-655 font-mono"
+                  placeholder="8.4"
+                />
+              </div>
+            </div>
           </div>
 
           {/* Player stats box */}

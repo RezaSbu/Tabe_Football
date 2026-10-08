@@ -60,6 +60,10 @@ export default function PlayerDetailPage() {
     fetch(`/api/detail/player/${id}/view`, { method: "POST" }).catch(() => {});
   }, [id]);
 
+  // Player profile follows the site's native dark palette (same as every
+  // other surface). The navy `.player-hero` scope in index.css keeps the hero
+  // banner dark even when the user enables site-wide light theme.
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">

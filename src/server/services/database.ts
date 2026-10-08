@@ -255,6 +255,44 @@ export async function migrateDropShirtNumberColumn(): Promise<void> {
   }
 }
 
+export async function migratePlayerProfileColumns(): Promise<void> {
+  // Player-profile enrichment columns (english name, manual TF-rating base,
+  // market value snapshot + history). All NULL-able, all manual (recalc and
+  // CRUD never overwrite them). Idempotent on every boot.
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, applied_at TIMESTAMPTZ DEFAULT NOW())`);
+    // Idempotent by design (IF NOT EXISTS): safe on every boot, guarded for record.
+    await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS name_en varchar(200)`);
+    await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS base_rating numeric(3,1)`);
+    await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS market_value numeric`);
+    await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS market_currency varchar(3) DEFAULT '€'`);
+    await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS market_change numeric(5,2)`);
+    await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS market_value_history jsonb DEFAULT '[]'::jsonb`);
+    await pool.query(`INSERT INTO schema_migrations (name) VALUES ('player_profile_columns_v1') ON CONFLICT (name) DO NOTHING`);
+    logMessage("info", "database", "مهاجرت ستون‌های پروفایل بازیکن (نام انگلیسی، نمره پایه، ارزش بازار) اعمال شد.");
+  } catch (err: any) {
+    logMessage("warn", "database", "خطا در مهاجرت ستون‌های پروفایل بازیکن:", err.message || err);
+  }
+}
+
+export async function migratePlayerMarketBase(): Promise<void> {
+  // Market base column (admin-set starting point; recalc prices 5-game blocks
+  // on top, floored at 1e9). Backfills the 1-milliard default for existing
+  // rows and normalizes empty currency to تومان. Idempotent.
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, applied_at TIMESTAMPTZ DEFAULT NOW())`);
+    await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS market_base numeric DEFAULT 1000000000`);
+    await pool.query(`UPDATE players SET market_base = 1000000000 WHERE market_base IS NULL`);
+    await pool.query(`UPDATE players SET market_currency = 'تومان' WHERE market_currency IS NULL OR market_currency = ''`);
+    await pool.query(`INSERT INTO schema_migrations (name) VALUES ('player_market_base_v1') ON CONFLICT (name) DO NOTHING`);
+    logMessage("info", "database", "مهاجرت مبنای ارزش بازار بازیکنان اعمال شد.");
+  } catch (err: any) {
+    logMessage("warn", "database", "خطا در مهاجرت مبنای ارزش بازار:", err.message || err);
+  }
+}
+
 export async function migrateDropArchiveTable(): Promise<void> {
   // The multi-season archive system was removed; there is exactly one active
   // season. Drops public.archive for real (it has no foreign keys). Runs once
@@ -1266,11 +1304,29 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
         return {
           id: p.id,
           name: fixMojibake(p.name || ""),
+          nameEn: p.name_en ? fixMojibake(p.name_en) : null,
           teamId: p.team_id,
           teamName: fixMojibake(p.team_name || ""),
           position: p.position,
           rating: p.rating != null ? parseFloat(p.rating) : null,
           averageRating: p.average_rating != null ? parseFloat(p.average_rating) : null,
+          // Manual TF-rating base (null = auto from computed average; recalc never touches it).
+          baseRating: p.base_rating != null ? parseFloat(p.base_rating) : null,
+          // Manual market snapshot (null value = untracked; history grows via future logic).
+          // base = admin-set starting point (default 1e9); recalc prices blocks on top.
+          marketValue: p.market_value != null ? {
+            value: parseFloat(p.market_value),
+            base: p.market_base != null ? parseFloat(p.market_base) : null,
+            currency: p.market_currency || "تومان",
+            changePct: p.market_change != null ? parseFloat(p.market_change) : null,
+            history: Array.isArray(p.market_value_history) ? p.market_value_history : [],
+          } : (p.market_base != null ? {
+            value: null,
+            base: parseFloat(p.market_base),
+            currency: p.market_currency || "تومان",
+            changePct: p.market_change != null ? parseFloat(p.market_change) : null,
+            history: [],
+          } : null),
           image: p.image,
           seasonStats: sStats,
           leagueStats: sStats.leagueStats || { matches: p.base_matches || 0, goals: p.base_goals || 0, assists: p.base_assists || 0, cleanSheets: p.base_clean_sheets || 0, yellowCards: p.base_yellow_cards || 0, redCards: p.base_red_cards || 0 },
@@ -1770,11 +1826,18 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
       const formattedPlayers = data.players.map((p: any) => ({
         id: p.id,
         name: p.name,
+        name_en: p.nameEn || null,
         team_id: p.teamId && teamIdSet.has(p.teamId) ? p.teamId : null,
         team_name: p.teamName,
         position: p.position,
         rating: p.rating != null ? p.rating : null,
         average_rating: p.averageRating != null ? p.averageRating : null,
+        base_rating: p.baseRating != null && p.baseRating !== "" ? p.baseRating : null,
+        market_value: p.marketValue?.value != null && p.marketValue.value !== "" ? p.marketValue.value : null,
+        market_base: p.marketValue?.base != null && p.marketValue.base !== "" ? p.marketValue.base : null,
+        market_currency: p.marketValue?.currency || "تومان",
+        market_change: p.marketValue?.changePct != null && p.marketValue.changePct !== "" ? p.marketValue.changePct : null,
+        market_value_history: Array.isArray(p.marketValue?.history) ? p.marketValue.history : [],
         image: p.image,
         season_stats: {
           ...p.seasonStats,
