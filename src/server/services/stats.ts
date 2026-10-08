@@ -14,6 +14,192 @@ import { realMinute } from "../../shared/matchMinute";
 import { resolveTeam, resolveTeamLeague, normalizeLeagueKey, resolveTeamLeagueWithFallback } from "../../shared/teamMatch";
 import { coachOfTeamAt } from "../../shared/coachTenure";
 
+// ---------------------------------------------------------------------------
+// TF Rating + Market Value engine v2 (agreed scoring rules, unit-tested).
+// TF: start 70, range [60, 99], replayed chronologically (oldest first),
+// no season reset. Per played match (L = league coefficient):
+//   appearance +1 only with real minutes (tier > 0),
+//   each goal +1, each assist +1, clean sheet GK +2 / DF +1,
+//   rating > 7.5 => +2, 6..7.5 => +1, (0,6) => -1,
+//   each red card -1, each own goal -1.
+// Minutes tier scales (appearance + rating band) ONLY: full (>=dur-15) x1,
+// half (>=dur/2) x0.7, low (>=15) x0.5, cameo x0. Goals/assists/CS/cards xL.
+//   Positive part is dampened near the cap: pos * (100 - TF) / 30, so stars
+//   keep separating instead of freezing at 99 (full weight at TF <= 70);
+//   negatives apply in full. Clamp [60, 99] after every match.
+// Market: base (admin, default 1e9) + priced 5-game blocks, same order.
+//   Per block match (xL, no minutes tier): goal/assist/CS/rating parts as
+//   agreed; star bonus +10M when TF after the completing match >= 85;
+//   one-shot age curve at the end (>=31: x0.92, <=21: x1.05).
+//   Floor 1e9, no ceiling. Seasons snapshot the running value.
+// ---------------------------------------------------------------------------
+export const TF_START = 70;
+export const TF_FLOOR = 60;
+export const TF_CAP = 99;
+export const TF_STAR = 85;
+export const MARKET_FLOOR = 1000000000;
+export const MARKET_GOAL = 20000000;
+export const MARKET_ASSIST = 20000000;
+export const MARKET_RATING_HIGH = 30000000;
+export const MARKET_RATING_MID = 10000000;
+export const MARKET_RATING_LOW = -10000000;
+// Clean-sheet bonuses (the only growth engine for GK/DF):
+// goalkeeper counts like a goal, defender at half rate.
+export const TF_CLEAN_GK = 2;
+export const TF_CLEAN_DF = 1;
+export const MARKET_CLEAN_GK = 20000000;
+export const MARKET_CLEAN_DF = 10000000;
+export const MARKET_STAR_BONUS = 10000000;
+
+export type PositionGroup = "GK" | "DF" | "OUT";
+
+export function positionGroupOf(position: any): PositionGroup {
+  const p = String(position || "");
+  if (p.includes("دروازه")) return "GK";
+  if (p.includes("مدافع")) return "DF";
+  return "OUT";
+}
+
+// League hierarchy coefficient (lower leagues pay less).
+export function leagueCoeff(league: any): number {
+  const s = String(league || "");
+  if (!s) return 1.0;
+  if (s.includes("futsal")) return 0.6;
+  if (s.includes("pro-league")) return 1.0;
+  if (s.includes("hazfi")) return 0.8;
+  if (s.includes("league-1")) return 0.7;
+  if (s.includes("league-2")) return 0.5;
+  return 0.7;
+}
+
+export interface TfMatchEntry {
+  goals?: any;
+  assists?: any;
+  rating?: any;
+  redCards?: any;
+  ownGoals?: any;
+  cleanSheets?: any;
+}
+
+export interface ReplayEntry extends TfMatchEntry {
+  league?: any;
+  minutes?: any;
+  duration?: any;
+}
+
+// Minutes tier: starter/sub-off/sub-in unified. Missing minutes = full credit.
+export function minuteTier(minutes: any, duration: any): number {
+  const dur = Number(duration) > 0 ? Number(duration) : 90;
+  if (minutes == null) return 1;
+  const m = Number(minutes) || 0;
+  if (m >= dur - 15) return 1;
+  if (m >= dur / 2) return 0.7;
+  if (m >= 15) return 0.5;
+  return 0;
+}
+
+export interface ReplayOptions {
+  base?: number;
+  group?: PositionGroup;
+  seasonOf?: (entry: ReplayEntry, index: number) => string;
+  age?: number | null;
+  withStar?: boolean;
+}
+
+export function replayCareer(
+  entries: ReplayEntry[],
+  opts: ReplayOptions = {}
+): { tf: number; value: number; pricedMatches: number; history: { season: string; value: number }[] } {
+  const group = opts.group || "OUT";
+  const b = Number(opts.base) > 0 ? Number(opts.base) : MARKET_FLOOR;
+  const seasonOf = opts.seasonOf || ((_e, i) => String(i));
+  const list = entries || [];
+  let tf = TF_START;
+  let pending = 0;
+  let runTotal = 0;
+  const snaps = new Map<string, number>();
+  list.forEach((e, i) => {
+    const L = leagueCoeff((e as any).league);
+    const tier = minuteTier((e as any).minutes, (e as any).duration);
+    const r = Number(e.rating) || 0;
+    const cs = Number(e.cleanSheets) || 0;
+    const app = tier > 0 ? 1 : 0;
+    const band = r > 7.5 ? 2 : r >= 6 ? 1 : r > 0 ? -1 : 0;
+    const csTf = cs > 0 ? (group === "GK" ? TF_CLEAN_GK : group === "DF" ? TF_CLEAN_DF : 0) : 0;
+    const posUnits = (app + Math.max(0, band)) * tier + (Number(e.goals) || 0) + (Number(e.assists) || 0) + csTf;
+    const negUnits =
+      (Math.max(0, -band) * tier + (Number(e.redCards) || 0) + (Number(e.ownGoals) || 0)) * L;
+    // Float accumulator (rounded only at the end): per-step rounding would
+    // stall one point below the cap under dampening.
+    const delta = posUnits * L * ((100 - tf) / 30) - negUnits;
+    tf = Math.max(TF_FLOOR, Math.min(TF_CAP, tf + delta));
+
+    const csMkt = cs > 0 ? (group === "GK" ? MARKET_CLEAN_GK : group === "DF" ? MARKET_CLEAN_DF : 0) : 0;
+    const rateMkt = r > 7.5 ? MARKET_RATING_HIGH : r >= 6 ? MARKET_RATING_MID : r > 0 ? MARKET_RATING_LOW : 0;
+    pending += ((Number(e.goals) || 0) * MARKET_GOAL + (Number(e.assists) || 0) * MARKET_ASSIST + csMkt + rateMkt) * L;
+    if ((i + 1) % 5 === 0) {
+      runTotal += pending;
+      pending = 0;
+      if (opts.withStar === true && tf >= TF_STAR) runTotal += MARKET_STAR_BONUS;
+    }
+    snaps.set(String(seasonOf(e, i)), Math.max(MARKET_FLOOR, Math.round(b + runTotal)));
+  });
+  let value = Math.max(MARKET_FLOOR, Math.round(b + runTotal));
+  // One-shot age curve on the current value (provisional rates).
+  const age = Number(opts.age);
+  if (Number.isFinite(age) && age > 0) {
+    if (age >= 31) value = Math.max(MARKET_FLOOR, Math.round(value * 0.92));
+    else if (age <= 21) value = Math.max(MARKET_FLOOR, Math.round(value * 1.05));
+  }
+  const history = [...snaps.entries()].map(([season, value]) => ({ season, value }));
+  if (history.length > 0) history[history.length - 1].value = value;
+  const full = Math.floor(list.length / 5) * 5;
+  return { tf: Math.round(tf), value, pricedMatches: full, history };
+}
+
+export function computeTfRating(entries: TfMatchEntry[], group: PositionGroup = "OUT"): number {
+  return replayCareer(entries || [], { group }).tf;
+}
+
+export function blockAdjustment(e: TfMatchEntry, group: PositionGroup = "OUT"): number {
+  const r = Number(e.rating) || 0;
+  const cs = Number(e.cleanSheets) || 0;
+  return (
+    (Number(e.goals) || 0) * MARKET_GOAL +
+    (Number(e.assists) || 0) * MARKET_ASSIST +
+    (cs > 0 ? (group === "GK" ? MARKET_CLEAN_GK : group === "DF" ? MARKET_CLEAN_DF : 0) : 0) +
+    (r > 7.5 ? MARKET_RATING_HIGH : r >= 6 ? MARKET_RATING_MID : r > 0 ? MARKET_RATING_LOW : 0)
+  );
+}
+
+// Legacy shape kept for existing callers/tests (no star bonus, no age curve).
+export function valueMarketHistory(
+  entries: TfMatchEntry[],
+  base: number,
+  seasonOf: (entry: TfMatchEntry, index: number) => string,
+  group: PositionGroup = "OUT"
+): { value: number; pricedMatches: number; history: { season: string; value: number }[] } {
+  const b = Number(base) > 0 ? Number(base) : MARKET_FLOOR;
+  const list = entries || [];
+  let pending = 0;
+  let runTotal = 0;
+  const snaps = new Map<string, number>();
+  list.forEach((e, i) => {
+    pending += blockAdjustment(e, group) * leagueCoeff((e as any).league);
+    if ((i + 1) % 5 === 0) {
+      runTotal += pending;
+      pending = 0;
+    }
+    snaps.set(String(seasonOf(e, i)), Math.max(MARKET_FLOOR, Math.round(b + runTotal)));
+  });
+  const full = Math.floor(list.length / 5) * 5;
+  return {
+    value: Math.max(MARKET_FLOOR, Math.round(b + runTotal)),
+    pricedMatches: full,
+    history: [...snaps.entries()].map(([season, value]) => ({ season, value })),
+  };
+}
+
 export function calculatePlayerMinutesAndPlayed(
   player: any,
   match: any,
@@ -1021,6 +1207,9 @@ export function recalculateAndSyncDatabase(): void {
           }
           const conceded = isHome ? (parseInt(String(match.scoreAway), 10) || 0) : (parseInt(String(match.scoreHome), 10) || 0);
           const cleanSheetCount = (isGK && conceded === 0) ? 1 : 0;
+          // Team clean sheet regardless of position (feeds TF/market bonuses for
+          // GK/DF; the GK-gated aggregates above stay untouched).
+          const teamClean = conceded === 0 ? 1 : 0;
            const isMvp = isSamePlayer({ id: match.mvpId, name: (match as any).mvpName }, pObj, match, identityIndex, pMemberships);
           const rawRating = lp && lp.rating != null ? parseFloat(String(lp.rating)) : null;
           const hasValidRating = rawRating != null && !isNaN(rawRating) && rawRating > 0;
@@ -1102,6 +1291,7 @@ export function recalculateAndSyncDatabase(): void {
 
           const alreadyIn = pObj.ratingsHistory.some((item: any) => item.matchId === match.id);
           if (!alreadyIn) {
+            const ownGoals = (match.events || []).filter((ev: any) => ev && ev.type === "own-goal" && sameSide({ id: ev.playerId, name: ev.playerName }, ev.team)).length;
             pObj.ratingsHistory.push({
               matchId: match.id,
               seasonId: sid,
@@ -1113,6 +1303,11 @@ export function recalculateAndSyncDatabase(): void {
               goals: stats.goals,
               assists: stats.assists,
                minutes: stats.minutes,
+               redCards: stats.red || 0,
+               ownGoals,
+               cleanSheets: teamClean,
+               league: (match as any).league || null,
+               duration: match.sport === "futsal" || match.league === "futsal" ? 40 : 90,
                isMvp: isSamePlayer({ id: match.mvpId, name: (match as any).mvpName }, pObj, match, identityIndex, pMemberships)
              });
            }
@@ -1150,21 +1345,71 @@ export function recalculateAndSyncDatabase(): void {
          p.leagueStats.averageRating = null;
        }
 
-       const cupRatings = p.ratingsHistory.filter((x: any) => x.isCup && x.rating != null && x.rating > 0);
-       if (cupRatings.length > 0) {
-         const cSum = cupRatings.reduce((acc: number, item: any) => acc + item.rating, 0);
-         if (p.cupStats) {
-           p.cupStats.averageRating = parseFloat((cSum / cupRatings.length).toFixed(1));
-         }
-       } else if (p.cupStats) {
-         p.cupStats.averageRating = null;
-       }
-     } else {
-       p.averageRating = null;
-       if (p.seasonStats) p.seasonStats.averageRating = null;
-       if (p.leagueStats) p.leagueStats.averageRating = null;
-       if (p.cupStats) p.cupStats.averageRating = null;
-     }
+        const cupRatings = p.ratingsHistory.filter((x: any) => x.isCup && x.rating != null && x.rating > 0);
+        if (cupRatings.length > 0) {
+          const cSum = cupRatings.reduce((acc: number, item: any) => acc + item.rating, 0);
+          if (p.cupStats) {
+            p.cupStats.averageRating = parseFloat((cSum / cupRatings.length).toFixed(1));
+          }
+        } else if (p.cupStats) {
+          p.cupStats.averageRating = null;
+        }
+
+        // TF rating + market value: cumulative replay, oldest match first
+        // (ratingsHistory is stored newest-first). No season reset.
+        const orderedOldestFirst = [...p.ratingsHistory].reverse();
+        const group = positionGroupOf(p.position);
+        const replayEntries = orderedOldestFirst.map((h: any) => ({
+          goals: h.goals,
+          assists: h.assists,
+          rating: h.rating,
+          redCards: h.redCards,
+          ownGoals: h.ownGoals,
+          cleanSheets: h.cleanSheets,
+          league: h.league,
+          minutes: h.minutes,
+          duration: h.duration,
+        }));
+        const seasonLabelOf = (sid: any) => {
+          const s = (db.seasons || []).find((x: any) => String(x.id) === String(sid));
+          return (s && (s.name || s.label)) || String(sid || "");
+        };
+        const mBase = Number(p.marketValue?.base) > 0 ? Number(p.marketValue.base) : MARKET_FLOOR;
+        const replayed = replayCareer(replayEntries, {
+          base: mBase,
+          group,
+          seasonOf: (_e: any, i: number) => seasonLabelOf(orderedOldestFirst[i]?.seasonId),
+          age: Number(p.age) > 0 ? Number(p.age) : null,
+          withStar: true,
+        });
+        if (p.seasonStats) p.seasonStats.tfRating = replayed.tf;
+        p.marketValue = {
+          value: replayed.value,
+          base: Number(p.marketValue?.base) > 0 ? Number(p.marketValue.base) : null,
+          currency: p.marketValue?.currency || "تومان",
+          changePct: p.marketValue?.changePct ?? null,
+          history: replayed.history,
+        };
+      } else {
+        p.averageRating = null;
+        if (p.seasonStats) p.seasonStats.averageRating = null;
+        if (p.leagueStats) p.leagueStats.averageRating = null;
+        if (p.cupStats) p.cupStats.averageRating = null;
+        // No recorded matches: TF default, market at base (floor + age curve apply).
+        const idle = replayCareer([], {
+          base: Number(p.marketValue?.base) > 0 ? Number(p.marketValue.base) : MARKET_FLOOR,
+          group: positionGroupOf(p.position),
+          age: Number(p.age) > 0 ? Number(p.age) : null,
+        });
+        if (p.seasonStats) p.seasonStats.tfRating = idle.tf;
+        p.marketValue = {
+          value: idle.value,
+          base: Number(p.marketValue?.base) > 0 ? Number(p.marketValue.base) : null,
+          currency: p.marketValue?.currency || "تومان",
+          changePct: p.marketValue?.changePct ?? null,
+          history: [],
+        };
+      }
    });
 
   db.teams.forEach((t: any) => {
