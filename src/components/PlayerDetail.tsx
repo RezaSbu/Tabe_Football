@@ -1,16 +1,22 @@
 import React, { useState, useEffect } from "react";
-import { 
-  ArrowLeft, Award, Calendar, Zap, Heart, 
-  Star, Activity, Trophy, Clock, UserRound, Sparkles, Newspaper
+import {
+  Award, Clock, Star, Trophy,
 } from "lucide-react";
-import { getSafeImageUrl, isTeamInDb, convertGregorianToShamsi, formatStatNumber, normalizePersianString } from "../utils";
+import { formatStatNumber, normalizePersianString } from "../utils";
 import { resolveTeam } from "../shared/teamMatch";
-import { realMinute } from "../shared/matchMinute";
+import { realMinute, parseMatchMinute } from "../shared/matchMinute";
 import { buildPlayerIdentityIndex, findMatchLineupPlacement, isSamePlayer } from "../shared/playerIdentity";
-import ShareButton from "./ui/ShareButton";
+import { buildCareerCards } from "../shared/career";
 import SeasonSwitcher, { defaultSeasonValue } from "./SeasonSwitcher";
 import MovementTimeline from "./MovementTimeline";
 import CareerSection from "./CareerSection";
+import PlayerHero, { formatCompactEuro } from "./player/PlayerHero";
+import { RatingsLineChart, MarketLineChart, PresenceStrip, GoalTimingBars } from "./player/PlayerCharts";
+import { getPlayerDemo } from "./player/playerDemo"; // DEMO PREVIEW — remove with playerDemo.ts
+import {
+  SectionCard, SeasonPerformance, CareerMini, SimilarPlayers, NextMatchCard,
+  PlayerShareCard, ProfileInfoBox, NewsList, SplitTable, MatchLogList, MiniStat,
+} from "./player/PlayerWidgets";
 
 interface PlayerDetailProps {
   player: any;
@@ -24,20 +30,32 @@ interface PlayerDetailProps {
   onSelectNews?: (id: string) => void;
 }
 
-export default function PlayerDetail({ 
-  player, 
-  allMatches = [], 
-  allTeams = [], 
+type TabKey = "summary" | "performance" | "details" | "market" | "career" | "ratings" | "compare" | "news";
+
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "summary", label: "خلاصه" },
+  { key: "performance", label: "عملکرد" },
+  { key: "details", label: "آمار و جزئیات" },
+  { key: "market", label: "ارزش بازیکن" },
+  { key: "career", label: "مسیر حرفه‌ای" },
+  { key: "ratings", label: "نمرات بازی‌ها" },
+  { key: "compare", label: "مقایسه" },
+  { key: "news", label: "اخبار" },
+];
+
+export default function PlayerDetail({
+  player,
+  allMatches = [],
+  allTeams = [],
   allPlayers = [],
   news = [],
-  onBack, 
+  onBack,
   onSelectTeam,
   onSelectMatch,
   onSelectNews
 }: PlayerDetailProps) {
-  const [activeTab, setActiveTab] = useState<"overview" | "matches" | "career">("overview");
-  const [imageError, setImageError] = useState(false);
-  const [lastPlayerId, setLastPlayerId] = useState<string | undefined>(undefined);
+  const [activeTab, setActiveTab] = useState<TabKey>("summary");
+  const [compareId, setCompareId] = useState<string | null>(null);
   const [selectedCompet, setSelectedCompet] = useState<"all" | "league" | "cup">("all");
   const [playerNews, setPlayerNews] = useState<any[]>([]);
   const [loadingNews, setLoadingNews] = useState(false);
@@ -51,7 +69,7 @@ export default function PlayerDetail({
       const isFutsal = player.id?.startsWith("futsal-") || player.teamId?.startsWith("futsal-") || player.teamId?.includes("futsal") || (player.teamName || "").includes("فوتسال");
       setSelectedCompet(isFutsal ? "league" : "all");
       setSeasonId(defaultSeasonValue(player.seasons, true));
-      
+
       // Fetch related news from server
       setLoadingNews(true);
       fetch(`/api/related-news/player/${player.id}?limit=10`)
@@ -67,11 +85,6 @@ export default function PlayerDetail({
   }, [player?.id]);
 
   if (!player) return null;
-
-  if (player?.id !== lastPlayerId) {
-    setImageError(false);
-    setLastPlayerId(player?.id);
-  }
 
   // Same futsal signals as TeamDetail (explicit fields + futsal id prefix).
   const isFutsalPlayer = (player as any).sport === "futsal" ||
@@ -148,7 +161,7 @@ export default function PlayerDetail({
   // DYNAMICALLY FILTER AND MATCH PLAYER PERFORMANCE FROM ALL GAMES IN THE BASE
   // To obtain an real fotmob-like match performance log!
   const playerMatches: any[] = [];
-  
+
   allMatches.forEach(match => {
     if (match.status !== "finished") return;
 
@@ -342,11 +355,11 @@ export default function PlayerDetail({
         }
         const mo = parseInt(dateParts[1], 10) - 1;
         const dy = parseInt(dateParts[2], 10);
-        
+
         const timeParts = (item.time || "00:00").trim().split(":");
         const hr = parseInt(timeParts[0], 10) || 0;
         const mn = parseInt(timeParts[1], 10) || 0;
-        
+
         return new Date(yr, mo, dy, hr, mn, 0, 0).getTime();
       }
       const fallback = new Date(cleanDate).getTime();
@@ -431,614 +444,739 @@ export default function PlayerDetail({
 
   // Find club reference to open team detail
   const myClubRef = resolveTeam(allTeams, player.teamId || player.teamName);
+  const teamLogo: string | null = ((myClubRef as any)?.logo || null);
+
+  // ---------- NEW: derived showcase values (reference design) ----------
+  const isGk = typeof player.position === "string" && player.position.includes("دروازه");
+
+  // Rated history newest-first (server sorts it). All chart/form logic reads this.
+  const ratedHistory: any[] = (player.ratingsHistory || []).filter((h: any) => Number(h.rating) > 0);
+  const scopedRated = isCareerView ? ratedHistory : ratedHistory.filter((h: any) => String(h.seasonId) === String(seasonId));
+  const last10 = scopedRated.slice(0, 10);
+  const last5 = scopedRated.slice(0, 5);
+  const formScore: number | null = last5.length > 0
+    ? Math.round((last5.reduce((a: number, h: any) => a + Number(h.rating), 0) / last5.length) * 10)
+    : null;
+  // TF rating: server-computed cumulative score (seasonStats.tfRating),
+  // default 70, range [60, 99]. Manual base_rating (admin, 0-10 scale) wins
+  // when set. Form and rank always derive from computed data (never stored).
+  const storedTf: number | null = player.seasonStats?.tfRating != null
+    ? Number(player.seasonStats.tfRating)
+    : null;
+  const hasBase = player.baseRating != null && player.baseRating !== "";
+  const tfRating: number | null = hasBase
+    ? +((Number(player.baseRating) * 10).toFixed(1))
+    : (storedTf ?? 70);
+  const ratingBase: number | null = hasBase && selectedCompet === "all"
+    ? Number(player.baseRating)
+    : (activeAvgRating != null ? Number(activeAvgRating) : null);
+  const spark: number[] = scopedRated.slice(0, 12).reverse().map((h: any) => Number(h.rating));
+
+  // Team logo lookup for opponents / career clubs (real match + team tables).
+  const logoForTeam = (teamName?: string | null): string | null => {
+    if (!teamName) return null;
+    const tnorm = normalizePersianString(teamName);
+    const m = (allMatches || []).find((x: any) => normalizePersianString(x.teamHome) === tnorm || normalizePersianString(x.teamAway) === tnorm);
+    if (m) {
+      if (normalizePersianString(m.teamHome) === tnorm && m.teamHomeLogo && !String(m.teamHomeLogo).startsWith("🔵") && !String(m.teamHomeLogo).startsWith("🔴")) return m.teamHomeLogo;
+      if (normalizePersianString(m.teamAway) === tnorm && m.teamAwayLogo && !String(m.teamAwayLogo).startsWith("🔵") && !String(m.teamAwayLogo).startsWith("🔴")) return m.teamAwayLogo;
+    }
+    const t = resolveTeam(allTeams, teamName);
+    return ((t as any)?.logo || null);
+  };
+
+  // Position peers (same normalized position, rated) -> rank + similar players.
+  const normPos = normalizePersianString(player.position || "");
+  const myAvgNum = Number(player.seasonStats?.averageRating ?? player.averageRating ?? 0);
+  const peers = (allPlayers || [])
+    .filter((p: any) => p && String(p.id) !== String(player.id) && normalizePersianString(p.position || "") === normPos && Number(p.seasonStats?.averageRating ?? p.averageRating ?? 0) > 0)
+    .sort((a: any, b: any) => Number(b.seasonStats?.averageRating ?? b.averageRating ?? 0) - Number(a.seasonStats?.averageRating ?? a.averageRating ?? 0));
+  const rank: number | null = myAvgNum > 0 && normPos
+    ? peers.filter((p: any) => Number(p.seasonStats?.averageRating ?? p.averageRating ?? 0) > myAvgNum).length + 1
+    : null;
+  // Similarity: same-position gate (peers above) + rating gap + age gap.
+  // score = 100 - (ratingGap * 10 + ageGapYears * 1.5), floored at 60.
+  const myAgeNum: number | null = Number(player.age) > 0 ? Number(player.age) : null;
+  const similarFull = myAvgNum > 0
+    ? peers
+        .map((p: any) => {
+          const avg = Number(p.seasonStats?.averageRating ?? p.averageRating ?? 0);
+          const d = Math.abs(avg - myAvgNum);
+          const pa = Number(p.age) > 0 ? Number(p.age) : null;
+          const ageGap = myAgeNum != null && pa != null ? Math.abs(pa - myAgeNum) : 0;
+          return { p, score: d * 10 + ageGap * 1.5 };
+        })
+        .sort((a: any, b: any) => a.score - b.score)
+        .map(({ p, score }: any) => ({
+          id: String(p.id),
+          name: p.name,
+          teamName: p.teamName,
+          position: p.position || "",
+          age: Number(p.age) > 0 ? Number(p.age) : null,
+          avg: Number(p.seasonStats?.averageRating ?? p.averageRating ?? 0) || null,
+          matches: Number(p.seasonStats?.matches ?? 0) || 0,
+          goals: Number(p.seasonStats?.goals ?? 0) || 0,
+          assists: Number(p.seasonStats?.assists ?? 0) || 0,
+          image: p.image || null,
+          similarity: Math.max(60, Math.round(100 - score)),
+        }))
+    : [];
+
+  // playerDemo: DEMO PREVIEW for gated players (remove with playerDemo.ts).
+  const demo = getPlayerDemo(player.id);
+
+  // Next match of the player's club (not-started fixtures).
+  const myTeamNorm = normalizePersianString(player.teamName || "");
+  const nextMatch = (() => {
+    const tid = player.teamId ? String(player.teamId) : null;
+    const cands = (allMatches || [])
+      .filter((m: any) => m.status === "not-started" && (
+        (tid && (String(m.teamHomeId) === tid || String(m.teamAwayId) === tid)) ||
+        (myTeamNorm && (normalizePersianString(m.teamHome) === myTeamNorm || normalizePersianString(m.teamAway) === myTeamNorm))
+      ))
+      .sort((a: any, b: any) => String(a.date || "").localeCompare(String(b.date || "")) || String(a.time || "").localeCompare(String(b.time || "")));
+    if (cands.length > 0) return cands[0];
+    // playerDemo: DEMO PREVIEW fallback for gated players (remove with playerDemo.ts).
+    if (demo?.nextMatch) {
+      const dn = demo.nextMatch;
+      return { ...dn, teamHomeLogo: logoForTeam(dn.teamHome), teamAwayLogo: logoForTeam(dn.teamAway) };
+    }
+    return null;
+  })();
+  const isDemoMatch = String(nextMatch?.id || "").startsWith("demo-");
+
+  // Future-tracked fields (no backend yet — UI renders honest empty states).
+  // Shape reserved: marketValue = { value, currency, changePct, history: [{season, value}] }
+  const market: any = (player as any).marketValue ?? demo?.marketValue ?? null;
+  const marketHistory = Array.isArray(market?.history) && market.history.length > 0
+    ? market.history.map((h: any) => ({
+        x: String(h.season),
+        y: Number(h.value) || 0,
+        label: formatCompactEuro(Number(h.value) || 0, market.currency || "€"),
+      }))
+    : null;
+  const marketLabel = market ? formatCompactEuro(Number(market.value) || 0, market.currency || "€") : "—";
+  // Presence results respect the same season scope as the match log.
+  const presenceResults = visiblePlayerMatches.map((m: any) => m.result as "W" | "D" | "L");
+
+  // Chart points: oldest on the left, newest on the right.
+  const last10Points = [...last10].reverse().map((h: any) => ({
+    y: Number(h.rating),
+    logo: logoForTeam(h.matchOpponent),
+    name: h.matchOpponent,
+  }));
+  const last10Avg = last10.length > 0
+    ? last10.reduce((a: number, h: any) => a + Number(h.rating), 0) / last10.length
+    : null;
+
+  // Career mini reads the SAME pipeline as the career tab (buildCareerCards
+  // over seasonRows + movements), grouped by club — mini and tab can never
+  // disagree. Demo fallback only when no real card exists at all.
+  const careerView = buildCareerCards({
+    kind: "player",
+    seasonRows: player.seasonRows || [],
+    movements: (player.movements || []).map((m: any) => ({
+      id: String(m.id),
+      fromTeamId: m.fromTeamId != null ? String(m.fromTeamId) : null,
+      toTeamId: m.toTeamId != null ? String(m.toTeamId) : null,
+      seasonId: m.seasonId != null ? String(m.seasonId) : null,
+      movementDate: m.movementDate || null,
+    })),
+    seasons: player.seasons || [],
+    currentClubId: player.teamId != null ? String(player.teamId) : null,
+    currentClubName: player.teamName || null,
+  });
+  const careerMiniRows = (() => {
+    const byClub = new Map<string, { club: string; seasons: string[]; apps: number }>();
+    careerView.cards
+      .filter((c) => !c.isEmpty && c.clubName)
+      .forEach((c) => {
+        const key = String(c.clubId || c.clubName);
+        const e = byClub.get(key) || { club: String(c.clubName), seasons: [] as string[], apps: 0 };
+        const sLabel = String(c.seasonName || c.seasonId || "");
+        if (sLabel && !e.seasons.includes(sLabel)) e.seasons.push(sLabel);
+        e.apps += Number(c.matches) || 0;
+        byClub.set(key, e);
+      });
+    const rows = [...byClub.values()]
+      .map((e) => {
+        const sorted = [...e.seasons].sort((a, b) => b.localeCompare(a, "fa"));
+        const season = sorted.length > 1 ? `${sorted[sorted.length - 1]} - ${sorted[0]}` : (sorted[0] || "—");
+        return { club: e.club, season, apps: e.apps, logo: logoForTeam(e.club), latest: sorted[0] || "" };
+      })
+      .sort((a, b) => b.latest.localeCompare(a.latest, "fa"))
+      .slice(0, 4)
+      .map(({ club, season, apps, logo }) => ({ club, season, apps, logo }));
+    if (rows.length > 0) return rows;
+    // playerDemo: DEMO PREVIEW fallback for gated players (remove with playerDemo.ts).
+    return (demo?.careerHistory || []).map((h: any) => ({
+      club: h.club,
+      season: h.season,
+      apps: Number(h.apps) || 0,
+      logo: logoForTeam(h.club),
+    }));
+  })();
+
+  const quick = {
+    matches: displayedMatches,
+    goals: displayedGoals,
+    assists: displayedAssists,
+    minutes: displayedMinutes,
+    avg: ratingBase,
+  };
+  const perf = {
+    matches: displayedMatches, minutes: displayedMinutes, goals: displayedGoals, assists: displayedAssists,
+    yellow: displayedYellow, red: displayedRed, mvps: displayedMvps, avg: displayedAvgRating, clean: displayedClean, isGk,
+  };
+  const rankLabel = normPos && player.position ? `بین ${player.position}` : "بین هم‌پستان";
+
+  // Home / away split (playerMatches already tags isHome).
+  const splitSide = (arr: any[]) => {
+    const rated = arr.map((m) => Number(m.rating) || 0).filter((r) => r > 0);
+    return {
+      matches: arr.length,
+      goals: arr.reduce((a, m) => a + (Number(m.goals) || 0), 0),
+      assists: arr.reduce((a, m) => a + (Number(m.assists) || 0), 0),
+      minutes: arr.reduce((a, m) => a + (Number(m.minutesPlayed) || 0), 0),
+      avg: rated.length > 0 ? rated.reduce((a, r) => a + r, 0) / rated.length : null,
+    };
+  };
+  const homeSplit = splitSide(playerMatches.filter((m) => m.isHome));
+  const awaySplit = splitSide(playerMatches.filter((m) => !m.isHome));
+
+  // Goal-timing distribution from real match events (all competitions).
+  const goalBuckets = [
+    { label: "1-15", count: 0 },
+    { label: "16-30", count: 0 },
+    { label: "31-45", count: 0 },
+    { label: "46-60", count: 0 },
+    { label: "61-75", count: 0 },
+    { label: "76-90+", count: 0 },
+  ];
+  allMatches.forEach((m: any) => {
+    if (m.status !== "finished") return;
+    const dur = m.sport === "futsal" || m.league === "futsal" ? 40 : 90;
+    (m.events || []).forEach((ev: any) => {
+      if (!ev || (ev.type !== "goal" && ev.type !== "penalty")) return;
+      const mine = isSamePlayer({ id: ev.playerId, name: ev.playerName, side: ev.team }, player, m, identityIndex, []);
+      if (!mine) return;
+      let min: number;
+      try {
+        min = parseMatchMinute(ev.minute, dur).total || realMinute(ev.minute, dur) || 0;
+      } catch {
+        min = realMinute(ev.minute, dur) || 0;
+      }
+      if (min <= 0) return;
+      const b = min <= 15 ? 0 : min <= 30 ? 1 : min <= 45 ? 2 : min <= 60 ? 3 : min <= 75 ? 4 : 5;
+      goalBuckets[b].count += 1;
+    });
+  });
+  const totalTimedGoals = goalBuckets.reduce((a, b) => a + b.count, 0);
+
+  const competToggle = (
+    <div className="flex gap-1 rounded-xl border border-white/5 bg-black/40 p-0.5 text-[10px] select-none">
+      {!isFutsalPlayer && (
+        <button
+          type="button"
+          onClick={() => setSelectedCompet("all")}
+          className={`rounded-lg px-3 py-1.5 font-black transition ${selectedCompet === "all" ? "bg-emerald-500 text-black shadow" : "text-slate-400 hover:text-white"}`}
+        >
+          کل فصل جاری
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={() => setSelectedCompet("league")}
+        className={`rounded-lg px-3 py-1.5 font-black transition ${selectedCompet === "league" ? "bg-emerald-500 text-black shadow" : "text-slate-400 hover:text-white"}`}
+      >
+        {isFutsalPlayer ? "لیگ برتر فوتسال" : "لیگ برتر"}
+      </button>
+      {!isFutsalPlayer && (
+        <button
+          type="button"
+          onClick={() => setSelectedCompet("cup")}
+          className={`rounded-lg px-3 py-1.5 font-black transition ${selectedCompet === "cup" ? "bg-emerald-500 text-black shadow" : "text-slate-400 hover:text-white"}`}
+        >
+          جام حذفی
+        </button>
+      )}
+    </div>
+  );
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-      
-      {/* Modern Compact Floating Navigation Header */}
-      <div className="flex items-center justify-between bg-[#131317]/80 backdrop-blur border border-white/5 p-3 rounded-2xl sticky top-2 z-40 select-none shadow-xl">
-        <button 
-          onClick={onBack}
-          className="flex items-center gap-2 text-slate-400 hover:text-white bg-white/5 active:bg-white/10 px-3.5 py-2 rounded-xl text-xs font-black transition cursor-pointer"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          <span>برگشت به خانه</span>
-        </button>
-        
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-emerald-500 animate-pulse" />
-          <span className="text-[10px] text-slate-450 font-black">پروفایل فنی و سلامت بازیکن</span>
-          <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-black px-1.5 py-0.5 rounded font-mono">
-            ID: {player.id || "Unresolved"}
-          </span>
+    <div className="animate-in fade-in slide-in-from-bottom-4 space-y-4 duration-300" dir="rtl">
+      {/* ================= HERO ================= */}
+      <PlayerHero
+        player={player}
+        teamLogo={teamLogo}
+        onSelectTeam={onSelectTeam}
+        onBack={onBack}
+        seasonId={seasonId}
+        seasons={player.seasons || []}
+        onSeasonChange={setSeasonId}
+        tfRating={tfRating}
+        spark={spark}
+        market={market ? { value: Number(market.value) || 0, currency: market.currency || "€", changePct: market.changePct ?? null } : null}
+        formScore={formScore}
+        rank={rank}
+        rankLabel={rankLabel}
+        quick={quick}
+        avgLabel={selectedCompet === "all" ? "نمره میانگین" : selectedCompet === "league" ? "نمره میانگین لیگ" : "نمره میانگین حذفی"}
+      />
+
+      {/* ================= TAB BAR ================= */}
+      <div className="overflow-x-auto rounded-2xl border border-white/5 bg-[#121215] shadow-xl">
+        <div className="flex min-w-max items-center gap-1 p-1.5" role="tablist" aria-label="بخش‌های پروفایل">
+          {TABS.map((t) => {
+            const count = t.key === "ratings" ? visiblePlayerMatches.length : t.key === "news" ? playerNews.length : null;
+            const active = activeTab === t.key;
+            return (
+              <button
+                key={t.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setActiveTab(t.key)}
+                className={`relative shrink-0 rounded-xl px-4 py-2.5 text-xs font-black transition ${
+                  active ? "text-emerald-400" : "text-slate-400 hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                {t.label}
+                {count != null && count > 0 && (
+                  <span className={`mr-1.5 rounded-full px-1.5 py-0.5 font-mono text-[10px] ${active ? "bg-emerald-500/15 text-emerald-300" : "bg-white/10 text-slate-400"}`}>
+                    {formatStatNumber(count)}
+                  </span>
+                )}
+                {active && <span className="absolute inset-x-3 -bottom-[1px] h-0.5 rounded-full bg-emerald-500" />}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Main Profile Showcase Frame */}
-      <div className="relative overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-b from-[#131317] to-slate-950 shadow-2xl p-4 sm:p-6">
-        
-        {/* Subtle radial backdrop ambient light */}
-        <div className="absolute top-0 right-0 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="relative grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-          
-          {/* Avatar and Essential Branding */}
-          <div className="lg:col-span-4 flex flex-col items-center text-center space-y-4">
-            <div className="relative group select-none">
-              <div className="absolute -inset-1.5 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full blur opacity-15" />
-              <div className="relative h-28 w-28 sm:h-32 sm:w-32 rounded-full overflow-hidden border-2 border-white/10 bg-slate-900 flex items-center justify-center">
-                {!imageError && player.image ? (
-                  <img loading="lazy" decoding="async" 
-                    src={getSafeImageUrl(player.image)} 
-                    alt={player.name}
-                    className="h-full w-full object-cover"
-                    onError={() => setImageError(true)}
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  <UserRound className="h-14 w-14 text-slate-600" />
-                )}
+      {/* ================= SUMMARY ================= */}
+      {activeTab === "summary" && (
+        <div className="grid animate-in fade-in grid-cols-1 gap-4 duration-200 lg:grid-cols-3">
+          <SectionCard title="نتایج با حضور بازیکن">
+            <PresenceStrip results={presenceResults} />
+          </SectionCard>
+          <SectionCard title="ارزش بازیکن در گذر زمان" action={<span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-black text-emerald-300">همه</span>}>
+            <MarketLineChart points={marketHistory} />
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+              <div className="rounded-xl bg-white/5 p-2">
+                <p className="text-[9px] text-slate-400">بالاترین ارزش</p>
+                <p className="mt-0.5 font-mono text-sm font-black text-white" dir="ltr">{marketLabel}</p>
               </div>
-              <span className="absolute bottom-1 right-1 h-5 w-5 bg-emerald-500 border-2 border-slate-950 rounded-full" />
-            </div>
-
-            <div>
-              <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight leading-tight flex items-center justify-center gap-1.5">
-                {player.name}
-                <ShareButton title={player.name} />
-              </h2>
-              <div className="flex items-center gap-2 justify-center mt-1.5 text-[10px] flex-wrap">
-                <span className="bg-white/5 border border-white/5 px-2.5 py-1 rounded-lg text-slate-300 font-bold">
-                  {player.position || "بازیکن آزاد"}
-                </span>
-                
-                {myClubRef ? (
-                  <button 
-                    onClick={() => onSelectTeam && onSelectTeam(myClubRef.name)}
-                    className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg text-emerald-400 font-bold hover:bg-emerald-500/20 transition cursor-pointer"
-                  >
-                    <span>{player.teamName}</span>
-                  </button>
-                ) : (
-                  <span className="text-slate-450">{player.teamName || "بدون باشگاه"}</span>
-                )}
+              <div className="rounded-xl bg-white/5 p-2">
+                <p className="text-[9px] text-slate-400">کمترین ارزش</p>
+                <p className="mt-0.5 font-mono text-sm font-black text-white" dir="ltr">{marketHistory ? marketHistory[0].label : "—"}</p>
               </div>
-            </div>
-          </div>
-
-          {/* Quick Vital Specs Card Grid */}
-          <div className="lg:col-span-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
-            
-            <div className="p-3.5 rounded-2xl bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 hover:border-emerald-500/30 hover:shadow-[0_0_20px_-6px_rgba(16,185,129,0.4)] hover:-translate-y-0.5 transition text-center">
-              <span className="block text-[9px] text-slate-400 font-black mb-1">سن بازیکن</span>
-              <span className="text-sm font-black text-slate-100 font-mono">{formatStatNumber(player.age || "24")} سال</span>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 hover:border-emerald-500/30 hover:shadow-[0_0_20px_-6px_rgba(16,185,129,0.4)] hover:-translate-y-0.5 transition text-center">
-              <span className="block text-[9px] text-slate-400 font-black mb-1">قد</span>
-              <span className="text-sm font-black text-slate-100 font-mono">{formatStatNumber(player.height || "180")} cm</span>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 hover:border-emerald-500/30 hover:shadow-[0_0_20px_-6px_rgba(16,185,129,0.4)] hover:-translate-y-0.5 transition text-center">
-              <span className="block text-[9px] text-slate-400 font-black mb-1">وزن</span>
-              <span className="text-sm font-black text-slate-100 font-mono">{formatStatNumber(player.weight || "75")} kg</span>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 hover:border-emerald-500/30 hover:shadow-[0_0_20px_-6px_rgba(16,185,129,0.4)] hover:-translate-y-0.5 transition text-center">
-              <span className="block text-[9px] text-emerald-300/70 font-black mb-1">پای تخصصی</span>
-              <span className="text-sm font-black text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]">{player.foot || "راست‌پا"}</span>
-            </div>
-
-          </div>
-
-        </div>
-      </div>
-
-      {/* Secondary Tab Switchers (Overview , detailed Matches, Career History) */}
-      <div className="flex gap-1 p-1 bg-[#131317] border border-white/5 rounded-2xl text-xs select-none shadow-lg">
-        <button
-          onClick={() => setActiveTab("overview")}
-          className={`flex-1 py-3 rounded-xl font-black text-center transition cursor-pointer ${
-            activeTab === "overview" ? "bg-emerald-500 text-black shadow font-black" : "text-slate-400 hover:text-white"
-          }`}
-        >
-          خلاصه فصل فنی و آماری
-        </button>
-        <button
-          onClick={() => setActiveTab("matches")}
-          className={`flex-1 py-3 rounded-xl font-black text-center transition cursor-pointer ${
-            activeTab === "matches" ? "bg-emerald-500 text-black shadow font-black" : "text-slate-400 hover:text-white"
-          }`}
-        >
-          ریز نمایه بازی‌ها ({formatStatNumber(playerMatches.length)})
-        </button>
-        <button
-          onClick={() => setActiveTab("career")}
-          className={`flex-1 py-3 rounded-xl font-black text-center transition cursor-pointer ${
-            activeTab === "career" ? "bg-emerald-500 text-black shadow font-black" : "text-slate-400 hover:text-white"
-          }`}
-        >
-          سوابق ترنسفر باشگاهی
-        </button>
-      </div>
-
-      <div className="space-y-6">
-        
-        {/* TAB 1: OVERVIEW STATS */}
-        {activeTab === "overview" && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-in fade-in duration-200">
-            
-            {/* Left Column: Player Bio card */}
-            <div className="lg:col-span-4 space-y-4">
-              <div className="p-4.5 rounded-2xl bg-gradient-to-bl from-emerald-500/[0.07] to-transparent border border-emerald-500/20 border-r-2 space-y-4 shadow-lg text-xs leading-relaxed">
-                <h3 className="font-black text-sm text-white flex items-center gap-1.5">
-                  <Activity className="h-4 w-4 text-emerald-500" />
-                  <span>درباره و شرح ویژگی‌های فیزیکی</span>
-                </h3>
-                
-                <p className="text-slate-200 font-medium text-[13px] leading-loose">
-                  {player.bio || "توضیحات و نمایه فیزیکی یا خلاصه عملکرد فنی ترنسفر این بازیکن در سیستم فوتبال کشور به طور تفصیلی ثبت نشده است."}
+              <div className="rounded-xl bg-white/5 p-2">
+                <p className="text-[9px] text-slate-400">تغییر نسبت به فصل قبل</p>
+                <p className="mt-0.5 font-mono text-sm font-black text-emerald-400" dir="ltr">
+                  {market?.changePct != null ? `${market.changePct >= 0 ? "+" : ""}${formatStatNumber(Number(market.changePct).toFixed(0))}%` : "—"}
                 </p>
-
-                <div className="space-y-2 border-t border-white/5 pt-3 font-medium">
-                  <p className="flex justify-between border-b border-white/[0.02] pb-1.5">
-                    <span className="text-slate-500">تابعیت ملی:</span>
-                    <span className="text-white font-bold">{player.nationality || "ایران"}</span>
-                  </p>
-                </div>
               </div>
-
-              {playerNews.length > 0 && (
-                <div className="p-4.5 rounded-2xl bg-[#131317] border border-white/5 space-y-3 shadow-lg">
-                  <h3 className="font-black text-sm text-white flex items-center gap-1.5">
-                    <Newspaper className="h-4 w-4 text-emerald-500" />
-                    <span>آخرین اخبار {player.name}</span>
-                  </h3>
-                  <div className="space-y-2 max-h-[420px] overflow-y-auto overscroll-contain pr-1">
-                    {playerNews.map((nw: any) => (
-                      <button
-                        key={nw.id}
-                        onClick={() => onSelectNews && onSelectNews(nw.id)}
-                        className="w-full flex items-start gap-2.5 text-right p-2 rounded-lg bg-white/[0.02] hover:bg-white/[0.05] border border-white/5 hover:border-emerald-500/30 transition cursor-pointer group"
-                      >
-                        {nw.image ? (
-                          <img
-                            src={getSafeImageUrl(nw.image)}
-                            alt={nw.title}
-                            loading="lazy"
-                            className="w-14 h-14 rounded-lg object-cover shrink-0 bg-slate-800"
-                            referrerPolicy="no-referrer"
-                          />
-                        ) : (
-                          <div className="w-14 h-14 rounded-lg shrink-0 bg-slate-800 flex items-center justify-center text-base">📰</div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <h4 className="text-xs font-bold text-white leading-snug line-clamp-2 group-hover:text-emerald-400 transition">
-                            {nw.title}
-                          </h4>
-                          {nw.summary && (
-                            <p className="text-[10px] text-slate-500 line-clamp-2 mt-1 leading-relaxed">{nw.summary}</p>
-                          )}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
+          </SectionCard>
+          <SectionCard title="مسیر حرفه‌ای" action={careerMiniRows.length > 0 ? <button type="button" onClick={() => setActiveTab("career")} className="text-[10px] font-black text-emerald-400 hover:text-emerald-300">مشاهده مسیر کامل</button> : undefined}>
+            <CareerMini rows={careerMiniRows} onViewAll={careerMiniRows.length > 0 ? () => setActiveTab("career") : undefined} />
+          </SectionCard>
 
-            {/* Right Column: Key Stats Bento Grid */}
-            <div className="lg:col-span-8 space-y-6">
-
-              {/* Phase 5: season scope for every number below */}
-              {(player.seasons || []).length > 0 && (
-                <div className="flex items-center justify-between gap-3 p-3.5 bg-black/20 rounded-2xl border border-white/5 flex-wrap">
-                  <div className="text-right">
-                    <h4 className="font-black text-xs text-slate-200">فصل آمار</h4>
-                    <p className="text-[10px] text-slate-500 mt-0.5">کارنامه یعنی جمع همه فصل‌ها؛ هر فصل تفکیک باشگاهی دارد</p>
-                  </div>
-                  <SeasonSwitcher seasons={player.seasons} value={seasonId} onChange={setSeasonId} />
-                </div>
+          <div className="lg:col-span-2">
+            <SectionCard title="نمرات 10 بازی اخیر">
+              <RatingsLineChart data={last10Points} />
+              {last10Avg != null && (
+                <p className="mx-auto mt-2 w-fit rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-black text-emerald-300">
+                  میانگین نمره: <span className="font-mono">{formatStatNumber(last10Avg.toFixed(2))}</span>
+                </p>
               )}
-
-              {/* Mid-season transfer split: one row per club actually played for */}
-              {!isCareerView && seasonRows.length > 1 && (
-                <div className="p-3.5 bg-black/20 rounded-2xl border border-white/5 space-y-2">
-                  <h4 className="font-black text-[11px] text-slate-300">تفکیک باشگاهی این فصل</h4>
-                  {seasonRows.map((r: any) => (
-                    <div key={r.id} className="flex items-center justify-between gap-2 text-[11px] bg-white/[0.02] border border-white/5 rounded-lg px-3 py-1.5">
-                      <span className="font-bold text-white truncate">{r.teamName || "—"}</span>
-                      <span className="font-mono text-slate-400 shrink-0">
-                        {formatStatNumber(r.matches || 0)} بازی • {formatStatNumber(r.goals || 0)} گل • {formatStatNumber(r.assists || 0)} پاس
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Competition Selector Toggle for Overview Stats */}
-              <div className="flex items-center justify-between gap-3 p-3.5 bg-black/20 rounded-2xl border border-white/5 flex-wrap">
-                <div className="text-right">
-                  <h4 className="font-black text-xs text-slate-200">فیلتر عملکرد و نرخ‌های آماری بازیکن</h4>
-                  <p className="text-[10px] text-slate-500 mt-0.5">تفکیک فنی نمرات، دقایق بازی، کارت‌ها و نمرات MVP بر اساس تورنمنت</p>
-                </div>
-                
-                <div className="flex gap-1 p-0.5 rounded-xl bg-black/40 border border-white/5 select-none text-[10px]">
-                  {!isFutsalPlayer && (
-                    <button
-                      type="button"
-                      onClick={() => setSelectedCompet("all")}
-                      className={`px-3 py-1.5 rounded-lg font-black transition ${selectedCompet === "all" ? "bg-emerald-500 text-black shadow-lg" : "text-slate-400 hover:text-white"}`}
-                    >
-                      کل فصل جاری
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setSelectedCompet("league")}
-                    className={`px-3 py-1.5 rounded-lg font-black transition ${selectedCompet === "league" ? "bg-emerald-500 text-black shadow-lg" : "text-slate-450 hover:text-white"}`}
-                  >
-                    {isFutsalPlayer ? "لیگ برتر فوتسال" : "لیگ برتر"}
-                  </button>
-                  {!isFutsalPlayer && (
-                    <button
-                      type="button"
-                      onClick={() => setSelectedCompet("cup")}
-                      className={`px-3 py-1.5 rounded-lg font-black transition ${selectedCompet === "cup" ? "bg-emerald-500 text-black shadow-lg" : "text-slate-450 hover:text-white"}`}
-                    >
-                      جام حذفی
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Sofa/MVP/Minutes Ratings Grid summaries */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="p-4.5 rounded-2xl bg-[#131317] border border-white/5 flex items-center justify-between">
-                  <div>
-                    <span className="block text-[10px] text-gray-400 font-bold mb-1">
-                      {selectedCompet === "all" ? "مجموع بهترین بازیکن زمین" : selectedCompet === "league" ? (isFutsalPlayer ? "بهترین بازیکن زمین در لیگ فوتسال" : "بهترین بازیکن زمین در لیگ") : "بهترین بازیکن زمین در جام حذفی"}
-                    </span>
-                    <span className="text-2xl font-mono font-black text-red-500">{formatStatNumber(activeMvps)} بار</span>
-                    <span className="block text-[9px] text-slate-500 mt-1 font-medium">افتخار بهترین عملکرد زمین (MVP)</span>
-                  </div>
-                  <Award className="h-9 w-9 text-red-400 bg-red-500/10 p-2 rounded-full shrink-0" />
-                </div>
-
-                <div className="p-4.5 rounded-2xl bg-[#131317] border border-white/5 flex items-center justify-between">
-                  <div>
-                    <span className="block text-[10px] text-gray-400 font-bold mb-1">
-                      {selectedCompet === "all" ? "کل دقایق بازی در فصل" : selectedCompet === "league" ? (isFutsalPlayer ? "دقایق بازی در لیگ فوتسال" : "دقایق بازی در لیگ برتر") : "دقایق بازی در جام حذفی"}
-                    </span>
-                    <span className="text-xl font-mono font-black text-slate-200">
-                      {formatStatNumber(activeMinutes)}'
-                    </span>
-                    <span className="block text-[9px] text-slate-500 mt-1 font-medium">زمان مفید حضور در میدان</span>
-                  </div>
-                  <Clock className="h-9 w-9 text-[#808092] p-2 bg-white/5 rounded-full shrink-0" />
-                </div>
-
-                <div className="p-4.5 rounded-2xl bg-[#131317] border border-white/5 flex items-center justify-between">
-                  <div>
-                    <span className="block text-[10px] text-gray-400 font-bold mb-1">
-                      {selectedCompet === "all" ? "میانگین نمره در فصل" : selectedCompet === "league" ? (isFutsalPlayer ? "میانگین نمره در لیگ فوتسال" : "میانگین نمره در لیگ برتر") : "میانگین نمره در جام حذفی"}
-                    </span>
-                    {activeAvgRating > 0 ? (
-                      <span className={`text-2xl font-mono font-black ${
-                        activeAvgRating >= 7.5 ? "text-emerald-400" : activeAvgRating >= 6.5 ? "text-amber-400" : "text-slate-400"
-                      }`}>
-                        {formatStatNumber(Number(activeAvgRating).toFixed(1))}
-                      </span>
-                    ) : (
-                      <span className="text-lg font-bold text-slate-600">—</span>
-                    )}
-                    <span className="block text-[9px] text-slate-500 mt-1 font-medium">
-                      {activeAvgRating > 0 ? "امتیاز عملکرد بر اساس نمرات ثبت‌شده" : "هنوز نمره‌ای ثبت نشده"}
-                    </span>
-                  </div>
-                  <Star className={`h-9 w-9 p-2 rounded-full shrink-0 ${activeAvgRating > 0 ? "text-emerald-400 bg-emerald-500/10" : "text-slate-600 bg-white/5"}`} />
-                </div>
-              </div>
-
-              {/* Season Stats Records lists */}
-              <div className="space-y-4">
-                <h3 className="font-black text-base text-white border-r-4 border-emerald-500 pr-2">رکوردهای تفکیکی بازیکن در این فصل</h3>
-                
-                <div className="overflow-x-auto rounded-2xl border border-white/5 bg-black/20 text-xs">
-                  <table className="w-full text-right border-collapse">
-                    <thead>
-                      <tr className="bg-white/5 text-slate-400 font-bold border-b border-white/5 select-none">
-                        <th className="p-3">رقابت</th>
-                        <th className="p-3 text-center">بازی</th>
-                        <th className="p-3 text-center">گل زده</th>
-                        <th className="p-3 text-center">پاس گل</th>
-                        {typeof player.position === "string" && player.position.includes("دروازه") && (
-                          <th className="p-3 text-center">کلین‌شیت</th>
-                        )}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5 font-bold">
-                      <tr className={`hover:bg-white/[0.02] ${selectedCompet === "league" ? "bg-emerald-500/5 text-emerald-300" : ""}`}>
-                        <td className="p-3 text-slate-200 flex items-center gap-1.5">
-                          <span>{isFutsalPlayer ? "لیگ برتر فوتسال" : "مسابقات لیگ برتر"}</span>
-                          {selectedCompet === "league" && <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1 py-0.5 rounded font-black">فعال</span>}
-                        </td>
-                        <td className="p-3 text-center font-mono text-slate-300">{formatStatNumber(leagueMatches)}</td>
-                        <td className="p-3 text-center font-mono text-emerald-400">{formatStatNumber(leagueGoals)}</td>
-                        <td className="p-3 text-center font-mono text-cyan-400">{formatStatNumber(leagueAssists)}</td>
-                        {typeof player.position === "string" && player.position.includes("دروازه") && (
-                          <td className="p-3 text-center font-mono text-amber-500">{formatStatNumber(leagueClean)}</td>
-                        )}
-                      </tr>
-                      {!isFutsalPlayer && (
-                        <>
-                          <tr className={`hover:bg-white/[0.02] ${selectedCompet === "cup" ? "bg-emerald-500/5 text-emerald-300" : ""}`}>
-                            <td className="p-3 text-slate-200 flex items-center gap-1.5">
-                              <span>جام حذفی کشور</span>
-                              {selectedCompet === "cup" && <span className="text-[9px] bg-emerald-500/20 text-[#10b981] px-1 py-0.5 rounded font-black">فعال</span>}
-                            </td>
-                            <td className="p-3 text-center font-mono text-slate-300">{formatStatNumber(cupMatches)}</td>
-                            <td className="p-3 text-center font-mono text-emerald-400">{formatStatNumber(cupGoals)}</td>
-                            <td className="p-3 text-center font-mono text-cyan-400">{formatStatNumber(cupAssists)}</td>
-                            {typeof player.position === "string" && player.position.includes("دروازه") && (
-                              <td className="p-3 text-center font-mono text-amber-500">{formatStatNumber(cupClean)}</td>
-                            )}
-                          </tr>
-                          <tr className={`bg-emerald-500/5 text-emerald-500 font-extrabold ${selectedCompet === "all" ? "bg-emerald-500/10" : ""}`}>
-                            <td className="p-3 text-emerald-500 flex items-center gap-1.5">
-                              <span>جمع کل کارنامه</span>
-                              {selectedCompet === "all" && <span className="text-[9px] bg-emerald-500/20 text-emerald-400 px-1 py-0.5 rounded font-black">فعال</span>}
-                            </td>
-                            <td className="p-3 text-center font-mono text-white">{formatStatNumber(displayedMatches)}</td>
-                            <td className="p-3 text-center font-mono text-emerald-300">{formatStatNumber(displayedGoals)}</td>
-                            <td className="p-3 text-center font-mono text-cyan-300">{formatStatNumber(displayedAssists)}</td>
-                            {typeof player.position === "string" && player.position.includes("دروازه") && (
-                              <td className="p-3 text-center font-mono text-amber-400">{formatStatNumber(displayedClean)}</td>
-                            )}
-                          </tr>
-                        </>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-
-                {/* Cards / Miscellaneous */}
-                <div className="flex gap-4 justify-end text-xs font-bold pt-1.5 flex-wrap">
-                  <div className="flex items-center gap-1.5 bg-amber-500/5 border border-amber-500/10 px-3 py-1.5 rounded-xl">
-                    <span className="text-[#a0a0ab] text-[10px]">
-                      {selectedCompet === "all" ? "کارت زرد کل فصل:" : selectedCompet === "league" ? (isFutsalPlayer ? "کارت زرد در لیگ فوتسال:" : "کارت زرد در لیگ:") : "کارت زرد در حذفی:"}
-                    </span>
-                    <span className="font-mono text-amber-400 font-black text-sm">{formatStatNumber(activeYellow)}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 bg-red-500/5 border border-red-500/10 px-3 py-1.5 rounded-xl">
-                    <span className="text-[#a0a0ab] text-[10px]">
-                      {selectedCompet === "all" ? "کارت قرمز کل فصل:" : selectedCompet === "league" ? (isFutsalPlayer ? "کارت قرمز در لیگ فوتسال:" : "کارت قرمز در لیگ:") : "کارت قرمز در حذفی:"}
-                    </span>
-                    <span className="font-mono text-red-500 font-black text-sm">{formatStatNumber(activeRed)}</span>
-                  </div>
-                </div>
-
-                {/* statsByTeam segmented stats */}
-                {player.statsByTeam && player.statsByTeam.length > 0 && (
-                  <div className="space-y-3 pt-4">
-                    <h4 className="font-black text-xs text-slate-300">تفکیک عملکرد آماری به تفکیک باشگاه‌ها در این فصل</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {player.statsByTeam.map((st: any, idx: number) => (
-                        <div key={idx} className="p-3.5 rounded-xl bg-slate-900/60 border border-white/5 flex flex-col justify-between space-y-2">
-                          <div className="flex justify-between items-center">
-                            <span className="font-extrabold text-xs text-white">{st.teamName}</span>
-                            <span className="text-[10px] bg-emerald-500/10 text-emerald-400 font-bold px-2 py-0.5 rounded">
-                              {formatStatNumber(st.matches || 0)} بازی
-                            </span>
-                          </div>
-                          <div className="grid grid-cols-3 gap-2 text-center text-[11px] font-mono font-bold">
-                            <div className="p-1 rounded bg-black/20 text-emerald-400">
-                              <span className="block text-[8px] text-slate-500 font-sans font-normal mb-0.5">گل زده</span>
-                              {formatStatNumber(st.goals || 0)}
-                            </div>
-                            <div className="p-1 rounded bg-black/20 text-cyan-400">
-                              <span className="block text-[8px] text-slate-500 font-sans font-normal mb-0.5">پاس گل</span>
-                              {formatStatNumber(st.assists || 0)}
-                            </div>
-                            <div className="p-1 rounded bg-black/20 text-amber-500">
-                              <span className="block text-[8px] text-slate-500 font-sans font-normal mb-0.5">کلین‌شیت</span>
-                              {formatStatNumber(st.cleanSheets || 0)}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Achievements Showcase */}
-              {player.honors && player.honors.length > 0 && (
-                <div className="space-y-3 pt-3">
-                  <h3 className="font-black text-base text-white border-r-4 border-emerald-500 pr-2">کابین افتخارات و گنجینه‌های باشگاهی</h3>
-                  <div className="space-y-2">
-                    {player.honors.map((honor: string, idx: number) => (
-                      <div key={idx} className="p-3 rounded-xl bg-amber-950/10 border border-amber-500/10 text-xs text-slate-200 flex items-center gap-2.5">
-                        <Trophy className="h-4.5 w-4.5 text-amber-500 shrink-0" />
-                        <span className="font-bold">{honor}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-            </div>
+            </SectionCard>
           </div>
-        )}
+          <SectionCard title="عملکرد در فصل جاری" action={<button type="button" onClick={() => setActiveTab("performance")} className="text-[10px] font-black text-emerald-400 hover:text-emerald-300">مشاهده آمار کامل</button>}>
+            <SeasonPerformance stats={perf} onViewAll={() => setActiveTab("performance")} />
+          </SectionCard>
+          <SectionCard title="بازیکنان مشابه" action={similarFull.length > 0 ? <button type="button" onClick={() => setActiveTab("compare")} className="text-[10px] font-black text-emerald-400 hover:text-emerald-300">مشاهده بازیکنان بیشتر</button> : undefined}>
+            <SimilarPlayers items={similarFull.slice(0, 3)} onViewAll={similarFull.length > 3 ? () => setActiveTab("compare") : undefined} />
+          </SectionCard>
 
-        {/* TAB 2: DETAILED MATCH LOGS */}
-        {activeTab === "matches" && (
-          <div className="space-y-4 animate-in fade-in duration-200">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <h3 className="font-black text-base text-white border-r-4 border-emerald-500 pr-2">ریز کارنامه مسابقات حضور یافته بازیکن در فصل جاری</h3>
-              {(player.seasons || []).length > 0 && (
-                <SeasonSwitcher seasons={player.seasons} value={seasonId} onChange={setSeasonId} />
-              )}
+          <SectionCard title={player.name}>
+            <PlayerShareCard player={player} tfRating={tfRating} marketLabel={marketLabel} quick={quick} />
+          </SectionCard>
+          <SectionCard title={`آخرین اخبار ${player.name}`} action={playerNews.length > 0 ? <button type="button" onClick={() => setActiveTab("news")} className="text-[10px] font-black text-emerald-400 hover:text-emerald-300">مشاهده همه اخبار</button> : undefined}>
+            {loadingNews ? (
+              <p className="py-6 text-center text-xs font-bold text-slate-400">در حال بارگذاری اخبار...</p>
+            ) : (
+              <NewsList items={playerNews.slice(0, 4)} playerName={player.name} onSelectNews={onSelectNews} onViewAll={playerNews.length > 4 ? () => setActiveTab("news") : undefined} />
+            )}
+          </SectionCard>
+          <div className="space-y-4">
+            <NextMatchCard match={nextMatch} onOpenMatch={isDemoMatch ? undefined : onSelectMatch} />
+            <SectionCard title="اطلاعات پروفایل">
+              <ProfileInfoBox playerId={String(player.id)} updatedAt={(player as any).updatedAt || null} />
+            </SectionCard>
+          </div>
+        </div>
+      )}
+
+      {/* ================= PERFORMANCE ================= */}
+      {activeTab === "performance" && (
+        <div className="grid animate-in fade-in grid-cols-1 gap-4 duration-200 lg:grid-cols-3">
+          <div className="space-y-4 lg:col-span-2">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/5 bg-[#131317] p-3.5 shadow-sm">
+              <div>
+                <h4 className="text-xs font-black text-white">فیلتر عملکرد بازیکن</h4>
+                <p className="mt-0.5 text-[10px] text-slate-400">تفکیک نمرات، دقایق و کارت‌ها بر اساس تورنمنت</p>
+              </div>
+              {competToggle}
             </div>
-            {visiblePlayerMatches.length > 0 ? (
-              <div className="grid gap-3">
-                {visiblePlayerMatches.map((m, idx) => (
-                  <div key={idx} onClick={() => onSelectMatch && onSelectMatch(m.matchId)} className="p-3 sm:p-4 rounded-xl bg-[#161619] border border-white/5 hover:border-emerald-500/30 hover:bg-white/[0.01] cursor-pointer flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs transition">
-                    
-                    {/* Club match label / Opponent details */}
-                    <div className="flex items-center gap-3">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-black shrink-0 ${
-                        m.result === "W" ? "bg-emerald-950/80 text-[#6ee7b7] border border-emerald-900/50" : m.result === "D" ? "bg-[#1e293b] text-[#cbd5e1]" : "bg-red-950/80 text-[#fca5a5] border border-red-900/50"
-                      }`}>
-                        {m.result === "W" ? "برد" : m.result === "D" ? "تساوی" : "باخت"}
-                      </span>
-                      <div className="flex items-center gap-1 text-[13px] text-white font-bold">
-                        <span>{m.teamName}</span>
-                        <span className="text-slate-500 text-xs">مقابل</span>
-                        <span>{m.opponent}</span>
-                      </div>
-                    </div>
-
-                    {/* Score detail */}
-                    <div className="text-center sm:text-right">
-                      <span className="text-[10px] text-slate-500 block mb-0.5">نتیجه کلی مسابقه</span>
-                      <strong className="font-mono text-slate-200 font-bold bg-black/40 px-2 py-1 rounded">
-                        {formatStatNumber(m.scoreHome)} - {formatStatNumber(m.scoreAway)}
-                      </strong>
-                    </div>
-
-                    {/* Stats registered in match */}
-                    <div className="flex flex-wrap items-center gap-2.5">
-                      {m.goals > 0 && (
-                        <span className="bg-emerald-950 text-emerald-400 px-2 py-1 rounded text-[10px] font-black border border-emerald-900/30">
-                          ⚽ {formatStatNumber(m.goals)} گل زده
-                        </span>
-                      )}
-                      {m.assists > 0 && (
-                        <span className="bg-cyan-950 text-cyan-400 px-2 py-1 rounded text-[10px] font-black border border-cyan-900/30">
-                          🎯 {formatStatNumber(m.assists)} پاس گل
-                        </span>
-                      )}
-                      {m.penalties > 0 && (
-                        <span className="bg-purple-500/10 border border-purple-500/20 text-purple-400 px-2 py-1 rounded text-[10px] font-black">
-                          ⚽ پنالتی {formatStatNumber(m.penalties)}
-                        </span>
-                      )}
-                      {m.ownGoals > 0 && (
-                        <span className="bg-orange-500/10 border border-orange-500/20 text-orange-400 px-2 py-1 rounded text-[10px] font-black">
-                          🥅 گل به خودی
-                        </span>
-                      )}
-                      {m.yellowCards > 0 && (
-                        <span className="bg-amber-500/10 border border-amber-500/20 text-amber-400 px-2 py-1 rounded text-[10px] font-black">
-                          🟨 {formatStatNumber(m.yellowCards)} اخطار
-                        </span>
-                      )}
-                      {m.redCards > 0 && (
-                        <span className="bg-red-500/10 border border-red-500/20 text-red-400 px-2 py-1 rounded text-[10px] font-black">
-                          🟥 {formatStatNumber(m.redCards)} اخراج
-                        </span>
-                      )}
-                      {m.subbedIn && (
-                        <span className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 px-2 py-1 rounded text-[10px] font-black">
-                          🔄 تعویضی
-                        </span>
-                      )}
-                      {m.subbedOut && (
-                        <span className="bg-slate-500/10 border border-slate-500/20 text-slate-400 px-2 py-1 rounded text-[10px] font-black">
-                          🔄 تعویض شد
-                        </span>
-                      )}
-
-                      <span className="text-slate-500 font-mono">
-                        {formatStatNumber(m.minutesPlayed)}' بازی
-                      </span>
-                      {m.rating > 0 && (
-                        <span className={`font-mono px-1.5 py-0.5 rounded text-[10px] font-black ${
-                          m.rating >= 7.5 ? "bg-emerald-500/10 text-emerald-400" : m.rating >= 6.5 ? "bg-amber-500/10 text-amber-400" : "bg-white/5 text-slate-400"
-                        }`}>
-                          {formatStatNumber(Number(m.rating).toFixed(1))}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Match MVP badge only */}
-                    <div className="flex items-center gap-2 shrink-0">
-                      {m.isMvp && (
-                        <span className="bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-black px-2.5 py-1 rounded-xl">
-                          MVP زمین
-                        </span>
-                      )}
-                    </div>
-
+            {!isCareerView && seasonRows.length > 1 && (
+              <div className="space-y-2 rounded-2xl border border-white/5 bg-[#131317] p-3.5 shadow-sm">
+                <h4 className="text-[11px] font-black text-slate-200">تفکیک باشگاهی این فصل</h4>
+                {seasonRows.map((r: any) => (
+                  <div key={r.id} className="flex items-center justify-between gap-2 rounded-lg border border-white/5 bg-white/5 px-3 py-1.5 text-[11px]">
+                    <span className="truncate font-bold text-white">{r.teamName || "—"}</span>
+                    <span className="shrink-0 font-mono text-slate-400">
+                      {formatStatNumber(r.matches || 0)} بازی • {formatStatNumber(r.goals || 0)} گل • {formatStatNumber(r.assists || 0)} پاس
+                    </span>
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="p-6 text-center text-xs text-slate-500 border border-dashed border-white/5 rounded-xl bg-black/10">
-                هیچ لاگ بازی یا عملکردی برای این بازیکن در سیستم به عنوان بازیکن فیکس ثبت نشده است. مربی اطلاعات را به معتبرساز خواهد سپرد.
-              </div>
             )}
-          </div>
-        )}
-
-        {/* TAB 3: CAREER HISTORY */}
-        {activeTab === "career" && (
-          <div className="space-y-4 animate-in fade-in duration-200">
-            {/* Phase 6 spec order: [Transfer History] first, then [Career] */}
-            <MovementTimeline items={player.movements} title="سوابق ترانسفر باشگاهی" />
-
-            <CareerSection
-              kind="player"
-              seasonRows={player.seasonRows}
-              movements={player.movements}
-              seasons={player.seasons}
-              currentClubId={player.teamId}
-              currentClubName={player.teamName}
-            />
-
-            <h3 className="font-black text-base text-white border-r-4 border-emerald-500 pr-2">تاریخچه سوابق ترنسفر باشگاهی و سوابق فعالیت بازیکن در فوتبال کشور</h3>
-            
-            {player.careerHistory && player.careerHistory.length > 0 ? (
-              <div className="overflow-x-auto rounded-xl border border-white/5 bg-black/15 p-2">
-                <table className="w-full text-right text-xs">
-                  <thead>
-                    <tr className="text-slate-500 text-[10px] border-b border-white/[0.04]">
-                      <th className="py-3 px-2 font-bold">فصل کاری</th>
-                      <th className="py-3 px-2 font-bold">نام تفصیلی باشگاه قبلی</th>
-                      <th className="py-3 px-2 text-center font-bold">حضور رسمی</th>
-                      <th className="py-3 px-2 text-center font-bold">تعداد گل‌ها</th>
-                      <th className="py-3 px-2 text-center font-bold">پاس گل</th>
-                      <th className="py-3 px-2 text-center font-bold">کلین‌شیت</th>
-                      <th className="py-3 px-2 text-center font-bold">نمره میانگین</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {player.careerHistory.map((history: any, idx: number) => (
-                      <tr key={idx} className="border-b border-white/[0.02] last:border-0 hover:bg-white/[0.01]">
-                        <td className="py-3 px-2 font-mono font-bold text-slate-300">{formatStatNumber(history.season)}</td>
-                        <td className="py-3 px-2 font-semibold text-white">{history.club}</td>
-                        <td className="py-3 px-2 text-center font-mono text-slate-400">{formatStatNumber(history.apps || 0)} بازی</td>
-                        <td className="py-3 px-2 text-center font-mono font-bold text-emerald-400">{formatStatNumber(history.goals || 0)} گل</td>
-                        <td className="py-3 px-2 text-center font-mono text-cyan-400 font-bold">{formatStatNumber(history.assists || 0)} پاس</td>
-                        <td className="py-3 px-2 text-center font-mono text-indigo-400 font-bold">{formatStatNumber(history.cleanSheets || 0)} کلین</td>
-                        <td className="py-3 px-2 text-center font-mono text-amber-400 font-bold">
-                          {history.averageRating ? formatStatNumber(parseFloat(history.averageRating).toFixed(1)) : "—"}
-                        </td>
+            <SectionCard title="عملکرد در فصل جاری">
+              <SeasonPerformance stats={perf} />
+            </SectionCard>
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              <SectionCard title="خانگی / خارج از خانه">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-right text-xs">
+                    <thead>
+                      <tr className="border-b border-white/5 text-[10px] text-slate-400">
+                        <th className="py-2 font-bold">زمین</th>
+                        <th className="py-2 text-center font-bold">بازی</th>
+                        <th className="py-2 text-center font-bold">گل</th>
+                        <th className="py-2 text-center font-bold">پاس</th>
+                        <th className="py-2 text-center font-bold">میانگین</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {[
+                        { label: "در خانه", s: homeSplit },
+                        { label: "بیرون از خانه", s: awaySplit },
+                      ].map((r) => (
+                        <tr key={r.label} className="border-b border-white/5 last:border-0">
+                          <td className="py-2.5 font-bold text-slate-200">{r.label}</td>
+                          <td className="py-2.5 text-center font-mono text-slate-300">{formatStatNumber(r.s.matches)}</td>
+                          <td className="py-2.5 text-center font-mono font-bold text-emerald-400">{formatStatNumber(r.s.goals)}</td>
+                          <td className="py-2.5 text-center font-mono font-bold text-sky-400">{formatStatNumber(r.s.assists)}</td>
+                          <td className="py-2.5 text-center font-mono font-bold text-amber-400">{r.s.avg == null ? "—" : formatStatNumber(r.s.avg.toFixed(1))}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </SectionCard>
+              {totalTimedGoals > 0 && (
+                <SectionCard title="زمان‌بندی گل‌ها">
+                  <GoalTimingBars buckets={goalBuckets} />
+                </SectionCard>
+              )}
+            </div>
+            <SectionCard title="نمرات 10 بازی اخیر">
+              <RatingsLineChart data={last10Points} />
+              {last10Avg != null && (
+                <p className="mx-auto mt-2 w-fit rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-black text-emerald-300">
+                  میانگین نمره: <span className="font-mono">{formatStatNumber(last10Avg.toFixed(2))}</span>
+                </p>
+              )}
+            </SectionCard>
+          </div>
+          <div className="grid content-start grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-1">
+            <MiniStat icon={<Award className="h-5 w-5" />} label="بهترین بازیکن زمین" value={formatStatNumber(activeMvps)} sub="افتخار بهترین عملکرد (MVP)" tone="red" />
+            <MiniStat icon={<Clock className="h-5 w-5" />} label="دقایق بازی" value={formatStatNumber(activeMinutes)} sub="زمان حضور در میدان" tone="slate" />
+            <MiniStat
+              icon={<Star className="h-5 w-5" />}
+              label="میانگین نمره"
+              value={activeAvgRating != null && Number(activeAvgRating) > 0 ? formatStatNumber(Number(activeAvgRating).toFixed(1)) : "—"}
+              sub={activeAvgRating != null && Number(activeAvgRating) > 0 ? "امتیاز عملکرد ثبت‌شده" : "هنوز نمره‌ای ثبت نشده"}
+              tone="emerald"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ================= DETAILS ================= */}
+      {activeTab === "details" && (
+        <div className="animate-in fade-in space-y-4 duration-200">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/5 bg-[#131317] p-3.5 shadow-sm">
+            <div>
+              <h4 className="text-xs font-black text-white">رکوردهای تفکیکی بازیکن در این فصل</h4>
+              <p className="mt-0.5 text-[10px] text-slate-400">لیگ برتر، جام حذفی و جمع کارنامه</p>
+            </div>
+            {competToggle}
+          </div>
+          <SplitTable
+            showClean={isGk}
+            rows={[
+              ...(isFutsalPlayer ? [] : [{ label: isFutsalPlayer ? "لیگ برتر فوتسال" : "مسابقات لیگ برتر", matches: leagueMatches, goals: leagueGoals, assists: leagueAssists, clean: leagueClean, active: selectedCompet === "league" }]),
+              ...(isFutsalPlayer ? [{ label: "لیگ برتر فوتسال", matches: leagueMatches, goals: leagueGoals, assists: leagueAssists, clean: leagueClean, active: selectedCompet === "league" }] : []),
+              ...(!isFutsalPlayer ? [{ label: "جام حذفی کشور", matches: cupMatches, goals: cupGoals, assists: cupAssists, clean: cupClean, active: selectedCompet === "cup" }] : []),
+            ]}
+            total={{ label: "جمع کل کارنامه", matches: displayedMatches, goals: displayedGoals, assists: displayedAssists, clean: displayedClean, active: selectedCompet === "all" && !isFutsalPlayer }}
+          />
+          <div className="flex flex-wrap gap-3">
+            <div className="flex items-center gap-1.5 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs font-bold">
+              <span className="text-[10px] text-slate-400">کارت زرد:</span>
+              <span className="font-mono text-sm font-black text-amber-400">{formatStatNumber(activeYellow)}</span>
+            </div>
+            <div className="flex items-center gap-1.5 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-1.5 text-xs font-bold">
+              <span className="text-[10px] text-slate-400">کارت قرمز:</span>
+              <span className="font-mono text-sm font-black text-red-400">{formatStatNumber(activeRed)}</span>
+            </div>
+          </div>
+          {player.statsByTeam && player.statsByTeam.length > 0 && (
+            <SectionCard title="تفکیک عملکرد به تفکیک باشگاه‌ها در این فصل">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {player.statsByTeam.map((st: any, idx: number) => (
+                  <div key={idx} className="space-y-2 rounded-xl border border-white/5 bg-white/5/60 p-3.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-extrabold text-white">{st.teamName}</span>
+                      <span className="rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-300">{formatStatNumber(st.matches || 0)} بازی</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2 text-center font-mono text-[11px] font-bold">
+                      <div className="rounded bg-black/20 p-1 text-emerald-400"><span className="mb-0.5 block font-sans text-[8px] font-normal text-slate-400">گل زده</span>{formatStatNumber(st.goals || 0)}</div>
+                      <div className="rounded bg-black/20 p-1 text-sky-400"><span className="mb-0.5 block font-sans text-[8px] font-normal text-slate-400">پاس گل</span>{formatStatNumber(st.assists || 0)}</div>
+                      <div className="rounded bg-black/20 p-1 text-amber-400"><span className="mb-0.5 block font-sans text-[8px] font-normal text-slate-400">کلین‌شیت</span>{formatStatNumber(st.cleanSheets || 0)}</div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            ) : (
-              <div className="p-6 text-center text-xs text-slate-500 border border-dashed border-white/5 bg-black/10 rounded-xl">
-                اطلاعات ثبت شده‌ای در مورد سوابق گذشته در دست نیست. بازیکن احتمالا از ستاره‌های آکادمی این باشگاه است.
+            </SectionCard>
+          )}
+          <SectionCard title="درباره و شرح ویژگی‌های فیزیکی">
+            <p className="text-[13px] font-medium leading-loose text-slate-200">
+              {player.bio || "توضیحات و نمایه فیزیکی این بازیکن در سیستم به طور تفصیلی ثبت نشده است."}
+            </p>
+            <div className="mt-3 space-y-2 border-t border-white/5 pt-3 text-xs font-medium">
+              <p className="flex justify-between border-b border-white/5 pb-1.5">
+                <span className="text-slate-400">تابعیت ملی:</span>
+                <span className="font-bold text-white">{player.nationality || "ایران"}</span>
+              </p>
+            </div>
+          </SectionCard>
+          {player.honors && player.honors.length > 0 && (
+            <SectionCard title="کابین افتخارات باشگاهی">
+              <div className="space-y-2">
+                {player.honors.map((honor: string, idx: number) => (
+                  <div key={idx} className="flex items-center gap-2.5 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-slate-200">
+                    <Trophy className="h-4 w-4 shrink-0 text-amber-500" />
+                    <span className="font-bold">{honor}</span>
+                  </div>
+                ))}
               </div>
+            </SectionCard>
+          )}
+        </div>
+      )}
+
+      {/* ================= MARKET ================= */}
+      {activeTab === "market" && (
+        <div className="grid animate-in fade-in grid-cols-1 gap-4 duration-200 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <SectionCard title="ارزش بازیکن در گذر زمان" action={<span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-black text-emerald-300">فقط لیگ برتر</span>}>
+              <MarketLineChart points={marketHistory} />
+            </SectionCard>
+          </div>
+          <div className="space-y-4">
+            <SectionCard title="خلاصه ارزش">
+              <div className="space-y-2 text-center">
+                <div className="rounded-xl bg-white/5 p-3">
+                  <p className="text-[10px] text-slate-400">بالاترین ارزش</p>
+                  <p className="mt-0.5 font-mono text-lg font-black text-white" dir="ltr">{marketLabel}</p>
+                </div>
+                <div className="rounded-xl bg-white/5 p-3">
+                  <p className="text-[10px] text-slate-400">کمترین ارزش</p>
+                  <p className="mt-0.5 font-mono text-lg font-black text-white" dir="ltr">{marketHistory ? marketHistory[0].label : "—"}</p>
+                </div>
+                <div className="rounded-xl bg-emerald-500/10 p-3">
+                  <p className="text-[10px] text-slate-400">تغییر نسبت به فصل قبل</p>
+                  <p className="mt-0.5 font-mono text-lg font-black text-emerald-400" dir="ltr">
+                    {market?.changePct != null ? `${market.changePct >= 0 ? "+" : ""}${formatStatNumber(Number(market.changePct).toFixed(0))}%` : "—"}
+                  </p>
+                </div>
+              </div>
+            </SectionCard>
+            <SectionCard title="درباره این بخش">
+              <p className="text-[11px] leading-relaxed text-slate-400">
+                ارزش‌گذاری بازیکن بر اساس عملکرد، سن، پست و وضعیت قرارداد محاسبه می‌شود. منطق محاسباتی این بخش در فاز بعدی اضافه خواهد شد.
+              </p>
+            </SectionCard>
+          </div>
+        </div>
+      )}
+
+      {/* ================= CAREER ================= */}
+      {activeTab === "career" && (
+        <div className="animate-in fade-in space-y-4 duration-200">
+          <MovementTimeline items={player.movements} title="سوابق ترانسفر باشگاهی" />
+          <CareerSection
+            kind="player"
+            seasonRows={player.seasonRows}
+            movements={player.movements}
+            seasons={player.seasons}
+            currentClubId={player.teamId}
+            currentClubName={player.teamName}
+          />
+          <h3 className="border-r-4 border-emerald-500 pr-2 text-base font-black text-white">تاریخچه سوابق باشگاهی بازیکن</h3>
+          {player.careerHistory && player.careerHistory.length > 0 ? (
+            <div className="overflow-x-auto rounded-xl border border-white/5 bg-[#131317] p-2">
+              <table className="w-full text-right text-xs">
+                <thead>
+                  <tr className="border-b border-white/5 text-[10px] text-slate-400">
+                    <th className="px-2 py-3 font-bold">فصل کاری</th>
+                    <th className="px-2 py-3 font-bold">باشگاه</th>
+                    <th className="px-2 py-3 text-center font-bold">حضور رسمی</th>
+                    <th className="px-2 py-3 text-center font-bold">گل‌ها</th>
+                    <th className="px-2 py-3 text-center font-bold">پاس گل</th>
+                    <th className="px-2 py-3 text-center font-bold">کلین‌شیت</th>
+                    <th className="px-2 py-3 text-center font-bold">نمره میانگین</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {player.careerHistory.map((history: any, idx: number) => (
+                    <tr key={idx} className="border-b border-slate-50 last:border-0 hover:bg-white/5">
+                      <td className="px-2 py-3 font-mono font-bold text-slate-300">{formatStatNumber(history.season)}</td>
+                      <td className="px-2 py-3 font-semibold text-white">{history.club}</td>
+                      <td className="px-2 py-3 text-center font-mono text-slate-400">{formatStatNumber(history.apps || 0)} بازی</td>
+                      <td className="px-2 py-3 text-center font-mono font-bold text-emerald-400">{formatStatNumber(history.goals || 0)} گل</td>
+                      <td className="px-2 py-3 text-center font-mono font-bold text-sky-600">{formatStatNumber(history.assists || 0)} پاس</td>
+                      <td className="px-2 py-3 text-center font-mono font-bold text-indigo-400">{formatStatNumber(history.cleanSheets || 0)} کلین</td>
+                      <td className="px-2 py-3 text-center font-mono font-bold text-amber-400">
+                        {history.averageRating ? formatStatNumber(parseFloat(history.averageRating).toFixed(1)) : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-white/5 bg-white/5 p-6 text-center text-xs text-slate-400">
+              اطلاعات ثبت شده‌ای در مورد سوابق گذشته در دست نیست.
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ================= RATINGS ================= */}
+      {activeTab === "ratings" && (
+        <div className="animate-in fade-in space-y-4 duration-200">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="border-r-4 border-emerald-500 pr-2 text-base font-black text-white">ریز نمرات بازیکن در فصل جاری</h3>
+            {(player.seasons || []).length > 0 && (
+              <SeasonSwitcher seasons={player.seasons} value={seasonId} onChange={setSeasonId} />
             )}
           </div>
-        )}
+          <SectionCard title="نمرات 10 بازی اخیر">
+            <RatingsLineChart data={last10Points} />
+            {last10Avg != null && (
+              <p className="mx-auto mt-2 w-fit rounded-full bg-emerald-500/10 px-3 py-1 text-[11px] font-black text-emerald-300">
+                میانگین نمره: <span className="font-mono">{formatStatNumber(last10Avg.toFixed(2))}</span>
+              </p>
+            )}
+          </SectionCard>
+          <MatchLogList matches={visiblePlayerMatches} onSelectMatch={onSelectMatch} />
+        </div>
+      )}
 
-      </div>
+      {/* ================= COMPARE ================= */}
+      {activeTab === "compare" && (
+        <div className="grid animate-in fade-in grid-cols-1 gap-4 duration-200 lg:grid-cols-2">
+          <SectionCard title={myAvgNum > 0 ? `بازیکنان مشابه (${player.position})` : "بازیکنان مشابه"}>
+            <SimilarPlayers items={similarFull.slice(0, 8)} />
+          </SectionCard>
+          <div className="space-y-4">
+            <SectionCard title="مقایسه رودررو">
+              {similarFull.length > 0 ? (
+                <div className="space-y-3">
+                  <label className="flex items-center gap-2 text-[11px] font-bold text-slate-400">
+                    <span className="shrink-0">حریف مقایسه:</span>
+                    <select
+                      value={compareId || ""}
+                      onChange={(e) => setCompareId(e.target.value || null)}
+                      className="w-full rounded-xl border border-white/10 bg-slate-950 px-2.5 py-2 text-[11px] font-black text-white focus:border-emerald-500 focus:outline-none"
+                    >
+                      <option value="">انتخاب بازیکن...</option>
+                      {similarFull.slice(0, 8).map((s) => (
+                        <option key={s.id} value={s.id}>{s.name} ({s.teamName})</option>
+                      ))}
+                    </select>
+                  </label>
+                  {(() => {
+                    const target = (allPlayers || []).find((p: any) => String(p?.id) === String(compareId));
+                    if (!target) return <p className="py-3 text-center text-[11px] text-slate-500">یک بازیکن مشابه را انتخاب کنید تا کنار هم مقایسه شوند.</p>;
+                    const tAvg = Number(target.seasonStats?.averageRating ?? target.averageRating ?? 0) || null;
+                    const rows: [string, string, string][] = [
+                      ["باشگاه", String(player.teamName || "—"), String(target.teamName || "—")],
+                      ["سن", myAgeNum != null ? formatStatNumber(myAgeNum) : "—", Number(target.age) > 0 ? formatStatNumber(target.age) : "—"],
+                      ["بازی", formatStatNumber(displayedMatches), formatStatNumber(Number(target.seasonStats?.matches ?? 0))],
+                      ["گل", formatStatNumber(displayedGoals), formatStatNumber(Number(target.seasonStats?.goals ?? 0))],
+                      ["پاس گل", formatStatNumber(displayedAssists), formatStatNumber(Number(target.seasonStats?.assists ?? 0))],
+                      ["میانگین نمره", displayedAvgRating != null ? formatStatNumber(Number(displayedAvgRating).toFixed(1)) : "—", tAvg != null ? formatStatNumber(tAvg.toFixed(1)) : "—"],
+                    ];
+                    return (
+                      <div className="overflow-x-auto rounded-xl border border-white/5">
+                        <table className="w-full text-right text-xs">
+                          <thead>
+                            <tr className="bg-white/5 text-[10px] text-slate-400">
+                              <th className="p-2 font-bold">شاخص</th>
+                              <th className="p-2 text-center font-black text-emerald-300">{player.name}</th>
+                              <th className="p-2 text-center font-black text-sky-300">{target.name}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-white/5">
+                            {rows.map(([label, a, b]) => (
+                              <tr key={label}>
+                                <td className="p-2 font-bold text-slate-400">{label}</td>
+                                <td className="p-2 text-center font-mono font-bold text-slate-100">{a}</td>
+                                <td className="p-2 text-center font-mono font-bold text-slate-100">{b}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  })()}
+                </div>
+              ) : (
+                <p className="py-3 text-center text-[11px] text-slate-500">بازیکن مشابهی برای مقایسه وجود ندارد.</p>
+              )}
+            </SectionCard>
+            <SectionCard title="راهنمای مقایسه">
+              <div className="space-y-2 text-[11px] leading-relaxed text-slate-400">
+                <p>فهرست مشابه‌ها <b className="text-slate-200">فقط از بین بازیکنان هم‌پست</b> دارای نمره میانگین ساخته می‌شود{player.position ? ` (${player.position})` : ""}.</p>
+                <p>درصد شباهت از دو المان به دست می‌آید: <b className="text-slate-200">نزدیکی نمره میانگین</b> و <b className="text-slate-200">نزدیکی سن</b> (هر سال اختلاف سن، ۱.۵ واحد کم می‌کند).</p>
+                {myAvgNum <= 0 && <p className="font-bold text-amber-400">برای این بازیکن هنوز نمره میانگینی ثبت نشده است؛ پس از ثبت نمرات، فهرست مشابه‌ها ساخته می‌شود.</p>}
+              </div>
+            </SectionCard>
+          </div>
+        </div>
+      )}
+
+      {/* ================= NEWS ================= */}
+      {activeTab === "news" && (
+        <div className="animate-in fade-in duration-200">
+          <SectionCard title={`اخبار ${player.name}`}>
+            {loadingNews ? (
+              <p className="py-6 text-center text-xs font-bold text-slate-400">در حال بارگذاری اخبار...</p>
+            ) : (
+              <NewsList items={playerNews} playerName={player.name} onSelectNews={onSelectNews} />
+            )}
+          </SectionCard>
+        </div>
+      )}
+
+      {/* footer */}
+      <p className="pb-2 text-center text-[10px] text-slate-400">تمامی داده‌ها و آمارها متعلق به تب فوتبال می‌باشد.</p>
     </div>
   );
 }

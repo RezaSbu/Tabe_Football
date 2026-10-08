@@ -772,3 +772,62 @@ html.light .pitch-stripes .mc-node .bg-black\/90 { background-color: color-mix(i
 html.light .pitch-stripes .mc-node .border-white\/15 { border-color: color-mix(in srgb, #ffffff 15%, transparent); }
 html.light .pitch-stripes .mc-node .border-white\/20 { border-color: color-mix(in srgb, #ffffff 20%, transparent); }
 html.light .pitch-stripes .mc-node .border-white\/25 { border-color: color-mix(in srgb, #ffffff 25%, transparent); }
+
+/* ==========================================================================
+   بنر هیروی پروفایل بازیکن — همیشه تیره (سرمه‌ای) می‌ماند، حتی در تم روشن.
+   پس‌زمینه‌ها هگز سفارشی سرمه‌ای‌اند (در نگاشت light پوشش ندارند -> تیره
+   می‌مانند)؛ این اسکوپ فقط متغیرهای متن/بوردر/اکسنت را به حالت تیره
+   برمی‌گرداند تا خوانایی روی بنر حفظ شود.
+   ========================================================================== */
+html.light .player-hero {
+  --color-white: #fff;
+  --color-black: #000;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-emerald-300: #6ee7b7;
+  --color-emerald-400: #34d399;
+  --color-emerald-500: #10b981;
+  --color-amber-300: #fcd34d;
+  --color-amber-400: #fbbf24;
+  --color-red-400: #f87171;
+  --color-red-500: #ef4444;
+  --color-sky-400: #38bdf8;
+  --color-cyan-400: #22d3ee;
+}
+html.light .player-hero .border-white\/5 { border-color: color-mix(in srgb, #ffffff 5%, transparent); }
+html.light .player-hero .border-white\/10 { border-color: color-mix(in srgb, #ffffff 10%, transparent); }
+html.light .player-hero .border-white\/15 { border-color: color-mix(in srgb, #ffffff 15%, transparent); }
+html.light .player-hero .border-white\/20 { border-color: color-mix(in srgb, #ffffff 20%, transparent); }
+html.light .player-hero .bg-white\/5 { background-color: color-mix(in srgb, #ffffff 5%, transparent); }
+html.light .player-hero .bg-white\/10 { background-color: color-mix(in srgb, #ffffff 10%, transparent); }
+html.light .player-hero .bg-black\/20 { background-color: color-mix(in srgb, #000 20%, transparent); }
+html.light .player-hero .bg-black\/30 { background-color: color-mix(in srgb, #000 30%, transparent); }
+html.light .player-hero .bg-black\/40 { background-color: color-mix(in srgb, #000 40%, transparent); }
+
+/* بنر هیروی پروفایل مربی — همان قرارداد player-hero (همیشه تیره می‌ماند) */
+html.light .coach-hero {
+  --color-white: #fff;
+  --color-black: #000;
+  --color-slate-200: #e2e8f0;
+  --color-slate-300: #cbd5e1;
+  --color-slate-400: #94a3b8;
+  --color-slate-500: #64748b;
+  --color-emerald-300: #6ee7b7;
+  --color-emerald-400: #34d399;
+  --color-emerald-500: #10b981;
+  --color-amber-300: #fcd34d;
+  --color-amber-400: #fbbf24;
+  --color-red-400: #f87171;
+  --color-red-500: #ef4444;
+  --color-sky-400: #38bdf8;
+  --color-cyan-400: #22d3ee;
+}
+html.light .coach-hero .border-white\/5 { border-color: color-mix(in srgb, #ffffff 5%, transparent); }
+html.light .coach-hero .border-white\/10 { border-color: color-mix(in srgb, #ffffff 10%, transparent); }
+html.light .coach-hero .border-white\/15 { border-color: color-mix(in srgb, #ffffff 15%, transparent); }
+html.light .coach-hero .border-white\/20 { border-color: color-mix(in srgb, #ffffff 20%, transparent); }
+html.light .coach-hero .bg-white\/5 { background-color: color-mix(in srgb, #ffffff 5%, transparent); }
+html.light .coach-hero .bg-white\/10 { background-color: color-mix(in srgb, #ffffff 10%, transparent); }
+html.light .coach-hero .bg-black\/20 { background-color: color-mix(in srgb, #000 20%, transparent); }

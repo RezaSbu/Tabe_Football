@@ -16,22 +16,43 @@ function useUid(prefix: string): string {
 
 export function BallIcon({ size = 16, className = "" }: IconProps) {
   const gid = useUid("ball");
-  const fid = useUid("ballsh");
+  const cid = useUid("ballclip");
+  // Classic truncated-icosahedron look: shaded white leather, dark central
+  // pentagon, seam lines radiating out, partial dark patches at the rim.
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} className={`shrink-0 ${className}`} aria-hidden="true">
       <defs>
-        <radialGradient id={gid} cx="30%" cy="30%" r="70%">
+        <radialGradient id={gid} cx="35%" cy="30%" r="75%">
           <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="65%" stopColor="#e2e8f0" />
+          <stop offset="55%" stopColor="#f1f5f9" />
+          <stop offset="85%" stopColor="#cbd5e1" />
           <stop offset="100%" stopColor="#94a3b8" />
         </radialGradient>
-        <filter id={fid} x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="0" dy="1" stdDeviation="0.8" floodColor="#000000" floodOpacity="0.4" />
-        </filter>
+        <clipPath id={cid}>
+          <circle cx="12" cy="12" r="9.4" />
+        </clipPath>
       </defs>
-      <circle cx="12" cy="12" r="10" fill={`url(#${gid})`} stroke="#334155" strokeWidth="0.8" filter={`url(#${fid})`} />
-      <polygon points="12,8 15,10.2 13.8,14 10.2,14 9,10.2" fill="#0f172a" />
-      <path d="M12 8 L12 2.2 M15 10.2 L19.8 8.8 M13.8 14 L17.5 18 M10.2 14 L6.5 18 M9 10.2 L4.2 8.8" stroke="#0f172a" strokeWidth="1" strokeLinecap="round" />
+      <circle cx="12" cy="12" r="9.6" fill={`url(#${gid})`} stroke="#1e293b" strokeWidth="1" />
+      <g clipPath={`url(#${cid})`}>
+        {/* rim patches (partial pentagons peeking from the edge) */}
+        <circle cx="17.5" cy="4.5" r="2.7" fill="#0f172a" />
+        <circle cx="20.8" cy="14.9" r="2.7" fill="#0f172a" />
+        <circle cx="12" cy="21.3" r="2.7" fill="#0f172a" />
+        <circle cx="3.2" cy="14.9" r="2.7" fill="#0f172a" />
+        <circle cx="6.5" cy="4.5" r="2.7" fill="#0f172a" />
+        {/* seams from the central pentagon to the rim */}
+        <g stroke="#0f172a" strokeWidth="0.9" strokeLinecap="round">
+          <line x1="12" y1="8.6" x2="12" y2="2.4" />
+          <line x1="15.2" y1="11" x2="20.9" y2="9.1" />
+          <line x1="14" y1="14.8" x2="17.6" y2="19.7" />
+          <line x1="10" y1="14.8" x2="6.4" y2="19.7" />
+          <line x1="8.8" y1="11" x2="3.1" y2="9.1" />
+        </g>
+        {/* central pentagon */}
+        <polygon points="12,8.6 15.2,11 14,14.8 10,14.8 8.8,11" fill="#0f172a" />
+        {/* specular highlight */}
+        <ellipse cx="9" cy="7.5" rx="3.4" ry="2.2" fill="#ffffff" opacity="0.55" transform="rotate(-20 9 7.5)" />
+      </g>
     </svg>
   );
 }

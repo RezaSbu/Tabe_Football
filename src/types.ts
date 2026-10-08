@@ -250,9 +250,14 @@ export interface TeamItem {
 export interface PlayerItem {
   id: string;
   name: string;
+  nameEn?: string | null;
   position: string;
   age: number | string;
   nationality: string;
+  /** Manual TF-rating base on the 0-10 scale (null = auto from computed average). */
+  baseRating?: number | null;
+  /** Manual market snapshot; history grows via future valuation logic. */
+  marketValue?: { value: number | null; base?: number | null; currency: string; changePct: number | null; history: { season: string; value: number }[] } | null;
   foot?: string;
   height?: string;
   teamId: string;
