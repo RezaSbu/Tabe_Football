@@ -18,12 +18,15 @@ import { coachOfTeamAt } from "../../shared/coachTenure";
 // TF Rating + Market Value engine v2 (agreed scoring rules, unit-tested).
 // TF: start 70, range [60, 99], replayed chronologically (oldest first),
 // no season reset. Per played match (L = league coefficient):
-//   appearance +1 only with real minutes (tier > 0),
+//   appearance +1 only with real minutes (tier > 0) AND no sub-6 rating
+//   (a bad outing earns nothing and drops TF by its -1 band),
 //   each goal +1, each assist +1, clean sheet GK +2 / DF +1,
 //   rating > 7.5 => +2, 6..7.5 => +1, (0,6) => -1,
 //   each red card -1, each own goal -1.
-// Minutes tier scales (appearance + rating band) ONLY: full (>=dur-15) x1,
-// half (>=dur/2) x0.7, low (>=15) x0.5, cameo x0. Goals/assists/CS/cards xL.
+// Minutes tier scales (appearance + rating band + clean sheet) ONLY:
+// full (>=dur-15) x1, half (>=dur/2) x0.7, low (>=15) x0.5, cameo x0.
+// Goals/assists/cards xL. The negative rating band is never tier-scaled:
+// a sub-6 outing always costs its -1, however brief.
 //   Positive part is dampened near the cap: pos * (100 - TF) / 30, so stars
 //   keep separating instead of freezing at 99 (full weight at TF <= 70);
 //   negatives apply in full. Clamp [60, 99] after every match.
@@ -79,6 +82,9 @@ export interface TfMatchEntry {
   redCards?: any;
   ownGoals?: any;
   cleanSheets?: any;
+  league?: any;
+  minutes?: any;
+  duration?: any;
 }
 
 export interface ReplayEntry extends TfMatchEntry {
@@ -123,12 +129,18 @@ export function replayCareer(
     const tier = minuteTier((e as any).minutes, (e as any).duration);
     const r = Number(e.rating) || 0;
     const cs = Number(e.cleanSheets) || 0;
-    const app = tier > 0 ? 1 : 0;
+    // No appearance point for a sub-6 rated game: a bad outing must be able
+    // to move TF down (70 -> 69), not cancel out to zero.
+    const app = tier > 0 && !(r > 0 && r < 6) ? 1 : 0;
     const band = r > 7.5 ? 2 : r >= 6 ? 1 : r > 0 ? -1 : 0;
     const csTf = cs > 0 ? (group === "GK" ? TF_CLEAN_GK : group === "DF" ? TF_CLEAN_DF : 0) : 0;
-    const posUnits = (app + Math.max(0, band)) * tier + (Number(e.goals) || 0) + (Number(e.assists) || 0) + csTf;
+    // Clean-sheet bonus scales with minutes like appearance does: a 1-minute
+    // cameo earns nothing from the team's clean sheet.
+    // The negative rating band is NOT tier-scaled: a bad outing, however
+    // brief, always costs its -1 (a 90-minute 5.5 goes 70 -> 69).
+    const posUnits = (app + Math.max(0, band) + csTf) * tier + (Number(e.goals) || 0) + (Number(e.assists) || 0);
     const negUnits =
-      (Math.max(0, -band) * tier + (Number(e.redCards) || 0) + (Number(e.ownGoals) || 0)) * L;
+      (Math.max(0, -band) + (Number(e.redCards) || 0) + (Number(e.ownGoals) || 0)) * L;
     // Float accumulator (rounded only at the end): per-step rounding would
     // stall one point below the cap under dampening.
     const delta = posUnits * L * ((100 - tf) / 30) - negUnits;
@@ -136,7 +148,7 @@ export function replayCareer(
 
     const csMkt = cs > 0 ? (group === "GK" ? MARKET_CLEAN_GK : group === "DF" ? MARKET_CLEAN_DF : 0) : 0;
     const rateMkt = r > 7.5 ? MARKET_RATING_HIGH : r >= 6 ? MARKET_RATING_MID : r > 0 ? MARKET_RATING_LOW : 0;
-    pending += ((Number(e.goals) || 0) * MARKET_GOAL + (Number(e.assists) || 0) * MARKET_ASSIST + csMkt + rateMkt) * L;
+    pending += ((Number(e.goals) || 0) * MARKET_GOAL + (Number(e.assists) || 0) * MARKET_ASSIST + csMkt * tier + rateMkt) * L;
     if ((i + 1) % 5 === 0) {
       runTotal += pending;
       pending = 0;
