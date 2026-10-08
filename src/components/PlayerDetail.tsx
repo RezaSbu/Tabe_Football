@@ -12,7 +12,6 @@ import MovementTimeline from "./MovementTimeline";
 import CareerSection from "./CareerSection";
 import PlayerHero, { formatCompactEuro } from "./player/PlayerHero";
 import { RatingsLineChart, MarketLineChart, PresenceStrip, GoalTimingBars } from "./player/PlayerCharts";
-import { getPlayerDemo } from "./player/playerDemo"; // DEMO PREVIEW — remove with playerDemo.ts
 import {
   SectionCard, SeasonPerformance, CareerMini, SimilarPlayers, NextMatchCard,
   PlayerShareCard, ProfileInfoBox, NewsList, SplitTable, MatchLogList, MiniStat,
@@ -522,9 +521,6 @@ export default function PlayerDetail({
         }))
     : [];
 
-  // playerDemo: DEMO PREVIEW for gated players (remove with playerDemo.ts).
-  const demo = getPlayerDemo(player.id);
-
   // Next match of the player's club (not-started fixtures).
   const myTeamNorm = normalizePersianString(player.teamName || "");
   const nextMatch = (() => {
@@ -536,18 +532,12 @@ export default function PlayerDetail({
       ))
       .sort((a: any, b: any) => String(a.date || "").localeCompare(String(b.date || "")) || String(a.time || "").localeCompare(String(b.time || "")));
     if (cands.length > 0) return cands[0];
-    // playerDemo: DEMO PREVIEW fallback for gated players (remove with playerDemo.ts).
-    if (demo?.nextMatch) {
-      const dn = demo.nextMatch;
-      return { ...dn, teamHomeLogo: logoForTeam(dn.teamHome), teamAwayLogo: logoForTeam(dn.teamAway) };
-    }
     return null;
   })();
-  const isDemoMatch = String(nextMatch?.id || "").startsWith("demo-");
 
   // Future-tracked fields (no backend yet — UI renders honest empty states).
   // Shape reserved: marketValue = { value, currency, changePct, history: [{season, value}] }
-  const market: any = (player as any).marketValue ?? demo?.marketValue ?? null;
+  const market: any = (player as any).marketValue ?? null;
   const marketHistory = Array.isArray(market?.history) && market.history.length > 0
     ? market.history.map((h: any) => ({
         x: String(h.season),
@@ -571,7 +561,7 @@ export default function PlayerDetail({
 
   // Career mini reads the SAME pipeline as the career tab (buildCareerCards
   // over seasonRows + movements), grouped by club — mini and tab can never
-  // disagree. Demo fallback only when no real card exists at all.
+  // disagree.
   const careerView = buildCareerCards({
     kind: "player",
     seasonRows: player.seasonRows || [],
@@ -607,14 +597,7 @@ export default function PlayerDetail({
       .sort((a, b) => b.latest.localeCompare(a.latest, "fa"))
       .slice(0, 4)
       .map(({ club, season, apps, logo }) => ({ club, season, apps, logo }));
-    if (rows.length > 0) return rows;
-    // playerDemo: DEMO PREVIEW fallback for gated players (remove with playerDemo.ts).
-    return (demo?.careerHistory || []).map((h: any) => ({
-      club: h.club,
-      season: h.season,
-      apps: Number(h.apps) || 0,
-      logo: logoForTeam(h.club),
-    }));
+    return rows;
   })();
 
   const quick = {
@@ -811,7 +794,7 @@ export default function PlayerDetail({
             )}
           </SectionCard>
           <div className="space-y-4">
-            <NextMatchCard match={nextMatch} onOpenMatch={isDemoMatch ? undefined : onSelectMatch} />
+            <NextMatchCard match={nextMatch} onOpenMatch={onSelectMatch} />
             <SectionCard title="اطلاعات پروفایل">
               <ProfileInfoBox playerId={String(player.id)} updatedAt={(player as any).updatedAt || null} />
             </SectionCard>
