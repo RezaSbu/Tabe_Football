@@ -247,14 +247,35 @@ describe('computeDynamicAppletStats — ratings single source of truth', () => {
 
   it('recomputes locally only when the server provides no ratings', () => {
     const players = [
-      playerRow('a', 'الف', 't-یک', 'یک', 8.5, 2),
-      playerRow('b', 'ب', 't-دو', 'دو', 7.2, 1),
+      playerRow('a', 'الف', 't-یک', 'یک', 8.5, 6),
+      playerRow('b', 'ب', 't-دو', 'دو', 7.2, 5),
     ];
     const { processedStats } = computeDynamicAppletStats([], teams, players, {}, {});
     const ratings = processedStats['pro-league'].ratings;
     expect(ratings).toHaveLength(2);
     expect(ratings[0].name).toBe('الف');
     expect(ratings[1].name).toBe('ب');
+    expect(ratings[0].matches).toBe(6);
+  });
+
+  it('applies the min-5 gate in the local fallback (1-game wonders stay out)', () => {
+    // Regression: league-1/hazfi leaderboards once ranked a 1-game 9.5 first
+    // whenever the server list was empty. The fallback mirrors the server gate.
+    const players = [
+      playerRow('c', 'ج', 't-یک', 'یک', 9.5, 1),
+      playerRow('b', 'ب', 't-دو', 'دو', 7.2, 5),
+    ];
+    const { processedStats } = computeDynamicAppletStats([], teams, players, {}, {});
+    const ratings = processedStats['pro-league'].ratings;
+    expect(ratings).toHaveLength(1);
+    expect(ratings[0].id).toBe('b');
+    expect(ratings.some((r: any) => r.id === 'c')).toBe(false);
+  });
+
+  it('returns an empty fallback list when nobody reaches 5 rated games', () => {
+    const players = [playerRow('c', 'ج', 't-یک', 'یک', 9.5, 1)];
+    const { processedStats } = computeDynamicAppletStats([], teams, players, {}, {});
+    expect(processedStats['pro-league'].ratings).toHaveLength(0);
   });
 
   it('keeps server ratings even when scorers/assists/cleansheets are empty', () => {

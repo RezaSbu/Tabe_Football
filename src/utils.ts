@@ -479,21 +479,27 @@ export function computeDynamicAppletStats(
       ? persistedStats[leagueKey].ratings
       : null;
 
+    // Local fallback mirrors the server min-5-rated-games gate (stats.ts):
+    // a single 9.0 in 1-2 games must not top any league board.
+    const isCupKey = leagueKey === "hazfi-cup";
     const ratings = serverRatings && serverRatings.length > 0
       ? serverRatings.map((r: any, idx: number) => ({ ...r, rank: idx + 1 }))
       : [...eligiblePlayers]
           .map((p: any) => {
-            const rating = (p.leagueStats?.averageRating ?? p.averageRating ?? null);
-            return { p, rating };
+            const split = isCupKey ? (p.cupStats || {}) : (p.leagueStats || {});
+            const rating = (split.averageRating ?? p.averageRating ?? null);
+            const ratedGames = Number(split.ratingCount) || 0;
+            return { p, rating, ratedGames };
           })
-          .filter((item: any) => item.rating > 0)
+          .filter((item: any) => item.rating > 0 && item.ratedGames >= 5)
           .sort((a, b) => b.rating - a.rating)
           .map((item: any, idx) => ({
             rank: idx + 1,
             id: item.p.id,
             name: item.p.name,
             team: item.p.teamName,
-            rating: item.rating
+            rating: item.rating,
+            matches: item.ratedGames
           }));
 
     // Ratings may be the ONLY populated leaderboard (e.g. a season with no
