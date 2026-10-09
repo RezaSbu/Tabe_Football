@@ -93,7 +93,7 @@ CREATE TABLE public.players (
   base_rating numeric(3,1),
   market_value numeric,
   market_base numeric DEFAULT 1000000000,
-  market_currency varchar(3) DEFAULT 'تومان',
+  market_currency varchar(10) DEFAULT 'تومان',
   market_change numeric(5,2),
   market_value_history jsonb DEFAULT '[]'::jsonb,
   image text,
