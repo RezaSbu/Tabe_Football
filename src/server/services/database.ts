@@ -266,7 +266,11 @@ export async function migratePlayerProfileColumns(): Promise<void> {
     await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS name_en varchar(200)`);
     await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS base_rating numeric(3,1)`);
     await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS market_value numeric`);
-    await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS market_currency varchar(3) DEFAULT '€'`);
+    await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS market_currency varchar(10) DEFAULT 'تومان'`);
+    // "تومان" is 5 chars: the original varchar(3) rejected every player write.
+    // Widen idempotently, then (re)run the backfill that previously failed on it.
+    await pool.query(`ALTER TABLE players ALTER COLUMN market_currency TYPE varchar(10)`);
+    await pool.query(`UPDATE players SET market_currency = 'تومان' WHERE market_currency IS NULL OR market_currency = ''`);
     await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS market_change numeric(5,2)`);
     await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS market_value_history jsonb DEFAULT '[]'::jsonb`);
     await pool.query(`INSERT INTO schema_migrations (name) VALUES ('player_profile_columns_v1') ON CONFLICT (name) DO NOTHING`);
