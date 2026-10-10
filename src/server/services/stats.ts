@@ -15,26 +15,30 @@ import { resolveTeam, resolveTeamLeague, normalizeLeagueKey, resolveTeamLeagueWi
 import { coachOfTeamAt } from "../../shared/coachTenure";
 
 // ---------------------------------------------------------------------------
-// TF Rating + Market Value engine v2 (agreed scoring rules, unit-tested).
+// ---------------------------------------------------------------------------
+// TF Rating + Market Value engine v3 (agreed scoring rules, unit-tested).
 // TF: start 70, range [60, 99], replayed chronologically (oldest first),
 // no season reset. Per played match (L = league coefficient):
-//   appearance +1 only with real minutes (tier > 0) AND no sub-6 rating
-//   (a bad outing earns nothing and drops TF by its -1 band),
-//   each goal +1, each assist +1, clean sheet GK +2 / DF +1,
-//   rating > 7.5 => +2, 6..7.5 => +1, (0,6) => -1,
+//   appearance +0.3 only with real minutes (tier > 0) AND no sub-6 rating,
+//   each goal +1, each assist +1, clean sheet GK +1.5 / DF +0.5,
+//   rating > 7.5 => +2, 7.0..7.5 => +1, 6..6.9 => 0, (0,6) => -1,
 //   each red card -1, each own goal -1.
 // Minutes tier scales (appearance + rating band + clean sheet) ONLY:
 // full (>=dur-15) x1, half (>=dur/2) x0.7, low (>=15) x0.5, cameo x0.
-// Goals/assists/cards xL. The negative rating band is never tier-scaled:
-// a sub-6 outing always costs its -1, however brief.
-//   Positive part is dampened near the cap: pos * (100 - TF) / 30, so stars
-//   keep separating instead of freezing at 99 (full weight at TF <= 70);
-//   negatives apply in full. Clamp [60, 99] after every match.
+// Goals/assists/cards xL. The negative rating band is never tier-scaled.
+//   Positive part is dampened near the cap: pos * (100 - TF) / 30;
+//   from TF 90 upward earned points halve again (elite tier) while falls
+//   keep full weight; negatives always apply in full.
+//   Clamp [60, 99] after every match.
+//   Display rounds half-up (Math.round); never show decimals.
 // Market: base (admin, default 1e9) + priced 5-game blocks, same order.
-//   Per block match (xL, no minutes tier): goal/assist/CS/rating parts as
-//   agreed; star bonus +10M when TF after the completing match >= 85;
+//   Per block match (xL, no minutes tier): goal/assist +20M,
+//   clean sheet GK +15M / DF +5M,
+//   rating > 7.5 => +30M, 7.0..7.5 => +10M, 6..6.9 => 0, (0,6) => -10M.
+//   star bonus +10M only on the FIRST block per season ending with TF >= 85;
 //   one-shot age curve at the end (>=31: x0.92, <=21: x1.05).
 //   Floor 1e9, no ceiling. Seasons snapshot the running value.
+// ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 export const TF_START = 70;
 export const TF_FLOOR = 60;
@@ -47,12 +51,14 @@ export const MARKET_RATING_HIGH = 30000000;
 export const MARKET_RATING_MID = 10000000;
 export const MARKET_RATING_LOW = -10000000;
 // Clean-sheet bonuses (the only growth engine for GK/DF):
-// goalkeeper counts like a goal, defender at half rate.
-export const TF_CLEAN_GK = 2;
-export const TF_CLEAN_DF = 1;
-export const MARKET_CLEAN_GK = 20000000;
-export const MARKET_CLEAN_DF = 10000000;
+// goalkeeper 1.5, defender 0.5 — presence-like trickle, events dominate.
+export const TF_CLEAN_GK = 1.5;
+export const TF_CLEAN_DF = 0.5;
+export const MARKET_CLEAN_GK = 15000000;
+export const MARKET_CLEAN_DF = 5000000;
 export const MARKET_STAR_BONUS = 10000000;
+// Participation trickle (not a full point): presence matters, events decide.
+export const TF_APPEARANCE = 0.3;
 
 export type PositionGroup = "GK" | "DF" | "OUT";
 
@@ -124,6 +130,7 @@ export function replayCareer(
   let pending = 0;
   let runTotal = 0;
   const snaps = new Map<string, number>();
+  const starredSeasons = new Set<string>();
   list.forEach((e, i) => {
     const L = leagueCoeff((e as any).league);
     const tier = minuteTier((e as any).minutes, (e as any).duration);
@@ -131,8 +138,9 @@ export function replayCareer(
     const cs = Number(e.cleanSheets) || 0;
     // No appearance point for a sub-6 rated game: a bad outing must be able
     // to move TF down (70 -> 69), not cancel out to zero.
-    const app = tier > 0 && !(r > 0 && r < 6) ? 1 : 0;
-    const band = r > 7.5 ? 2 : r >= 6 ? 1 : r > 0 ? -1 : 0;
+    const app = tier > 0 && !(r > 0 && r < 6) ? TF_APPEARANCE : 0;
+    // 6..6.9 is explicitly neutral (no bonus, no penalty) — average is average.
+    const band = r > 7.5 ? 2 : r >= 7 ? 1 : r >= 6 ? 0 : r > 0 ? -1 : 0;
     const csTf = cs > 0 ? (group === "GK" ? TF_CLEAN_GK : group === "DF" ? TF_CLEAN_DF : 0) : 0;
     // Clean-sheet bonus scales with minutes like appearance does: a 1-minute
     // cameo earns nothing from the team's clean sheet.
@@ -143,16 +151,24 @@ export function replayCareer(
       (Math.max(0, -band) + (Number(e.redCards) || 0) + (Number(e.ownGoals) || 0)) * L;
     // Float accumulator (rounded only at the end): per-step rounding would
     // stall one point below the cap under dampening.
-    const delta = posUnits * L * ((100 - tf) / 30) - negUnits;
+    // Elite tier: from TF 90 upward every earned point counts half —
+    // reaching 99 must stay meaningful, while falls keep full weight.
+    const eliteMult = tf >= 90 ? 0.5 : 1;
+    const delta = posUnits * L * ((100 - tf) / 30) * eliteMult - negUnits;
     tf = Math.max(TF_FLOOR, Math.min(TF_CAP, tf + delta));
 
     const csMkt = cs > 0 ? (group === "GK" ? MARKET_CLEAN_GK : group === "DF" ? MARKET_CLEAN_DF : 0) : 0;
-    const rateMkt = r > 7.5 ? MARKET_RATING_HIGH : r >= 6 ? MARKET_RATING_MID : r > 0 ? MARKET_RATING_LOW : 0;
+    const rateMkt = r > 7.5 ? MARKET_RATING_HIGH : r >= 7 ? MARKET_RATING_MID : r >= 6 ? 0 : r > 0 ? MARKET_RATING_LOW : 0;
     pending += ((Number(e.goals) || 0) * MARKET_GOAL + (Number(e.assists) || 0) * MARKET_ASSIST + csMkt * tier + rateMkt) * L;
     if ((i + 1) % 5 === 0) {
       runTotal += pending;
       pending = 0;
-      if (opts.withStar === true && tf >= TF_STAR) runTotal += MARKET_STAR_BONUS;
+      // Star bonus: only the FIRST block per season ending with TF >= 85.
+      const seasonKey = String(seasonOf(e, i));
+      if (opts.withStar === true && tf >= TF_STAR && !starredSeasons.has(seasonKey)) {
+        runTotal += MARKET_STAR_BONUS;
+        starredSeasons.add(seasonKey);
+      }
     }
     snaps.set(String(seasonOf(e, i)), Math.max(MARKET_FLOOR, Math.round(b + runTotal)));
   });
@@ -180,7 +196,7 @@ export function blockAdjustment(e: TfMatchEntry, group: PositionGroup = "OUT"): 
     (Number(e.goals) || 0) * MARKET_GOAL +
     (Number(e.assists) || 0) * MARKET_ASSIST +
     (cs > 0 ? (group === "GK" ? MARKET_CLEAN_GK : group === "DF" ? MARKET_CLEAN_DF : 0) : 0) +
-    (r > 7.5 ? MARKET_RATING_HIGH : r >= 6 ? MARKET_RATING_MID : r > 0 ? MARKET_RATING_LOW : 0)
+    (r > 7.5 ? MARKET_RATING_HIGH : r >= 7 ? MARKET_RATING_MID : r >= 6 ? 0 : r > 0 ? MARKET_RATING_LOW : 0)
   );
 }
 

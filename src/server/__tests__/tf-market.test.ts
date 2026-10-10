@@ -34,15 +34,20 @@ describe("computeTfRating", () => {
   });
 
   it("adds appearance + goal + assist + high rating in one match", () => {
-    // 70 +1 (app) +1 (goal) +1 (assist) +2 (>7.5) = 75
-    expect(computeTfRating([G(1, 1, 8.0)])).toBe(75);
+    // 70 +0.3 (app) +1 (goal) +1 (assist) +2 (>7.5) = 74.3 -> 74
+    expect(computeTfRating([G(1, 1, 8.0)])).toBe(74);
   });
 
   it("applies the mid rating band and the low band", () => {
-    // 70 +1 +1 (6.8 band) = 72
-    expect(computeTfRating([G(0, 0, 6.8)])).toBe(72);
+    // 70 +0.3 +0 (6.8 band pays nothing) = 70.3 -> 70
+    expect(computeTfRating([G(0, 0, 6.8)])).toBe(70);
     // Sub-6 earns NO appearance point: 70 +0 -1 (5.5 band) = 69
     expect(computeTfRating([G(0, 0, 5.5)])).toBe(69);
+  });
+
+  it("accumulates the 0.3 appearance trickle over unrated games", () => {
+    // 3 x unrated full games: 70 + 0.9 = 70.9 -> 71
+    expect(computeTfRating([G(0, 0, null), G(0, 0, null), G(0, 0, null)])).toBe(71);
   });
 
   it("gives a cameo clean sheet nothing (CS scales with minutes)", () => {
@@ -72,15 +77,15 @@ describe("computeTfRating", () => {
     ).toBe(69);
     // Same bad rating over full minutes: no appearance point, -1 band => 69.
     expect(computeTfRating([G(0, 0, 5.5)])).toBe(69);
-    // Unrated full game still earns the appearance point.
-    expect(computeTfRating([G(0, 0, null)])).toBe(71);
+    // Unrated full game still earns the appearance trickle (0.3).
+    expect(computeTfRating([G(0, 0, null)])).toBe(70);
   });
 
   it("penalizes red cards and own goals", () => {
-    // 70 +1 (app) -1 (red) = 70
-    expect(computeTfRating([G(0, 0, null, 1, 0)])).toBe(70);
-    // 70 +1 (app) -1 (own goal) = 70
-    expect(computeTfRating([G(0, 0, null, 0, 1)])).toBe(70);
+    // 70 +0.3 (app) -1 (red) = 69.3 -> 69
+    expect(computeTfRating([G(0, 0, null, 1, 0)])).toBe(69);
+    // 70 +0.3 (app) -1 (own goal) = 69.3 -> 69
+    expect(computeTfRating([G(0, 0, null, 0, 1)])).toBe(69);
   });
 
   it("never drops below the 60 floor", () => {
@@ -89,14 +94,25 @@ describe("computeTfRating", () => {
   });
 
   it("never exceeds the 99 cap", () => {
-    const great = Array.from({ length: 30 }, () => G(2, 2, 9.0));
-    expect(computeTfRating(great)).toBe(TF_CAP);
+    const great = Array.from({ length: 60 }, () => G(2, 2, 9.0));
+    expect(computeTfRating(great)).toBe(99);
+  });
+
+  it("halves earned points from TF 90 upward (elite tier)", () => {
+    // Same perfect game earns less once the player is elite, but still climbs.
+    const seq15 = Array.from({ length: 15 }, () => G(2, 0, 9.0));
+    const seq30 = Array.from({ length: 30 }, () => G(2, 0, 9.0));
+    const tf15 = computeTfRating(seq15);
+    const tf30 = computeTfRating(seq30);
+    expect(tf15).toBeGreaterThanOrEqual(90);
+    expect(tf30).toBeGreaterThan(tf15);
+    expect(tf30).toBeLessThanOrEqual(99);
   });
 
   it("replays chronologically (order matters at the floor)", () => {
     // Bad stretch first (no appearance point now), then recovery.
     const seq = [G(0, 0, 4.0), G(0, 0, 4.0), G(1, 0, 8.0)];
-    // 70+0-1=69, 69+0-1=68, 68+1+1+2=72
+    // 70+0-1=69, 69+0-1=68, 68+((0.3+2)+1)x1.067=71.5 -> 72
     expect(computeTfRating(seq)).toBe(72);
   });
 
@@ -111,21 +127,21 @@ describe("computeTfRating", () => {
 
   it("rewards goalkeeper clean sheets like goals", () => {
     const CS = (rating: number | null) => ({ goals: 0, assists: 0, rating, redCards: 0, ownGoals: 0, cleanSheets: 1 });
-    // GK: 70 +1 (app) +2 (CS) +1 (7.0 band) = 74
-    expect(computeTfRating([CS(7.0)], "GK")).toBe(74);
-    // Same match as outfielder: no CS bonus => 72
-    expect(computeTfRating([CS(7.0)], "OUT")).toBe(72);
-    // DF: half rate => 70 +1 +1 +1 = 73
-    expect(computeTfRating([CS(7.0)], "DF")).toBe(73);
+    // GK: 70 +0.3 (app) +1.5 (CS) +1 (7.0 band) = 72.8 -> 73
+    expect(computeTfRating([CS(7.0)], "GK")).toBe(73);
+    // Same match as outfielder: no CS bonus => 71.3 -> 71
+    expect(computeTfRating([CS(7.0)], "OUT")).toBe(71);
+    // DF: half rate => 70 +0.3 +1 +0.5 = 71.8 -> 72
+    expect(computeTfRating([CS(7.0)], "DF")).toBe(72);
   });
 
-  it("prices clean sheets in market blocks (GK 20M, DF 10M)", () => {
+  it("prices clean sheets in market blocks (GK 15M, DF 5M)", () => {
     const gkBlock = Array.from({ length: 5 }, () => ({ goals: 0, assists: 0, rating: 7.0, redCards: 0, ownGoals: 0, cleanSheets: 1 }));
-    // per game: 10M (rating) + 20M (CS) = 30M; x5 = 150M
-    expect(valueMarketHistory(gkBlock, MARKET_FLOOR, () => "1405", "GK").value).toBe(MARKET_FLOOR + 150000000);
+    // per game: 10M (rating) + 15M (CS) = 25M; x5 = 125M
+    expect(valueMarketHistory(gkBlock, MARKET_FLOOR, () => "1405", "GK").value).toBe(MARKET_FLOOR + 125000000);
     const dfBlock = Array.from({ length: 5 }, () => ({ goals: 0, assists: 0, rating: 7.0, redCards: 0, ownGoals: 0, cleanSheets: 1 }));
-    // per game: 10M + 10M = 20M; x5 = 100M
-    expect(valueMarketHistory(dfBlock, MARKET_FLOOR, () => "1405", "DF").value).toBe(MARKET_FLOOR + 100000000);
+    // per game: 10M + 5M = 15M; x5 = 75M
+    expect(valueMarketHistory(dfBlock, MARKET_FLOOR, () => "1405", "DF").value).toBe(MARKET_FLOOR + 75000000);
     // Outfielders get nothing for a team clean sheet.
     expect(blockAdjustment({ goals: 0, assists: 0, rating: 7.0, cleanSheets: 1 }, "OUT")).toBe(10000000);
   });
@@ -171,8 +187,8 @@ describe("engine v2 — tiers, leagues, dampening, star, age", () => {
     // 20-minute sub, no goal, 7.0 rating, pro league:
     // (app 1 + band 1) * 0.5 * L1 = 1 -> TF 71 (no damp at 70)
     expect(computeTfRating([G(0, 0, 7.0, { minutes: 20 })])).toBe(71);
-    // Same cameo WITH a goal: +1 goal unscaled => 72
-    expect(computeTfRating([G(1, 0, null, { minutes: 20 })])).toBe(72);
+    // Same cameo WITH a goal: (0.3+0)*0.5 +1 goal = 1.15 => 71.15 -> 71
+    expect(computeTfRating([G(1, 0, null, { minutes: 20 })])).toBe(71);
     // 10-minute cameo, unrated: appearance earns nothing => stays 70
     expect(computeTfRating([G(0, 0, null, { minutes: 10 })])).toBe(70);
   });
@@ -180,8 +196,8 @@ describe("engine v2 — tiers, leagues, dampening, star, age", () => {
   it("weights lower leagues less", () => {
     const pro = computeTfRating([G(1, 0, 8.0, { league: "pro-league" })]);
     const l2 = computeTfRating([G(1, 0, 8.0, { league: "league-2" })]);
-    // pro: (1+2+1)*1 = 4 -> 74 ; L2: round(4*0.5)=2 -> 72
-    expect(pro).toBe(74);
+    // pro: (0.3+2+1)*1 = 3.3 -> 73.3 -> 73 ; L2: 3.3*0.5=1.65 -> 71.65 -> 72
+    expect(pro).toBe(73);
     expect(l2).toBe(72);
   });
 
@@ -198,11 +214,24 @@ describe("engine v2 — tiers, leagues, dampening, star, age", () => {
     expect(r10.tf).toBeGreaterThanOrEqual(r5.tf);
   });
 
-  it("pays the star bonus only when TF >= 85 at block completion", () => {
-    // Mid-table player (TF ~77 after block): no bonus.
+  it("pays the star bonus only on the first 85+ block per season", () => {
+    // Mid-table player: no bonus.
     const mid = replayCareer(Array.from({ length: 5 }, () => G(0, 0, 7.0)), { withStar: true });
     // 5x10M = 50M, TF ends below 85 -> no +10M.
     expect(mid.value).toBe(MARKET_FLOOR + 50000000);
+    expect(mid.tf).toBeLessThan(85);
+    // Second block above 85 in the SAME season pays no second bonus.
+    const two = replayCareer(
+      [...Array.from({ length: 10 }, () => G(2, 0, 9.0))],
+      { withStar: true, seasonOf: () => "1405" }
+    );
+    const one = replayCareer(
+      [...Array.from({ length: 5 }, () => G(2, 0, 9.0))],
+      { withStar: true, seasonOf: () => "1405" }
+    );
+    // Both runs end deep above 85; the two-block run must carry exactly
+    // one +10M star bonus total: block 2 adds only its 5x70M = 350M market.
+    expect(two.value - one.value).toBe(350000000);
     // Block 1 (plain 6.0 games, TF ends ~80): no bonus. Block 2 (great games,
     // TF ends >= 85): exactly one +10M star bonus.
     const starGames = [
@@ -227,7 +256,8 @@ describe("engine v2 — tiers, leagues, dampening, star, age", () => {
 
   it("keeps legacy wrappers backward compatible", () => {
     // No league/minutes on entries => L=1, full tier (old behavior).
-    expect(computeTfRating([{ goals: 1, assists: 1, rating: 8.0 }])).toBe(75);
+    // (0.3 app + 2 band) + 1 goal + 1 assist = 4.3 -> 74.3 -> 74.
+    expect(computeTfRating([{ goals: 1, assists: 1, rating: 8.0 }])).toBe(74);
     const r = valueMarketHistory(
       [{ goals: 1, assists: 0, rating: 8.0 }, { goals: 0, assists: 0, rating: 7.0 }, { goals: 0, assists: 0, rating: 7.0 }, { goals: 0, assists: 0, rating: 7.0 }, { goals: 0, assists: 0, rating: 7.0 }],
       MARKET_FLOOR,
@@ -242,8 +272,9 @@ describe("blockAdjustment + valueMarketHistory", () => {
   it("prices a single entry with the agreed rates", () => {
     // 1 goal (20M) + 1 assist (20M) + rating 8.0 (30M) = 70M
     expect(blockAdjustment(G(1, 1, 8.0))).toBe(70000000);
-    // rating 6.8 => +10M
-    expect(blockAdjustment(G(0, 0, 6.8))).toBe(10000000);
+    // rating 7.0 => +10M; rating 6.8 is now neutral (average is average)
+    expect(blockAdjustment(G(0, 0, 7.0))).toBe(10000000);
+    expect(blockAdjustment(G(0, 0, 6.8))).toBe(0);
     // rating 5.5 => -10M
     expect(blockAdjustment(G(0, 0, 5.5))).toBe(-10000000);
     // unrated appearance => 0
