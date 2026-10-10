@@ -328,7 +328,10 @@ export function computeDynamicAppletStats(
         redCards: parseInt(sStats.redCards) || 0,
         minutes: parseInt(sStats.minutes) || 0,
         mvps: parseInt(sStats.mvps) || 0,
-        averageRating: parseFloat(sStats.averageRating ?? p.averageRating) || null
+        averageRating: parseFloat(sStats.averageRating ?? p.averageRating) || null,
+        // Server-computed TF rating (stats.ts recalc). Must pass through:
+        // dropping it here blanks every consumer of processed players.
+        tfRating: sStats.tfRating != null ? parseFloat(sStats.tfRating) : null
       },
       leagueStats: p.leagueStats || sStats.leagueStats || { 
         matches: p.baseMatches || 0, 

@@ -3,7 +3,7 @@ import {
   Award, Clock, Star, Trophy,
 } from "lucide-react";
 import { formatStatNumber, normalizePersianString } from "../utils";
-import { resolveTeam } from "../shared/teamMatch";
+import { resolveTeam, resolveTeamLeague } from "../shared/teamMatch";
 import { realMinute, parseMatchMinute } from "../shared/matchMinute";
 import { buildPlayerIdentityIndex, findMatchLineupPlacement, isSamePlayer } from "../shared/playerIdentity";
 import { buildCareerCards } from "../shared/career";
@@ -463,8 +463,10 @@ export default function PlayerDetail({
     ? Number(player.seasonStats.tfRating)
     : null;
   const hasBase = player.baseRating != null && player.baseRating !== "";
+  // Manual base is admin-entered (0-10 scale): clamp the showcase so a typo
+  // can never render an absurd TF like 120.
   const tfRating: number | null = hasBase
-    ? +((Number(player.baseRating) * 10).toFixed(1))
+    ? Math.max(60, Math.min(99, +((Number(player.baseRating) * 10).toFixed(1))))
     : (storedTf ?? 70);
   const ratingBase: number | null = hasBase && selectedCompet === "all"
     ? Number(player.baseRating)
@@ -484,14 +486,26 @@ export default function PlayerDetail({
     return ((t as any)?.logo || null);
   };
 
-  // Position peers (same normalized position, rated) -> rank + similar players.
+  // Position peers (same normalized position, rated) -> similar players.
+  // Rank peers are additionally scoped to the player's own league
+  // (pro-league / league-1 / league-2): a pro-league midfielder is only
+  // ranked against pro-league midfielders.
   const normPos = normalizePersianString(player.position || "");
+  const leagueGroupOf = (leagueKey: any): string | null => {
+    const k = String(leagueKey || "");
+    if (!k) return null;
+    if (k.startsWith("league-2")) return "league-2";
+    return k;
+  };
+  const myLeague = leagueGroupOf(resolveTeamLeague(allTeams, player.teamId, player.teamName));
+  const leagueOf = (p: any) => leagueGroupOf(resolveTeamLeague(allTeams, p.teamId, p.teamName));
   const myAvgNum = Number(player.seasonStats?.averageRating ?? player.averageRating ?? 0);
   const peers = (allPlayers || [])
     .filter((p: any) => p && String(p.id) !== String(player.id) && normalizePersianString(p.position || "") === normPos && Number(p.seasonStats?.averageRating ?? p.averageRating ?? 0) > 0)
     .sort((a: any, b: any) => Number(b.seasonStats?.averageRating ?? b.averageRating ?? 0) - Number(a.seasonStats?.averageRating ?? a.averageRating ?? 0));
+  const rankPeers = myLeague ? peers.filter((p: any) => leagueOf(p) === myLeague) : peers;
   const rank: number | null = myAvgNum > 0 && normPos
-    ? peers.filter((p: any) => Number(p.seasonStats?.averageRating ?? p.averageRating ?? 0) > myAvgNum).length + 1
+    ? rankPeers.filter((p: any) => Number(p.seasonStats?.averageRating ?? p.averageRating ?? 0) > myAvgNum).length + 1
     : null;
   // Similarity: same-position gate (peers above) + rating gap + age gap.
   // score = 100 - (ratingGap * 10 + ageGapYears * 1.5), floored at 60.
@@ -611,7 +625,10 @@ export default function PlayerDetail({
     matches: displayedMatches, minutes: displayedMinutes, goals: displayedGoals, assists: displayedAssists,
     yellow: displayedYellow, red: displayedRed, mvps: displayedMvps, avg: displayedAvgRating, clean: displayedClean, isGk,
   };
-  const rankLabel = normPos && player.position ? `بین ${player.position}` : "بین هم‌پستان";
+  const LEAGUE_SHORT: Record<string, string> = { "pro-league": "لیگ برتر", "league-1": "لیگ یک", "league-2": "لیگ دو", "futsal": "فوتسال" };
+  const rankLabel = normPos && player.position
+    ? (myLeague && LEAGUE_SHORT[myLeague] ? `بین ${player.position}‌های ${LEAGUE_SHORT[myLeague]}` : `بین ${player.position}`)
+    : "بین هم‌پستان";
 
   // Home / away split (playerMatches already tags isHome).
   const splitSide = (arr: any[]) => {
