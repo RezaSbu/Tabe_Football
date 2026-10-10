@@ -8,6 +8,7 @@ import {
   Users, 
   Activity, 
   BarChart3, 
+  Wallet,
   Menu, 
   X,
   Compass,
@@ -25,6 +26,7 @@ const TAB_TO_PATH: Record<string, string> = {
   "transfers": "/transfers",
   // "legionnaires": "/legionnaires",   // [غیرفعال] بخش لژیونرها از منو حذف شده؛ برای بازگردانی فعالش کنید
   "stats": "/stats",
+  "market": "/market",
   "live-scores": "/live-scores",
   "images": "/gallery",
 };
@@ -52,6 +54,7 @@ export default function Navbar({
     { id: "transfers", label: "نقل و انتقالات", icon: Shuffle },
     // { id: "legionnaires", label: "لژیونرها", icon: Users },   // [غیرفعال] بخش لژیونرها حذف شده؛ برای بازگردانی فعالش کنید
     { id: "stats", label: "آمار بازیکنان", icon: BarChart3 },
+    { id: "market", label: "ترنسفر مارکت", icon: Wallet },
     { id: "live-scores", label: "نتایج زنده", icon: Activity },
     { id: "images", label: "گالری", icon: ImageIcon },
   ];
