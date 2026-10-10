@@ -291,6 +291,14 @@ export function registerTeamRoutes(app: Express) {
     const snapshot = snapshotDB();
     const currentDB = loadDB();
     const cleanBody = stripServerManaged(req.body);
+    // Manual TF base lives on the 0-10 scale; reject absurd values at the gate.
+    if (cleanBody.baseRating != null && cleanBody.baseRating !== "") {
+      const br = Number(cleanBody.baseRating);
+      if (!Number.isFinite(br) || br < 0 || br > 10) {
+        return res.status(400).json({ success: false, message: "نمره پایه باید بین ۰ تا ۱۰ باشد." });
+      }
+      cleanBody.baseRating = br;
+    }
     const item: any = {
       ...cleanBody,
       id: `player-${Date.now()}`
@@ -392,6 +400,14 @@ export function registerTeamRoutes(app: Express) {
       // Resolver heal context is audit-only: never persist it into the record.
       const { _heal, ...rest } = (req.body || {}) as any;
       const body = stripServerManaged(rest);
+      // Manual TF base lives on the 0-10 scale; reject absurd values at the gate.
+      if (body.baseRating != null && body.baseRating !== "") {
+        const br = Number(body.baseRating);
+        if (!Number.isFinite(br) || br < 0 || br > 10) {
+          return res.status(400).json({ success: false, message: "نمره پایه باید بین ۰ تا ۱۰ باشد." });
+        }
+        body.baseRating = br;
+      }
       if (detectConflict(existingPlayer, body.updatedAt)) {
         return res.status(409).json({ success: false, conflict: true, message: "این بازیکن پس از باز کردن فرم توسط شخص دیگری ویرایش شده است. لطفاً دوباره بارگذاری کنید.", current: existingPlayer });
       }

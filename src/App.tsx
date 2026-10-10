@@ -35,6 +35,7 @@ const LiveScoresPage = React.lazy(() => import("./pages/LiveScoresPage"));
 const NewsPage = React.lazy(() => import("./pages/NewsPage"));
 const LegionnairesPage = React.lazy(() => import("./pages/LegionnairesPage"));
 const StatsPage = React.lazy(() => import("./pages/StatsPage"));
+const TransferMarketPage = React.lazy(() => import("./pages/TransferMarketPage"));
 
 const NewsDetailPage = React.lazy(() => import("./pages/NewsDetailPage"));
 const GalleryDetailPage = React.lazy(() => import("./pages/GalleryDetailPage"));
@@ -59,6 +60,7 @@ const PATH_TO_TAB: Record<string, string> = {
   "/transfers": "transfers",
   // "/legionnaires": "legionnaires",   // [غیرفعال] صفحه لژیونرها حذف شده؛ برای بازگردانی فعالش کنید
   "/stats": "stats",
+  "/market": "market",
   "/live-scores": "live-scores",
   "/gallery": "images",
   "/admin": "admin",
@@ -250,6 +252,13 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
             <StatsPage stats={d.stats} selectedLeagueFilterOnStats={d.selectedLeagueFilterOnStats}
               setSelectedLeagueFilterOnStats={d.setSelectedLeagueFilterOnStats}
               currentSeason={d.currentSeason} formatStatNumber={formatStatNumber} teams={d.teams} players={d.players} />
+          </>
+        )}
+
+        {d.activeTab === "market" && (
+          <>
+            <SEO title="ترنسفر مارکت فوتبال ایران" description="جستجوی پیشرفته بازیکنان فوتبال ایران با فیلتر پست، باشگاه، لیگ، سن و ارزش بازار" url="/market" />
+            <TransferMarketPage players={d.players} teams={d.teams} />
           </>
         )}
 
