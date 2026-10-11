@@ -197,7 +197,7 @@ export default function TransferMarketPage({ players = [], teams = [] }: Props) 
   if (shortOnly) activeChips.push({ key: "so", label: `فقط لیست کوتاه (${formatStatNumber(shortlist.length)})`, clear: () => setShortOnly(false) });
 
   return (
-    <div className="animate-in fade-in mx-auto w-full space-y-4 duration-300" dir="rtl">
+    <div className="animate-in fade-in mx-auto w-full max-w-7xl space-y-4 duration-300" dir="rtl">
       <div className="px-1">
         <h1 className="text-xl font-black text-white sm:text-2xl">ترنسفر مارکت</h1>
         <p className="mt-1 text-[11px] text-slate-400">جست‌وجوی پیشرفته بازیکنان فوتبال ایران با فیلتر پست، باشگاه، لیگ، سن و ارزش بازار</p>
