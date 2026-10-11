@@ -358,7 +358,7 @@ export default function MatchDetailView({
 
         {/* scoreboard */}
         <div className="relative z-10 px-4 sm:px-8 pb-6 pt-2 sm:pt-4">
-          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-6 max-w-4xl mx-auto">
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-6 max-w-6xl mx-auto">
 
             {/* home team */}
             <div className="flex flex-col items-center text-center gap-2">
@@ -458,7 +458,7 @@ export default function MatchDetailView({
       {/* ===== MATCH FACTS STRIP ===== */}
       {isPlayed && (
         <div className="px-4 sm:px-8 py-3 bg-[#0c0f14] border-y border-white/5">
-          <div className="max-w-4xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="max-w-6xl mx-auto grid grid-cols-2 sm:grid-cols-4 gap-2">
             {[
               { label: "گل‌ها", value: factGoals, tone: "text-emerald-400" },
               { label: "کارت‌ها", value: factCards, tone: "text-amber-400" },
@@ -477,7 +477,7 @@ export default function MatchDetailView({
       {/* ===== MATCH INFO CHIPS ===== */}
       {infoChips.length > 0 && (
         <div className="px-4 sm:px-6 py-3 border-b border-white/5 bg-gradient-to-b from-white/[0.04] to-transparent">
-          <div className="max-w-4xl mx-auto flex flex-wrap items-center justify-center gap-2 text-[11px]">
+          <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-center gap-2 text-[11px]">
             {infoChips.map((chip, idx) => (
               <span key={idx} className="flex items-center gap-1.5 rounded-full bg-white/[0.07] border border-white/10 px-3 py-1.5 text-white font-bold backdrop-blur hover:border-emerald-500/40 hover:shadow-[0_0_12px_-4px_rgba(16,185,129,0.5)] transition">
                 <span className="text-emerald-400 drop-shadow-[0_0_6px_rgba(16,185,129,0.5)]">{chip.icon}</span>
@@ -512,7 +512,7 @@ export default function MatchDetailView({
         ))}
       </div>
 
-      <div className="p-4 sm:p-6 max-w-4xl mx-auto min-h-[350px]">
+      <div className="p-4 sm:p-6 max-w-6xl mx-auto min-h-[350px]">
 
         {/* ===== TAB 1: TIMELINE ===== */}
         {activeTab === "timeline" && (
