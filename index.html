@@ -2,10 +2,12 @@
 <html lang="fa" dir="rtl">
   <head>
     <meta charset="UTF-8" />
-    <!-- Desktop-on-Mobile: fixed 1200px layout viewport (no initial-scale, so the
-         browser auto-fits the whole page and the user can pinch-zoom and pan).
+    <!-- Desktop-on-Mobile: ALL routes share one fixed 1024px layout viewport.
+         No initial-scale, so the browser auto-fits the whole page and the user
+         can pinch-zoom and pan. 1024px is the floor that keeps every Tailwind
+         lg: desktop grid intact (narrower would collapse them to mobile).
          Never add user-scalable=no / maximum-scale here. -->
-    <meta name="viewport" content="width=1200" />
+    <meta name="viewport" content="width=1024" />
     <link rel="icon" type="image/webp" href="/logo.webp" />
     <link rel="icon" type="image/png" href="/logo-512.png" />
 
