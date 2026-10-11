@@ -833,13 +833,14 @@ html.light .coach-hero .bg-white\/10 { background-color: color-mix(in srgb, #fff
 html.light .coach-hero .bg-black\/20 { background-color: color-mix(in srgb, #000 20%, transparent); }
 
 /* ==========================================================================
-   Desktop-on-Mobile: hide non-essential fixed/floating ad shells on touch
-   devices (phones/tablets), where a 1200px scaled layout would shrink them
-   into unreadable overlays or push their close buttons off-screen.
-   Scoped to (pointer: coarse) so desktop — including touch-screen laptops
-   whose primary input is fine — is pixel-identical. Components stay mounted
-   (analytics/impression logic untouched); only the visual shell is hidden.
-   Functional overlays (modals, toasts, lightbox) are NOT affected.
+   Desktop-on-Mobile: every route renders in a fixed 1024px layout that is
+   auto-fit to the phone screen, which shrinks non-essential fixed/floating ad
+   shells into unreadable overlays and can push their close buttons off-screen.
+   Hide them on touch devices. Scoped to (pointer: coarse) so desktop —
+   including touch-screen laptops whose primary input is fine — is pixel-
+   identical. Components stay mounted (analytics/impression logic untouched);
+   only the visual shell hides. Functional overlays (modals, toasts, lightbox)
+   are NOT affected.
    ========================================================================== */
 @media (pointer: coarse) {
   .ad-fixed-shell {
