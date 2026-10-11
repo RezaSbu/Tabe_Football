@@ -284,6 +284,19 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
   );
 }
 
+function ScrollToTop() {
+  // Desktop-on-Mobile: client-side navigation preserves scroll offsets,
+  // which strands users mid-page (incl. horizontal RTL pan) after a route
+  // change. Reset both axes; zoom level is intentionally left alone.
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollLeft = 0;
+    document.body.scrollLeft = 0;
+  }, [pathname]);
+  return null;
+}
+
 export default function App() {
   const location = useLocation();
   const navigate = useSmartNavigate();
@@ -346,6 +359,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-950 font-sans text-gray-200 antialiased relative" style={{ contentVisibility: "auto" }}>
+      <ScrollToTop />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[420px] bg-[radial-gradient(60%_100%_at_50%_0%,rgba(16,185,129,0.07),transparent)]" aria-hidden="true" />
       <Header
         news={d.news} teams={d.teams} players={d.players} coaches={d.coaches}
