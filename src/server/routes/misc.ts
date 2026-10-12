@@ -6,7 +6,7 @@ import { logMessage } from "../utils/logger";
 import { saveDB, markTablesDirty } from "../services/database";
 import { markViewDirty, recordView, VIEW_BOT_RE } from "../services/viewTracker";
 
-const AD_ALLOWED_PLACEMENTS = ["news-end", "standings-top", "matchweek"];
+const AD_ALLOWED_PLACEMENTS = ["news-end", "standings-top", "standings-bottom", "matchweek"];
 
 function isValidHttpsUrl(url: string): boolean {
   if (!url) return true;

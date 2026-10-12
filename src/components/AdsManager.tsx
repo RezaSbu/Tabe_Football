@@ -12,13 +12,14 @@ const AD_TYPES: { value: AdItem["type"]; label: string }[] = [
   { value: "slide_in", label: "لغزنده کنار صفحه" },
 ];
 
-const PLACEMENTS = ["news-end", "standings-top", "matchweek"];
+const PLACEMENTS = ["news-end", "standings-top", "standings-bottom", "matchweek"];
 
 // Persian labels + recommended creative sizes shown in the form so the
 // admin knows what to ask the advertiser for.
 export const PLACEMENT_META: Record<string, { label: string; size: string }> = {
   "news-end": { label: "پایان خبر — بنر افقی (news-end)", size: "پیش‌فرض 728×90 (افقی)" },
   "standings-top": { label: "بالای جدول زنده — مربعی (standings-top)", size: "پیش‌فرض 336×300 (مربعی، تمام‌عرض)" },
+  "standings-bottom": { label: "زیر جدول زنده — مربعی (standings-bottom)", size: "پیش‌فرض 336×300 (مربعی، تمام‌عرض)" },
   matchweek: { label: "بالای ترکیب هفته — دو جایگاه افقی (matchweek)", size: "هر جایگاه 336×112 — دقیقاً ۲ عدد فعال بگذارید" },
 };
 

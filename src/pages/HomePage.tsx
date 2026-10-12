@@ -251,7 +251,8 @@ export default function HomePage({
         <div className="lg:col-span-4 space-y-6">
           {renderSlotGroup("بالای جدول زنده — مربعی", "standings-top", 1, true)}
 
-          <div className="space-y-4 bg-[#121215] p-4.5 rounded-2xl border border-white/5 lg:sticky lg:top-16 shadow">
+          <div className="lg:sticky lg:top-16 space-y-6">
+            <div className="space-y-4 bg-[#121215] p-4.5 rounded-2xl border border-white/5 shadow">
             <div className="flex items-center justify-between border-b border-white/5 pb-2">
               <div className="flex items-center gap-1.5">
                 <Trophy className="h-5 w-5 text-red-500" />
@@ -314,6 +315,8 @@ export default function HomePage({
                 </div>
               );
             })()}
+            </div>
+            {renderSlotGroup("زیر جدول زنده — مربعی", "standings-bottom", 1, true)}
           </div>
         </div>
       </div>
