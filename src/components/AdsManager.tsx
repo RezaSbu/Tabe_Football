@@ -12,21 +12,14 @@ const AD_TYPES: { value: AdItem["type"]; label: string }[] = [
   { value: "slide_in", label: "لغزنده کنار صفحه" },
 ];
 
-const PLACEMENTS = ["top", "sidebar", "feed", "campaign", "square", "general", "skyscraper", "inline", "matchweek", "news-end"];
+const PLACEMENTS = ["news-end", "standings-top", "matchweek"];
 
 // Persian labels + recommended creative sizes shown in the form so the
 // admin knows what to ask the advertiser for.
 export const PLACEMENT_META: Record<string, { label: string; size: string }> = {
-  top: { label: "بالا (top)", size: "پیش‌فرض 728×90" },
-  sidebar: { label: "کناری (sidebar)", size: "پیش‌فرض 300×250" },
-  feed: { label: "درون فید (feed)", size: "پیش‌فرض 336×280" },
-  campaign: { label: "کمپین (campaign)", size: "پیش‌فرض 728×90" },
-  square: { label: "مربعی (square)", size: "پیش‌فرض 336×280" },
-  general: { label: "عمومی (general)", size: "پیش‌فرض 728×90" },
-  skyscraper: { label: "آسمان‌خراش (skyscraper)", size: "پیش‌فرض 300×600" },
-  inline: { label: "درون‌متنی (inline)", size: "پیش‌فرض 336×280" },
-  matchweek: { label: "بالای ترکیب هفته — دو جایگاه کنار هم (matchweek)", size: "هر جایگاه 336×280 — دقیقاً ۲ عدد فعال بگذارید" },
-  "news-end": { label: "پایان متن خبر، همه خبرها (news-end)", size: "728×90 (در موبایل خودکار کوچک می‌شود)" },
+  "news-end": { label: "پایان خبر — بنر افقی (news-end)", size: "پیش‌فرض 728×90 (افقی)" },
+  "standings-top": { label: "بالای جدول زنده — مربعی (standings-top)", size: "پیش‌فرض 336×300 (مربعی، تمام‌عرض)" },
+  matchweek: { label: "بالای ترکیب هفته — دو جایگاه افقی (matchweek)", size: "هر جایگاه 336×112 — دقیقاً ۲ عدد فعال بگذارید" },
 };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -43,7 +36,7 @@ function emptyAdForm(): AdItem {
     id: "",
     type: "slot",
     name: "",
-    placement: "sidebar",
+    placement: "news-end",
     title: "",
     promo: "",
     description: "",
