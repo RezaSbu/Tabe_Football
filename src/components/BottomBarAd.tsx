@@ -32,7 +32,7 @@ export default function BottomBarAd({ ad }: BottomBarAdProps) {
   };
 
   return (
-    <div className="fixed bottom-0 inset-x-0 z-[85]" dir="rtl">
+    <div className="ad-overlay fixed bottom-0 inset-x-0 z-[85]" dir="rtl">
       <div className="mx-auto flex max-w-4xl items-center gap-4 border-t border-x border-white/10 bg-gray-950/95 backdrop-blur-md px-5 py-3 shadow-2xl animate-in slide-in-from-bottom-16 duration-500 rounded-t-2xl">
         {ad.imageUrl && (
           <div className="h-12 w-16 shrink-0 overflow-hidden rounded-lg">

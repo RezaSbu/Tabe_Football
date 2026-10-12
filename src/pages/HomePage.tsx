@@ -9,7 +9,6 @@ import TeamOfTheWeekWidgetLight from "../components/TeamOfTheWeekWidgetLight";
 import MatchWeekWidget from "../components/MatchWeekWidget";
 import useLightTheme from "../hooks/useLightTheme";
 import AdSlot, { isAdActive } from "../components/AdSlot";
-import AdBannerWidget from "../components/AdBannerWidget";
 import { AdItem } from "../types";
 import { formatStatNumber } from "../utils";
 import { sortNewsNewestFirst } from "../shared/newsSort";
@@ -93,7 +92,6 @@ export default function HomePage({
 
   const isLight = useLightTheme();
 
-  const activeBanners = ads.filter((ad: AdItem) => ad.type === "banner" && isAdActive(ad));
   const activeSlots = ads.filter((ad: AdItem) => ad.type === "slot" && isAdActive(ad));
 
   const handleShowAllStats = (leagueId: string) => {
@@ -101,17 +99,16 @@ export default function HomePage({
     handleTabChangeSubmit("stats");
   };
 
-  const renderSlotGroup = (title: string, placement: string) => {
-    const slots = activeSlots
-      .filter((ad: AdItem) => (ad.placement || "sidebar").toLowerCase().includes(placement))
+  const renderSlotGroup = (title: string, placement: string, limit?: number, fluid?: boolean) => {
+    let slots = activeSlots
+      .filter((ad: AdItem) => (ad.placement || "").toLowerCase().includes(placement))
       .sort((a, b) => (b.priority || 0) - (a.priority || 0));
+    if (typeof limit === "number") slots = slots.slice(0, limit);
     if (slots.length === 0) return null;
+    // Bare creative only — no card/box, no header. Title is aria-label only.
     return (
-      <div className="space-y-4 bg-[#121215] p-4.5 rounded-2xl border border-white/5 shadow">
-        <div className="flex items-center justify-between border-b border-white/5 pb-2">
-          <h2 className="font-bold text-sm text-white">{title}</h2>
-        </div>
-        {slots.map((slot: AdItem) => <AdSlot key={slot.id} slot={slot} />)}
+      <div className="space-y-4" role="group" aria-label={title}>
+        {slots.map((slot: AdItem) => <AdSlot key={slot.id} slot={slot} fluid={fluid} />)}
       </div>
     );
   };
@@ -137,31 +134,6 @@ export default function HomePage({
 
   return (
     <div className="space-y-6" dir="rtl" id="home-dashboard-container">
-      {/* AD BANNER — from ads table */}
-      {activeBanners.map((banner) =>
-        banner.imageUrl ? (
-          <a
-            key={banner.id}
-            href={banner.linkUrl || "#"}
-            target="_blank"
-            referrerPolicy="no-referrer"
-            className="group block overflow-hidden rounded-2xl border border-white/5 bg-gradient-to-r from-red-950/15 via-slate-900/80 to-gray-950 relative shadow-lg transition hover:border-red-950/30 animate-in fade-in duration-300"
-          >
-            <span className="absolute top-2 left-2 z-10 rounded bg-[#0a0a0c] px-1.5 py-0.5 text-[8px] font-black tracking-widest text-emerald-400 shadow uppercase">{banner.name || "حمایت ویژه پورتال"}</span>
-            <img
-              src={banner.imageUrl}
-              alt={banner.title || "بنر تبلیغاتی"}
-              loading="lazy"
-              decoding="async"
-              referrerPolicy="no-referrer"
-              className="w-full max-h-48 object-cover transition group-hover:scale-[1.01]"
-            />
-          </a>
-        ) : (
-          <AdBannerWidget key={banner.id} ad={banner} />
-        )
-      )}
-
       <div className="grid gap-6 lg:grid-cols-12" id="home-dashboard-layout font-sans">
         <div className="lg:col-span-8 space-y-6">
           <NewsSlider news={news} transfers={transfers} heroSlides={heroSlides} legionnaires={legionnaires} onSelectNews={setActiveArticle} onSelectTransfer={onSelectTransfer} />
@@ -277,17 +249,10 @@ export default function HomePage({
         </div>
 
         <div className="lg:col-span-4 space-y-6">
-          {renderSlotGroup("درون فید", "feed")}
+          {renderSlotGroup("بالای جدول زنده — مربعی", "standings-top", 1, true)}
 
-          {renderSlotGroup("کمپین‌های تبلیغاتی", "campaign")}
-
-          {renderSlotGroup("تبلیغات مربعی", "square")}
-
-          {renderSlotGroup("تبلیغات کناری", "sidebar")}
-
-          {renderSlotGroup("سایر تبلیغات", "general")}
-
-          <div className="space-y-4 bg-[#121215] p-4.5 rounded-2xl border border-white/5 lg:sticky lg:top-16 shadow">
+          <div className="lg:sticky lg:top-16 space-y-6">
+            <div className="space-y-4 bg-[#121215] p-4.5 rounded-2xl border border-white/5 shadow">
             <div className="flex items-center justify-between border-b border-white/5 pb-2">
               <div className="flex items-center gap-1.5">
                 <Trophy className="h-5 w-5 text-red-500" />
@@ -350,13 +315,13 @@ export default function HomePage({
                 </div>
               );
             })()}
+            </div>
+            {renderSlotGroup("زیر جدول زنده — مربعی", "standings-bottom", 1, true)}
           </div>
         </div>
       </div>
 
-      {/* AD SLOTS above MatchWeekWidget: exactly two side-by-side placements.
-          Admin creates 2 active slot ads with placement "matchweek"
-          (recommended creative 336x280 each). */}
+      {/* AD SLOTS above MatchWeekWidget: exactly two side-by-side placements. */}
       {(() => {
         const mw = activeSlots
           .filter((ad: AdItem) => (ad.placement || "").toLowerCase().includes("matchweek"))
@@ -365,7 +330,7 @@ export default function HomePage({
         if (mw.length === 0) return null;
         return (
           <div className="grid gap-4 sm:grid-cols-2" id="matchweek-ads">
-            {mw.map((ad: AdItem) => <AdSlot key={ad.id} slot={ad} />)}
+            {mw.map((ad: AdItem) => <AdSlot key={ad.id} slot={ad} fluid />)}
           </div>
         );
       })()}

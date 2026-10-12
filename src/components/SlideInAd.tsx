@@ -33,7 +33,7 @@ export default function SlideInAd({ ad }: SlideInAdProps) {
   const side = ad.settings?.side === "right" ? "right-4" : "left-4";
 
   return (
-    <div className={`fixed top-24 z-[90] ${side} animate-in slide-in-from-right-8 fade-in duration-500`} dir="rtl">
+    <div className={`ad-overlay fixed top-24 z-[90] ${side} animate-in slide-in-from-right-8 fade-in duration-500`} dir="rtl">
       <div className="w-64 rounded-2xl border border-white/10 bg-gray-950/95 backdrop-blur-md p-4 shadow-2xl">
         <button
           onClick={() => {

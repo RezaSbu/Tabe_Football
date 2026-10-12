@@ -5,6 +5,36 @@ import { loadDB, snapshotDB, restoreDB } from "../state";
 import { logMessage } from "../utils/logger";
 import { saveDB, markTablesDirty } from "../services/database";
 import { markViewDirty, recordView, VIEW_BOT_RE } from "../services/viewTracker";
+
+const AD_ALLOWED_PLACEMENTS = ["news-end", "standings-top", "standings-bottom", "matchweek"];
+
+function isValidHttpsUrl(url: string): boolean {
+  if (!url) return true;
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function validateAdPayload(body: any): { ok: boolean; error?: string } {
+  if (!AD_ALLOWED_PLACEMENTS.includes(body.placement)) {
+    return { ok: false, error: "جایگاه نامعتبر." };
+  }
+  if (!body.linkUrl || !isValidHttpsUrl(body.linkUrl)) {
+    return { ok: false, error: "لینک باید https باشد." };
+  }
+  if (!body.imageUrl || typeof body.imageUrl !== "string" || body.imageUrl.length > 2000) {
+    return { ok: false, error: "آدرس تصویر معتبر نیست." };
+  }
+  const w = parseInt(String(body.width), 10);
+  const h = parseInt(String(body.height), 10);
+  if (!Number.isFinite(w) || !Number.isFinite(h) || w <= 0 || h <= 0 || w > 5000 || h > 5000) {
+    return { ok: false, error: "ابعاد باید بین ۱ تا ۵۰۰۰ باشند." };
+  }
+  return { ok: true };
+}
 import { detectConflict } from "../utils/versioning";
 import { recordAuthEvent, auditLog } from "../utils/audit";
 import { compareNewsNewestFirst } from "../../shared/newsSort";
@@ -192,27 +222,29 @@ export function registerMiscRoutes(app: Express) {
   app.post("/api/ads", requirePermission("portal.ads"), async (req, res) => {
     const currentDB = loadDB();
     if (!currentDB.ads) currentDB.ads = [];
+    const check = validateAdPayload(req.body);
+    if (!check.ok) return res.status(400).json({ success: false, message: check.error });
     const item = {
       ...req.body,
       id: req.body.id || `ad-${Date.now()}`,
-      type: req.body.type || "slot",
+      type: "slot",
       name: req.body.name || "",
-      placement: req.body.placement || "sidebar",
-      title: req.body.title || "",
-      promo: req.body.promo || "",
-      description: req.body.description || "",
+      placement: req.body.placement || "news-end",
+      title: "",
+      promo: "",
+      description: "",
       linkUrl: req.body.linkUrl || "",
       imageUrl: req.body.imageUrl || "",
-      btnText: req.body.btnText || "",
-      width: req.body.width || 728,
-      height: req.body.height || 90,
-      priority: req.body.priority || 0,
+      btnText: "",
+      width: parseInt(String(req.body.width), 10) || 728,
+      height: parseInt(String(req.body.height), 10) || 90,
+      priority: parseInt(String(req.body.priority), 10) || 0,
       startDate: req.body.startDate || "",
       endDate: req.body.endDate || "",
       isActive: req.body.isActive !== false,
-      settings: req.body.settings || {},
-      viewCount: req.body.viewCount || 0,
-      clickCount: req.body.clickCount || 0
+      settings: {},
+      viewCount: 0,
+      clickCount: 0
     };
     currentDB.ads.push(item);
     markTablesDirty("ads");
@@ -225,7 +257,12 @@ export function registerMiscRoutes(app: Express) {
     if (!currentDB.ads) currentDB.ads = [];
     const index = currentDB.ads.findIndex((a: any) => String(a.id) === String(req.params.id));
     if (index !== -1) {
-      currentDB.ads[index] = { ...currentDB.ads[index], ...req.body, id: currentDB.ads[index].id };
+      const merged = { ...currentDB.ads[index], ...req.body, id: currentDB.ads[index].id };
+      if (req.body.placement !== undefined || req.body.linkUrl !== undefined) {
+        const check = validateAdPayload(merged);
+        if (!check.ok) return res.status(400).json({ success: false, message: check.error });
+      }
+      currentDB.ads[index] = merged;
       markTablesDirty("ads");
       await saveDB();
       res.json({ success: true });
@@ -249,6 +286,9 @@ export function registerMiscRoutes(app: Express) {
   });
 
   app.post("/api/ads/:id/view", async (req, res) => {
+    if (VIEW_BOT_RE.test(req.headers["user-agent"] || "")) {
+      return res.json({ success: true, viewCount: 0 });
+    }
     const currentDB = loadDB();
     const item = (currentDB.ads || []).find((a: any) => String(a.id) === String(req.params.id));
     if (!item) return res.status(404).json({ error: "تبلیغ یافت نشد." });
@@ -258,6 +298,9 @@ export function registerMiscRoutes(app: Express) {
   });
 
   app.post("/api/ads/:id/click", async (req, res) => {
+    if (VIEW_BOT_RE.test(req.headers["user-agent"] || "")) {
+      return res.json({ success: true, clickCount: 0 });
+    }
     const currentDB = loadDB();
     const item = (currentDB.ads || []).find((a: any) => String(a.id) === String(req.params.id));
     if (!item) return res.status(404).json({ error: "تبلیغ یافت نشد." });

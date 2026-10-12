@@ -3,6 +3,47 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // Desktop-on-Mobile — pre-paint, before React mounts. Touch devices
+      // with a narrow screen render the desktop layout at a fixed 1200px
+      // viewport, auto-fitted to the screen width (free pinch-zoom + pan).
+      // A fixed-width layout viewport inflates `100vh`, so we also publish
+      // the real visible height as --app-min-h (the app shell uses it instead
+      // of 100vh to avoid a giant blank tail on short pages), and flag the
+      // scaled mode with .is-scaled-mobile (hides non-essential fixed ads).
+      // /admin and fine-pointer (desktop) devices always keep device-width.
+      // No maximum-scale / user-scalable=no is ever set. Kept in sync with
+      // src/utils/viewport.ts.
+      try {
+        var applyViewport = function () {
+          var tag = document.querySelector('meta[name="viewport"]');
+          if (!tag) return;
+          var screenW = (window.screen && window.screen.width) || 0;
+          var innerW = window.innerWidth || 0;
+          var narrow = Math.min(screenW || 9999, innerW || 9999) < 1200;
+          var coarse = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+          var admin = /^\/admin(\/|$)/.test(window.location.pathname || "");
+          var scaled = narrow && coarse && !admin;
+          if (scaled) {
+            var fitW = screenW || innerW || 1200;
+            var scale = Math.min(1, Math.max(0.25, fitW / 1200));
+            tag.setAttribute("content", "width=1200, initial-scale=" + scale.toFixed(3));
+          } else {
+            tag.setAttribute("content", "width=device-width, initial-scale=1.0");
+          }
+          var vv = window.visualViewport;
+          var h = Math.round((vv && vv.height ? vv.height : window.innerHeight) || 0);
+          if (h > 0) document.documentElement.style.setProperty("--app-min-h", h + "px");
+          if (scaled) document.documentElement.classList.add("is-scaled-mobile");
+          else document.documentElement.classList.remove("is-scaled-mobile");
+        };
+        applyViewport();
+        var vpT;
+        var vpDebounced = function () { clearTimeout(vpT); vpT = setTimeout(applyViewport, 250); };
+        window.addEventListener("orientationchange", vpDebounced);
+        window.addEventListener("resize", vpDebounced);
+      } catch (e) {}
+    </script>
     <link rel="icon" type="image/webp" href="/logo.webp" />
     <link rel="icon" type="image/png" href="/logo-512.png" />
 
