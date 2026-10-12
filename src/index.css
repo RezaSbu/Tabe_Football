@@ -27,6 +27,22 @@ body {
   background-color: #030712; /* gray-950 dark background */
 }
 
+/* App shell height. On the scaled desktop-mobile viewport `100vh` is inflated
+   (fixed-width layout viewport), so we use the real visible height published by
+   the viewport scripts as --app-min-h (falls back to 100vh on desktop). */
+.app-viewport-min-h {
+  min-height: var(--app-min-h, 100vh);
+}
+
+/* Desktop-on-Mobile: hide non-essential fixed ad overlays only while the page
+   is rendered through the scaled desktop viewport. At small scale these would
+   shrink to unreadable size or cover content after zoom/pan. Desktop rendering
+   and all functional overlays (navbar, goal notifications, modals) are
+   untouched. */
+.is-scaled-mobile .ad-overlay {
+  display: none !important;
+}
+
 /* Custom RTL styling helper rules */
 input, textarea, select {
   font-family: var(--font-sans);
