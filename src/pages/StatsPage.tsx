@@ -295,7 +295,7 @@ export default function StatsPage({
           آماری برای این فصل یا لیگ ثبت نگردیده است.
         </p>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 items-start">
           <StatColumn
             title="گلزنان"
             icon={<Flame className="h-5 w-5 text-red-500 animate-pulse" />}
