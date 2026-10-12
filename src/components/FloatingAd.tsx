@@ -28,7 +28,7 @@ export default function FloatingAd({ ad }: FloatingAdProps) {
     : "bottom-6 left-6";
 
   return (
-    <div className={`fixed z-[90] ${positionClass} animate-in slide-in-from-bottom-8 fade-in duration-500`} dir="rtl">
+    <div className={`ad-overlay fixed z-[90] ${positionClass} animate-in slide-in-from-bottom-8 fade-in duration-500`} dir="rtl">
       <div className="flex w-72 items-start gap-3 rounded-2xl border border-white/10 bg-gray-950/95 backdrop-blur-md p-3 shadow-2xl">
         <button
           onClick={() => setDismissed(true)}

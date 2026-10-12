@@ -182,7 +182,7 @@ export default function AdminPortalHub({
     id: "",
     type: "slot",
     name: "",
-    placement: "sidebar",
+    placement: "news-end",
     title: "",
     promo: "",
     description: "",

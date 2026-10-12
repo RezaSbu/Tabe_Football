@@ -48,6 +48,7 @@ const TransferDetailPage = React.lazy(() => import("./pages/TransferDetailPage")
 
 import { getSafeImageUrl, getRelativeDateLabel, convertGregorianToShamsi, formatStatNumber } from "./utils";
 import { trackPageView } from "./utils/visitor";
+import { applyViewport } from "./utils/viewport";
 
 const PATH_TO_TAB: Record<string, string> = {
   "/": "home",
@@ -313,6 +314,13 @@ export default function App() {
   }, [location.pathname]);
 
   useEffect(() => {
+    // Desktop-on-Mobile: re-resolve the viewport on every route change so
+    // SPA navigation to/from /admin flips between the scaled desktop
+    // viewport and device-width. The pre-paint script covers first load.
+    applyViewport();
+  }, [location.pathname]);
+
+  useEffect(() => {
     if (!initialSyncDone) return;
     if (isDetailPath(location.pathname)) return;
     const path = TAB_TO_PATH[d.activeTab] || "/";
@@ -345,7 +353,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 font-sans text-gray-200 antialiased relative" style={{ contentVisibility: "auto" }}>
+    <div className="app-viewport-min-h bg-gray-950 font-sans text-gray-200 antialiased relative" style={{ contentVisibility: "auto" }}>
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[420px] bg-[radial-gradient(60%_100%_at_50%_0%,rgba(16,185,129,0.07),transparent)]" aria-hidden="true" />
       <Header
         news={d.news} teams={d.teams} players={d.players} coaches={d.coaches}
