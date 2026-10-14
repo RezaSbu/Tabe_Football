@@ -1,9 +1,8 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpDown, UserRound, Plus, Star, Download, GitCompareArrows, Bookmark } from "lucide-react";
-import { getSafeImageUrl, formatStatNumber } from "../../utils";
+import { getSafeImageUrl, formatStatNumber, formatBillionToman } from "../../utils";
 import { getLeagueLabel } from "../../shared/leagueLabel";
-import { formatCompactEuro } from "../player/PlayerHero";
 import { RowSparkline } from "./MarketCharts";
 import type { MarketRow, MarketSort } from "./marketFilter";
 
@@ -201,8 +200,9 @@ export default function MarketTable(props: Props) {
                                 <span className="rounded bg-amber-500/15 px-1 py-px font-mono text-[9px] font-black text-amber-300" dir="ltr">#{formatStatNumber(vRank)}</span>
                               )}
                               <span className="font-mono text-[11px] font-black text-slate-100" dir="ltr">
-                                {formatCompactEuro(r.value, r.player.marketValue?.currency || "تومان")}
+                                {formatBillionToman(r.value)}
                               </span>
+                              <span className="text-[9px] font-bold text-slate-400">میلیارد تومان</span>
                             </span>
                             <RowSparkline history={r.player.marketValue?.history || []} />
                           </span>
@@ -237,7 +237,8 @@ export default function MarketTable(props: Props) {
                     <span className="mt-1 flex items-center gap-2 font-mono text-[10px] font-bold">
                       <span className="text-amber-400">{r.avg != null ? formatStatNumber(Number(r.avg).toFixed(1)) : "—"}</span>
                       <span className="text-cyan-300">TF {Number.isFinite(tfm) ? formatStatNumber(tfm) : "—"}</span>
-                      <span className="text-slate-300" dir="ltr">{r.value != null ? formatCompactEuro(r.value, r.player.marketValue?.currency || "تومان") : "—"}</span>
+                      <span className="text-slate-300" dir="ltr">{r.value != null ? formatBillionToman(r.value) : "—"}</span>
+                      {r.value != null && <span className="text-[9px] text-slate-500">میلیارد تومان</span>}
                     </span>
                   </Link>
                   <button

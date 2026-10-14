@@ -13,7 +13,7 @@ import { recordHttpRequest, cleanupOldVisits, cleanupOldAuditLogs, isDataSynced 
 import { loadDB, setDb } from "./state";
 import { dbLock } from "./utils/concurrency";
 import { logMessage } from "./utils/logger";
-import { fetchAndPopulateMemoryDB, saveDB, migrateConstraints, migrateSummaryColumn, migrateHeroSlidesColumns, migrateAdsSchema, migrateNewsGalleryColumns, migrateNewsArchiveIndexes, migrateDropShirtNumberColumn, migratePlayerProfileColumns, migrateDropArchiveTable, migrateSeasonsFull, migrateClubMovements, migrateSeasonStatsTables, migrateCoachMatchColumns, migrateMatchGroupColumn, migrateMatchMvpColumn, migrateCoachUniqueTeam, migrateLifecycleSchema, migrateReadMoreContent2, migrateMonitoringTables, migrateRatingDefaults, migrateMissingIndexes, migratePlayerMarketBase } from "./services/database";
+import { fetchAndPopulateMemoryDB, saveDB, migrateConstraints, migrateSummaryColumn, migrateHeroSlidesColumns, migrateAdsSchema, migrateNewsGalleryColumns, migrateNewsArchiveIndexes, migrateDropShirtNumberColumn, migratePlayerProfileColumns, migrateDropArchiveTable, migrateSeasonsFull, migrateClubMovements, migrateSeasonStatsTables, migrateCoachMatchColumns, migrateMatchGroupColumn, migrateMatchMvpColumn, migrateCoachUniqueTeam, migrateLifecycleSchema, migrateReadMoreContent2, migrateMonitoringTables, migrateRatingDefaults, migrateMissingIndexes, migratePlayerMarketBase, migratePlayerMarketCurrencyToman } from "./services/database";
 import { recalculateAndSyncDatabase } from "./services/stats";
 import { getUploadsDir } from "./db";
 
@@ -90,6 +90,7 @@ async function startServer() {
   await migrateRatingDefaults();
   await migrateMissingIndexes();
   await migratePlayerMarketBase();
+  await migratePlayerMarketCurrencyToman();
   await cleanupOldVisits(30);
   await cleanupOldAuditLogs(30);
   setInterval(() => {

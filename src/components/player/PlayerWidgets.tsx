@@ -228,7 +228,7 @@ export function PlayerShareCard({ player, tfRating, marketLabel, quick }: { play
           </div>
           <div className="rounded-xl bg-white/10 p-2 text-center">
             <p className="font-mono text-xl font-black text-white" dir="ltr">{marketLabel}</p>
-            <p className="text-[9px] text-slate-300">ارزش بازیکن</p>
+            <p className="text-[9px] text-slate-300">ارزش بازیکن (میلیارد)</p>
           </div>
         </div>
         <div className="mt-2 grid grid-cols-5 gap-1 text-center">

@@ -1,7 +1,6 @@
 import React from "react";
 import { Users, Wallet, CalendarDays, Star, TrendingUp } from "lucide-react";
-import { formatStatNumber } from "../../utils";
-import { formatCompactEuro } from "../player/PlayerHero";
+import { formatStatNumber, formatBillionToman } from "../../utils";
 import type { MarketRow } from "./marketFilter";
 
 function Kpi({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: string; sub?: string }) {
@@ -29,7 +28,6 @@ export default function MarketKpis({ rows }: { rows: MarketRow[] }) {
     .filter((r) => r.player.marketValue?.changePct != null)
     .sort((a, b) => Number(b.player.marketValue.changePct) - Number(a.player.marketValue.changePct));
   const top = risers.length > 0 ? risers[0] : null;
-  const currency = withValue.length > 0 ? withValue[0].player.marketValue?.currency || "تومان" : "تومان";
 
   return (
     <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-5" dir="rtl">
@@ -37,8 +35,8 @@ export default function MarketKpis({ rows }: { rows: MarketRow[] }) {
       <Kpi
         icon={<Wallet className="h-5 w-5" />}
         label="ارزش کل بازار"
-        value={withValue.length > 0 ? formatCompactEuro(totalValue, currency) : "—"}
-        sub={withValue.length > 0 ? `${formatStatNumber(withValue.length)} بازیکن دارای ارزش` : "ثبت نشده"}
+        value={withValue.length > 0 ? formatBillionToman(totalValue) : "—"}
+        sub={withValue.length > 0 ? `میلیارد تومان • ${formatStatNumber(withValue.length)} بازیکن دارای ارزش` : "ثبت نشده"}
       />
       <Kpi
         icon={<CalendarDays className="h-5 w-5" />}

@@ -1,7 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { getSafeImageUrl, formatStatNumber } from "../../utils";
-import { formatCompactEuro } from "../player/PlayerHero";
+import { getSafeImageUrl, formatStatNumber, formatBillionToman } from "../../utils";
 import type { MarketRow } from "./marketFilter";
 
 /* Value-history sparkline for table rows (market history is real). */
@@ -49,8 +48,11 @@ export function TopValuableBars({ rows, n = 10 }: { rows: MarketRow[]; n?: numbe
             <span className="min-w-0 flex-1">
               <span className="flex items-baseline justify-between gap-2">
                 <span className="truncate text-[11px] font-black text-slate-100 group-hover:text-emerald-300">{r.player.name}</span>
-                <span className="shrink-0 font-mono text-[11px] font-black text-emerald-400" dir="ltr">
-                  {formatCompactEuro(Number(r.value) || 0, r.player.marketValue?.currency || "تومان")}
+                <span className="flex shrink-0 items-baseline gap-1">
+                  <span className="font-mono text-[11px] font-black text-emerald-400" dir="ltr">
+                    {formatBillionToman(Number(r.value) || 0)}
+                  </span>
+                  <span className="text-[9px] font-bold text-slate-500">میلیارد تومان</span>
                 </span>
               </span>
               <span className="mt-1 block h-1.5 overflow-hidden rounded-full bg-white/5">

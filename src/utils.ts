@@ -56,7 +56,7 @@ export const fetchCachedAppData = (): Promise<any> => {
 /**
  * One-shot fetch of the first-paint slice (/api/data?lite=1): every table the
  * home first paint reads, minus the heavy admin/archive tables, news trimmed
- * to the newest 60. Deliberately NOT stored in the 120s full-payload cache ΓÇö
+ * to the newest 60. Deliberately NOT stored in the 120s full-payload cache —
  * boot-only (and manual retry); the poller keeps using the full shape.
  */
 export const fetchLiteAppData = (): Promise<any> => {
@@ -150,6 +150,35 @@ export const isPlayerInDb = (playerIdentifier: string): boolean => {
 export function formatStatNumber(value: number | string | null | undefined): string {
   if (value === null || value === undefined) return "";
   return toEnglishDigits(String(value));
+}
+
+// Market-value rank among ALL players (every league, no filter): competition
+// ranking over finite marketValue.value entries (1,2,2,4 on ties). Returns
+// null when the player has no value or nobody else has one — callers render
+// no rank badge in that case. Pure function (unit-tested).
+export function marketValueRank(players: any[], value: number | string | null | undefined): number | null {
+  // Number(null) === 0: reject nullish/empty BEFORE coercion, or untracked
+  // players would rank as zero-valued instead of unranked.
+  if (value === null || value === undefined || value === "") return null;
+  const v = Number(value);
+  if (!Number.isFinite(v)) return null;
+  const vals = (Array.isArray(players) ? players : [])
+    .map((p: any) => Number(p?.marketValue?.value))
+    .filter((x: number) => Number.isFinite(x));
+  if (vals.length === 0) return null;
+  return vals.filter((x: number) => x > v).length + 1;
+}
+
+// Market value display: raw toman in, plain billions number out ("55",
+// "1.5", "36.87"). Storage stays raw toman everywhere (server recalc,
+// history, market sums); conversion happens ONLY here and in the admin
+// form. The unit ("میلیارد تومان") is Persian prose rendered in JSX, never
+// part of this Latin-digit string. Max 2 decimals, trailing zeros trimmed.
+export function formatBillionToman(value: number | string | null | undefined): string {
+  if (value === null || value === undefined) return "";
+  const n = Number(toEnglishDigits(String(value)));
+  if (!Number.isFinite(n)) return "";
+  return formatStatNumber(String(parseFloat((n / 1_000_000_000).toFixed(2))));
 }
 
 // Presentation-layer Jalali date: standard Gregorian storage in, "1405/07/01"

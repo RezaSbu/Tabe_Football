@@ -12,6 +12,8 @@ import {
   isFreshPayload,
   nextPollDelayMs,
   POLL_BACKOFF_CAP_MS,
+  formatBillionToman,
+  marketValueRank,
 } from './utils';
 
 describe('toEnglishDigits', () => {
@@ -366,3 +368,58 @@ describe('nextPollDelayMs', () => {
   });
 });
 
+describe('formatBillionToman', () => {
+  it('renders whole billions with no zeros attached', () => {
+    expect(formatBillionToman(55_000_000_000)).toBe('55');
+    expect(formatBillionToman(1_000_000_000)).toBe('1');
+    expect(formatBillionToman(105_000_000_000)).toBe('105');
+  });
+
+  it('keeps up to 2 decimals, trimmed', () => {
+    expect(formatBillionToman(1_500_000_000)).toBe('1.5');
+    expect(formatBillionToman(5_500_000_000)).toBe('5.5');
+    expect(formatBillionToman(36_873_600_000)).toBe('36.87');
+    expect(formatBillionToman(500_000_000)).toBe('0.5');
+  });
+
+  it('accepts numeric strings incl. Persian digits', () => {
+    expect(formatBillionToman('55000000000')).toBe('55');
+    expect(formatBillionToman('۵۵۰۰۰۰۰۰۰۰۰')).toBe('55');
+  });
+
+  it('returns empty for nullish/garbage', () => {
+    expect(formatBillionToman(null)).toBe('');
+    expect(formatBillionToman(undefined)).toBe('');
+    expect(formatBillionToman('abc')).toBe('');
+  });
+});
+
+describe('marketValueRank', () => {
+  const mk = (values: Array<number | null>) =>
+    values.map((v, i) => ({ id: `p${i}`, marketValue: v == null ? null : { value: v } }));
+
+  it('ranks by value across every league (no filter)', () => {
+    const players = mk([10e9, 5e9, 1e9]);
+    expect(marketValueRank(players, 10e9)).toBe(1);
+    expect(marketValueRank(players, 5e9)).toBe(2);
+    expect(marketValueRank(players, 1e9)).toBe(3);
+  });
+
+  it('uses competition ranking on ties', () => {
+    const players = mk([10e9, 5e9, 5e9, 1e9]);
+    expect(marketValueRank(players, 5e9)).toBe(2);
+    expect(marketValueRank(players, 1e9)).toBe(4);
+  });
+
+  it('ignores players without a value', () => {
+    const players = mk([10e9, null, 5e9]);
+    expect(marketValueRank(players, 5e9)).toBe(2);
+  });
+
+  it('returns null with no usable data', () => {
+    expect(marketValueRank(mk([10e9]), null)).toBe(null);
+    expect(marketValueRank([], 5e9)).toBe(null);
+    expect(marketValueRank(mk([null]), 5e9)).toBe(null);
+    expect(marketValueRank(null as any, 5e9)).toBe(null);
+  });
+});
