@@ -85,13 +85,15 @@ export default function PlayerHero(props: PlayerHeroProps) {
               title="ارزش بازیکن"
               sub={
                 market?.value != null ? (
-                  <span className="flex items-center justify-center gap-1.5">
-                    <span className="text-[9px] font-bold text-slate-400">میلیارد</span>
-                    {market.changePct != null && (
-                      <span className={`font-mono text-[11px] font-black ${market.changePct >= 0 ? "text-emerald-300" : "text-red-400"}`} dir="ltr">
-                        {market.changePct >= 0 ? "+" : ""}{formatStatNumber(market.changePct.toFixed(1))}%
-                      </span>
-                    )}
+                  <span className="flex flex-col items-center gap-0.5">
+                    <span className="flex items-center justify-center gap-1.5">
+                      <span className="text-[9px] font-bold text-slate-400">میلیارد</span>
+                      {market.changePct != null && (
+                        <span className={`font-mono text-[11px] font-black ${market.changePct >= 0 ? "text-emerald-300" : "text-red-400"}`} dir="ltr">
+                          {market.changePct >= 0 ? "+" : ""}{formatStatNumber(market.changePct.toFixed(1))}%
+                        </span>
+                      )}
+                    </span>
                     {marketRank != null && (
                       <span className="flex items-center gap-1">
                         <span className="text-[9px] font-bold text-slate-400">رتبه</span>
