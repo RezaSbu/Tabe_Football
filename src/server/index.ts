@@ -15,6 +15,7 @@ import { dbLock } from "./utils/concurrency";
 import { logMessage } from "./utils/logger";
 import { fetchAndPopulateMemoryDB, saveDB, migrateConstraints, migrateSummaryColumn, migrateHeroSlidesColumns, migrateAdsSchema, migrateNewsGalleryColumns, migrateNewsArchiveIndexes, migrateDropShirtNumberColumn, migratePlayerProfileColumns, migrateDropArchiveTable, migrateSeasonsFull, migrateClubMovements, migrateSeasonStatsTables, migrateCoachMatchColumns, migrateMatchGroupColumn, migrateMatchMvpColumn, migrateCoachUniqueTeam, migrateLifecycleSchema, migrateReadMoreContent2, migrateMonitoringTables, migrateRatingDefaults, migrateMissingIndexes, migratePlayerMarketBase, migratePlayerMarketCurrencyToman } from "./services/database";
 import { recalculateAndSyncDatabase } from "./services/stats";
+import { renderSeoPage } from "./services/seoMeta";
 import { getUploadsDir } from "./db";
 
 import { registerSystemRoutes } from "./routes/system";
@@ -152,7 +153,11 @@ async function startServer() {
       }
       next();
     });
+    // NOTE: index:false — "/" must fall through to the SPA fallback below so
+    // the SEO meta injection runs for the homepage too (otherwise
+    // express.static serves the raw shell for exactly this one path).
     app.use(express.static(distPath, {
+      index: false,
       setHeaders: (res, filePath) => {
         if (filePath.endsWith(".js")) {
           res.setHeader("Content-Type", "application/javascript; charset=utf-8");
@@ -163,8 +168,21 @@ async function startServer() {
         }
       }
     }));
-    app.get("*", (_req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+    app.get("*", (req, res) => {
+      // SEO faza2: non-HTML clients (asset probes, bots with odd Accept
+      // headers) keep the byte-identical shell; browsers and crawlers get
+      // the same shell with per-URL head meta injected.
+      const accept = String(req.headers.accept || "");
+      if (accept && !accept.includes("text/html") && !accept.includes("*/*")) {
+        return res.sendFile(path.join(distPath, "index.html"));
+      }
+      try {
+        res.set("Cache-Control", "public, max-age=300");
+        return res.type("html").send(renderSeoPage(req.path, distPath, loadDB()));
+      } catch (err) {
+        logMessage("error", "general", "SEO meta injection failed, serving shell:", (err as Error).message || err);
+        return res.sendFile(path.join(distPath, "index.html"));
+      }
     });
   }
 
