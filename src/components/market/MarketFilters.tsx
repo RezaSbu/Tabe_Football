@@ -1,7 +1,6 @@
 import React from "react";
 import { Search, RotateCcw, ChevronDown, Star } from "lucide-react";
-import { formatStatNumber } from "../../utils";
-import { formatCompactEuro } from "../player/PlayerHero";
+import { formatStatNumber, formatBillionToman } from "../../utils";
 import type { MarketFilters } from "./marketFilter";
 
 function DualSlider({
@@ -190,13 +189,13 @@ export default function MarketFiltersUI(props: Props) {
             min={1000000000} max={valueMax} step={100000000}
             lo={f.valueMin} hi={f.valueMax}
             onChange={(lo, hi) => set({ valueMin: lo, valueMax: hi })}
-            format={(v) => formatCompactEuro(v, "")}
+            format={(v) => `${formatBillionToman(v)} میلیارد`}
           />
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {[
-              { label: "زیر ۱.۵B", lo: null, hi: 1500000000 },
-              { label: "۱ تا ۳B", lo: 1000000000, hi: 3000000000 },
-              { label: "بالای ۳B", lo: 3000000000, hi: null },
+              { label: "زیر ۱.۵ میلیارد", lo: null, hi: 1500000000 },
+              { label: "۱ تا ۳ میلیارد", lo: 1000000000, hi: 3000000000 },
+              { label: "بالای ۳ میلیارد", lo: 3000000000, hi: null },
             ].map((p) => (
               <button
                 key={p.label}

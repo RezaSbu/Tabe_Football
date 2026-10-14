@@ -117,8 +117,8 @@ export default function AdminTeamProfiles({
   };
 
   const filteredTeams = teams.filter(t => 
-    t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.city?.toLowerCase().includes(searchQuery.toLowerCase())
+    (t.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (t.city || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
   const teamTotalPages = Math.max(1, Math.ceil(filteredTeams.length / ADMIN_LIST_PAGE_SIZE));
   const safeTeamPage = Math.min(page, teamTotalPages);

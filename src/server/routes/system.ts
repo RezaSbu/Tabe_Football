@@ -2,7 +2,7 @@ import express, { Express, Request, Response } from "express";
 import fs from "fs";
 import path from "path";
 import { db as pgDb, dbQuery, getUploadsDir } from "../db";
-import { loadDB, setDb } from "../state";
+import { loadDB, setDb, getDataRevision, buildBulkEtag, isBulkFresh, buildLitePayload } from "../state";
 import { logMessage, SYSTEM_LOGS } from "../utils/logger";
 import { dbLock } from "../utils/concurrency";
 import { fetchAndPopulateMemoryDB, saveDB, markTablesDirty } from "../services/database";
@@ -68,12 +68,25 @@ export function registerSystemRoutes(app: Express) {
     // ولی بعد از هر ذخیره‌ی ادمین همیشه داده‌ی تازه دریافت می‌شود.
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Vary", "Accept-Encoding");
+    // Revision ETag: computed WITHOUT serializing the ~16MB body. When the
+    // client already holds this revision, answer 304 with no body — skipping
+    // both the JSON.stringify CPU block and the transfer. Weak validator is
+    // deliberate (safe across gzip content codings).
+    const etag = buildBulkEtag(getDataRevision());
+    res.setHeader("ETag", etag);
+    if (isBulkFresh(req.headers["if-none-match"], etag)) {
+      return res.status(304).end();
+    }
     // Derived per-season aggregates have dedicated slim endpoints
     // (/api/player|coach|team-season-stats); keep them out of the bulk
     // payload to protect the /api/data perf budget.
+    // ?lite=1 serves the first-paint slice (same revision ETag: a revision
+    // bump means "either variant may differ"). Skips the dropped tables and
+    // trims news to the newest 60 — roughly a third of the full body.
     const { playerSeasonStats: _pss, coachSeasonStats: _css, teamSeasonStats: _tss, ...bulk } = loadDB() as any;
     void _pss; void _css; void _tss;
-    res.json({ status: "ok", ...bulk });
+    const body = req.query.lite === "1" ? buildLitePayload(bulk) : bulk;
+    res.json({ status: "ok", ...body });
   });
 
   app.get("/api/logs", requirePermission("diagnostics"), (req: Request, res: Response) => {

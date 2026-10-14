@@ -31,7 +31,7 @@ let appDataCache: { data: any; ts: number } | null = null;
 let appDataInFlight: Promise<any> | null = null;
 
 /**
- * Fetches /api/data with a short in-memory cache (30s) + single-flight dedup.
+ * Fetches /api/data with a short in-memory cache (120s) + single-flight dedup.
  * Reduces redundant full downloads of the ~1MB dataset on every route change.
  * Uses browser cache ("default") so the server ETag can return 304 without body.
  */
@@ -54,13 +54,48 @@ export const fetchCachedAppData = (): Promise<any> => {
 };
 
 /**
- * Invalidates the 30s in-memory /api/data cache so the next fetch is fresh.
+ * One-shot fetch of the first-paint slice (/api/data?lite=1): every table the
+ * home first paint reads, minus the heavy admin/archive tables, news trimmed
+ * to the newest 60. Deliberately NOT stored in the 120s full-payload cache —
+ * boot-only (and manual retry); the poller keeps using the full shape.
+ */
+export const fetchLiteAppData = (): Promise<any> => {
+  return fetch("/api/data?lite=1").then((r) => (r.ok ? r.json() : null));
+};
+
+/**
+ * Exponential backoff for the quiet poller: base, 2x, 4x, ... capped at
+ * POLL_BACKOFF_CAP_MS. Pure function (unit-tested); the hook keeps the
+ * consecutive-failure counter in a ref so effect re-runs don't reset it.
+ */
+export const POLL_BACKOFF_CAP_MS = 300_000;
+
+export const nextPollDelayMs = (baseMs: number, consecutiveFailures: number): number => {
+  const fails = Math.min(Math.max(Math.floor(consecutiveFailures) || 0, 0), 8);
+  return Math.min(baseMs * 2 ** fails, POLL_BACKOFF_CAP_MS);
+};
+
+/**
+ * Invalidates the 120s in-memory /api/data cache so the next fetch is fresh.
  * Must be called after any admin mutation before refreshing the UI.
  */
 export const invalidateAppDataCache = (): void => {
   appDataCache = null;
   appDataInFlight = null;
 };
+
+/**
+ * Reference-identity freshness gate for applyFetchedData.
+ * fetchCachedAppData returns the SAME object while its TTL holds; re-applying
+ * it would rerun the synchronous recompute + ~20 setStates + a full-tree
+ * re-render with identical values (every 10s poll on home/live). Skip unless
+ * the payload is a genuinely new object. Wall-clock-derived fields (e.g. the
+ * "day+N" date resolution) freeze for at most one TTL window on skip and
+ * self-heal at the next fresh fetch.
+ */
+export function isFreshPayload(data: unknown, lastApplied: unknown): boolean {
+  return !!data && data !== lastApplied;
+}
 
 /**
  * Returns loaded database teams from window global
@@ -115,6 +150,35 @@ export const isPlayerInDb = (playerIdentifier: string): boolean => {
 export function formatStatNumber(value: number | string | null | undefined): string {
   if (value === null || value === undefined) return "";
   return toEnglishDigits(String(value));
+}
+
+// Market-value rank among ALL players (every league, no filter): competition
+// ranking over finite marketValue.value entries (1,2,2,4 on ties). Returns
+// null when the player has no value or nobody else has one — callers render
+// no rank badge in that case. Pure function (unit-tested).
+export function marketValueRank(players: any[], value: number | string | null | undefined): number | null {
+  // Number(null) === 0: reject nullish/empty BEFORE coercion, or untracked
+  // players would rank as zero-valued instead of unranked.
+  if (value === null || value === undefined || value === "") return null;
+  const v = Number(value);
+  if (!Number.isFinite(v)) return null;
+  const vals = (Array.isArray(players) ? players : [])
+    .map((p: any) => Number(p?.marketValue?.value))
+    .filter((x: number) => Number.isFinite(x));
+  if (vals.length === 0) return null;
+  return vals.filter((x: number) => x > v).length + 1;
+}
+
+// Market value display: raw toman in, plain billions number out ("55",
+// "1.5", "36.87"). Storage stays raw toman everywhere (server recalc,
+// history, market sums); conversion happens ONLY here and in the admin
+// form. The unit ("میلیارد تومان") is Persian prose rendered in JSX, never
+// part of this Latin-digit string. Max 2 decimals, trailing zeros trimmed.
+export function formatBillionToman(value: number | string | null | undefined): string {
+  if (value === null || value === undefined) return "";
+  const n = Number(toEnglishDigits(String(value)));
+  if (!Number.isFinite(n)) return "";
+  return formatStatNumber(String(parseFloat((n / 1_000_000_000).toFixed(2))));
 }
 
 // Presentation-layer Jalali date: standard Gregorian storage in, "1405/07/01"

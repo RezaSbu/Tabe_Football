@@ -1,7 +1,7 @@
 import React from "react";
 import { BadgeCheck, MapPin, ArrowRight, UserRound } from "lucide-react";
 import { Link } from "react-router-dom";
-import { getSafeImageUrl, formatStatNumber } from "../../utils";
+import { getSafeImageUrl, formatStatNumber, formatBillionToman } from "../../utils";
 import SeasonSwitcher, { SeasonOption } from "../SeasonSwitcher";
 import ShareButton from "../ui/ShareButton";
 import { Sparkline, FormRing } from "./PlayerCharts";
@@ -31,6 +31,7 @@ interface PlayerHeroProps {
   tfRating: number | null; // 0-100 scale (avg*10)
   spark: number[]; // recent ratings for the sparkline
   market: HeroMarket | null; // null = not tracked yet (logic lands later)
+  marketRank?: number | null; // rank by market value across ALL players (all leagues)
   formScore: number | null; // 0-100 ring, derived from last-5 rated games
   rank: number | null; // position rank derived from peers
   rankLabel: string;
@@ -48,15 +49,8 @@ function KpiCard({ title, children, sub }: { title: string; children: React.Reac
   );
 }
 
-export function formatCompactEuro(value: number, currency: string): string {
-  if (value >= 1_000_000_000) return `${currency} ${formatStatNumber((value / 1_000_000_000).toFixed(2))}B`;
-  if (value >= 1_000_000) return `${currency} ${formatStatNumber((value / 1_000_000).toFixed(2))}M`;
-  if (value >= 1_000) return `${currency} ${formatStatNumber(Math.round(value / 1_000))}K`;
-  return `${currency} ${formatStatNumber(value)}`;
-}
-
 export default function PlayerHero(props: PlayerHeroProps) {
-  const { player, teamLogo, onSelectTeam, onBack, seasonId, seasons, onSeasonChange, tfRating, spark, market, formScore, rank, rankLabel, quick, avgLabel } = props;
+  const { player, teamLogo, onSelectTeam, onBack, seasonId, seasons, onSeasonChange, tfRating, spark, market, marketRank, formScore, rank, rankLabel, quick, avgLabel } = props;
   const [imageError, setImageError] = React.useState(false);
 
   return (
@@ -90,9 +84,22 @@ export default function PlayerHero(props: PlayerHeroProps) {
             <KpiCard
               title="ارزش بازیکن"
               sub={
-                market && market.changePct != null ? (
-                  <span className={`font-mono text-[11px] font-black ${market.changePct >= 0 ? "text-emerald-300" : "text-red-400"}`} dir="ltr">
-                    {market.changePct >= 0 ? "+" : ""}{formatStatNumber(market.changePct.toFixed(1))}%
+                market?.value != null ? (
+                  <span className="flex flex-col items-center gap-0.5">
+                    <span className="flex items-center justify-center gap-1.5">
+                      <span className="text-[9px] font-bold text-slate-400">میلیارد</span>
+                      {market.changePct != null && (
+                        <span className={`font-mono text-[11px] font-black ${market.changePct >= 0 ? "text-emerald-300" : "text-red-400"}`} dir="ltr">
+                          {market.changePct >= 0 ? "+" : ""}{formatStatNumber(market.changePct.toFixed(1))}%
+                        </span>
+                      )}
+                    </span>
+                    {marketRank != null && (
+                      <span className="flex items-center gap-1">
+                        <span className="text-[9px] font-bold text-slate-400">رتبه</span>
+                        <span className="font-mono text-[11px] font-black text-sky-300" dir="ltr">#{formatStatNumber(marketRank)}</span>
+                      </span>
+                    )}
                   </span>
                 ) : (
                   <span className="text-[9px] text-slate-400">ثبت نشده</span>
@@ -100,7 +107,7 @@ export default function PlayerHero(props: PlayerHeroProps) {
               }
             >
               <span className="font-mono text-2xl font-black text-white" dir="ltr">
-                {market ? formatCompactEuro(market.value, market.currency) : "—"}
+                {market?.value != null ? formatBillionToman(market.value) : "—"}
               </span>
             </KpiCard>
             <KpiCard title="فرم اخیر" sub={<span className="text-[9px] text-slate-400">از 100</span>}>

@@ -1,8 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { X, UserRound } from "lucide-react";
-import { getSafeImageUrl, formatStatNumber } from "../../utils";
-import { formatCompactEuro } from "../player/PlayerHero";
+import { getSafeImageUrl, formatStatNumber, formatBillionToman } from "../../utils";
 
 function Avatar({ src, name, size = "h-14 w-14" }: { src?: string | null; name: string; size?: string }) {
   const [err, setErr] = React.useState(false);
@@ -159,14 +158,16 @@ export default function MarketCompare({ a, b, onClose }: { a: any; b: any; onClo
         <div className="mt-4 grid grid-cols-2 gap-2 text-center">
           <div className="rounded-xl bg-emerald-500/10 p-2.5">
             <p className="text-[10px] text-slate-400">ارزش {a.name}</p>
-            <p className="mt-0.5 font-mono text-sm font-black text-emerald-400" dir="ltr">
-              {a.marketValue?.value != null ? formatCompactEuro(Number(a.marketValue.value), a.marketValue?.currency || "تومان") : "—"}
+            <p className="mt-0.5 font-black text-emerald-400">
+              <span className="font-mono text-sm" dir="ltr">{a.marketValue?.value != null ? formatBillionToman(Number(a.marketValue.value)) : "—"}</span>
+              {a.marketValue?.value != null && <span className="mr-1 text-[10px] font-bold text-slate-400">میلیارد تومان</span>}
             </p>
           </div>
           <div className="rounded-xl bg-sky-500/10 p-2.5">
             <p className="text-[10px] text-slate-400">ارزش {b.name}</p>
-            <p className="mt-0.5 font-mono text-sm font-black text-sky-400" dir="ltr">
-              {b.marketValue?.value != null ? formatCompactEuro(Number(b.marketValue.value), b.marketValue?.currency || "تومان") : "—"}
+            <p className="mt-0.5 font-black text-sky-400">
+              <span className="font-mono text-sm" dir="ltr">{b.marketValue?.value != null ? formatBillionToman(Number(b.marketValue.value)) : "—"}</span>
+              {b.marketValue?.value != null && <span className="mr-1 text-[10px] font-bold text-slate-400">میلیارد تومان</span>}
             </p>
           </div>
         </div>

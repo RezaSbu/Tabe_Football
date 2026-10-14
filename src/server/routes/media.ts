@@ -1,5 +1,6 @@
 import express, { Express, Request, Response } from "express";
 import path from "path";
+import { Readable } from "stream";
 import { db as pgDb } from "../db";
 import { loadDB } from "../state";
 import { logMessage } from "../utils/logger";
@@ -781,16 +782,43 @@ export function registerMediaRoutes(app: Express) {
       }
       res.setHeader("Content-Type", contentType);
       res.setHeader("Cache-Control", "public, max-age=86400");
-      const arrayBuffer = await fetchResponse.arrayBuffer();
-      // 5MB cap: proxies are thumbnails, not file hosting.
-      if (arrayBuffer.byteLength > 5 * 1024 * 1024) {
+      // Stream instead of buffering: bytes flow chunk-by-chunk so Node never
+      // holds the whole file in memory (previously arrayBuffer + Buffer.from
+      // held up to 5MB per concurrent proxy request on the 512MB box).
+      // 5MB cap enforced twice: instant 413 when content-length already
+      // exceeds it, byte-counting destroy as backstop for chunked bodies.
+      const MAX_BYTES = 5 * 1024 * 1024;
+      const declared = Number(fetchResponse.headers.get("content-length"));
+      if (Number.isFinite(declared) && declared > MAX_BYTES) {
+        try { await fetchResponse.body?.cancel(); } catch { /* already gone */ }
         return res.status(413).send("Image too large");
       }
-      const buffer = Buffer.from(arrayBuffer);
-      res.send(buffer);
+      if (Number.isFinite(declared) && declared > 0) res.setHeader("Content-Length", declared);
+      const body = fetchResponse.body;
+      if (!body) {
+        return res.status(502).send("Empty upstream image body.");
+      }
+      const nodeStream = Readable.fromWeb(body as any);
+      let sent = 0;
+      nodeStream.on("data", (chunk: Buffer) => {
+        sent += chunk.length;
+        if (sent > MAX_BYTES) {
+          nodeStream.destroy(new Error("proxy image exceeds 5MB cap"));
+          if (!res.destroyed) res.destroy();
+        }
+      });
+      req.on("close", () => {
+        if (!res.writableEnded) nodeStream.destroy();
+      });
+      nodeStream.on("error", () => {
+        if (!res.headersSent) res.status(502).send("Internal image retrieval error.");
+        else if (!res.destroyed) res.destroy();
+      });
+      nodeStream.pipe(res);
     } catch (err) {
       console.error("Error image-proxy fetch connection:", err);
-      res.status(500).send("Internal image retrieval error.");
+      if (!res.headersSent) res.status(500).send("Internal image retrieval error.");
+      else if (!res.destroyed) res.destroy();
     }
   });
 }

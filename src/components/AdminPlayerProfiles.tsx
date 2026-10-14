@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { PlayerItem, TeamItem } from "../types";
-import { formatStatNumber, getSafeImageUrl } from "../utils";
+import { formatStatNumber, formatBillionToman, getSafeImageUrl } from "../utils";
 import { Users, Plus, Trash2, Edit2, Search, X, Check, Save } from "lucide-react";
 import AdminPager from "./AdminPager";
 
@@ -147,8 +147,8 @@ export default function AdminPlayerProfiles({
   };
 
   const filteredPlayers = players.filter(p => 
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    p.teamName.toLowerCase().includes(searchQuery.toLowerCase())
+    (p.name || "").toLowerCase().includes(searchQuery.toLowerCase()) || 
+    (p.teamName || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
   // Phase-3 perf: render one page only instead of all ~839 cards.
   const playerTotalPages = Math.max(1, Math.ceil(filteredPlayers.length / ADMIN_LIST_PAGE_SIZE));
@@ -402,37 +402,30 @@ export default function AdminPlayerProfiles({
             </div>
           </div>
 
-          {/* Market value box: admin sets the BASE; recalc prices 5-game blocks on top (floor 1e9). */}
+          {/* Market value box: admin sets the BASE in billions of toman
+              (1 = 1,000,000,000); recalc prices 5-game blocks on top (floor 1e9).
+              Storage stays raw toman; conversion happens only here. */}
           <div className="bg-gray-950/40 p-4 border border-white/5 rounded-2xl space-y-3">
             <h3 className="text-xs font-black text-red-400">ارزش بازار بازیکن</h3>
             {(editingItem as any)?.marketValue?.value != null && (
-              <p className="text-[10px] text-slate-400">ارزش فعلی محاسباتی: <span className="font-mono font-black text-emerald-400">{formatStatNumber((editingItem as any).marketValue.value)}</span></p>
+              <p className="text-[10px] text-slate-400">ارزش فعلی محاسباتی: <span className="font-mono font-black text-emerald-400" dir="ltr">{formatBillionToman((editingItem as any).marketValue.value)}</span> میلیارد تومان</p>
             )}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
               <div>
-                <label className="block text-[10px] text-slate-450 mb-1">مبنای ارزش (پایه)</label>
+                <label className="block text-[10px] text-slate-450 mb-1">مبنای ارزش (میلیارد تومان)</label>
                 <input
                   type="number"
                   min="0"
-                  step="1000"
-                  value={(editingItem as any)?.marketValue?.base ?? ""}
-                  onChange={e => setEditingItem({ ...editingItem, marketValue: { ...((editingItem as any)?.marketValue || { value: null, currency: "تومان", changePct: null, history: [] }), base: e.target.value === "" ? null : parseFloat(e.target.value) } } as any)}
+                  step="0.1"
+                  value={(editingItem as any)?.marketValue?.base != null ? String(Number((editingItem as any).marketValue.base) / 1_000_000_000) : ""}
+                  onChange={e => setEditingItem({ ...editingItem, marketValue: { ...((editingItem as any)?.marketValue || { value: null, changePct: null, history: [] }), currency: "تومان", base: e.target.value === "" ? null : Math.round(parseFloat(e.target.value) * 1_000_000_000) } } as any)}
                   className="w-full bg-slate-950 border border-white/5 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-655 font-mono"
-                  placeholder="1000000000"
+                  placeholder="مثلاً 55"
                 />
               </div>
               <div>
                 <label className="block text-[10px] text-slate-450 mb-1">واحد پول</label>
-                <select
-                  value={(editingItem as any)?.marketValue?.currency || "تومان"}
-                  onChange={e => setEditingItem({ ...editingItem, marketValue: { ...((editingItem as any)?.marketValue || { value: null, base: null, changePct: null, history: [] }), currency: e.target.value } } as any)}
-                  className="w-full bg-slate-950 border border-white/5 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-655 font-bold font-mono"
-                >
-                  <option value="تومان">تومان</option>
-                  <option value="€">€ یورو</option>
-                  <option value="$">$ دلار</option>
-                  <option value="£">£ پوند</option>
-                </select>
+                <p className="w-full bg-slate-950 border border-white/5 rounded-xl px-3 py-2 text-xs text-slate-300 font-bold">تومان (ثابت)</p>
               </div>
               <div>
                 <label className="block text-[10px] text-slate-450 mb-1">تغییر ۳۰ روزه (٪)</label>
@@ -440,7 +433,7 @@ export default function AdminPlayerProfiles({
                   type="number"
                   step="0.1"
                   value={(editingItem as any)?.marketValue?.changePct ?? ""}
-                  onChange={e => setEditingItem({ ...editingItem, marketValue: { ...((editingItem as any)?.marketValue || { value: null, currency: "€", history: [] }), changePct: e.target.value === "" ? null : parseFloat(e.target.value) } } as any)}
+                  onChange={e => setEditingItem({ ...editingItem, marketValue: { ...((editingItem as any)?.marketValue || { value: null, currency: "تومان", history: [] }), changePct: e.target.value === "" ? null : parseFloat(e.target.value) } } as any)}
                   className="w-full bg-slate-950 border border-white/5 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-red-655 font-mono"
                   placeholder="8.4"
                 />

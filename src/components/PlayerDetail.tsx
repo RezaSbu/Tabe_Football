@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   Award, Clock, Star, Trophy,
 } from "lucide-react";
-import { formatStatNumber, normalizePersianString } from "../utils";
+import { formatStatNumber, formatBillionToman, marketValueRank, normalizePersianString } from "../utils";
 import { resolveTeam, resolveTeamLeague } from "../shared/teamMatch";
 import { realMinute, parseMatchMinute } from "../shared/matchMinute";
 import { buildPlayerIdentityIndex, findMatchLineupPlacement, isSamePlayer } from "../shared/playerIdentity";
@@ -10,7 +10,7 @@ import { buildCareerCards } from "../shared/career";
 import SeasonSwitcher, { defaultSeasonValue } from "./SeasonSwitcher";
 import MovementTimeline from "./MovementTimeline";
 import CareerSection from "./CareerSection";
-import PlayerHero, { formatCompactEuro } from "./player/PlayerHero";
+import PlayerHero from "./player/PlayerHero";
 import { RatingsLineChart, MarketLineChart, PresenceStrip, GoalTimingBars } from "./player/PlayerCharts";
 import {
   SectionCard, SeasonPerformance, CareerMini, SimilarPlayers, NextMatchCard,
@@ -556,10 +556,16 @@ export default function PlayerDetail({
     ? market.history.map((h: any) => ({
         x: String(h.season),
         y: Number(h.value) || 0,
-        label: formatCompactEuro(Number(h.value) || 0, market.currency || "€"),
+        label: formatBillionToman(Number(h.value) || 0),
       }))
     : null;
-  const marketLabel = market ? formatCompactEuro(Number(market.value) || 0, market.currency || "€") : "—";
+  // Number-only string ("55"); the "میلیارد" unit is rendered as a
+  // separate Persian span at each display site (hero KPI, min/max boxes,
+  // share card) — never baked into this Latin-digit string.
+  const marketLabel = market?.value != null ? formatBillionToman(market.value) : "—";
+  // Rank by market value across EVERY player in every league (no filter).
+  // Null when untracked — hero hides the badge in that case.
+  const marketRank = marketValueRank(allPlayers, market?.value);
   // Presence results respect the same season scope as the match log.
   const presenceResults = visiblePlayerMatches.map((m: any) => m.result as "W" | "D" | "L");
 
@@ -717,6 +723,7 @@ export default function PlayerDetail({
         tfRating={tfRating}
         spark={spark}
         market={market ? { value: Number(market.value) || 0, currency: market.currency || "€", changePct: market.changePct ?? null } : null}
+        marketRank={marketRank}
         formScore={formScore}
         rank={rank}
         rankLabel={rankLabel}
@@ -765,11 +772,17 @@ export default function PlayerDetail({
             <div className="mt-3 grid grid-cols-3 gap-2 text-center">
               <div className="rounded-xl bg-white/5 p-2">
                 <p className="text-[9px] text-slate-400">بالاترین ارزش</p>
-                <p className="mt-0.5 font-mono text-sm font-black text-white" dir="ltr">{marketLabel}</p>
+                <p className="mt-0.5 font-black text-white">
+                  <span className="font-mono text-sm" dir="ltr">{marketLabel}</span>
+                  {marketLabel !== "—" && <span className="mr-1 text-[10px] font-bold text-slate-400">میلیارد</span>}
+                </p>
               </div>
               <div className="rounded-xl bg-white/5 p-2">
                 <p className="text-[9px] text-slate-400">کمترین ارزش</p>
-                <p className="mt-0.5 font-mono text-sm font-black text-white" dir="ltr">{marketHistory ? marketHistory[0].label : "—"}</p>
+                <p className="mt-0.5 font-black text-white">
+                  <span className="font-mono text-sm" dir="ltr">{marketHistory ? marketHistory[0].label : "—"}</span>
+                  {marketHistory && <span className="mr-1 text-[10px] font-bold text-slate-400">میلیارد</span>}
+                </p>
               </div>
               <div className="rounded-xl bg-white/5 p-2">
                 <p className="text-[9px] text-slate-400">تغییر نسبت به فصل قبل</p>
@@ -992,11 +1005,17 @@ export default function PlayerDetail({
               <div className="space-y-2 text-center">
                 <div className="rounded-xl bg-white/5 p-3">
                   <p className="text-[10px] text-slate-400">بالاترین ارزش</p>
-                  <p className="mt-0.5 font-mono text-lg font-black text-white" dir="ltr">{marketLabel}</p>
+                  <p className="mt-0.5 font-black text-white">
+                    <span className="font-mono text-lg" dir="ltr">{marketLabel}</span>
+                    {marketLabel !== "—" && <span className="mr-1 text-[10px] font-bold text-slate-400">میلیارد</span>}
+                  </p>
                 </div>
                 <div className="rounded-xl bg-white/5 p-3">
                   <p className="text-[10px] text-slate-400">کمترین ارزش</p>
-                  <p className="mt-0.5 font-mono text-lg font-black text-white" dir="ltr">{marketHistory ? marketHistory[0].label : "—"}</p>
+                  <p className="mt-0.5 font-black text-white">
+                    <span className="font-mono text-lg" dir="ltr">{marketHistory ? marketHistory[0].label : "—"}</span>
+                    {marketHistory && <span className="mr-1 text-[10px] font-bold text-slate-400">میلیارد</span>}
+                  </p>
                 </div>
                 <div className="rounded-xl bg-emerald-500/10 p-3">
                   <p className="text-[10px] text-slate-400">تغییر نسبت به فصل قبل</p>

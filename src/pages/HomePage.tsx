@@ -9,6 +9,7 @@ import TeamOfTheWeekWidgetLight from "../components/TeamOfTheWeekWidgetLight";
 import MatchWeekWidget from "../components/MatchWeekWidget";
 import useLightTheme from "../hooks/useLightTheme";
 import AdSlot, { isAdActive } from "../components/AdSlot";
+import { SkeletonGrid, SkeletonList } from "../components/ui/Skeleton";
 import { AdItem } from "../types";
 import { formatStatNumber } from "../utils";
 import { sortNewsNewestFirst } from "../shared/newsSort";
@@ -42,6 +43,9 @@ interface HomePageProps {
   onSelectCoach?: (id: string) => void;
   ads: AdItem[];
   onSelectTransfer?: (transferId: string) => void;
+  isLoading?: boolean;
+  dataError?: string | null;
+  onRetryData?: () => void;
 }
 
 const getPersianCategory = (cat: string) => {
@@ -84,6 +88,9 @@ export default function HomePage({
   onSelectTransfer,
   stats,
   setSelectedLeagueFilterOnStats,
+  isLoading = false,
+  dataError = null,
+  onRetryData,
 }: HomePageProps) {
   const [newsCategoryFilter, setNewsCategoryFilter] = useState("all");
   const [visibleNewsCount, setVisibleNewsCount] = useState(10);
@@ -134,6 +141,44 @@ export default function HomePage({
 
   return (
     <div className="space-y-6" dir="rtl" id="home-dashboard-container">
+      {(() => {
+        const isEmpty = news.length === 0 && matches.length === 0 && transfers.length === 0;
+        // Bulk-fetch failure with nothing to show: explicit error + retry
+        // instead of a silent blank page.
+        if (dataError && isEmpty) {
+          return (
+            <div className="rounded-2xl border border-red-500/20 bg-red-950/10 p-8 text-center space-y-4" dir="rtl">
+              <p className="text-sm font-bold text-red-300">{dataError}</p>
+              {onRetryData && (
+                <button
+                  onClick={onRetryData}
+                  className="rounded-xl bg-emerald-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-emerald-500 transition cursor-pointer"
+                >
+                  تلاش مجدد
+                </button>
+              )}
+            </div>
+          );
+        }
+        // First load with no data yet: skeleton mirroring the home layout
+        // (hero + main/sidebar grid) instead of an empty page.
+        if (isLoading && isEmpty) {
+          return (
+            <>
+              <div className="skeleton-shimmer h-56 rounded-2xl" aria-hidden="true" />
+              <div className="grid gap-6 lg:grid-cols-12">
+                <div className="lg:col-span-8">
+                  <SkeletonGrid count={4} imageHeight="h-40" />
+                </div>
+                <div className="lg:col-span-4">
+                  <SkeletonList count={8} />
+                </div>
+              </div>
+            </>
+          );
+        }
+        return null;
+      })()}
       <div className="grid gap-6 lg:grid-cols-12" id="home-dashboard-layout font-sans">
         <div className="lg:col-span-8 space-y-6">
           <NewsSlider news={news} transfers={transfers} heroSlides={heroSlides} legionnaires={legionnaires} onSelectNews={setActiveArticle} onSelectTransfer={onSelectTransfer} />

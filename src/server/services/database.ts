@@ -1,5 +1,5 @@
 import { db as pgDb } from "../db";
-import { loadDB, setDb, getInitialDatabase } from "../state";
+import { loadDB, setDb, getInitialDatabase, bumpDataRevision } from "../state";
 import { logMessage } from "../utils/logger";
 import { dbLock } from "../utils/concurrency";
 import { runDatabaseMigrationsAndTransitions } from "./migrations";
@@ -36,6 +36,10 @@ export function isMemoryBootstrapped(): boolean {
 
 export function markTablesDirty(...tables: Array<DirtyTable | "all">): void {
   for (const t of tables) dirtyTables.add(t);
+  // Any structural mutation batch advances the /api/data ETag revision,
+  // so clients re-download instead of serving a stale 304. Counter-only
+  // view/click flushes use markViewDirty (viewTracker) and do NOT bump.
+  bumpDataRevision();
 }
 
 function consumeDirty(): Set<DirtyTable | "all"> {
@@ -294,6 +298,23 @@ export async function migratePlayerMarketBase(): Promise<void> {
     logMessage("info", "database", "مهاجرت مبنای ارزش بازار بازیکنان اعمال شد.");
   } catch (err: any) {
     logMessage("warn", "database", "خطا در مهاجرت مبنای ارزش بازار:", err.message || err);
+  }
+}
+
+export async function migratePlayerMarketCurrencyToman(): Promise<void> {
+  // Unit lock to toman: relabel every non-toman market_currency. All stored
+  // magnitudes are toman-scale (base 1e9–4e10 raw), so this changes labels
+  // only — no math, no value conversion. Runs once via guard; idempotent.
+  try {
+    const { pool } = await import("../db");
+    await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (id SERIAL PRIMARY KEY, name TEXT UNIQUE NOT NULL, applied_at TIMESTAMPTZ DEFAULT NOW())`);
+    const { rows } = await pool.query(`SELECT 1 FROM schema_migrations WHERE name = 'player_market_currency_toman_v1'`);
+    if (rows.length > 0) return;
+    await pool.query(`UPDATE players SET market_currency = 'تومان' WHERE market_currency IS DISTINCT FROM 'تومان'`);
+    await pool.query(`INSERT INTO schema_migrations (name) VALUES ('player_market_currency_toman_v1')`);
+    logMessage("info", "database", "واحد پول ارزش بازار بازیکنان یکدست به تومان شد.");
+  } catch (err: any) {
+    logMessage("warn", "database", "خطا در یکدست‌سازی واحد پول ارزش بازار:", err.message || err);
   }
 }
 
