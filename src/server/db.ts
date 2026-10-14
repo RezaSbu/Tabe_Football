@@ -15,7 +15,16 @@ const pool = new Pool({
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
-  options: "-c client_encoding=UTF8",
+  // Guard: kill any single query past 30s instead of hanging a pooled
+  // connection (matches the "Connection terminated due to connection
+  // timeout" deaths seen in prod logs). Normal queries are milliseconds;
+  // boot migrations + admin batches run far under this per statement.
+  // NOTE (deliberate, measured): no extra indexes are created — all hot
+  // reads are served from the in-memory DB (loadDB); Postgres only sees
+  // full-table boot loads (seq scan is optimal) plus tiny/admin selective
+  // queries (dedup checks, schema_migrations, system_info). Indexes would
+  // add write overhead for zero measurable read gain.
+  options: "-c client_encoding=UTF8 -c statement_timeout=30s",
 });
 
 pool.on("error", (err: Error) => {

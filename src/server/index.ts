@@ -140,9 +140,16 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`[Express server] Running stably on http://localhost:${PORT}`);
   });
+  // Never hold a socket longer than the edge will wait: nginx proxies with
+  // 60s timeouts, so Node's 300s requestTimeout default would pile up dead
+  // work after nginx already gave up. headersTimeout pinned above
+  // keepAliveTimeout per Node semantics.
+  server.requestTimeout = 60_000;
+  server.headersTimeout = 65_000;
+  server.keepAliveTimeout = 5_000;
 }
 
 startServer();
