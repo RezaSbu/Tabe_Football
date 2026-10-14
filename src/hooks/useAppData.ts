@@ -17,7 +17,7 @@ import {
   LiveGoal,
   HeroSlideItem,
 } from "../types";
-import { computeDynamicAppletStats, fetchCachedAppData, invalidateAppDataCache } from "../utils";
+import { computeDynamicAppletStats, fetchCachedAppData, fetchLiteAppData, invalidateAppDataCache, isFreshPayload, nextPollDelayMs } from "../utils";
 import { playGoalSound, showSystemNotification } from "./useGoalSound";
 
 export function useAppData() {
@@ -58,6 +58,10 @@ export function useAppData() {
   const [featureGames, setFeatureGames] = useState<MatchItem[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
+  // Bulk-fetch failure surfaced to the UI (fetchData paths only; the quiet
+  // poller never sets it so flaky networks don't flash errors every 10s).
+  // Shown only while there is no data to display (see HomePage).
+  const [dataError, setDataError] = useState<string | null>(null);
   const [activeArticle, setActiveArticle] = useState<NewsItem | null>(null);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
   const [adminUser, setAdminUser] = useState<{ username: string; role: string; label: string; permissions: string[] } | null>(null);
@@ -76,8 +80,15 @@ export function useAppData() {
   const [livescoreFilter, setLivescoreFilter] = useState<string>("all");
   const [ads, setAds] = useState<AdItem[]>([]);
 
-  const applyFetchedData = (data: any) => {
-    setNews(data.news || []);
+  // Identity of the last payload actually applied to state. fetchCachedAppData
+  // returns the same object reference while its TTL holds; re-applying it is
+  // pure waste (recompute + ~20 setStates + full re-render, every 10s poll).
+  const lastAppliedRef = useRef<any>(null);
+
+  // Pure core of the apply path: day-offset match fix + the synchronous
+  // stats recompute. Shared by the full apply and the lite first-paint apply
+  // so both paints derive identical processed matches/teams/players.
+  const buildProcessedCore = (data: any) => {
     const rawMatches = data.matches || [];
     const mappedMatches = rawMatches.map((m: any) => {
       if (m.date && m.date.startsWith("day")) {
@@ -96,13 +107,18 @@ export function useAppData() {
     const loadedTeams = data.teams || [];
     const loadedPlayers = data.players || [];
 
-    const statsResult = computeDynamicAppletStats(
+    return computeDynamicAppletStats(
       mappedMatches,
       loadedTeams,
       loadedPlayers,
       data.standings || {},
       data.stats || {}
     );
+  };
+
+  const applyFetchedData = (data: any) => {
+    setNews(data.news || []);
+    const statsResult = buildProcessedCore(data);
 
     setMatches(statsResult.processedMatches);
     setTeams(statsResult.processedTeams);
@@ -144,30 +160,104 @@ export function useAppData() {
     }
   };
 
+  // First-paint apply for the ?lite=1 slice. MERGE, not replace: only keys
+  // present in the slice touch state, so the dropped admin/archive tables
+  // keep their initial values until the full payload arrives right after.
+  // The compute inputs (matches/teams/players/standings/stats) all ride in
+  // the lite slice, so the first paint is fully derived, not placeholder.
+  const applyLiteData = (data: any) => {
+    const statsResult = buildProcessedCore(data);
+    setMatches(statsResult.processedMatches);
+    setTeams(statsResult.processedTeams);
+    setPlayers(statsResult.processedPlayers);
+    setStandings(statsResult.processedStandings);
+    setStats(statsResult.processedStats);
+    (window as any).db_teams = statsResult.processedTeams;
+    (window as any).db_players = statsResult.processedPlayers;
+
+    if (Array.isArray(data.news)) setNews(data.news);
+    if (Array.isArray(data.transfers)) setTransfers(data.transfers);
+    if (Array.isArray(data.teamTransfersList)) setTeamTransfersList(data.teamTransfersList);
+    if (Array.isArray(data.legionnaires)) setLegionnaires(data.legionnaires);
+    if (Array.isArray(data.images)) setImages(data.images);
+    if (Array.isArray(data.coaches)) {
+      setCoaches(data.coaches);
+      (window as any).db_coaches = data.coaches;
+    }
+    if (Array.isArray(data.coachMovements)) setCoachMovements(data.coachMovements);
+    if (Array.isArray(data.coachAppointments)) setCoachAppointments(data.coachAppointments);
+    if (Array.isArray(data.selectedCombinations)) setSelectedCombinations(data.selectedCombinations);
+    if (Array.isArray(data.heroSlides)) setHeroSlides(data.heroSlides);
+    if (Array.isArray(data.ads)) setAds(data.ads);
+    if (data.currentSeason) setCurrentSeason(data.currentSeason);
+    if (typeof data.lastScraped === "string") setLastScraped(data.lastScraped);
+
+    const newGoals = Array.isArray(data.liveGoals) ? data.liveGoals : [];
+    setLiveGoals(newGoals);
+    if (newGoals.length > 0) {
+      const maxTs = Math.max(...newGoals.map((g: any) => g.timestamp));
+      setLastSeenGoalTimestamp(maxTs);
+    }
+  };
+
   const fetchData = async () => {
     try {
+      // Phase 1: lite slice (~1/3 of the body) for a fast first paint.
+      // Any lite failure falls through to the full fetch below.
+      let painted = false;
+      try {
+        const lite = await fetchLiteAppData();
+        if (lite && lite.status === "ok") {
+          lastAppliedRef.current = lite;
+          applyLiteData(lite);
+          painted = true;
+          setDataError(null);
+          setIsLoading(false);
+        }
+      } catch {
+        // fall through to full payload
+      }
+      // Phase 2: full payload completes the dropped tables + full news.
+      // Always runs (even after a lite paint) so admin/archive surfaces
+      // and the 10s poller converge on complete state.
       const data = await fetchCachedAppData();
       if (data && data.status === "ok") {
-        applyFetchedData(data);
+        setDataError(null);
+        if (isFreshPayload(data, lastAppliedRef.current)) {
+          lastAppliedRef.current = data;
+          applyFetchedData(data);
+        }
+      } else if (!painted) {
+        setDataError("دریافت اطلاعات ناموفق بود. اتصال اینترنت را بررسی کنید.");
       }
     } catch (err) {
       console.error("Error drawing application state:", err);
+      setDataError("دریافت اطلاعات ناموفق بود. اتصال اینترنت را بررسی کنید.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // بعد از هر تغییر ادمین، کش ۳۰ ثانیه‌ای باید باطل شود تا داده تازه لود شود.
+  // بعد از هر تغییر ادمین، کش ۱۲۰ ثانیه‌ای باید باطل شود تا داده تازه لود شود.
   const adminRefreshData = async () => {
     invalidateAppDataCache();
     await fetchData();
   };
 
-  const fetchDataQuietly = async () => {
+  // Reports success so the poller can back off on consecutive failures.
+  // "Success" = a usable payload arrived (even if skipped as identical);
+  // null payloads and throws both count as failures.
+  const fetchDataQuietly = async (): Promise<boolean> => {
     try {
       const data = await fetchCachedAppData();
       if (data && data.status === "ok") {
-        applyFetchedData(data);
+        // Skip the expensive apply on cache-identical payloads; the cheap
+        // goal diff below still runs (no-op on identical timestamps).
+        if (isFreshPayload(data, lastAppliedRef.current)) {
+          lastAppliedRef.current = data;
+          setDataError(null);
+          applyFetchedData(data);
+        }
 
         const newGoals = data.liveGoals || [];
         if (newGoals.length > 0) {
@@ -187,9 +277,12 @@ export function useAppData() {
             setLastSeenGoalTimestamp(maxTs);
           }
         }
+        return true;
       }
+      return false;
     } catch (err) {
       console.warn("Quiet fetching err:", err);
+      return false;
     }
   };
 
@@ -266,16 +359,43 @@ export function useAppData() {
   }, []);
 
   // Phase-2 smart polling: 10s refresh only on live pages (live-scores,
-  // home ticker); 5min elsewhere; paused when the tab is hidden.
+  // home ticker); 5min elsewhere; ticks skipped while the tab is hidden;
+  // exponential backoff (capped at 5min) while the quiet fetch keeps failing
+  // so a dead network/server isn't hammered; immediate converge when the tab
+  // becomes visible again. Counters live in refs so effect re-runs (goal
+  // timestamps change often on live pages) never reset the backoff.
   const pollIntervalMs = activeTab === "live-scores" || activeTab === "home" ? 10_000 : 300_000;
+  const pollFailuresRef = useRef(0);
+  const lastPollTsRef = useRef(0);
 
   useEffect(() => {
-    if (typeof document !== "undefined" && document.hidden) return;
-    const interval = setInterval(() => {
+    const tick = () => {
       if (typeof document !== "undefined" && document.hidden) return;
-      fetchDataQuietly();
-    }, pollIntervalMs);
-    return () => clearInterval(interval);
+      const now = Date.now();
+      if (now - lastPollTsRef.current < nextPollDelayMs(pollIntervalMs, pollFailuresRef.current)) return;
+      lastPollTsRef.current = now;
+      void fetchDataQuietly().then(
+        (ok) => {
+          pollFailuresRef.current = ok ? 0 : pollFailuresRef.current + 1;
+        },
+        () => {
+          pollFailuresRef.current += 1;
+        }
+      );
+    };
+    const interval = setInterval(tick, pollIntervalMs);
+    const onVisible = () => {
+      if (typeof document !== "undefined" && !document.hidden) tick();
+    };
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", onVisible);
+    }
+    return () => {
+      clearInterval(interval);
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", onVisible);
+      }
+    };
   }, [subscribedTeams, lastSeenGoalTimestamp, pollIntervalMs, activeTab]);
 
   useEffect(() => {
@@ -571,7 +691,7 @@ export function useAppData() {
     predictions, liveGoals, subscribedTeams, lastSeenGoalTimestamp,
     activeGoalEvent, setActiveGoalEvent,
     weeklyPoll, popularTeams, historicalData, featureGames,
-    isLoading, activeArticle, setActiveArticle,
+    isLoading, dataError, activeArticle, setActiveArticle,
     isAdminLoggedIn, setIsAdminLoggedIn,
     adminUser, setAdminUser,
     isScraping, setIsScraping,

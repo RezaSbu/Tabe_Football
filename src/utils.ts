@@ -31,7 +31,7 @@ let appDataCache: { data: any; ts: number } | null = null;
 let appDataInFlight: Promise<any> | null = null;
 
 /**
- * Fetches /api/data with a short in-memory cache (30s) + single-flight dedup.
+ * Fetches /api/data with a short in-memory cache (120s) + single-flight dedup.
  * Reduces redundant full downloads of the ~1MB dataset on every route change.
  * Uses browser cache ("default") so the server ETag can return 304 without body.
  */
@@ -54,13 +54,48 @@ export const fetchCachedAppData = (): Promise<any> => {
 };
 
 /**
- * Invalidates the 30s in-memory /api/data cache so the next fetch is fresh.
+ * One-shot fetch of the first-paint slice (/api/data?lite=1): every table the
+ * home first paint reads, minus the heavy admin/archive tables, news trimmed
+ * to the newest 60. Deliberately NOT stored in the 120s full-payload cache ΓÇö
+ * boot-only (and manual retry); the poller keeps using the full shape.
+ */
+export const fetchLiteAppData = (): Promise<any> => {
+  return fetch("/api/data?lite=1").then((r) => (r.ok ? r.json() : null));
+};
+
+/**
+ * Exponential backoff for the quiet poller: base, 2x, 4x, ... capped at
+ * POLL_BACKOFF_CAP_MS. Pure function (unit-tested); the hook keeps the
+ * consecutive-failure counter in a ref so effect re-runs don't reset it.
+ */
+export const POLL_BACKOFF_CAP_MS = 300_000;
+
+export const nextPollDelayMs = (baseMs: number, consecutiveFailures: number): number => {
+  const fails = Math.min(Math.max(Math.floor(consecutiveFailures) || 0, 0), 8);
+  return Math.min(baseMs * 2 ** fails, POLL_BACKOFF_CAP_MS);
+};
+
+/**
+ * Invalidates the 120s in-memory /api/data cache so the next fetch is fresh.
  * Must be called after any admin mutation before refreshing the UI.
  */
 export const invalidateAppDataCache = (): void => {
   appDataCache = null;
   appDataInFlight = null;
 };
+
+/**
+ * Reference-identity freshness gate for applyFetchedData.
+ * fetchCachedAppData returns the SAME object while its TTL holds; re-applying
+ * it would rerun the synchronous recompute + ~20 setStates + a full-tree
+ * re-render with identical values (every 10s poll on home/live). Skip unless
+ * the payload is a genuinely new object. Wall-clock-derived fields (e.g. the
+ * "day+N" date resolution) freeze for at most one TTL window on skip and
+ * self-heal at the next fresh fetch.
+ */
+export function isFreshPayload(data: unknown, lastApplied: unknown): boolean {
+  return !!data && data !== lastApplied;
+}
 
 /**
  * Returns loaded database teams from window global

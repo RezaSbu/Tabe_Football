@@ -9,6 +9,9 @@ import {
   convertShamsiToGregorian,
   getTodayShamsi,
   computeDynamicAppletStats,
+  isFreshPayload,
+  nextPollDelayMs,
+  POLL_BACKOFF_CAP_MS,
 } from './utils';
 
 describe('toEnglishDigits', () => {
@@ -316,3 +319,50 @@ describe('formatJalaliDate', () => {
     expect(formatJalaliDate('1405/07/01')).toBe('1405/07/01');
   });
 });
+
+describe('isFreshPayload (applyFetchedData skip gate)', () => {
+  it('applies the first payload (nothing applied yet)', () => {
+    expect(isFreshPayload({ status: 'ok' }, null)).toBe(true);
+  });
+
+  it('skips the identical cached reference', () => {
+    const cached = { status: 'ok', news: [] };
+    expect(isFreshPayload(cached, cached)).toBe(false);
+  });
+
+  it('applies a new object even with equal content', () => {
+    const last = { status: 'ok', news: [] };
+    expect(isFreshPayload({ status: 'ok', news: [] }, last)).toBe(true);
+  });
+
+  it('never applies nullish payloads', () => {
+    expect(isFreshPayload(null, null)).toBe(false);
+    expect(isFreshPayload(undefined, { a: 1 })).toBe(false);
+  });
+});
+
+describe('nextPollDelayMs', () => {
+  it('uses the base interval with no failures', () => {
+    expect(nextPollDelayMs(10_000, 0)).toBe(10_000);
+    expect(nextPollDelayMs(300_000, 0)).toBe(300_000);
+  });
+
+  it('doubles per consecutive failure', () => {
+    expect(nextPollDelayMs(10_000, 1)).toBe(20_000);
+    expect(nextPollDelayMs(10_000, 2)).toBe(40_000);
+    expect(nextPollDelayMs(10_000, 3)).toBe(80_000);
+    expect(nextPollDelayMs(10_000, 4)).toBe(160_000);
+  });
+
+  it('caps at POLL_BACKOFF_CAP_MS', () => {
+    expect(nextPollDelayMs(10_000, 5)).toBe(POLL_BACKOFF_CAP_MS);
+    expect(nextPollDelayMs(10_000, 100)).toBe(POLL_BACKOFF_CAP_MS);
+    expect(nextPollDelayMs(300_000, 3)).toBe(POLL_BACKOFF_CAP_MS);
+  });
+
+  it('treats negative/garbage counts as zero failures', () => {
+    expect(nextPollDelayMs(10_000, -3)).toBe(10_000);
+    expect(nextPollDelayMs(10_000, NaN)).toBe(10_000);
+  });
+});
+

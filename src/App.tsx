@@ -138,6 +138,7 @@ function TabContent({ d, triggerMockGoalNotification }: { d: ReturnType<typeof u
               }}
             />
             <HomePage matches={d.matches} news={d.news} transfers={d.transfers} heroSlides={d.heroSlides} legionnaires={d.legionnaires} stats={d.stats}
+              isLoading={d.isLoading} dataError={d.dataError} onRetryData={d.fetchData}
               liveGoals={d.liveGoals} setSelectedMatch={(m: any) => navigate(`/match/${m.id}`)} setActiveArticle={(a: any) => navigate(`/news/${a.id}`)}
               handleTabChangeSubmit={d.handleTabChangeSubmit} getRelativeDateLabel={getRelativeDateLabel}
               convertGregorianToShamsi={convertGregorianToShamsi} formatStatNumber={formatStatNumber}
