@@ -4,6 +4,7 @@ import { StandingRow, NewsItem, MatchItem, TeamItem, PlayerItem, StatsData } fro
 import { Trophy, Award, Newspaper, Calendar, BarChart3, List, ChevronLeft, Star, Flame, Zap, Target, Search, X } from "lucide-react";
 import { isTeamInDb, convertGregorianToShamsi, formatStatNumber } from "../utils";
 import { resolveTeam, resolveTeamLeagueWithFallback, normalizeLeagueKey } from "../shared/teamMatch";
+import { sortNewsNewestFirst } from "../shared/newsSort";
 import HazfiCupBracket from "./HazfiCupBracket";
 import TeamLogo from "./TeamLogo";
 import SeasonSwitcher, { defaultSeasonValue } from "./SeasonSwitcher";
@@ -26,6 +27,7 @@ interface LeagueTablesProps {
 }
 
 const VISIBLE_DEFAULT_STATS = 10;
+const LEAGUE_NEWS_PAGE_SIZE = 20;
 const ListIcon = List;
 const XIcon = X;
 
@@ -137,6 +139,9 @@ export default function LeagueTables({
   const [activeL2Group, setActiveL2Group] = useState<"league-2-group-a" | "league-2-group-b">("league-2-group-a");
   const [matchSearch, setMatchSearch] = useState<string>("");
   const [weekFilter, setWeekFilter] = useState<number | null>(null);
+  const [newsPage, setNewsPage] = useState(1);
+  // Back to page 1 whenever the league surface changes.
+  useEffect(() => { setNewsPage(1); }, [leagueKey]);
   // Phase 5: per-season standings + leaders, derived from the season tables.
   // Matches/news stay as-is (matches carry their own season; news is global).
   const seasons = useSeasons();
@@ -320,6 +325,24 @@ export default function LeagueTables({
     });
     return isCategory || isTagged;
   });
+
+  // Dedicated-news pagination — same UX as the NewsPage archive: newest-first
+  // (shared rule), 20 per page. Client-side slice only: the list prop is
+  // already in memory via bulk /api/data, so no new endpoint is needed.
+  const sortedLeagueNews = React.useMemo(() => sortNewsNewestFirst(filteredNews), [filteredNews]);
+  const leagueNewsTotalPages = Math.max(1, Math.ceil(sortedLeagueNews.length / LEAGUE_NEWS_PAGE_SIZE));
+  const safeNewsPage = Math.min(Math.max(newsPage, 1), leagueNewsTotalPages);
+  const pagedLeagueNews = sortedLeagueNews.slice(
+    (safeNewsPage - 1) * LEAGUE_NEWS_PAGE_SIZE,
+    safeNewsPage * LEAGUE_NEWS_PAGE_SIZE
+  );
+  const leagueNewsPageWindow = (() => {
+    const start = Math.max(1, Math.min(safeNewsPage - 2, Math.max(1, leagueNewsTotalPages - 4)));
+    const end = Math.min(leagueNewsTotalPages, start + 4);
+    const arr: number[] = [];
+    for (let p = start; p <= end; p++) arr.push(p);
+    return arr;
+  })();
 
   // Calculate league players and stats dynamically.
   // Membership comes from the team record's divisionKey (promotion-safe);
@@ -917,8 +940,9 @@ export default function LeagueTables({
               هیچ مقاله، تحلیل فنی یا شایعه خبری داغ مرتبط با این لیگ یافت نگردید.
             </div>
           ) : (
+            <div className="space-y-6">
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredNews.map((item) => (
+              {pagedLeagueNews.map((item) => (
                 <Link
                   key={item.id}
                   to={`/news/${item.id}`}
@@ -948,6 +972,48 @@ export default function LeagueTables({
                   </div>
                 </Link>
               ))}
+            </div>
+
+            {leagueNewsTotalPages > 1 && (
+              <div className="flex flex-wrap items-center justify-center gap-1.5 pt-2" dir="rtl">
+                <button
+                  onClick={() => setNewsPage(p => Math.max(1, p - 1))}
+                  disabled={safeNewsPage <= 1}
+                  className="rounded-xl px-3 py-1.5 text-xs font-black bg-gray-950 text-gray-300 border border-white/5 hover:text-white disabled:opacity-40 disabled:cursor-default transition"
+                >
+                  قبلی
+                </button>
+                {leagueNewsPageWindow[0] > 1 && (
+                  <span className="text-[11px] text-slate-500 px-1">...</span>
+                )}
+                {leagueNewsPageWindow.map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setNewsPage(p)}
+                    className={`min-w-8 rounded-xl px-2.5 py-1.5 text-xs font-black font-mono transition ${
+                      p === safeNewsPage
+                        ? "bg-red-655 text-white shadow shadow-red-950/40"
+                        : "bg-gray-950 text-gray-400 hover:text-white border border-white/5"
+                    }`}
+                  >
+                    {formatStatNumber(p)}
+                  </button>
+                ))}
+                {leagueNewsPageWindow[leagueNewsPageWindow.length - 1] < leagueNewsTotalPages && (
+                  <span className="text-[11px] text-slate-500 px-1">...</span>
+                )}
+                <button
+                  onClick={() => setNewsPage(p => Math.min(leagueNewsTotalPages, p + 1))}
+                  disabled={safeNewsPage >= leagueNewsTotalPages}
+                  className="rounded-xl px-3 py-1.5 text-xs font-black bg-gray-950 text-gray-300 border border-white/5 hover:text-white disabled:opacity-40 disabled:cursor-default transition"
+                >
+                  بعدی
+                </button>
+                <span className="w-full text-center text-[11px] text-slate-500 font-bold mt-1">
+                  صفحه {formatStatNumber(safeNewsPage)} از {formatStatNumber(leagueNewsTotalPages)} ــ {formatStatNumber(sortedLeagueNews.length)} خبر
+                </span>
+              </div>
+            )}
             </div>
           )}
         </div>
