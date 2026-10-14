@@ -36,11 +36,6 @@
     <priority>0.7</priority>
   </url>
   <url>
-    <loc>https://tabefotbal.ir/futsal</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
     <loc>https://tabefotbal.ir/stats</loc>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
@@ -51,18 +46,8 @@
     <priority>0.8</priority>
   </url>
   <url>
-    <loc>https://tabefotbal.ir/legionnaires</loc>
-    <changefreq>weekly</changefreq>
-    <priority>0.7</priority>
-  </url>
-  <url>
     <loc>https://tabefotbal.ir/gallery</loc>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
-  </url>
-  <url>
-    <loc>https://tabefotbal.ir/predictions</loc>
-    <changefreq>daily</changefreq>
-    <priority>0.6</priority>
   </url>
 </urlset>
