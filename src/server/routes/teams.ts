@@ -314,6 +314,14 @@ export function registerTeamRoutes(app: Express) {
       }
     }
 
+    // Default teamless rows to an explicit free-agent label (mirrors the
+    // admin form). Otherwise teamName stays undefined and admin list
+    // filters calling .toLowerCase() on it crash the whole section.
+    if (item.teamId == null || String(item.teamId).trim() === "") {
+      item.teamId = "";
+      item.teamName = "بازیکن آزاد";
+    }
+
     const enteredMatches = parseInt(item.seasonStats?.matches) || 0;
     const enteredGoals = parseInt(item.seasonStats?.goals) || 0;
     const enteredAssists = parseInt(item.seasonStats?.assists) || 0;
@@ -513,6 +521,14 @@ export function registerTeamRoutes(app: Express) {
       if (!check.ok) {
         return res.status(400).json({ success: false, message: check.message });
       }
+    }
+
+    // Default teamless rows to an explicit free-agent label (mirrors the
+    // admin form). Otherwise teamName stays undefined and admin list
+    // filters calling .toLowerCase() on it crash the whole section.
+    if (item.teamId == null || String(item.teamId).trim() === "") {
+      item.teamId = "";
+      item.teamName = "مربی آزاد";
     }
 
     const enteredMatches = parseInt(item.seasonStats?.matches) || 0;

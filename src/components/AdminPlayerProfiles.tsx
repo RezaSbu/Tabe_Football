@@ -147,8 +147,8 @@ export default function AdminPlayerProfiles({
   };
 
   const filteredPlayers = players.filter(p => 
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    p.teamName.toLowerCase().includes(searchQuery.toLowerCase())
+    (p.name || "").toLowerCase().includes(searchQuery.toLowerCase()) || 
+    (p.teamName || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
   // Phase-3 perf: render one page only instead of all ~839 cards.
   const playerTotalPages = Math.max(1, Math.ceil(filteredPlayers.length / ADMIN_LIST_PAGE_SIZE));

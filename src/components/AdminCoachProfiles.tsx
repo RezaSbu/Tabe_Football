@@ -112,8 +112,8 @@ export default function AdminCoachProfiles({
   };
 
   const filteredCoaches = coaches.filter(c =>
-    c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    c.teamName.toLowerCase().includes(searchQuery.toLowerCase())
+    (c.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (c.teamName || "").toLowerCase().includes(searchQuery.toLowerCase())
   );
   const coachTotalPages = Math.max(1, Math.ceil(filteredCoaches.length / ADMIN_LIST_PAGE_SIZE));
   const safeCoachPage = Math.min(page, coachTotalPages);
