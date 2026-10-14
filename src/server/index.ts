@@ -62,6 +62,33 @@ registerAdminListRoutes(app);
 registerMovementRoutes(app);
 registerLifecycleRoutes(app);
 
+// SEO (faza1): archived tab URLs are permanently gone. Answer 410 here — before the
+// SPA fallback — instead of serving index.html and JS-bouncing to / (soft-404).
+const GONE_PATHS = ["/futsal", "/legionnaires", "/predictions"];
+for (const gonePath of GONE_PATHS) {
+  app.get(gonePath, (_req, res) => {
+    res
+      .status(410)
+      .type("html")
+      .send(
+        '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="UTF-8" />' +
+          "<title>صفحه حذف شده | تب فوتبال</title>" +
+          '<meta name="robots" content="noindex, nofollow" /></head>' +
+          '<body style="font-family:sans-serif;text-align:center;padding:4rem 1rem">' +
+          "<h1>این صفحه حذف شده است</h1>" +
+          '<p><a href="/">بازگشت به تب فوتبال</a></p></body></html>'
+      );
+  });
+}
+
+// SEO (faza1): never let crawlers index the admin shell served by the SPA fallback.
+app.use((req, res, next) => {
+  if (req.path === "/admin" || req.path.startsWith("/admin/")) {
+    res.setHeader("X-Robots-Tag", "noindex, nofollow");
+  }
+  next();
+});
+
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   logMessage("error", "general", "Unhandled route error:", err.message || err);
   res.status(500).json({ success: false, message: "خطای سرور داخلی." });
