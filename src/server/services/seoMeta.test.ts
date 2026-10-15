@@ -26,6 +26,14 @@ const SHELL = [
 const DB = {
   news: [
     { id: "news-1", title: "خبر $ مهم", summary: "خلاصه", image: "/uploads/a.jpg", createdAt: "2026-10-01T00:00:00Z" },
+    {
+      id: "news-2",
+      title: "ویرایش‌شده",
+      summary: "خلاصه",
+      image: "/uploads/b.jpg",
+      createdAt: "2026-09-01T00:00:00Z",
+      updatedAt: "2026-10-05T00:00:00Z",
+    },
   ],
   teams: [{ id: "t1", name: "پرسپولیس", logo: "/uploads/logo.png" }],
   players: [{ id: "p1", name: "بازیکن", teamName: "پرسپولیس", image: "https://cdn.example.com/p.jpg" }],
@@ -80,7 +88,18 @@ describe("resolveDetailMeta", () => {
     expect(meta?.canonical).toBe("https://tabefotbal.ir/news/news-1");
     expect(meta?.ogType).toBe("article");
     expect(meta?.ogImage).toBe("https://tabefotbal.ir/uploads/a.jpg");
-    expect((meta?.jsonLd as any)?.["@type"]).toBe("NewsArticle");
+    const ld = meta?.jsonLd as any;
+    expect(ld?.["@type"]).toBe("NewsArticle");
+    expect(ld?.datePublished).toBe("2026-10-01T00:00:00Z");
+    expect(ld?.dateModified).toBe("2026-10-01T00:00:00Z");
+    expect(ld?.author?.name).toBe("تب فوتبال");
+    expect(ld?.publisher?.logo?.url).toBe("https://tabefotbal.ir/logo-512.png");
+  });
+
+  it("prefers updatedAt for dateModified when the article was edited", () => {
+    const ld = resolveDetailMeta("news", "news-2", DB)?.jsonLd as any;
+    expect(ld?.dateModified).toBe("2026-10-05T00:00:00Z");
+    expect(ld?.datePublished).toBe("2026-09-01T00:00:00Z");
   });
 
   it("builds match title from both sides and scores", () => {
