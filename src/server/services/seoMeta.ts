@@ -193,7 +193,13 @@ export function resolveDetailMeta(kind: DetailKind, id: string, db: any): SeoMet
           description: item.summary,
           image: toAbsoluteUrl(item.image),
           datePublished: item.createdAt,
-          publisher: { "@type": "Organization", name: SITE_NAME },
+          dateModified: item.updatedAt || item.createdAt,
+          author: { "@type": "Organization", name: SITE_NAME, url: SITE_ORIGIN },
+          publisher: {
+            "@type": "Organization",
+            name: SITE_NAME,
+            logo: { "@type": "ImageObject", url: `${SITE_ORIGIN}/logo-512.png` },
+          },
         },
       };
     }

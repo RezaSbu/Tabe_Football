@@ -143,7 +143,13 @@ export default function NewsDetailPage() {
             "description": article.summary,
             "image": getSafeImageUrl(article.image),
             "datePublished": article.createdAt,
-            "publisher": { "@type": "Organization", "name": "تب فوتبال" },
+            "dateModified": article.updatedAt || article.createdAt,
+            "author": { "@type": "Organization", "name": "تب فوتبال", "url": "https://tabefotbal.ir" },
+            "publisher": {
+              "@type": "Organization",
+              "name": "تب فوتبال",
+              "logo": { "@type": "ImageObject", "url": "https://tabefotbal.ir/logo-512.png" },
+            },
           })}
         </script>
       </Helmet>
