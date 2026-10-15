@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script>
       // Desktop-on-Mobile — pre-paint, before React mounts. Touch devices
-      // with a narrow screen render the desktop layout at a fixed 1200px
+      // with a narrow screen render the desktop layout at a fixed 1122px
       // viewport, auto-fitted to the screen width (free pinch-zoom + pan).
       // A fixed-width layout viewport inflates `100vh`, so we also publish
       // the real visible height as --app-min-h (the app shell uses it instead
@@ -20,14 +20,14 @@
           if (!tag) return;
           var screenW = (window.screen && window.screen.width) || 0;
           var innerW = window.innerWidth || 0;
-          var narrow = Math.min(screenW || 9999, innerW || 9999) < 1200;
+          var narrow = Math.min(screenW || 9999, innerW || 9999) < 1122;
           var coarse = !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
           var admin = /^\/admin(\/|$)/.test(window.location.pathname || "");
           var scaled = narrow && coarse && !admin;
           if (scaled) {
-            var fitW = screenW || innerW || 1200;
-            var scale = Math.min(1, Math.max(0.25, fitW / 1200));
-            tag.setAttribute("content", "width=1200, initial-scale=" + scale.toFixed(3));
+            var fitW = screenW || innerW || 1122;
+            var scale = Math.min(1, Math.max(0.25, fitW / 1122));
+            tag.setAttribute("content", "width=1122, initial-scale=" + scale.toFixed(3) + ", user-scalable=yes");
           } else {
             tag.setAttribute("content", "width=device-width, initial-scale=1.0");
           }

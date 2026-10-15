@@ -1,15 +1,15 @@
 // Desktop-on-Mobile: touch devices with narrow screens render the desktop
-// layout at a fixed 1200px layout viewport, auto-fitted to the screen width
-// (initial-scale = screenWidth / 1200). The whole desktop page is visible at
+// layout at a fixed 1122px layout viewport, auto-fitted to the screen width
+// (initial-scale = screenWidth / 1122). The whole desktop page is visible at
 // once; pinch-zoom and pan stay completely free.
 //
-// Why an explicit initial-scale (and not a bare `width=1200`): with no
+// Why an explicit initial-scale (and not a bare `width=1122`): with no
 // initial-scale the browser auto-fits, but the exact scale is then
 // unpredictable across browsers; pinning the fitted scale makes behavior
 // deterministic and keeps `--app-min-h` measurable from the visual viewport.
 //
 // Why this works with zero CSS/layout changes: every responsive rule in the
-// app is a Tailwind min-width prefix (sm/md/lg), so at a 1200px layout
+// app is a Tailwind min-width prefix (sm/md/lg), so at a 1122px layout
 // viewport all of them evaluate to their desktop branch automatically. All
 // inner containers are fluid max-w-* (shell max-w-7xl); wide tables scroll
 // inside their own overflow-x-auto wrappers.
@@ -18,10 +18,11 @@
 // height ~= screenHeight / scale, ~2600px on a 390px phone), so the app
 // shell uses `--app-min-h` (real visual-viewport height) instead of `100vh`.
 //
-// Never add maximum-scale/user-scalable=no: pinch zoom must stay free.
-export const DESKTOP_VIEWPORT_WIDTH = 1200;
+// Never add maximum-scale/user-scalable=no: pinch zoom must stay free
+// (user-scalable=yes is emitted explicitly on the scaled branch).
+export const DESKTOP_VIEWPORT_WIDTH = 1122;
 // Below this layout width a touch screen would otherwise build a mobile UI.
-export const NARROW_BREAKPOINT = 1200;
+export const NARROW_BREAKPOINT = 1122;
 export const DEVICE_VIEWPORT = "width=device-width, initial-scale=1.0";
 // Guard rails for the computed fit-scale (never zoom in past 1:1).
 export const MIN_SCALE = 0.25;
@@ -56,12 +57,12 @@ export function shouldUseDesktopViewport(env: ViewportEnv): boolean {
   return w < NARROW_BREAKPOINT;
 }
 
-// Fit-scale: how much to zoom OUT so the 1200px layout fits the screen.
-// E.g. 390 -> 0.325. Clamped to [MIN_SCALE, MAX_SCALE].
+// Fit-scale: how much to zoom OUT so the 1122px layout fits the screen.
+// E.g. 390 -> 0.348. Clamped to [MIN_SCALE, MAX_SCALE].
 //
-// Uses the physical screen width, NOT innerWidth: once `width=1200` is
-// applied the layout viewport itself becomes 1200 wide (innerWidth ===
-// 1200), so deriving the scale from innerWidth would flip back to 1:1 on
+// Uses the physical screen width, NOT innerWidth: once `width=1122` is
+// applied the layout viewport itself becomes 1122 wide (innerWidth ===
+// 1122), so deriving the scale from innerWidth would flip back to 1:1 on
 // the next resize/re-apply.
 export function computeScale(env: ViewportEnv): number {
   const w = env.screenWidth ?? env.innerWidth;
@@ -72,7 +73,7 @@ export function computeScale(env: ViewportEnv): number {
 
 export function resolveViewportContent(env: ViewportEnv): string {
   return shouldUseDesktopViewport(env)
-    ? `width=${DESKTOP_VIEWPORT_WIDTH}, initial-scale=${computeScale(env)}`
+    ? `width=${DESKTOP_VIEWPORT_WIDTH}, initial-scale=${computeScale(env)}, user-scalable=yes`
     : DEVICE_VIEWPORT;
 }
 

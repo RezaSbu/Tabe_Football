@@ -43,20 +43,20 @@ describe("viewport shouldUseDesktopViewport", () => {
     expect(shouldUseDesktopViewport({ ...phone390, pathname: "/admin" })).toBe(false);
     expect(shouldUseDesktopViewport({ ...phone390, pathname: "/admin/matches" })).toBe(false);
   });
-  it("1200px boundary stays device-width", () => {
-    expect(shouldUseDesktopViewport({ ...phone390, screenWidth: 1200, innerWidth: 1200 })).toBe(false);
+  it("1122px boundary stays device-width", () => {
+    expect(shouldUseDesktopViewport({ ...phone390, screenWidth: 1122, innerWidth: 1122 })).toBe(false);
   });
 });
 
 describe("viewport computeScale", () => {
-  it("zooms out so the 1200px layout fits the screen width", () => {
-    expect(computeScale(phone390)).toBe(0.325);
-    expect(computeScale({ ...phone390, screenWidth: 412 })).toBe(0.343);
-    expect(computeScale({ ...phone390, screenWidth: 360 })).toBe(0.3);
-    expect(computeScale({ ...phone390, screenWidth: 820 })).toBe(0.683);
+  it("zooms out so the 1122px layout fits the screen width", () => {
+    expect(computeScale(phone390)).toBe(0.348);
+    expect(computeScale({ ...phone390, screenWidth: 412 })).toBe(0.367);
+    expect(computeScale({ ...phone390, screenWidth: 360 })).toBe(0.321);
+    expect(computeScale({ ...phone390, screenWidth: 820 })).toBe(0.731);
   });
-  it("stays stable once the layout viewport widened to 1200 (uses screen width)", () => {
-    expect(computeScale({ ...phone390, innerWidth: 1200 })).toBe(0.325);
+  it("stays stable once the layout viewport widened to 1122 (uses screen width)", () => {
+    expect(computeScale({ ...phone390, innerWidth: 1122 })).toBe(0.348);
   });
   it("never zooms in past 1:1 and clamps to a sane floor", () => {
     expect(computeScale({ ...phone390, screenWidth: 1440 })).toBe(1);
@@ -66,20 +66,21 @@ describe("viewport computeScale", () => {
 });
 
 describe("viewport resolveViewportContent", () => {
-  it("emits a fitted 1200px layout for phones", () => {
-    expect(resolveViewportContent(phone390)).toBe(`width=${DESKTOP_VIEWPORT_WIDTH}, initial-scale=0.325`);
-    expect(DESKTOP_VIEWPORT_WIDTH).toBe(1200);
-    expect(NARROW_BREAKPOINT).toBe(1200);
+  it("emits a fitted 1122px layout for phones", () => {
+    expect(resolveViewportContent(phone390)).toBe(`width=${DESKTOP_VIEWPORT_WIDTH}, initial-scale=0.348, user-scalable=yes`);
+    expect(DESKTOP_VIEWPORT_WIDTH).toBe(1122);
+    expect(NARROW_BREAKPOINT).toBe(1122);
   });
   it("keeps device-width otherwise", () => {
     expect(resolveViewportContent(desktop1440)).toBe(DEVICE_VIEWPORT);
     expect(resolveViewportContent({ ...phone390, pathname: "/admin" })).toBe(DEVICE_VIEWPORT);
   });
-  it("never restricts pinch zoom", () => {
+  it("never restricts pinch zoom and declares it explicitly", () => {
     for (const env of [phone390, desktop1440]) {
       const out = resolveViewportContent(env);
       expect(out).not.toMatch(/maximum-scale/i);
       expect(out).not.toMatch(/user-scalable\s*=\s*no/i);
     }
+    expect(resolveViewportContent(phone390)).toMatch(/user-scalable\s*=\s*yes/i);
   });
 });

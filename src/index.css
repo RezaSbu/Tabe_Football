@@ -62,6 +62,16 @@ body {
   display: none !important;
 }
 
+/* Desktop-on-Mobile: pin the floor of the layout while scaled (Varzesh3
+   model: fixed 1122px + free zoom). Normally a no-op — the layout viewport
+   is already 1122 wide — but it stops edge cases (split-screen, foldables,
+   browsers ignoring initial-scale) from squishing the desktop layout instead
+   of letting the user zoom/pan it. Scoped to scaled mode: desktop and
+   device-width rendering are untouched. */
+.is-scaled-mobile body {
+  min-width: 1122px;
+}
+
 /* Custom RTL styling helper rules */
 input, textarea, select {
   font-family: var(--font-sans);
