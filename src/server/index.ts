@@ -30,6 +30,7 @@ import { registerSeasonRoutes } from "./routes/season";
 import { registerAdminListRoutes } from "./routes/adminLists";
 import { registerMovementRoutes } from "./routes/movements";
 import { registerLifecycleRoutes } from "./routes/lifecycle";
+import { registerSitemapRoutes } from "./routes/sitemap";
 
 logMessage("info", "general", "پورتال فوتبال 360 در حال راه‌اندازی است...");
 
@@ -62,6 +63,7 @@ registerDetailRoutes(app);
 registerAdminListRoutes(app);
 registerMovementRoutes(app);
 registerLifecycleRoutes(app);
+registerSitemapRoutes(app);
 
 // SEO (faza1): archived tab URLs are permanently gone. Answer 410 here — before the
 // SPA fallback — instead of serving index.html and JS-bouncing to / (soft-404).
