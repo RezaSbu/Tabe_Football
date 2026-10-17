@@ -254,7 +254,12 @@ export default function LeagueTables({
     }
     const leagueTeams = (teams || []).filter((t: any) => {
       const l = resolveTeamLeagueWithFallback(teams, t.id, t.name);
-      if (leagueKey === "league-2") return l === "league-2" && key === "league-2-group-a";
+      if (leagueKey === "league-2") {
+        // Mirror the server sort (stats.ts): bare "league-2"/group-a teams -> A, group-b -> B.
+        if (key === "league-2-group-a") return l === "league-2" || l === "league-2-group-a";
+        if (key === "league-2-group-b") return l === "league-2-group-b";
+        return false;
+      }
       return l === leagueKey;
     });
     const list: StandingRow[] = leagueTeams.map((t: any) => {
