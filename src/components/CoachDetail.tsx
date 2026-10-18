@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, Trophy, Award, UserRound, TrendingUp, Target, BookOpen, BadgeCheck, Clock, Flag, Newspaper } from "lucide-react";
 import { getSafeImageUrl, formatStatNumber, normalizePersianString, convertGregorianToShamsi } from "../utils";
-import { coachOfTeamAt } from "../shared/coachTenure";
+import { coachOfTeamAt, coachOfTeamAtDated } from "../shared/coachTenure";
 import { resolveTeam } from "../shared/teamMatch";
 import SeasonSwitcher, { defaultSeasonValue } from "./SeasonSwitcher";
 import ShareButton from "./ui/ShareButton";
@@ -16,6 +16,8 @@ interface CoachDetailProps {
   coach: any;
   allMatches?: any[];
   allTeams?: any[];
+  allCoaches?: any[];
+  allMovements?: any[];
   allAppointments?: any[];
   news?: any[];
   onBack: () => void;
@@ -28,6 +30,8 @@ export default function CoachDetail({
   coach,
   allMatches = [],
   allTeams = [],
+  allCoaches = [],
+  allMovements = [],
   allAppointments = [],
   news = [],
   onBack,
@@ -90,12 +94,18 @@ export default function CoachDetail({
     L: { label: "شکست", color: "bg-red-500" }
   };
 
-  // Coach match records: stamped match ids first, then movement-aware tenure
-  // (who held this team on this date). Never the live teamName alone — that
-  // rewrote history on every post-transfer render.
-  const tenureCoaches = [{ id: String(coach.id), teamId: coach.teamId != null ? String(coach.teamId) : null }];
-  const tenureMovements = (coach.movements || []).map((m: any) => ({
-    coachId: coach.id != null ? String(coach.id) : null,
+  // Coach match records: dated ledger/appointments first, then stamped match
+  // ids, then movement-aware tenure. Never the live teamName alone — that
+  // rewrote history on every post-transfer render. Team-wide inputs (all
+  // coaches + the full ledger) mirror the server recalc exactly, so the
+  // match list and the stored summary can never disagree about a match.
+  const tenureCoaches = (allCoaches.length > 0 ? allCoaches : [coach]).map((c: any) => ({
+    id: String(c.id),
+    teamId: c.teamId != null ? String(c.teamId) : null,
+  }));
+  const ledgerRows = allMovements.length > 0 ? allMovements : (coach.movements || []);
+  const tenureMovements = ledgerRows.map((m: any) => ({
+    coachId: m.coachId != null ? String(m.coachId) : null,
     fromTeamId: m.fromTeamId != null ? String(m.fromTeamId) : null,
     toTeamId: m.toTeamId != null ? String(m.toTeamId) : null,
     movementDate: m.movementDate || null,
@@ -116,17 +126,23 @@ export default function CoachDetail({
     const t = resolveTeam(allTeams, name);
     return t && (t as any).id != null ? String((t as any).id) : null;
   };
+  const sideCoachIdFor = (stampedId: any, tid: string | null, date: any): string | null => {
+    if (tid) {
+      const datedId = coachOfTeamAtDated(tid, date, tenureCoaches, tenureMovements, tenureAppointments);
+      if (datedId != null) return datedId;
+      if (stampedId != null && String(stampedId).trim() !== "") return String(stampedId);
+      return coachOfTeamAt(tid, date, tenureCoaches, tenureMovements, tenureAppointments);
+    }
+    if (stampedId != null && String(stampedId).trim() !== "") return String(stampedId);
+    return null;
+  };
   const coachMatches: any[] = [];
   allMatches.forEach(match => {
     if (match.status !== "finished") return;
-    let isHome = !!(match.coachHomeId && String(match.coachHomeId) === String(coach.id));
-    let isAway = !isHome && !!(match.coachAwayId && String(match.coachAwayId) === String(coach.id));
-    if (!isHome && !isAway) {
-      const homeTid = teamIdOf(match.teamHomeId, match.teamHome);
-      const awayTid = teamIdOf(match.teamAwayId, match.teamAway);
-      isHome = !!homeTid && coachOfTeamAt(homeTid, match.date, tenureCoaches, tenureMovements, tenureAppointments) === String(coach.id);
-      isAway = !isHome && !!awayTid && coachOfTeamAt(awayTid, match.date, tenureCoaches, tenureMovements, tenureAppointments) === String(coach.id);
-    }
+    const homeTid = teamIdOf(match.teamHomeId, match.teamHome);
+    const awayTid = teamIdOf(match.teamAwayId, match.teamAway);
+    const isHome = sideCoachIdFor(match.coachHomeId, homeTid, match.date) === String(coach.id);
+    const isAway = !isHome && sideCoachIdFor(match.coachAwayId, awayTid, match.date) === String(coach.id);
     if (!isHome && !isAway) return;
 
     const homeGoals = Number(match.scoreHome) || 0;
