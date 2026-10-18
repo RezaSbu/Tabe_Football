@@ -371,3 +371,65 @@ export function coachOfTeamAt(
   hits.sort((a, b) => (b.since - a.since) || (a.order - b.order));
   return hits[0].id;
 }
+
+/**
+ * Holder that speaks ONLY where dated authority covers the date: movement
+ * ledger intervals (dated) or appointment intervals, never the legacy
+ * infinite claim. Returns null when a team has NO dated coverage at all —
+ * callers then fall back to stamps / legacy, exactly as before.
+ *
+ * Why: coach stamps are written from the CURRENT mapping at save time, so a
+ * fixture created before a transfer carries the old coach even if it is
+ * played after it. Dated ledger rows (entering a transfer records WHO until
+ * WHEN) are the human truth for "who coached on date D" and outrank stamps.
+ * The legacy infinite claim is excluded on purpose — it covers every date,
+ * so it would reassert stale holders whenever the ledger is silent.
+ *
+ * Same per-team source precedence as coachOfTeamAt: appointment rows govern
+ * teams that have them; the ledger governs teams without; sources never mix.
+ */
+export function coachOfTeamAtDated(
+  teamId: string | null | undefined,
+  matchDateStr: string | null | undefined,
+  coaches: TenureCoach[],
+  movements: TenureMovement[],
+  appointments?: TenureAppointment[]
+): string | null {
+  if (teamId == null || teamId === "") return null;
+  const day = comparableDay(matchDateStr);
+  if (day == null) return null;
+  const tid = String(teamId);
+  const list = coaches || [];
+
+  const teamAppointments = (appointments || []).filter(
+    (a) => a && a.teamId != null && String(a.teamId) === tid && a.status !== "ENDED"
+  );
+  const useAppointments = teamAppointments.length > 0;
+  const hits: { id: string; since: number; order: number }[] = [];
+  let datedCount = 0;
+  list.forEach((c, order) => {
+    if (!c || c.id == null) return;
+    let ivs: TenureInterval[];
+    if (useAppointments) {
+      ivs = teamAppointments
+        .filter((a) => a.coachId != null && String(a.coachId) === String(c.id))
+        .map((a) => ({
+          from: a.startDate != null && String(a.startDate).trim() !== "" ? comparableDay(a.startDate) : null,
+          to: a.endDate != null && String(a.endDate).trim() !== "" ? comparableDay(a.endDate) : null,
+        }))
+        .filter((iv) => iv.from != null || iv.to != null);
+    } else {
+      ivs = tenureIntervals(String(c.id), tid, movements, c.teamId != null ? String(c.teamId) : null);
+    }
+    for (const iv of ivs) {
+      if (iv.from == null && iv.to == null) continue; // legacy infinite claim
+      datedCount += 1;
+      if (iv.from != null && day < iv.from) continue;
+      if (iv.to != null && day >= iv.to) continue;
+      hits.push({ id: String(c.id), since: iv.from == null ? Number.NEGATIVE_INFINITY : iv.from, order });
+    }
+  });
+  if (datedCount === 0 || hits.length === 0) return null;
+  hits.sort((a, b) => (b.since - a.since) || (a.order - b.order));
+  return hits[0].id;
+}

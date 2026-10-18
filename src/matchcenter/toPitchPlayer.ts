@@ -5,7 +5,7 @@
  * two can never drift apart.
  */
 import type { PitchCoach, PitchPlayer } from "./MatchPitch";
-import { coachOfTeamAt } from "../shared/coachTenure";
+import { coachOfTeamAt, coachOfTeamAtDated } from "../shared/coachTenure";
 import { resolveTeam } from "../shared/teamMatch";
 import { normalizePersianString } from "../utils";
 
@@ -69,9 +69,11 @@ function toPitchCoach(c: any, side: "home" | "away"): PitchCoach {
 
 /**
  * Coach for one side of a match, best evidence first:
- * 1. stamped coach id on the match,
- * 2. tenure holder on the match date (movements + appointments),
- * 3. current holder of the team (never empty when the team is known).
+ * 1. dated tenure holder on the match date (movements/appointments ledger),
+ * 2. stamped coach id on the match (goes stale when the fixture is created
+ *    before a transfer but played after it),
+ * 3. tenure holder incl. legacy current-holder fallback (never empty when
+ *    the team is known).
  */
 export function resolveSideCoach(
   match: any,
@@ -84,9 +86,6 @@ export function resolveSideCoach(
     id != null && String(id).trim() !== ""
       ? list.find((c: any) => String(c?.id) === String(id))
       : undefined;
-  const stampId = side === "home" ? match?.coachHomeId : match?.coachAwayId;
-  const stamped = findCoach(stampId);
-  if (stamped) return toPitchCoach(stamped, side);
 
   let tid: string | null =
     side === "home" ? match?.teamHomeId ?? null : match?.teamAwayId ?? null;
@@ -96,27 +95,45 @@ export function resolveSideCoach(
     const t: any = resolveTeam(ctx.teams, teamName);
     if (t?.id != null) tid = String(t.id);
   }
+
+  const tenureCoaches = list.map((c: any) => ({
+    id: String(c.id),
+    teamId: c.teamId != null ? String(c.teamId) : null,
+  }));
+  const tenureMovements = (ctx.movements || []).map((m: any) => ({
+    coachId: m.coachId != null ? String(m.coachId) : null,
+    fromTeamId: m.fromTeamId != null ? String(m.fromTeamId) : null,
+    toTeamId: m.toTeamId != null ? String(m.toTeamId) : null,
+    movementDate: m.movementDate || null,
+  }));
+  const tenureAppointments = (ctx.appointments || []).map((a: any) => ({
+    coachId: a.coachId != null ? String(a.coachId) : null,
+    teamId: a.teamId != null ? String(a.teamId) : null,
+    startDate: a.startDate || null,
+    endDate: a.endDate || null,
+    status: a.status || null,
+  }));
+
   if (tid) {
-    const tenureCoaches = list.map((c: any) => ({
-      id: String(c.id),
-      teamId: c.teamId != null ? String(c.teamId) : null,
-    }));
-    const tenureMovements = (ctx.movements || []).map((m: any) => ({
-      coachId: m.coachId != null ? String(m.coachId) : null,
-      fromTeamId: m.fromTeamId != null ? String(m.fromTeamId) : null,
-      toTeamId: m.toTeamId != null ? String(m.toTeamId) : null,
-      movementDate: m.movementDate || null,
-    }));
-    const tenureAppointments = (ctx.appointments || []).map((a: any) => ({
-      coachId: a.coachId != null ? String(a.coachId) : null,
-      teamId: a.teamId != null ? String(a.teamId) : null,
-      startDate: a.startDate || null,
-      endDate: a.endDate || null,
-      status: a.status || null,
-    }));
+    const datedId = coachOfTeamAtDated(tid, match?.date, tenureCoaches, tenureMovements, tenureAppointments);
+    if (datedId != null) {
+      const dated = findCoach(datedId);
+      if (dated) return toPitchCoach(dated, side);
+      return null;
+    }
+
+    const stampId = side === "home" ? match?.coachHomeId : match?.coachAwayId;
+    const stamped = findCoach(stampId);
+    if (stamped) return toPitchCoach(stamped, side);
+
     const holderId = coachOfTeamAt(tid, match?.date, tenureCoaches, tenureMovements, tenureAppointments);
     const holder = holderId && findCoach(holderId);
     if (holder) return toPitchCoach(holder, side);
+  } else {
+    // No team id: the stamp is the only per-side evidence left.
+    const stampId = side === "home" ? match?.coachHomeId : match?.coachAwayId;
+    const stamped = findCoach(stampId);
+    if (stamped) return toPitchCoach(stamped, side);
   }
   // Current holder fallback: a coach whose team matches this side.
   const normName = normalizePersianString(teamName || "");

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { comparableDay, tenureIntervals, coachOfTeamAt } from "../../shared/coachTenure";
+import { comparableDay, tenureIntervals, coachOfTeamAt, coachOfTeamAtDated } from "../../shared/coachTenure";
 
 describe("comparableDay", () => {
   it("maps the live movement date 2026-09-23 to Jalali 1405-07-01", () => {
@@ -116,5 +116,47 @@ describe("coachOfTeamAt (Tartar scenario)", () => {
     expect(coachOfTeamAt("A", "2026-03-01", cs, [])).toBe("n1");
     expect(coachOfTeamAt("B", "2026-03-01", cs, [])).toBe("n2");
     expect(coachOfTeamAt("A", "2026-03-01", [{ id: "n2", teamId: "B" }], [])).toBeNull();
+  });
+});
+
+// Zob Ahan scenario: Vaezi released, Rabei appointed. The post-transfer
+// fixture was CREATED before the swap, so it still carries HIS stamp. The
+// dated ledger is the human truth for the match date and must outrank the
+// stale stamp — the old (stamp-first) attribution credited the fixture to
+// the departed coach and dropped it from the incoming one.
+describe("coachOfTeamAtDated (Vaezi/Rabei stale-stamp scenario)", () => {
+  const coaches = [
+    { id: "vaezi", teamId: null },
+    { id: "rabei", teamId: "t-zob" },
+  ];
+  const movements = [
+    { coachId: "vaezi", fromTeamId: "t-zob", toTeamId: null, movementDate: "2026-10-14" },
+    { coachId: "rabei", fromTeamId: null, toTeamId: "t-zob", movementDate: "2026-10-14" },
+  ];
+  // Fixture created before the swap: stamp survived from the old mapping.
+  const match = { teamHomeId: "t-zob", date: "2026-10-16", coachHomeId: "vaezi" };
+
+  it("a stamp cannot keep a fixture that the dated ledger already owned", () => {
+    expect(coachOfTeamAtDated("t-zob", match.date, coaches, movements)).toBe("rabei");
+    // Legacy-only edge of the same team-date must also not fall back inside
+    // the resolver: coverage is dated, so the answer is final.
+    expect(coachOfTeamAtDated("t-zob", match.date, [coaches[1]], movements)).toBe("rabei");
+  });
+
+  it("pre-transfer fixtures keep their coach under the same rule", () => {
+    expect(coachOfTeamAtDated("t-zob", "2026-10-10", coaches, movements)).toBe("vaezi");
+  });
+
+  it("real vacancy between two dated intervals returns null (no stamp rescue)", () => {
+    const gapMovements = [
+      { coachId: "a1", fromTeamId: "t-g", toTeamId: null, movementDate: "2026-01-01" },
+      { coachId: "b1", fromTeamId: null, toTeamId: "t-g", movementDate: "2026-03-01" },
+    ];
+    expect(coachOfTeamAtDated("t-g", "2026-02-10", [{ id: "a1", teamId: null }, { id: "b1", teamId: "t-g" }], gapMovements)).toBeNull();
+  });
+
+  it("a team without any dated coverage is silent: null, caller falls back to stamps", () => {
+    expect(coachOfTeamAtDated("t-z", "2026-10-16", [{ id: "rabei", teamId: "t-z" }], [])).toBeNull();
+    expect(coachOfTeamAtDated("t-z", "بدون تاریخ", coaches, movements)).toBeNull();
   });
 });

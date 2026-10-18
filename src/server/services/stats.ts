@@ -12,7 +12,7 @@ import type { PlayerIdentityIndex } from "../../shared/playerIdentity";
 import { logMessage } from "../utils/logger";
 import { realMinute } from "../../shared/matchMinute";
 import { resolveTeam, resolveTeamLeague, normalizeLeagueKey, resolveTeamLeagueWithFallback } from "../../shared/teamMatch";
-import { coachOfTeamAt } from "../../shared/coachTenure";
+import { coachOfTeamAt, coachOfTeamAtDated } from "../../shared/coachTenure";
 
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
@@ -453,48 +453,44 @@ export function getCoachCalculatedStatsFromMatches(coach: any, matches: any[], c
     endDate: a.endDate || null,
     status: a.status || null,
   }));
-  const holderOf = (teamId: any, date: any): string | null => {
-    if (teamId == null || teamId === "") return null;
-    // No ledger context (legacy direct callers): keep the old live-mapping
-    // rule so behavior is unchanged outside the recalc.
-    if (tenureCoaches.length === 0) {
-      const coachTeamId = coach.teamId;
-      const normTeamName = normalizePersianString(coach.teamName || "");
-      void date;
-      return null;
-    }
-    return coachOfTeamAt(String(teamId), date, tenureCoaches, tenureMovements, tenureAppointments);
-  };
-
-  const CoachTeamMatchesSide = (teamId: any, teamName: any, date: any): boolean => {
+  // One resolver per side, shared by the summary and career matrix: dated
+  // ledger/appointment evidence first (transfer-proof at the DATE level),
+  // stamp second, legacy tenure last. Keeping both paths on the exact same
+  // chain is what lets them never disagree about a match.
+  const sideCoachIdFor = (stampedId: any, teamId: any, teamName: any, date: any): string | null => {
     let tid = teamId != null && String(teamId).trim() !== "" ? String(teamId) : null;
     if (!tid && teamName && ctx && Array.isArray(ctx.teams)) {
       const resolved = resolveTeam(ctx.teams, teamName);
       if (resolved && resolved.id != null) tid = String(resolved.id);
     }
-    const holder = holderOf(tid, date);
-    if (holder != null) return holder === coachId;
-    return false;
+    if (tid == null) return null;
+    const datedId = coachOfTeamAtDated(String(tid), date, tenureCoaches, tenureMovements, tenureAppointments);
+    if (datedId != null) return String(datedId);
+    if (stampedId != null && String(stampedId).trim() !== "") return String(stampedId);
+    return coachOfTeamAt(String(tid), date, tenureCoaches, tenureMovements, tenureAppointments);
   };
 
   (matches || []).forEach((m: any) => {
     if (!m || m.status !== "finished" || m.isAutoFinished || m.archived_stats) return;
 
-    let isHome = m.coachHomeId && coachId && String(m.coachHomeId) === coachId;
-    let isAway = m.coachAwayId && coachId && String(m.coachAwayId) === coachId;
-
-    if (!isHome && !isAway) {
-      if (tenureCoaches.length > 0) {
-        isHome = CoachTeamMatchesSide(m.teamHomeId, m.teamHome, m.date);
-        isAway = !isHome && CoachTeamMatchesSide(m.teamAwayId, m.teamAway, m.date);
-      } else {
-        const coachTeamId = coach.teamId;
-        const normTeamName = normalizePersianString(coach.teamName || "");
-        isHome = (coachTeamId && m.teamHomeId && String(m.teamHomeId) === String(coachTeamId)) ||
-          (normTeamName && m.teamHome && normalizePersianString(m.teamHome) === normTeamName);
-        isAway = (coachTeamId && m.teamAwayId && String(m.teamAwayId) === String(coachTeamId)) ||
-          (normTeamName && m.teamAway && normalizePersianString(m.teamAway) === normTeamName);
+    let isHome: boolean;
+    let isAway = false;
+    if (tenureCoaches.length > 0) {
+      const homeId = sideCoachIdFor(m.coachHomeId, m.teamHomeId, m.teamHome, m.date);
+      isHome = homeId != null && String(homeId) === String(coachId);
+      if (!isHome) {
+        const awayId = sideCoachIdFor(m.coachAwayId, m.teamAwayId, m.teamAway, m.date);
+        isAway = awayId != null && String(awayId) === String(coachId);
       }
+    } else {
+      // No ledger context (legacy direct callers): keep the old live-mapping
+      // rule so behavior is unchanged outside the recalc.
+      const coachTeamId = coach.teamId;
+      const normTeamName = normalizePersianString(coach.teamName || "");
+      isHome = (coachTeamId && m.teamHomeId && String(m.teamHomeId) === String(coachTeamId)) ||
+        (normTeamName && m.teamHome && normalizePersianString(m.teamHome) === normTeamName);
+      isAway = (coachTeamId && m.teamAwayId && String(m.teamAwayId) === String(coachTeamId)) ||
+        (normTeamName && m.teamAway && normalizePersianString(m.teamAway) === normTeamName);
     }
     if (!isHome && !isAway) return;
 
@@ -996,15 +992,19 @@ export function recalculateAndSyncDatabase(): void {
         if (awayTeam) bumpTeamSeasonBucket(awayTeam, sid, stag, ap, hp);
       }
 
-      // Coach identity: stamped match ids first, then movement-aware tenure
-      // (who held this team on this date). Deliberately NO live-mapping
-      // fallback: resolving via current assignments is what rewrote history
-      // on every post-transfer recalc.
+      // Coach identity: movement-aware tenure FIRST when dated ledger/
+      // appointment rows govern (team, date) — a stamp written from the
+      // CURRENT mapping at fixture save time goes stale whenever the match
+      // is played after a transfer. Stamp second, legacy current-holder last.
       const resolveSideCoach = (stampedId: any, teamObj: any): any | null => {
+        const tid = teamObj && teamObj.id != null ? String(teamObj.id) : null;
+        if (tid) {
+          const datedId = coachOfTeamAtDated(tid, match.date, tenureCoaches, tenureMovements, tenureAppointments);
+          if (datedId != null) return coachById[datedId] || null;
+        }
         if (stampedId != null && String(stampedId).trim() !== "" && coachById[String(stampedId)]) {
           return coachById[String(stampedId)];
         }
-        const tid = teamObj && teamObj.id != null ? String(teamObj.id) : null;
         if (!tid) return null;
         const holderId = coachOfTeamAt(tid, match.date, tenureCoaches, tenureMovements, tenureAppointments);
         return (holderId && coachById[holderId]) || null;
