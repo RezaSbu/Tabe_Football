@@ -375,11 +375,28 @@ describe('formatBillionToman', () => {
     expect(formatBillionToman(105_000_000_000)).toBe('105');
   });
 
-  it('keeps up to 2 decimals, trimmed', () => {
+  it('keeps one decimal at most, always rounding UP (never hundredths)', () => {
     expect(formatBillionToman(1_500_000_000)).toBe('1.5');
     expect(formatBillionToman(5_500_000_000)).toBe('5.5');
-    expect(formatBillionToman(36_873_600_000)).toBe('36.87');
+    expect(formatBillionToman(36_873_600_000)).toBe('36.9');
+    expect(formatBillionToman(50_030_000_000)).toBe('50.1');
+    expect(formatBillionToman(50_080_000_000)).toBe('50.1');
     expect(formatBillionToman(500_000_000)).toBe('0.5');
+  });
+
+  it('rounds up even the smallest excess above a whole billion', () => {
+    expect(formatBillionToman(50_000_000_001)).toBe('50.1');
+  });
+
+  it('never overshoots an exact tenth (float dust)', () => {
+    expect(formatBillionToman(50_100_000_000)).toBe('50.1');
+    expect(formatBillionToman(50_200_000_000)).toBe('50.2');
+    expect(formatBillionToman(50_110_000_000)).toBe('50.2');
+  });
+
+  it('whole billions stay whole after rounding', () => {
+    expect(formatBillionToman(50_000_000_000)).toBe('50');
+    expect(formatBillionToman(0)).toBe('0');
   });
 
   it('accepts numeric strings incl. Persian digits', () => {

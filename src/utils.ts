@@ -170,15 +170,23 @@ export function marketValueRank(players: any[], value: number | string | null | 
 }
 
 // Market value display: raw toman in, plain billions number out ("55",
-// "1.5", "36.87"). Storage stays raw toman everywhere (server recalc,
+// "1.5", "36.9"). Storage stays raw toman everywhere (server recalc,
 // history, market sums); conversion happens ONLY here and in the admin
 // form. The unit ("میلیارد تومان") is Persian prose rendered in JSX, never
-// part of this Latin-digit string. Max 2 decimals, trailing zeros trimmed.
+// part of this Latin-digit string.
+//
+// Rounding policy: at most ONE decimal, always rounded UP (never down), and
+// whole numbers stay whole — 50.03 → 50.1, 50.0 → 50, 36.87 → 36.9.
+// Hundredths are never shown. The 1e-9 nudge absorbs binary-float dust so an
+// exact 50.1 does not overshoot to 50.2; it is still smaller than the
+// smallest real step (1 toman = 1e-8 tenths), so it cannot hide a real value.
 export function formatBillionToman(value: number | string | null | undefined): string {
   if (value === null || value === undefined) return "";
   const n = Number(toEnglishDigits(String(value)));
   if (!Number.isFinite(n)) return "";
-  return formatStatNumber(String(parseFloat((n / 1_000_000_000).toFixed(2))));
+  const tenths = Math.ceil((n / 1_000_000_000) * 10 - 1e-9);
+  if (!Number.isFinite(tenths)) return "";
+  return formatStatNumber(String(tenths / 10));
 }
 
 // Presentation-layer Jalali date: standard Gregorian storage in, "1405/07/01"
