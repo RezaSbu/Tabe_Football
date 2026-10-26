@@ -164,6 +164,40 @@ function seasonMatchesScope(key: string, currentSeasonId: string | null | undefi
 interface Tally { played: number; won: number; drawn: number; lost: number; goalsFor: number; goalsAgainst: number; points: number; }
 const zeroTally = (): Tally => ({ played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0 });
 
+// League-2 matches never carry the group-table keys as their league string,
+// so a straight `m.league !== leagueKey` join always leaves an EMPTY pool and
+// turns every non-zero group row into a phantom NAME_MISMATCH ("در بازی‌ها
+// یافت نشد"). Resolve the group instead: explicit league spellings first
+// (league-2-a / league-2-group-a / ...-b), else the match group tag, and
+// untagged league-2 matches feed BOTH group tables — the same convention as
+// matchGroupTabs (nothing silently disappears). Per-team tallies stay exact
+// because a team only ever plays inside its own group.
+const LEAGUE2_GROUP_BY_LEAGUE: Record<string, "a" | "b"> = {
+  "league-2-a": "a",
+  "league-2-group-a": "a",
+  "league-2-b": "b",
+  "league-2-group-b": "b",
+};
+
+function matchFeedsGroupTable(leagueKey: string, m: any): boolean {
+  const want = leagueKey === "league-2-group-a" ? "a" : "b";
+  const explicit = LEAGUE2_GROUP_BY_LEAGUE[m.league];
+  if (explicit != null) return explicit === want;
+  if (m.league === "league-2") {
+    const g = m.group === "a" ? "a" : m.group === "b" ? "b" : null;
+    return g == null || g === want;
+  }
+  return false;
+}
+
+/** Does this finished match belong to the match pool of `leagueKey` standings? */
+function matchFeedsLeaguePool(leagueKey: string, m: any): boolean {
+  if (leagueKey === "league-2-group-a" || leagueKey === "league-2-group-b") {
+    return matchFeedsGroupTable(leagueKey, m);
+  }
+  return m.league === leagueKey;
+}
+
 function addMatch(t: Tally, sh: number, sa: number): void {
   t.played += 1;
   t.goalsFor += sh;
@@ -189,7 +223,7 @@ export function computeStandingTable(leagueKey: string, matches: any[], scope: S
   for (const m of matches || []) {
     if (m.status !== "finished") continue;
     if (m.isAutoFinished === true) { autoSkipped += 1; continue; }
-    if (m.league !== leagueKey) continue;
+    if (!matchFeedsLeaguePool(leagueKey, m)) continue;
     if (scope.mode === "season" && !seasonMatchesScope(seasonKeyOf(m), scope.currentSeasonId)) continue;
     const hn = normName(m.teamHome);
     const an = normName(m.teamAway);

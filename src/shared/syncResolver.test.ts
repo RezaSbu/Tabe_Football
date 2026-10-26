@@ -156,6 +156,56 @@ describe("name-mismatch guard (archived-spelling rows)", () => {
   });
 });
 
+// League-2 matches record league:"league-2" (sometimes tagged with an explicit
+// group), never "league-2-group-a/b" — the old bare league-join left both
+// group pools EMPTY and flagged every scored row as phantom "در بازی‌ها
+// یافت نشد". Group resolution must feed the tables instead.
+describe("league-2 group pool (Zob Ahan false-alarm regression)", () => {
+  const l2 = (over: any = {}) =>
+    M({ id: "g", league: "league-2", teamHome: "شاهین تهران", teamAway: "نیفت اورمیه", scoreHome: 2, scoreAway: 1, ...over });
+  const standA = [
+    { team: "شاهین تهران", played: 1, won: 1, drawn: 0, lost: 0, goalsFor: 2, goalsAgainst: 1, points: 3, rank: 1 },
+  ];
+  const standB = [
+    { team: "چوکا تالش", played: 0, won: 0, drawn: 0, lost: 0, goalsFor: 0, goalsAgainst: 0, points: 0, rank: 1 },
+  ];
+
+  it("explicit league-2 group spelling feeds the right table", () => {
+    const { findings } = computeResolverFindings({
+      matches: [l2({ league: "league-2-a" })], players: [], standings: { "league-2-group-a": standA, "league-2-group-b": standB },
+    });
+    expect(findings.find((f) => f.name.includes("شاهین تهران"))).toBeUndefined();
+    expect(findings.find((f) => f.name.includes("چوکا تالش"))).toBeUndefined();
+  });
+
+  it("league-2 match with group tag a feeds only table A; table B rows matching stay silent", () => {
+    const { findings } = computeResolverFindings({
+      matches: [l2({ group: "a" })], players: [], standings: { "league-2-group-a": standA, "league-2-group-b": standB },
+    });
+    expect(findings.find((f) => f.name.includes("شاهین تهران"))).toBeUndefined();
+    expect(findings.find((f) => f.name.includes("چوکا تالش"))).toBeUndefined();
+  });
+
+  it("untagged league-2 match feeds BOTH group tables (nothing silently dropped)", () => {
+    const { findings } = computeResolverFindings({
+      matches: [l2()], players: [], standings: { "league-2-group-a": standA, "league-2-group-b": standB },
+    });
+    expect(findings.find((f) => f.name.includes("شاهین تهران"))).toBeUndefined();
+    expect(findings.find((f) => f.name.includes("چوکا تالش"))).toBeUndefined();
+  });
+
+  it("a number-bearing group-A row whose team never played stays NAME_MISMATCH (not silenced)", () => {
+    const { findings } = computeResolverFindings({
+      matches: [l2()], players: [], standings: {
+        "league-2-group-a": [{ team: "تیم غایب ", played: 1, won: 1, drawn: 0, lost: 0, goalsFor: 2, goalsAgainst: 0, points: 3, rank: 2 }],
+      },
+    });
+    const f = findings.find((x) => x.name.includes("تیم غایب"));
+    expect(f).toBeDefined();
+    expect(f!.reason).toBe("NAME_MISMATCH");
+  });
+});
+
 describe("appearances asymmetry (bench is not an error)", () => {
   it("under-claim (stored < team games: bench/transfer) produces NO finding", () => {
     const player = P({ id: "pb", seasonStats: { goals: 0, assists: 0, matches: 1 } });
