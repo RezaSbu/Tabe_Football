@@ -206,13 +206,11 @@ export function formatJalaliDate(value: string | null | undefined): string {
 // Convert Persian and Arabic numbers to normal English numbers
 export function toEnglishDigits(str: string): string {
   if (!str) return "";
-  const persianDigits = [/۰/g, /۱/g, /۲/g, /۳/g, /۴/g, /۵/g, /۶/g, /۷/g, /۸/g, /۹/g];
-  const arabicDigits = [/٠/g, /١/g, /٢/g, /٣/g, /٤/g, /٥/g, /٦/g, /٧/g, /٨/g, /٩/g];
-  let result = String(str);
-  for (let i = 0; i < 10; i++) {
-    result = result.replace(persianDigits[i], String(i)).replace(arabicDigits[i], String(i));
-  }
-  return result;
+  return String(str).replace(/[۰-۹\u0660-\u0669]/g, (d) => {
+    return String("۰۱۲۳۴۵۶۷۸۹".indexOf(d) !== -1 
+      ? "۰۱۲۳۴۵۶۷۸۹".indexOf(d) 
+      : "٠١٢٣٤٥٦٧٨٩".indexOf(d));
+  });
 }
 
 export function normalizePersianString(str: string): string {
