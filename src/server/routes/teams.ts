@@ -5,6 +5,7 @@ import { logMessage } from "../utils/logger";
 import { saveDB, markTablesDirty } from "../services/database";
 import { getPlayerCalculatedStatsFromMatches, getCoachCalculatedStatsFromMatches, calcTeamBaseFor, normalizeTeamBase, hasPriorSeasonInDb } from "../services/stats";
 import { recordLifecycleEvent } from "../services/lifecycle";
+import { propagateTeamRename } from "../services/teamRename";
 import { requirePermission } from "../middleware/auth";
 import { detectConflict } from "../utils/versioning";
 import { auditLog } from "../utils/audit";
@@ -283,36 +284,39 @@ export function registerTeamRoutes(app: Express) {
         founded: updatedTeam.founded
       };
 
-      // Propagate name/logo changes to existing match snapshots and roster refs
-      // so team cards and player profiles stay consistent after an edit.
-      const prevName = existingTeam.name;
-      const prevLogo = existingTeam.logo;
-      if (updatedTeam.name !== prevName || updatedTeam.logo !== prevLogo) {
-        (currentDB.matches || []).forEach((match: any) => {
-          const isHome = match.teamHomeId === updatedTeam.id || (match.teamHome && match.teamHome === prevName);
-          const isAway = match.teamAwayId === updatedTeam.id || (match.teamAway && match.teamAway === prevName);
-          if (isHome) {
-            if (updatedTeam.name !== prevName) match.teamHome = updatedTeam.name;
-            if (updatedTeam.logo !== prevLogo) match.teamHomeLogo = updatedTeam.logo;
-          }
-          if (isAway) {
-            if (updatedTeam.name !== prevName) match.teamAway = updatedTeam.name;
-            if (updatedTeam.logo !== prevLogo) match.teamAwayLogo = updatedTeam.logo;
-          }
-        });
-        if (updatedTeam.name !== prevName) {
-          (currentDB.players || []).forEach((p: any) => {
-            if (p.teamId === updatedTeam.id || (p.teamName && p.teamName === prevName)) p.teamName = updatedTeam.name;
-          });
-          (currentDB.coaches || []).forEach((c: any) => {
-            if (c.teamId === updatedTeam.id || (c.teamName && c.teamName === prevName)) c.teamName = updatedTeam.name;
-          });
-        }
-      }
+      // Propagate name/logo changes to every denormalized copy (match snapshots,
+      // rosters, season archives, standings, TOTW cards, transfer hub rows) so
+      // the club never splits into a ghost entity after a rename.
+      const rename = propagateTeamRename(currentDB, {
+        teamId: String(updatedTeam.id),
+        previousName: existingTeam.name,
+        newName: updatedTeam.name,
+        previousLogo: existingTeam.logo,
+        newLogo: updatedTeam.logo,
+      });
 
       currentDB.teams[index] = updatedTeam;
-      markTablesDirty("teams", "matches", "players", "coaches");
+      markTablesDirty("teams", ...rename.tables);
       await saveDB();
+
+      if (rename.changed) {
+        try {
+          auditLog({
+            username: ((req as any).user || {}).username || "admin",
+            role: ((req as any).user || {}).role,
+            action: existingTeam.name !== updatedTeam.name ? "team.rename" : "team.logo",
+            method: "PUT",
+            path: `/api/teams/${req.params.id}`,
+            details: {
+              teamId: updatedTeam.id,
+              before: { name: existingTeam.name, logo: existingTeam.logo },
+              after: { name: updatedTeam.name, logo: updatedTeam.logo },
+              propagatedTables: rename.tables,
+            },
+          });
+        } catch { /* audit is fire-and-forget */ }
+      }
+
       res.json({ success: true });
     } else {
       res.status(404).json({ success: false, message: "تیم مورد نظر یافت نشد." });
