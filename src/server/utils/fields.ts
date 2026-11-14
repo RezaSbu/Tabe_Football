@@ -30,6 +30,9 @@ const SERVER_MANAGED_KEYS = new Set([
   "baseWins",
   "baseDraws",
   "baseLosses",
+  // Disciplinary ledger is written only by its dedicated audited endpoint.
+  "pointsAdjustment",
+  "adjustmentReason",
 ]);
 
 export function stripServerManaged<T extends Record<string, any>>(body: T | null | undefined, extra: string[] = []): Record<string, any> {

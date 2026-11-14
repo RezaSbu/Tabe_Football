@@ -134,6 +134,10 @@ export async function migrateConstraints(): Promise<void> {
     await pool.query(`ALTER TABLE matches ADD COLUMN IF NOT EXISTS week varchar(50)`);
     await pool.query(`ALTER TABLE legionnaires ADD COLUMN IF NOT EXISTS summary text`);
     await pool.query(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS cover_image text`);
+    // Disciplinary ledger: points-only adjustment that must never touch
+    // played/won/drawn/lost/goals (see Malavan's −2 deduction).
+    await pool.query(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS points_adjustment integer DEFAULT 0`);
+    await pool.query(`ALTER TABLE teams ADD COLUMN IF NOT EXISTS adjustment_reason text`);
     await pool.query(`ALTER TABLE team_transfers_list ADD COLUMN IF NOT EXISTS league text DEFAULT 'pro-league'`);
     await pool.query(`ALTER TABLE bracket_slots DROP CONSTRAINT IF EXISTS fk_bracket_slots_match`);
     constraintsMigrated = true;
@@ -1316,6 +1320,8 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
         basePoints: t.base_points || 0,
         baseGoalsFor: t.base_goals_for || 0,
         baseGoalsAgainst: t.base_goals_against || 0,
+        pointsAdjustment: t.points_adjustment || 0,
+        adjustmentReason: t.adjustment_reason || null,
         recentForm: t.recent_form || [],
         recentMatches: t.recent_matches || [],
         divisionKey: t.division_key || null,
@@ -1831,6 +1837,8 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
           base_points: t.basePoints || 0,
           base_goals_for: t.baseGoalsFor || 0,
           base_goals_against: t.baseGoalsAgainst || 0,
+          points_adjustment: t.pointsAdjustment || 0,
+          adjustment_reason: t.adjustmentReason || null,
           recent_form: t.recentForm || [],
           recent_matches: t.recentMatches || [],
           division_key: t.divisionKey || null,

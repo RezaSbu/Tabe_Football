@@ -145,6 +145,53 @@ export function registerTeamRoutes(app: Express) {
     res.json({ success: true });
   });
 
+  // Disciplinary points ledger. Points-only by design: playing records,
+  // goals and every player/coach stat stay exactly as the matches produced
+  // them (Malavan −2 must never look like an extra defeat).
+  app.put("/api/teams/:id/points-adjustment", requirePermission("teams"), async (req: Request, res: Response) => {
+    const raw = (req.body || {}).pointsAdjustment;
+    const value = parseInt(String(raw), 10);
+    const reason = String(((req.body || {}).reason) || "").trim();
+
+    if (!Number.isFinite(value) || value < -100 || value > 100) {
+      return res.status(400).json({ success: false, message: "مقدار تعدیل امتیاز باید عددی بین ۱۰۰- و ۱۰۰ باشد." });
+    }
+    if (value !== 0 && !reason) {
+      return res.status(400).json({ success: false, message: "برای کسر یا افزایش امتیاز، ثبت دلیل الزامی است." });
+    }
+
+    const currentDB = loadDB();
+    const team = (currentDB.teams || []).find((t: any) => String(t.id) === String(req.params.id));
+    if (!team) {
+      return res.status(404).json({ success: false, message: "تیم یافت نشد." });
+    }
+
+    const previous = {
+      pointsAdjustment: parseInt(String(team.pointsAdjustment)) || 0,
+      adjustmentReason: team.adjustmentReason || null,
+    };
+
+    team.pointsAdjustment = value;
+    team.adjustmentReason = value === 0 ? null : reason;
+    team.updatedAt = new Date().toISOString();
+
+    markTablesDirty("teams");
+    await saveDB();
+
+    try {
+      auditLog({
+        username: ((req as any).user || {}).username || "admin",
+        role: ((req as any).user || {}).role,
+        action: "team.pointsAdjustment",
+        method: "PUT",
+        path: `/api/teams/${req.params.id}/points-adjustment`,
+        details: { teamId: team.id, teamName: team.name, before: previous, after: { pointsAdjustment: value, adjustmentReason: team.adjustmentReason } },
+      });
+    } catch { /* audit is fire-and-forget */ }
+
+    return res.json({ success: true, team: { id: team.id, name: team.name, pointsAdjustment: team.pointsAdjustment, adjustmentReason: team.adjustmentReason } });
+  });
+
   app.put("/api/teams/:id", requirePermission("teams"), async (req: Request, res: Response) => {
     const currentDB = loadDB();
     const index = currentDB.teams.findIndex((t: any) => t.id === req.params.id);
