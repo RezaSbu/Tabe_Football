@@ -3,7 +3,7 @@ import { db as pgDb } from "../db";
 import { loadDB, snapshotDB, restoreDB } from "../state";
 import { logMessage } from "../utils/logger";
 import { saveDB, markTablesDirty } from "../services/database";
-import { getPlayerCalculatedStatsFromMatches, getCoachCalculatedStatsFromMatches, calcTeamBaseFor } from "../services/stats";
+import { getPlayerCalculatedStatsFromMatches, getCoachCalculatedStatsFromMatches, calcTeamBaseFor, normalizeTeamBase, hasPriorSeasonInDb } from "../services/stats";
 import { recordLifecycleEvent } from "../services/lifecycle";
 import { requirePermission } from "../middleware/auth";
 import { detectConflict } from "../utils/versioning";
@@ -114,6 +114,7 @@ export function registerTeamRoutes(app: Express) {
     item.basePoints = Math.max(0, enteredPoints - teamCalc.points);
     item.baseGoalsFor = Math.max(0, enteredGoalsFor - teamCalc.goalsFor);
     item.baseGoalsAgainst = Math.max(0, enteredGoalsAgainst - teamCalc.goalsAgainst);
+    normalizeTeamBase(item, teamCalc, hasPriorSeasonInDb(currentDB));
 
     item.coach = req.body.coach || "";
     item.city = req.body.city || "";
@@ -207,6 +208,10 @@ export function registerTeamRoutes(app: Express) {
       updatedTeam.basePoints = Math.max(0, enteredPoints - matchPoints);
       updatedTeam.baseGoalsFor = Math.max(0, enteredGoalsFor - matchGoalsFor);
       updatedTeam.baseGoalsAgainst = Math.max(0, enteredGoalsAgainst - matchGoalsAgainst);
+      normalizeTeamBase(updatedTeam, {
+        played: matchPlayed, won: matchWon, drawn: matchDrawn, lost: matchLost,
+        points: matchPoints, goalsFor: matchGoalsFor, goalsAgainst: matchGoalsAgainst,
+      }, hasPriorSeasonInDb(currentDB));
 
       updatedTeam.coach = req.body.coach !== undefined ? req.body.coach : updatedTeam.coach || "";
       updatedTeam.city = req.body.city !== undefined ? req.body.city : updatedTeam.city || "";
