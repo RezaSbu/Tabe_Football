@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { SelectedCombination, PlayerItem, TeamItem } from "../types";
 import { formatStatNumber, getSafeImageUrl } from "../utils";
+import { CURRENT_SEASON_KEY, filterBySeason, normalizeSeasonId, seasonKeyOf, seasonLabelOf } from "../shared/totwSeasons";
 import EmptyState from "./ui/EmptyState";
 import { Award, Plus, Trash2, Edit2, Search, Check, X, Shield, Star, Save, LayoutGrid, LayoutList } from "lucide-react";
 
@@ -8,6 +9,7 @@ interface AdminSelectedCombinationsProps {
   combinations: SelectedCombination[];
   players: PlayerItem[];
   teams: TeamItem[];
+  currentSeason?: string;
   onRefreshData: () => void;
   showShortSuccess: (msg: string) => void;
 }
@@ -16,6 +18,7 @@ export default function AdminSelectedCombinations({
   combinations = [],
   players = [],
   teams = [],
+  currentSeason = "",
   onRefreshData,
   showShortSuccess
 }: AdminSelectedCombinationsProps) {
@@ -84,12 +87,16 @@ export default function AdminSelectedCombinations({
   ];
 
   const handleCreateNew = () => {
-    const currentMaxWeek = combinations.length > 0 ? Math.max(...combinations.map(c => c.week)) : 0;
+    // Week numbers restart every season, so the next free week is computed
+    // inside the current season's bucket only (legacy untagged rows included).
+    const currentSeasonCombos = filterBySeason(combinations, CURRENT_SEASON_KEY, currentSeason);
+    const currentMaxWeek = currentSeasonCombos.length > 0 ? Math.max(...currentSeasonCombos.map(c => c.week)) : 0;
     
     setEditingItem({
       id: "",
       leagueKey: "pro-league",
       week: currentMaxWeek + 1,
+      seasonId: normalizeSeasonId(currentSeason),
       group: "",
       players: {
         gk: null, cb1: null, cb2: null, cb3: null,
@@ -143,11 +150,14 @@ export default function AdminSelectedCombinations({
     const url = isNew ? "/api/selected-combinations" : `/api/selected-combinations/${editingItem.id}`;
     const method = isNew ? "POST" : "PUT";
 
+    // Empty season means "current" (legacy rows), everything else is archived.
+    const payload = { ...editingItem, seasonId: normalizeSeasonId(editingItem.seasonId) };
+
     try {
       const res = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editingItem)
+        body: JSON.stringify(payload)
       });
       if (res.ok) {
         showShortSuccess(isNew ? "ترکیب منتخب جدید با موفقیت ایجاد شد." : "تغییرات با موفقیت ذخیره گردید.");
@@ -269,6 +279,10 @@ export default function AdminSelectedCombinations({
                         <span>مشتمل بر 11 بازیکن منتخب هفته</span>
                         <span>•</span>
                         <span className="text-amber-500 font-bold">فرمت 3-5-2 استراتژیک</span>
+                        <span>•</span>
+                        <span className="text-emerald-400 font-bold">
+                          فصل {formatStatNumber(seasonLabelOf(seasonKeyOf(item, currentSeason), currentSeason) || "-")}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -371,6 +385,15 @@ export default function AdminSelectedCombinations({
                 onChange={e => setEditingItem({ ...editingItem, week: parseInt(e.target.value, 10) })}
                 className="w-full bg-slate-950 border border-white/5 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500 font-mono font-bold mt-1"
                 placeholder="1"
+              />
+              <label className="block text-[11px] text-gray-400 font-black pt-2">فصل (برای آرشیو)</label>
+              <input
+                type="text"
+                value={editingItem?.seasonId || ""}
+                onChange={e => setEditingItem({ ...editingItem, seasonId: e.target.value })}
+                className="w-full bg-slate-950 border border-white/5 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500 font-mono font-bold mt-1"
+                placeholder={String(currentSeason || "1405")}
+                title="خالی یعنی فصل جاری؛ برای آرشیو، شماره فصل را وارد کنید."
               />
             </div>
           </div>

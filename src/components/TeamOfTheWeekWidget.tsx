@@ -3,9 +3,11 @@ import { SelectedCombination, SelectedCombinationPlayer } from "../types";
 import { formatStatNumber, getSafeImageUrl } from "../utils";
 import { buildWeekRatings, resolveTotwRating } from "../shared/totwRatings";
 import { Award, Calendar, Layers, Star, Shield, HelpCircle, Trophy } from "lucide-react";
+import { CURRENT_SEASON_KEY, filterBySeason, groupBySeason, seasonLabelOf } from "../shared/totwSeasons";
 
 interface TeamOfTheWeekWidgetProps {
   combinations: SelectedCombination[];
+  currentSeason?: string;
   allPlayers?: any[];
   matches?: any[];
   onSelectPlayer?: (playerId: string) => void;
@@ -28,10 +30,27 @@ function matchesTab(c: SelectedCombination, tabKey: string) {
     && (tab.group === "" || (c.group || "a") === tab.group);
 }
 
-export default function TeamOfTheWeekWidget({ combinations = [], allPlayers = [], matches = [], onSelectPlayer }: TeamOfTheWeekWidgetProps) {
+export default function TeamOfTheWeekWidget({ combinations = [], currentSeason = "", allPlayers = [], matches = [], onSelectPlayer }: TeamOfTheWeekWidgetProps) {
   const [selectedLeague, setSelectedLeague] = useState<string>("pro-league");
+  const [selectedSeason, setSelectedSeason] = useState<string>(CURRENT_SEASON_KEY);
 
-  const combosForTab = (tabKey: string) => combinations.filter(
+  // Season archive: the active season (and legacy untagged rows) stays in the
+  // "current" bucket; any older season is browsable without losing its weeks.
+  const seasonBuckets = React.useMemo(
+    () => groupBySeason(combinations, currentSeason),
+    [combinations, currentSeason]
+  );
+  const hasArchive = seasonBuckets.length > 1;
+  const effectiveSeason = seasonBuckets.some(b => b.key === selectedSeason)
+    ? selectedSeason
+    : CURRENT_SEASON_KEY;
+
+  const seasonCombinations = React.useMemo(
+    () => filterBySeason(combinations, effectiveSeason, currentSeason),
+    [combinations, effectiveSeason, currentSeason]
+  );
+
+  const combosForTab = (tabKey: string) => seasonCombinations.filter(
     c => matchesTab(c, tabKey) && c.players && Object.keys(c.players).length > 0
   );
 
@@ -50,7 +69,7 @@ export default function TeamOfTheWeekWidget({ combinations = [], allPlayers = []
     : (activeWeeks[activeWeeks.length - 1] || 1);
 
   // Get active combination
-  const activeCombination = combinations.find(
+  const activeCombination = seasonCombinations.find(
     c => matchesTab(c, selectedLeague) && c.week === currentWeek
   ) || leagueCombinations[0];
 
@@ -153,6 +172,35 @@ export default function TeamOfTheWeekWidget({ combinations = [], allPlayers = []
           ))}
         </div>
       </div>
+
+      {/* SEASON ARCHIVE TABS (only when an older season exists) */}
+      {hasArchive && (
+        <div className="flex flex-wrap items-center gap-2 pt-4 relative z-10">
+          <span className="text-[10px] font-black text-gray-500 flex items-center gap-1.5 ml-1">
+            <Trophy className="h-3.5 w-3.5 text-amber-500" />
+            <span>آرشیو فصل:</span>
+          </span>
+          {seasonBuckets.map(bucket => {
+            const isSelected = effectiveSeason === bucket.key;
+            const seasonNumber = seasonLabelOf(bucket.key, currentSeason);
+            return (
+              <button
+                key={bucket.key}
+                onClick={() => setSelectedSeason(bucket.key)}
+                className={`px-3.5 py-1.5 rounded-xl text-[11px] font-black border transition cursor-pointer ${
+                  isSelected
+                    ? "bg-amber-500 text-slate-950 border-amber-500 shadow-md shadow-amber-500/15"
+                    : "bg-gray-950/60 text-gray-300 border-white/5 hover:text-white hover:border-amber-500/30"
+                }`}
+              >
+                {bucket.key === CURRENT_SEASON_KEY
+                  ? (seasonNumber ? `فصل ${formatStatNumber(seasonNumber)}` : "فصل جاری")
+                  : `فصل ${formatStatNumber(seasonNumber)}`}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* WIDE HORIZONTAL WEEK SLIDER CONTAINER */}
       <div className="py-5 border-b border-white/5 relative z-10">

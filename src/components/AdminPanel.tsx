@@ -565,6 +565,7 @@ export default function AdminPanel({
             combinations={selectedCombinations}
             players={players}
             teams={teams}
+            currentSeason={currentSeason}
             onRefreshData={onRefreshData}
             showShortSuccess={showShortSuccess}
           />

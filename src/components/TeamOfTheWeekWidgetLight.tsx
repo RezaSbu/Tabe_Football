@@ -3,9 +3,11 @@ import { SelectedCombination, SelectedCombinationPlayer } from "../types";
 import { formatStatNumber, getSafeImageUrl } from "../utils";
 import { buildWeekRatings, resolveTotwRating } from "../shared/totwRatings";
 import { Award, Calendar, Layers, Star, Shield, HelpCircle, Trophy } from "lucide-react";
+import { CURRENT_SEASON_KEY, filterBySeason, groupBySeason, seasonLabelOf } from "../shared/totwSeasons";
 
 interface TeamOfTheWeekWidgetLightProps {
   combinations: SelectedCombination[];
+  currentSeason?: string;
   allPlayers?: any[];
   matches?: any[];
   onSelectPlayer?: (playerId: string) => void;
@@ -28,10 +30,26 @@ function matchesTab(c: SelectedCombination, tabKey: string) {
     && (tab.group === "" || (c.group || "a") === tab.group);
 }
 
-export default function TeamOfTheWeekWidgetLight({ combinations = [], allPlayers = [], matches = [], onSelectPlayer }: TeamOfTheWeekWidgetLightProps) {
+export default function TeamOfTheWeekWidgetLight({ combinations = [], currentSeason = "", allPlayers = [], matches = [], onSelectPlayer }: TeamOfTheWeekWidgetLightProps) {
   const [selectedLeague, setSelectedLeague] = useState<string>("pro-league");
+  const [selectedSeason, setSelectedSeason] = useState<string>(CURRENT_SEASON_KEY);
 
-  const combosForTab = (tabKey: string) => combinations.filter(
+  // Season archive: same bucket rules as the full widget.
+  const seasonBuckets = React.useMemo(
+    () => groupBySeason(combinations, currentSeason),
+    [combinations, currentSeason]
+  );
+  const hasArchive = seasonBuckets.length > 1;
+  const effectiveSeason = seasonBuckets.some(b => b.key === selectedSeason)
+    ? selectedSeason
+    : CURRENT_SEASON_KEY;
+
+  const seasonCombinations = React.useMemo(
+    () => filterBySeason(combinations, effectiveSeason, currentSeason),
+    [combinations, effectiveSeason, currentSeason]
+  );
+
+  const combosForTab = (tabKey: string) => seasonCombinations.filter(
     c => matchesTab(c, tabKey) && c.players && Object.keys(c.players).length > 0
   );
 
@@ -46,7 +64,7 @@ export default function TeamOfTheWeekWidgetLight({ combinations = [], allPlayers
     ? selectedWeek
     : (activeWeeks[activeWeeks.length - 1] || 1);
 
-  const activeCombination = combinations.find(
+  const activeCombination = seasonCombinations.find(
     c => matchesTab(c, selectedLeague) && c.week === currentWeek
   ) || leagueCombinations[0];
 
@@ -167,6 +185,35 @@ export default function TeamOfTheWeekWidgetLight({ combinations = [], allPlayers
           ))}
         </div>
       </div>
+
+      {/* SEASON ARCHIVE TABS (only when an older season exists) */}
+      {hasArchive && (
+        <div className="flex flex-wrap items-center gap-2 pt-4 relative z-10">
+          <span className="text-[10px] font-black text-slate-500 flex items-center gap-1.5 ml-1">
+            <Trophy className="h-3.5 w-3.5 text-amber-500" />
+            <span>آرشیو فصل:</span>
+          </span>
+          {seasonBuckets.map(bucket => {
+            const isSelected = effectiveSeason === bucket.key;
+            const seasonNumber = seasonLabelOf(bucket.key, currentSeason);
+            return (
+              <button
+                key={bucket.key}
+                onClick={() => setSelectedSeason(bucket.key)}
+                className={`px-3.5 py-1.5 rounded-xl text-[11px] font-black border transition cursor-pointer ${
+                  isSelected
+                    ? "bg-emerald-600 text-white border-emerald-700 shadow-md shadow-emerald-600/20"
+                    : "bg-white text-slate-600 border-slate-200 hover:border-emerald-400 hover:text-emerald-700"
+                }`}
+              >
+                {bucket.key === CURRENT_SEASON_KEY
+                  ? (seasonNumber ? `فصل ${formatStatNumber(seasonNumber)}` : "فصل جاری")
+                  : `فصل ${formatStatNumber(seasonNumber)}`}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* WIDE HORIZONTAL WEEK SLIDER CONTAINER */}
       <div className="py-5 border-b border-slate-100 relative z-10">

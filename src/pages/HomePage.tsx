@@ -38,6 +38,7 @@ interface HomePageProps {
   coachMovements?: any[];
   coachAppointments?: any[];
   selectedCombinations: any[];
+  currentSeason?: string;
   setSelectedPlayerId: (id: string | null) => void;
   setSelectedTeamId: (id: string | null) => void;
   onSelectCoach?: (id: string) => void;
@@ -81,6 +82,7 @@ export default function HomePage({
   coachMovements = [],
   coachAppointments = [],
   selectedCombinations,
+  currentSeason = "",
   setSelectedPlayerId,
   setSelectedTeamId,
   onSelectCoach,
@@ -398,6 +400,7 @@ export default function HomePage({
       {isLight ? (
         <TeamOfTheWeekWidgetLight
           combinations={selectedCombinations}
+          currentSeason={currentSeason}
           allPlayers={players}
           matches={matches}
           onSelectPlayer={(id: string) => {
@@ -410,6 +413,7 @@ export default function HomePage({
       ) : (
         <TeamOfTheWeekWidget
           combinations={selectedCombinations}
+          currentSeason={currentSeason}
           allPlayers={players}
           matches={matches}
           onSelectPlayer={(id: string) => {
