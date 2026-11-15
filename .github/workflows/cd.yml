@@ -51,6 +51,11 @@ jobs:
               sleep 30
             done
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+            # nginx.conf is a bind mount: `up -d` does NOT recreate the container,
+            # so config changes would otherwise sit on disk unused. Validate and
+            # reload gracefully (no dropped connections).
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T nginx nginx -t
+            docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T nginx nginx -s reload
             docker image prune -f
             echo "[CD] waiting for app health..."
             for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
