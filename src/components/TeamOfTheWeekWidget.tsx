@@ -40,10 +40,17 @@ export default function TeamOfTheWeekWidget({ combinations = [], currentSeason =
     () => groupBySeason(combinations, currentSeason),
     [combinations, currentSeason]
   );
-  const hasArchive = seasonBuckets.length > 1;
   const effectiveSeason = seasonBuckets.some(b => b.key === selectedSeason)
     ? selectedSeason
     : CURRENT_SEASON_KEY;
+
+  // The selector is always visible: with a single live season it still gives
+  // the reader the scope of the board, and archived seasons become options as
+  // soon as they exist.
+  const seasonOptions = React.useMemo(() => {
+    const keys = seasonBuckets.map(b => b.key);
+    return keys.includes(CURRENT_SEASON_KEY) ? keys : [CURRENT_SEASON_KEY, ...keys];
+  }, [seasonBuckets]);
 
   const seasonCombinations = React.useMemo(
     () => filterBySeason(combinations, effectiveSeason, currentSeason),
@@ -173,34 +180,30 @@ export default function TeamOfTheWeekWidget({ combinations = [], currentSeason =
         </div>
       </div>
 
-      {/* SEASON ARCHIVE TABS (only when an older season exists) */}
-      {hasArchive && (
-        <div className="flex flex-wrap items-center gap-2 pt-4 relative z-10">
-          <span className="text-[10px] font-black text-gray-500 flex items-center gap-1.5 ml-1">
-            <Trophy className="h-3.5 w-3.5 text-amber-500" />
-            <span>آرشیو فصل:</span>
-          </span>
-          {seasonBuckets.map(bucket => {
-            const isSelected = effectiveSeason === bucket.key;
-            const seasonNumber = seasonLabelOf(bucket.key, currentSeason);
-            return (
-              <button
-                key={bucket.key}
-                onClick={() => setSelectedSeason(bucket.key)}
-                className={`px-3.5 py-1.5 rounded-xl text-[11px] font-black border transition cursor-pointer ${
-                  isSelected
-                    ? "bg-amber-500 text-slate-950 border-amber-500 shadow-md shadow-amber-500/15"
-                    : "bg-gray-950/60 text-gray-300 border-white/5 hover:text-white hover:border-amber-500/30"
-                }`}
-              >
-                {bucket.key === CURRENT_SEASON_KEY
-                  ? (seasonNumber ? `فصل ${formatStatNumber(seasonNumber)}` : "فصل جاری")
-                  : `فصل ${formatStatNumber(seasonNumber)}`}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {/* SEASON SELECTOR — always visible, never gated on an archive existing */}
+      <div className="flex flex-wrap items-center gap-2 pt-4 relative z-10">
+        <label className="text-[10px] font-black text-gray-500 flex items-center gap-1.5 ml-1">
+          <Trophy className="h-3.5 w-3.5 text-amber-500" />
+          <span className="shrink-0">فصل:</span>
+          <select
+            value={effectiveSeason}
+            onChange={(e) => setSelectedSeason(e.target.value)}
+            className="bg-gray-950/80 border border-white/10 rounded-xl px-3 py-1.5 text-[11px] font-black text-white focus:outline-none focus:border-amber-500/40 transition cursor-pointer font-mono"
+          >
+            {seasonOptions.map(key => {
+              const seasonNumber = seasonLabelOf(key, currentSeason);
+              const label = key === CURRENT_SEASON_KEY
+                ? (seasonNumber ? `فصل ${formatStatNumber(seasonNumber)} (جاری)` : "فصل جاری")
+                : `فصل ${formatStatNumber(seasonNumber)}`;
+              return (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              );
+            })}
+          </select>
+        </label>
+      </div>
 
       {/* WIDE HORIZONTAL WEEK SLIDER CONTAINER */}
       <div className="py-5 border-b border-white/5 relative z-10">
