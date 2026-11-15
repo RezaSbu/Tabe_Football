@@ -3,9 +3,11 @@ import { SelectedCombination, SelectedCombinationPlayer } from "../types";
 import { formatStatNumber, getSafeImageUrl } from "../utils";
 import { buildWeekRatings, resolveTotwRating } from "../shared/totwRatings";
 import { Award, Calendar, Layers, Star, Shield, HelpCircle, Trophy } from "lucide-react";
+import { CURRENT_SEASON_KEY, filterBySeason, groupBySeason, seasonLabelOf } from "../shared/totwSeasons";
 
 interface TeamOfTheWeekWidgetProps {
   combinations: SelectedCombination[];
+  currentSeason?: string;
   allPlayers?: any[];
   matches?: any[];
   onSelectPlayer?: (playerId: string) => void;
@@ -28,10 +30,34 @@ function matchesTab(c: SelectedCombination, tabKey: string) {
     && (tab.group === "" || (c.group || "a") === tab.group);
 }
 
-export default function TeamOfTheWeekWidget({ combinations = [], allPlayers = [], matches = [], onSelectPlayer }: TeamOfTheWeekWidgetProps) {
+export default function TeamOfTheWeekWidget({ combinations = [], currentSeason = "", allPlayers = [], matches = [], onSelectPlayer }: TeamOfTheWeekWidgetProps) {
   const [selectedLeague, setSelectedLeague] = useState<string>("pro-league");
+  const [selectedSeason, setSelectedSeason] = useState<string>(CURRENT_SEASON_KEY);
 
-  const combosForTab = (tabKey: string) => combinations.filter(
+  // Season archive: the active season (and legacy untagged rows) stays in the
+  // "current" bucket; any older season is browsable without losing its weeks.
+  const seasonBuckets = React.useMemo(
+    () => groupBySeason(combinations, currentSeason),
+    [combinations, currentSeason]
+  );
+  const effectiveSeason = seasonBuckets.some(b => b.key === selectedSeason)
+    ? selectedSeason
+    : CURRENT_SEASON_KEY;
+
+  // The selector is always visible: with a single live season it still gives
+  // the reader the scope of the board, and archived seasons become options as
+  // soon as they exist.
+  const seasonOptions = React.useMemo(() => {
+    const keys = seasonBuckets.map(b => b.key);
+    return keys.includes(CURRENT_SEASON_KEY) ? keys : [CURRENT_SEASON_KEY, ...keys];
+  }, [seasonBuckets]);
+
+  const seasonCombinations = React.useMemo(
+    () => filterBySeason(combinations, effectiveSeason, currentSeason),
+    [combinations, effectiveSeason, currentSeason]
+  );
+
+  const combosForTab = (tabKey: string) => seasonCombinations.filter(
     c => matchesTab(c, tabKey) && c.players && Object.keys(c.players).length > 0
   );
 
@@ -50,7 +76,7 @@ export default function TeamOfTheWeekWidget({ combinations = [], allPlayers = []
     : (activeWeeks[activeWeeks.length - 1] || 1);
 
   // Get active combination
-  const activeCombination = combinations.find(
+  const activeCombination = seasonCombinations.find(
     c => matchesTab(c, selectedLeague) && c.week === currentWeek
   ) || leagueCombinations[0];
 
@@ -152,6 +178,31 @@ export default function TeamOfTheWeekWidget({ combinations = [], allPlayers = []
             </button>
           ))}
         </div>
+      </div>
+
+      {/* SEASON SELECTOR — always visible, never gated on an archive existing */}
+      <div className="flex flex-wrap items-center gap-2 pt-4 relative z-10">
+        <label className="text-[10px] font-black text-gray-500 flex items-center gap-1.5 ml-1">
+          <Trophy className="h-3.5 w-3.5 text-amber-500" />
+          <span className="shrink-0">فصل:</span>
+          <select
+            value={effectiveSeason}
+            onChange={(e) => setSelectedSeason(e.target.value)}
+            className="bg-gray-950/80 border border-white/10 rounded-xl px-3 py-1.5 text-[11px] font-black text-white focus:outline-none focus:border-amber-500/40 transition cursor-pointer font-mono"
+          >
+            {seasonOptions.map(key => {
+              const seasonNumber = seasonLabelOf(key, currentSeason);
+              const label = key === CURRENT_SEASON_KEY
+                ? (seasonNumber ? `فصل ${formatStatNumber(seasonNumber)} (جاری)` : "فصل جاری")
+                : `فصل ${formatStatNumber(seasonNumber)}`;
+              return (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              );
+            })}
+          </select>
+        </label>
       </div>
 
       {/* WIDE HORIZONTAL WEEK SLIDER CONTAINER */}

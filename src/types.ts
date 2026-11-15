@@ -311,6 +311,8 @@ export interface SelectedCombination {
   id: string;
   leagueKey: string; // "pro-league" | "league-1" | "league-2"
   week: number;
+  /** Season this XI belongs to ("season-1405"). Absent on legacy rows. */
+  seasonId?: string | null;
   group?: string; // "a" | "b" — بازه گروه برای لیگ دسته دو (الف/ب)
   players: {
     gk?: SelectedCombinationPlayer | null;

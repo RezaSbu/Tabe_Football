@@ -80,10 +80,12 @@ export function runDatabaseMigrationsAndTransitions(parsed: any): { parsed: any;
         const timeClean = (m.time || "18:00")
           .replace(/[۰-۹]/g, (d: string) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
         const tParts = timeClean.split(":");
-        const hr = parseInt(tParts[0], 10) || 18;
-        const mn = parseInt(tParts[1], 10) || 0;
+        const hr = parseInt(tParts[0], 10);
+        const mn = parseInt(tParts[1], 10);
+        const safeHr = Number.isNaN(hr) ? 18 : hr;
+        const safeMn = Number.isNaN(mn) ? 0 : mn;
 
-        return new Date(yr, mo, dy, hr, mn, 0, 0);
+        return new Date(yr, mo, dy, safeHr, safeMn, 0, 0);
       }
     } catch (err) {
       console.error("Error parsing match date time", m.date, m.time, err);

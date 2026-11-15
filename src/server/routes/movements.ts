@@ -10,6 +10,69 @@ import { pool } from "../db";
 // separate news-only domain and is NEVER touched here: creating a movement
 // does not create news, and creating news never creates a movement.
 export function registerMovementRoutes(app: Express) {
+  // Public club-movement feed (transfers page). This is a SEPARATE domain from
+  // Transfer News (`transfers`): real, audited club changes only — no news
+  // items are ever read or written here.
+  app.get("/api/club-movements", (req: Request, res: Response) => {
+    const currentDB = loadDB();
+    const kind = String((req.query as any).kind || "all");
+    const seasonId = String((req.query as any).seasonId || "").trim();
+    const teamById = (id: any) =>
+      id == null || id === "" ? null : (currentDB.teams || []).find((t: any) => String(t.id) === String(id)) || null;
+    const seasonOf = (id: any) =>
+      (currentDB.seasons || []).find((s: any) => String(s.id) === String(id)) || null;
+
+    const build = (rows: any[], people: any[], idField: string, movementKind: "player" | "coach") =>
+      rows.map((m: any) => {
+        const person = (people || []).find((p: any) => String(p.id) === String(m[idField]));
+        const from = teamById(m.fromTeamId);
+        const to = teamById(m.toTeamId);
+        const season = seasonOf(m.seasonId);
+        return {
+          id: m.id,
+          kind: movementKind,
+          personId: m[idField] != null ? String(m[idField]) : null,
+          personName: person?.name || "",
+          personImage: person?.image || "",
+          position: person?.position || "",
+          fromTeamId: m.fromTeamId || null,
+          fromTeamName: from?.name || null,
+          fromTeamLogo: from?.logo || "",
+          toTeamId: m.toTeamId || null,
+          toTeamName: to?.name || null,
+          toTeamLogo: to?.logo || "",
+          seasonId: m.seasonId || null,
+          seasonName: season?.name || null,
+          movementDate: m.movementDate || null,
+          note: m.note || null,
+        };
+      });
+
+    let movements: any[] = [];
+    if (kind !== "coach") {
+      movements = movements.concat(build(
+        Array.isArray(currentDB.playerMovements) ? currentDB.playerMovements : [],
+        currentDB.players || [], "playerId", "player"
+      ));
+    }
+    if (kind !== "player") {
+      movements = movements.concat(build(
+        Array.isArray(currentDB.coachMovements) ? currentDB.coachMovements : [],
+        currentDB.coaches || [], "coachId", "coach"
+      ));
+    }
+    if (seasonId) movements = movements.filter((m: any) => String(m.seasonId) === seasonId);
+    // Newest first; ties keep ledger order (already newest-first in memory).
+    movements.sort((a: any, b: any) => String(b.movementDate || "").localeCompare(String(a.movementDate || "")));
+    res.json({
+      success: true,
+      movements,
+      seasons: (currentDB.seasons || []).map((s: any) => ({
+        id: s.id, name: s.name, label: s.label || null, isActive: !!s.isActive, status: s.status || null,
+      })),
+    });
+  });
+
   app.get("/api/player-movements", requirePermission("players"), (req: Request, res: Response) => {
     const currentDB = loadDB();
     const { playerId, seasonId } = req.query as any;

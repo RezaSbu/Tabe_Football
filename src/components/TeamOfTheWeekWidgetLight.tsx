@@ -3,9 +3,11 @@ import { SelectedCombination, SelectedCombinationPlayer } from "../types";
 import { formatStatNumber, getSafeImageUrl } from "../utils";
 import { buildWeekRatings, resolveTotwRating } from "../shared/totwRatings";
 import { Award, Calendar, Layers, Star, Shield, HelpCircle, Trophy } from "lucide-react";
+import { CURRENT_SEASON_KEY, filterBySeason, groupBySeason, seasonLabelOf } from "../shared/totwSeasons";
 
 interface TeamOfTheWeekWidgetLightProps {
   combinations: SelectedCombination[];
+  currentSeason?: string;
   allPlayers?: any[];
   matches?: any[];
   onSelectPlayer?: (playerId: string) => void;
@@ -28,10 +30,31 @@ function matchesTab(c: SelectedCombination, tabKey: string) {
     && (tab.group === "" || (c.group || "a") === tab.group);
 }
 
-export default function TeamOfTheWeekWidgetLight({ combinations = [], allPlayers = [], matches = [], onSelectPlayer }: TeamOfTheWeekWidgetLightProps) {
+export default function TeamOfTheWeekWidgetLight({ combinations = [], currentSeason = "", allPlayers = [], matches = [], onSelectPlayer }: TeamOfTheWeekWidgetLightProps) {
   const [selectedLeague, setSelectedLeague] = useState<string>("pro-league");
+  const [selectedSeason, setSelectedSeason] = useState<string>(CURRENT_SEASON_KEY);
 
-  const combosForTab = (tabKey: string) => combinations.filter(
+  // Season archive: same bucket rules as the full widget.
+  const seasonBuckets = React.useMemo(
+    () => groupBySeason(combinations, currentSeason),
+    [combinations, currentSeason]
+  );
+  const effectiveSeason = seasonBuckets.some(b => b.key === selectedSeason)
+    ? selectedSeason
+    : CURRENT_SEASON_KEY;
+
+  // Always-visible selector, same contract as the full widget.
+  const seasonOptions = React.useMemo(() => {
+    const keys = seasonBuckets.map(b => b.key);
+    return keys.includes(CURRENT_SEASON_KEY) ? keys : [CURRENT_SEASON_KEY, ...keys];
+  }, [seasonBuckets]);
+
+  const seasonCombinations = React.useMemo(
+    () => filterBySeason(combinations, effectiveSeason, currentSeason),
+    [combinations, effectiveSeason, currentSeason]
+  );
+
+  const combosForTab = (tabKey: string) => seasonCombinations.filter(
     c => matchesTab(c, tabKey) && c.players && Object.keys(c.players).length > 0
   );
 
@@ -46,7 +69,7 @@ export default function TeamOfTheWeekWidgetLight({ combinations = [], allPlayers
     ? selectedWeek
     : (activeWeeks[activeWeeks.length - 1] || 1);
 
-  const activeCombination = combinations.find(
+  const activeCombination = seasonCombinations.find(
     c => matchesTab(c, selectedLeague) && c.week === currentWeek
   ) || leagueCombinations[0];
 
@@ -166,6 +189,31 @@ export default function TeamOfTheWeekWidgetLight({ combinations = [], allPlayers
             </button>
           ))}
         </div>
+      </div>
+
+      {/* SEASON SELECTOR — always visible, never gated on an archive existing */}
+      <div className="flex flex-wrap items-center gap-2 pt-4 relative z-10">
+        <label className="text-[10px] font-black text-slate-500 flex items-center gap-1.5 ml-1">
+          <Trophy className="h-3.5 w-3.5 text-amber-500" />
+          <span className="shrink-0">فصل:</span>
+          <select
+            value={effectiveSeason}
+            onChange={(e) => setSelectedSeason(e.target.value)}
+            className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-[11px] font-black text-slate-800 focus:outline-none focus:border-emerald-500 transition cursor-pointer font-mono shadow-sm"
+          >
+            {seasonOptions.map(key => {
+              const seasonNumber = seasonLabelOf(key, currentSeason);
+              const label = key === CURRENT_SEASON_KEY
+                ? (seasonNumber ? `فصل ${formatStatNumber(seasonNumber)} (جاری)` : "فصل جاری")
+                : `فصل ${formatStatNumber(seasonNumber)}`;
+              return (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              );
+            })}
+          </select>
+        </label>
       </div>
 
       {/* WIDE HORIZONTAL WEEK SLIDER CONTAINER */}

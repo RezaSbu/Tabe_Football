@@ -4,6 +4,8 @@ import { NewsItem, TeamItem, PlayerItem, CoachItem } from "../types";
 import TeamLogo from "./TeamLogo";
 import ThemeToggle from "./ThemeToggle";
 import { normalizePersianString } from "../utils";
+import RichText from "./ui/RichText";
+import { toPlainText } from "../shared/richText";
 
 interface HeaderProps {
   news: NewsItem[];
@@ -60,7 +62,7 @@ export default function Header({
   }, [coaches, debouncedTerm]);
 
   const filteredNews = React.useMemo(() => {
-    return debouncedTerm ? news.filter((n) => n.title.includes(debouncedTerm) || n.summary.includes(debouncedTerm)) : [];
+    return debouncedTerm ? news.filter((n) => toPlainText(n.title).includes(debouncedTerm) || toPlainText(n.summary).includes(debouncedTerm)) : [];
   }, [news, debouncedTerm]);
 
   const hasResults = filteredTeams.length > 0 || filteredPlayers.length > 0 || filteredCoaches.length > 0 || filteredNews.length > 0;
@@ -91,7 +93,7 @@ export default function Header({
             <img loading="eager" decoding="async" 
               src="/logo.webp" 
               alt="تب فوتبال" 
-              className="h-full w-full object-cover"
+              className="h-full w-full object-contain"
               referrerPolicy="no-referrer"
             />
           </div>
@@ -214,7 +216,7 @@ export default function Header({
                             onClick={() => handleSelectItem("news", art.id, art)}
                             className="p-1.5 rounded-lg hover:bg-white/5 cursor-pointer transition text-xs"
                           >
-                            <span className="font-medium text-slate-200 line-clamp-1 hover:text-emerald-450">{art.title}</span>
+                            <span className="font-medium text-slate-200 line-clamp-1 hover:text-emerald-450"><RichText inline text={art.title} /></span>
                           </div>
                         ))}
                       </div>

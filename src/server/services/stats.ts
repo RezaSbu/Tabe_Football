@@ -542,6 +542,80 @@ export function calcTeamBaseFor(
   return out;
 }
 
+// ---------------------------------------------------------------------------
+// Team base* normalization (root-cause guard for phantom table rows)
+// ---------------------------------------------------------------------------
+// base* is the "not present in db.matches" remainder of a team's stored totals.
+// Two invariants are enforced everywhere a base is seeded or displayed:
+//   1. No phantom base without a prior season — with a single season in the
+//      books nothing can predate match tracking, so a nonzero base on a team
+//      that HAS tracked matches is a frozen data-entry leftover and goes to 0.
+//   2. No drift — base never exceeds the unexplained part of the stored total,
+//      so a newly tracked match shrinks the base instead of inflating the table.
+const TEAM_BASE_FIELDS = [
+  "basePlayed", "baseWon", "baseDrawn", "baseLost",
+  "basePoints", "baseGoalsFor", "baseGoalsAgainst",
+] as const;
+
+export interface TeamExplainedStats {
+  played: number; won: number; drawn: number; lost: number;
+  points: number; goalsFor: number; goalsAgainst: number;
+}
+
+function clampBase(value: any, max: number): number {
+  const v = parseInt(String(value)) || 0;
+  return Math.min(Math.max(0, v), Math.max(0, max));
+}
+
+/** True when db.seasons holds at least one season older than the active one. */
+export function hasPriorSeasonInDb(db: any): boolean {
+  const seasons = Array.isArray(db?.seasons) ? db.seasons.filter((s: any) => s && s.id) : [];
+  if (seasons.length === 0) return false;
+  const active = seasons.find((s: any) => s.isActive || s.status === "current");
+  const currentId = (active && active.id)
+    || (db?.currentSeason ? `season-${String(db.currentSeason).replace(/^season-/, "")}` : null);
+  if (!currentId) return seasons.length > 0;
+  return seasons.some((s: any) => String(s.id) !== String(currentId));
+}
+
+/**
+ * Applies the two invariants to one team in place. Returns true when a value
+ * changed (used for the admin log line).
+ */
+export function normalizeTeamBase(team: any, explained: TeamExplainedStats, hasPriorSeason: boolean): boolean {
+  if (!team) return false;
+  const stored = {
+    played: parseInt(String(team?.stats?.played)) || 0,
+    won: parseInt(String(team?.stats?.won)) || 0,
+    drawn: parseInt(String(team?.stats?.drawn)) || 0,
+    lost: parseInt(String(team?.stats?.lost)) || 0,
+    points: parseInt(String(team?.stats?.points)) || 0,
+    goalsFor: parseInt(String(team?.stats?.goalsFor)) || 0,
+    goalsAgainst: parseInt(String(team?.stats?.goalsAgainst)) || 0,
+  };
+  const before = TEAM_BASE_FIELDS.map((f) => parseInt(String(team[f])) || 0);
+  // A disciplinary adjustment is stored separately from the totals, so the
+  // unexplained remainder must be measured net of it.
+  const pointsAdjustment = parseInt(String(team.pointsAdjustment)) || 0;
+
+  if (!hasPriorSeason && explained.played > 0) {
+    // Invariant 1 — no legacy remainder can exist with a single season.
+    TEAM_BASE_FIELDS.forEach((f) => { team[f] = 0; });
+  } else {
+    // Invariant 2 — clamp to what the stored totals do not explain.
+    team.basePlayed = clampBase(team.basePlayed, stored.played - explained.played);
+    team.baseWon = clampBase(team.baseWon, stored.won - explained.won);
+    team.baseDrawn = clampBase(team.baseDrawn, stored.drawn - explained.drawn);
+    team.baseLost = clampBase(team.baseLost, stored.lost - explained.lost);
+    team.basePoints = clampBase(team.basePoints, stored.points - pointsAdjustment - explained.points);
+    team.baseGoalsFor = clampBase(team.baseGoalsFor, stored.goalsFor - explained.goalsFor);
+    team.baseGoalsAgainst = clampBase(team.baseGoalsAgainst, stored.goalsAgainst - explained.goalsAgainst);
+  }
+
+  const after = TEAM_BASE_FIELDS.map((f) => parseInt(String(team[f])) || 0);
+  return before.some((v, i) => v !== after[i]);
+}
+
 export function recalculateAndSyncDatabase(): void {
   const db = loadDB();
   if (!db) return;
@@ -730,8 +804,20 @@ export function recalculateAndSyncDatabase(): void {
   // in db can never be counted twice. (The old formula seeded base = stored
   // in full, which double-counted for any team whose stored stats already
   // reflected db.matches — see Ario Eslamshahr, the only nonzero-base team.)
+  //
+  // Root-cause fix (phantom base): base* is meant for matches that are NOT in
+  // db.matches (legacy seasons that predate tracking). When the seasons table
+  // holds no season older than the current one, such a legacy remainder cannot
+  // exist: any base on a team that already has tracked matches is a frozen
+  // data-entry leftover — e.g. آکو مد اردبیل showed 5 games / 10 points while
+  // only 4 finished matches existed. That case now resolves to zero instead of
+  // being re-added on every recalc. Base is also clamped to the unexplained
+  // part of the stored totals, so a newly tracked match shrinks the base
+  // instead of inflating the table (the old drift: base + growing matches).
   const calcTeamBase = (teamId: any, teamName: any): { played: number; won: number; drawn: number; lost: number; points: number; goalsFor: number; goalsAgainst: number } =>
     calcTeamBaseFor(nonCupMatchesForBase, teamId, teamName);
+
+  const hasPriorSeason = hasPriorSeasonInDb(db);
 
   db.teams.forEach((t: any) => {
     const needsTeamBaseSeed =
@@ -739,16 +825,23 @@ export function recalculateAndSyncDatabase(): void {
       t.baseDrawn === undefined || t.baseLost === undefined ||
       t.basePoints === undefined || t.baseGoalsFor === undefined ||
       t.baseGoalsAgainst === undefined;
-    const teamCalc = needsTeamBaseSeed
-      ? calcTeamBase(t.id, t.name)
-      : { played: 0, won: 0, drawn: 0, lost: 0, points: 0, goalsFor: 0, goalsAgainst: 0 };
+    // always explained by db.matches — needed for both seeding and clamping
+    const teamCalc = calcTeamBase(t.id, t.name);
+    // Disciplinary adjustment lives outside the stored totals, so the base seed
+    // must subtract it (otherwise the deduction becomes "unexplained" points).
+    const pointsAdjustment = parseInt(String(t.pointsAdjustment)) || 0;
     if (t.basePlayed === undefined) t.basePlayed = Math.max(0, (parseInt(t.stats?.played) || 0) - teamCalc.played);
     if (t.baseWon === undefined) t.baseWon = Math.max(0, (parseInt(t.stats?.won) || 0) - teamCalc.won);
     if (t.baseDrawn === undefined) t.baseDrawn = Math.max(0, (parseInt(t.stats?.drawn) || 0) - teamCalc.drawn);
     if (t.baseLost === undefined) t.baseLost = Math.max(0, (parseInt(t.stats?.lost) || 0) - teamCalc.lost);
-    if (t.basePoints === undefined) t.basePoints = Math.max(0, (parseInt(t.stats?.points) || 0) - teamCalc.points);
+    if (t.basePoints === undefined) t.basePoints = Math.max(0, (parseInt(t.stats?.points) || 0) - pointsAdjustment - teamCalc.points);
     if (t.baseGoalsFor === undefined) t.baseGoalsFor = Math.max(0, (parseInt(t.stats?.goalsFor) || 0) - teamCalc.goalsFor);
     if (t.baseGoalsAgainst === undefined) t.baseGoalsAgainst = Math.max(0, (parseInt(t.stats?.goalsAgainst) || 0) - teamCalc.goalsAgainst);
+
+    const healed = normalizeTeamBase(t, teamCalc, hasPriorSeason);
+    if (healed && !hasPriorSeason) {
+      logMessage("warn", "database", `مبنای آماری نامعتبر تیم «${t.name}» (بدون فصل پیشین) صفر شد؛ آمار از مسابقات ثبت‌شده محاسبه می‌شود.`);
+    }
 
     t.stats = {
       played: t.basePlayed,
@@ -1476,6 +1569,17 @@ export function recalculateAndSyncDatabase(): void {
     t.recentForm = formChronological.slice(-5);
   });
 
+  // Disciplinary points ledger (e.g. Malavan −2 in 1405). Applied ONCE per
+  // recalc, after match accumulation and before standings are built, and only
+  // to points — played/won/drawn/lost/goals and every player/coach figure stay
+  // untouched, so the deduction can never masquerade as an extra loss.
+  db.teams.forEach((t: any) => {
+    const adjustment = parseInt(String(t.pointsAdjustment)) || 0;
+    if (!adjustment) return;
+    t.stats = t.stats || {};
+    t.stats.points = (parseInt(String(t.stats.points)) || 0) + adjustment;
+  });
+
   const standingsLeagues = ["pro-league", "league-1", "league-2-group-a", "league-2-group-b", "futsal"];
   standingsLeagues.forEach((lKey) => {
     const existingList = Array.isArray(db.standings[lKey]) ? db.standings[lKey] : [];
@@ -1719,22 +1823,29 @@ export function recalculateAndSyncDatabase(): void {
     winRate: b.matches > 0 ? parseFloat(((b.wins / b.matches) * 100).toFixed(1)) : 0,
     createdAt: nowIso
   }));
-  db.teamSeasonStats = [...teamSeasonBuckets.values()].map((b) => ({
-    id: `tss-${b.teamId}~${b.seasonId || "noseason"}`,
-    teamId: b.teamId,
-    teamName: b.teamName,
-    season: b.seasonTag,
-    seasonId: b.seasonId,
-    played: b.played,
-    won: b.won,
-    drawn: b.drawn,
-    lost: b.lost,
-    goalsFor: b.goalsFor,
-    goalsAgainst: b.goalsAgainst,
-    points: b.points,
-    rank: null,
-    createdAt: nowIso
-  }));
+  db.teamSeasonStats = [...teamSeasonBuckets.values()].map((b) => {
+    // The current season's archived row must show the same deducted total as
+    // the live table; older seasons keep the points they were played with.
+    const teamRow = (db.teams || []).find((t: any) => String(t.id) === String(b.teamId));
+    const adjustment = (teamRow && parseInt(String(teamRow.pointsAdjustment)) || 0);
+    const isCurrentSeason = !!currentSeasonId && String(b.seasonId) === String(currentSeasonId);
+    return {
+      id: `tss-${b.teamId}~${b.seasonId || "noseason"}`,
+      teamId: b.teamId,
+      teamName: b.teamName,
+      season: b.seasonTag,
+      seasonId: b.seasonId,
+      played: b.played,
+      won: b.won,
+      drawn: b.drawn,
+      lost: b.lost,
+      goalsFor: b.goalsFor,
+      goalsAgainst: b.goalsAgainst,
+      points: b.points + (isCurrentSeason ? adjustment : 0),
+      rank: null,
+      createdAt: nowIso
+    };
+  });
 
   logMessage("info", "database", "هماهنگ‌سازی بازگشتی با موفقیت تمام شد و تمام جداول بروز شدند.");
 }

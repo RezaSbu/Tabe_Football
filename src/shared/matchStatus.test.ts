@@ -49,4 +49,14 @@ describe("getEffectiveStatus", () => {
     expect(getEffectiveStatus(m, Date.UTC(2026, 8, 22, 14, 24, 0, 0))).toBe("not-started");
     expect(getEffectiveStatus(m, Date.UTC(2026, 8, 22, 14, 26, 0, 0))).toBe("live");
   });
+
+  it("treats a 00:xx kick-off as midnight, not the 18 fallback", () => {
+    // Tehran 00:30 == 21:00 UTC on the previous day. The old `|| 18` read it
+    // as 18:30 Tehran, which made a live match look not-started for 18 hours.
+    const midnight = { status: "not-started", date: "2026-09-23", time: "00:30" };
+    const kickoff = Date.UTC(2026, 8, 22, 21, 0, 0, 0);
+    expect(getEffectiveStatus(midnight, kickoff - 60 * 1000)).toBe("not-started");
+    expect(getEffectiveStatus(midnight, kickoff + 5 * 60 * 1000)).toBe("live");
+    expect(getEffectiveStatus(midnight, kickoff + 111 * 60 * 1000)).toBe("finished");
+  });
 });

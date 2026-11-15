@@ -3,7 +3,7 @@ import { loadDB } from "../state";
 import { logMessage } from "../utils/logger";
 import { normalizePersianString } from "../utils/persian";
 import { saveDB, markTablesDirty } from "../services/database";
-import { getPlayerCalculatedStatsFromMatches } from "../services/stats";
+import { getPlayerCalculatedStatsFromMatches, normalizeTeamBase, hasPriorSeasonInDb } from "../services/stats";
 import { requirePermission } from "../middleware/auth";
 import { auditLog } from "../utils/audit";
 import { KNOWN_LEAGUE_KEYS } from "../utils/fields";
@@ -83,6 +83,10 @@ export function registerStandingsRoutes(app: Express) {
           team.basePoints = Math.max(0, enteredPoints - matchPoints);
           team.baseGoalsFor = Math.max(0, enteredGoalsFor - matchGoalsFor);
           team.baseGoalsAgainst = Math.max(0, enteredGoalsAgainst - matchGoalsAgainst);
+          normalizeTeamBase(team, {
+            played: matchPlayed, won: matchWon, drawn: matchDrawn, lost: matchLost,
+            points: matchPoints, goalsFor: matchGoalsFor, goalsAgainst: matchGoalsAgainst,
+          }, hasPriorSeasonInDb(currentDB));
 
           team.stats = {
             played: enteredPlayed,

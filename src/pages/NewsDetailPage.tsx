@@ -5,6 +5,8 @@ import { ArrowRight, Loader2, Tag, Clock } from "lucide-react";
 import { getSafeImageUrl, formatStatNumber } from "../utils";
 import { useSmartNavigate } from "../hooks/useSmartNavigate";
 import ShareButton from "../components/ui/ShareButton";
+import RichText from "../components/ui/RichText";
+import { toPlainText } from "../shared/richText";
 import AdSlot, { isAdActive } from "../components/AdSlot";
 import type { AdItem } from "../types";
 
@@ -120,27 +122,30 @@ export default function NewsDetailPage() {
     );
   }
 
+  const plainTitle = toPlainText(article.title) || "خبر";
+  const plainSummary = toPlainText(article.summary) || plainTitle;
+
   return (
     <>
       <Helmet>
-        <title>{article.title} | تب فوتبال</title>
-        <meta name="description" content={article.summary || article.title} />
+        <title>{plainTitle} | تب فوتبال</title>
+        <meta name="description" content={plainSummary} />
         <link rel="canonical" href={`https://tabefotbal.ir/news/${id}`} />
         <meta property="og:type" content="article" />
-        <meta property="og:title" content={article.title} />
-        <meta property="og:description" content={article.summary || article.title} />
+        <meta property="og:title" content={plainTitle} />
+        <meta property="og:description" content={plainSummary} />
         <meta property="og:image" content={getSafeImageUrl(article.image)} />
         <meta property="og:url" content={`https://tabefotbal.ir/news/${id}`} />
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={article.title} />
-        <meta name="twitter:description" content={article.summary || article.title} />
+        <meta name="twitter:title" content={plainTitle} />
+        <meta name="twitter:description" content={plainSummary} />
         <meta name="twitter:image" content={getSafeImageUrl(article.image)} />
         <script type="application/ld+json">
           {JSON.stringify({
             "@context": "https://schema.org",
             "@type": "NewsArticle",
-            "headline": article.title,
-            "description": article.summary,
+            "headline": plainTitle,
+            "description": plainSummary,
             "image": getSafeImageUrl(article.image),
             "datePublished": article.createdAt,
             "dateModified": article.updatedAt || article.createdAt,
@@ -165,11 +170,11 @@ export default function NewsDetailPage() {
             <span className="rounded bg-red-655 px-2.5 py-1 text-xs font-black text-white shadow shadow-red-950/30">
               {getPersianCategory(article.category)}
             </span>
-            <h1 className="font-black text-xl sm:text-3xl text-white leading-snug">{article.title}</h1>
+            <h1 className="font-black text-xl sm:text-3xl text-white leading-snug"><RichText inline text={article.title} /></h1>
             <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400 border-b border-white/5 pb-3">
               <span>{new Date(article.createdAt).toLocaleDateString("fa-IR-u-nu-latn", { dateStyle: "long" })}</span>
               <span>{formatStatNumber(article.viewCount ?? 0)} بازدید</span>
-              <span className="mr-auto"><ShareButton title={article.title} /></span>
+              <span className="mr-auto"><ShareButton title={plainTitle} /></span>
             </div>
           </header>
 
@@ -177,33 +182,38 @@ export default function NewsDetailPage() {
             {/* Main content column */}
             <div className="order-2 lg:col-span-8 p-4 sm:p-6 space-y-4">
               <blockquote className="border-r-4 border-red-655 bg-gradient-to-l from-red-500/[0.10] to-transparent p-4 rounded-l-xl text-slate-100 text-sm sm:text-base leading-loose text-justify shadow-[0_0_24px_-10px_rgba(239,68,68,0.45)]">
-                {article.summary}
+                <RichText inline text={article.summary} />
               </blockquote>
-              <p className="text-gray-300 text-sm sm:text-base leading-loose whitespace-pre-line text-justify">
-                {article.content}
-              </p>
+              <RichText
+                text={article.content}
+                className="text-gray-300 text-sm sm:text-base leading-loose text-justify"
+              />
 
               {(article.read_more?.content || article.read_more?.content2 || (Array.isArray(article.read_more?.images) && article.read_more.images.length > 0)) && (
                 <div className="border-t border-white/5 pt-5 space-y-5 animate-in fade-in">
                   {article.read_more?.content && (
-                    <p className="text-gray-300 text-sm sm:text-base leading-loose whitespace-pre-line text-justify">
-                      {article.read_more.content}
-                    </p>
+                    <RichText
+                      text={article.read_more.content}
+                      className="text-gray-300 text-sm sm:text-base leading-loose text-justify"
+                    />
                   )}
                   {Array.isArray(article.read_more?.images) && article.read_more.images.length === 1 && (
-                    <img loading="lazy" decoding="async" src={getSafeImageUrl(article.read_more.images[0])} alt={article.title} referrerPolicy="no-referrer" className="mx-auto max-h-[26rem] w-auto max-w-full rounded-xl border border-white/5 shadow-lg" />
+                    // Natural aspect ratio: tall phone photos must not be cropped
+                    // into a fixed-height band.
+                    <img loading="lazy" decoding="async" src={getSafeImageUrl(article.read_more.images[0])} alt={plainTitle} referrerPolicy="no-referrer" className="mx-auto block h-auto w-auto max-w-full rounded-xl border border-white/5 shadow-lg" />
                   )}
                   {Array.isArray(article.read_more?.images) && article.read_more.images.length > 1 && (
-                    <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="grid gap-3 sm:grid-cols-2 items-start">
                       {article.read_more.images.map((g: string, gi: number) => (
-                        <img key={gi} loading="lazy" decoding="async" src={getSafeImageUrl(g)} alt={article.title} referrerPolicy="no-referrer" className="w-full h-56 sm:h-80 rounded-xl object-cover border border-white/5 shadow-lg" />
+                        <img key={gi} loading="lazy" decoding="async" src={getSafeImageUrl(g)} alt={plainTitle} referrerPolicy="no-referrer" className="w-full h-auto rounded-xl border border-white/5 shadow-lg" />
                       ))}
                     </div>
                   )}
                   {article.read_more?.content2 && (
-                    <p className="text-gray-300 text-sm sm:text-base leading-loose whitespace-pre-line text-justify">
-                      {article.read_more.content2}
-                    </p>
+                    <RichText
+                      text={article.read_more.content2}
+                      className="text-gray-300 text-sm sm:text-base leading-loose text-justify"
+                    />
                   )}
                 </div>
               )}
@@ -221,7 +231,7 @@ export default function NewsDetailPage() {
                 the sidebar image and never renders this copy. */}
             <div className="order-1 lg:hidden px-4 sm:px-6 pb-4">
               <div className="overflow-hidden rounded-xl bg-gray-950 border border-white/5 shadow-lg h-48 sm:h-64">
-                <img loading="eager" decoding="async" src={getSafeImageUrl(article.image)} alt={article.title} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                <img loading="eager" decoding="async" src={getSafeImageUrl(article.image)} alt={plainTitle} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
               </div>
             </div>
 
@@ -230,7 +240,7 @@ export default function NewsDetailPage() {
               <div className="lg:sticky lg:top-20 p-4 sm:p-6 space-y-4">
                 {/* Main image (desktop only; mobile uses the copy above the body) */}
                 <div className="hidden lg:block overflow-hidden rounded-xl bg-gray-950 border border-white/5 shadow-lg sm:h-64 h-48">
-                  <img loading="lazy" decoding="async" src={getSafeImageUrl(article.image)} alt={article.title} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                  <img loading="lazy" decoding="async" src={getSafeImageUrl(article.image)} alt={plainTitle} referrerPolicy="no-referrer" className="h-full w-full object-cover" />
                 </div>
 
                 {/* Gallery */}
@@ -238,7 +248,7 @@ export default function NewsDetailPage() {
                   <div className={`grid gap-3 ${article.gallery.length > 1 ? "grid-cols-2" : ""}`}>
                     {article.gallery.map((g: string, gi: number) => (
                       <figure key={gi} className={`overflow-hidden rounded-xl bg-gray-950 border border-white/5 shadow-lg ${article.gallery.length === 1 ? "p-2" : ""}`}>
-                        <img loading="lazy" decoding="async" src={getSafeImageUrl(g)} alt={article.title} referrerPolicy="no-referrer"
+                        <img loading="lazy" decoding="async" src={getSafeImageUrl(g)} alt={plainTitle} referrerPolicy="no-referrer"
                           className={article.gallery.length > 1 ? "h-28 w-full object-cover" : "mx-auto max-h-96 w-auto max-w-full rounded-lg"} />
                       </figure>
                     ))}
@@ -281,7 +291,7 @@ export default function NewsDetailPage() {
                           <Clock className="h-3 w-3 text-slate-500 mt-0.5 shrink-0 group-hover:text-red-400" />
                           <div className="min-w-0">
                             <p className="text-[12px] text-slate-200 group-hover:text-red-300 transition line-clamp-2 leading-relaxed">
-                              {item.title}
+                              <RichText inline text={item.title} />
                             </p>
                             <span className="text-[10px] text-slate-500 mt-0.5 block">
                               {toRelativeDate(item.createdAt)}

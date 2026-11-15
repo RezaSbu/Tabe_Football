@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { HeroSlideItem, NewsItem, TransferItem, LegionnaireItem, ImageItem } from "../types";
 import { getSafeImageUrl } from "../utils";
+import { toPlainText } from "../shared/richText";
 
 interface AdminHeroSlidesProps {
   heroSlides: HeroSlideItem[];
@@ -386,7 +387,7 @@ export default function AdminHeroSlides({
                       <img src={getSafeImageUrl(item.image)} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-white truncate">{item.title}</p>
+                      <p className="text-xs font-bold text-white truncate">{toPlainText(item.title)}</p>
                       <p className="text-[9px] text-slate-500">{item.category}</p>
                     </div>
                     <button
@@ -395,8 +396,8 @@ export default function AdminHeroSlides({
                           "news",
                           item.id,
                           item.image,
-                          item.title,
-                          item.summary.slice(0, 120),
+                          toPlainText(item.title),
+                          toPlainText(item.summary).slice(0, 120),
                           `/news/${item.id}`,
                         )
                       }
