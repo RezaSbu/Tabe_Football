@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { NewsItem, TransferItem, HeroSlideItem, LegionnaireItem } from "../types";
 import { ChevronLeft, ChevronRight, Eye, Calendar, ArrowUpRight } from "lucide-react";
 import { getSafeImageUrl, formatStatNumber } from "../utils";
+import RichText from "./ui/RichText";
+import { toPlainText } from "../shared/richText";
 
 interface NewsSliderProps {
   news: NewsItem[];
@@ -159,7 +161,7 @@ export default function NewsSlider({ news, transfers = [], heroSlides = [], legi
       {/* Slide Image Background with overlay */}
       <div className="relative h-[280px] sm:h-[380px] w-full overflow-hidden">
         <img loading="eager" fetchPriority="high" decoding="async"           src={getSafeImageUrl(currentArticle.image)}
-          alt={currentArticle.title}
+          alt={toPlainText(currentArticle.title)}
           referrerPolicy="no-referrer"
           className="h-full w-full object-cover transition-all duration-700 ease-out transform scale-102 group-hover:scale-105"
         />
@@ -193,12 +195,12 @@ export default function NewsSlider({ news, transfers = [], heroSlides = [], legi
           })()}
           className="cursor-pointer font-black text-white hover:text-emerald-400 text-lg sm:text-2xl leading-snug sm:leading-normal tracking-tight line-clamp-2 md:max-w-4xl transition-colors duration-250 flex items-start gap-1"
         >
-          {currentArticle.title}
+          <RichText inline text={currentArticle.title} />
           <ArrowUpRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 text-emerald-400 mt-1" />
         </Link>
 
         <p className="mt-2 text-xs sm:text-sm text-gray-300 line-clamp-2 leading-relaxed max-w-3xl hidden sm:block">
-          {currentArticle.summary}
+          <RichText inline text={currentArticle.summary} />
         </p>
 
         {/* Carousel Indicators & Controls bar */}

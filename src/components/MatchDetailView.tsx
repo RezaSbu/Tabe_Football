@@ -11,6 +11,8 @@ import MatchPitch from "../matchcenter/MatchPitch";
 import { enrichMatchForPitch } from "../matchcenter/toPitchPlayer";
 import { inferFormation } from "../matchcenter/MatchPitch";
 import { EventIcon } from "../matchcenter/EventIcon";
+import RichText from "./ui/RichText";
+import { toPlainText } from "../shared/richText";
 
 interface MatchDetailViewProps {
   match: any;
@@ -724,7 +726,7 @@ export default function MatchDetailView({
                           {hero.image && (
                             <img
                               src={getSafeImageUrl(hero.image)}
-                              alt={hero.title}
+                              alt={toPlainText(hero.title)}
                               loading="lazy"
                               className="w-full sm:w-56 h-40 sm:h-36 rounded-xl object-cover shrink-0 bg-slate-800"
                               referrerPolicy="no-referrer"
@@ -732,11 +734,11 @@ export default function MatchDetailView({
                           )}
                           <div className="min-w-0 flex-1">
                             <h2 className="text-base sm:text-xl font-black text-white leading-snug mb-2 group-hover:text-emerald-300 transition-colors line-clamp-3">
-                              {hero.title}
+                              <RichText inline text={hero.title} />
                             </h2>
                             {hero.summary && (
                               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed line-clamp-3">
-                                {hero.summary}
+                                <RichText inline text={hero.summary} />
                               </p>
                             )}
                           </div>
@@ -754,7 +756,7 @@ export default function MatchDetailView({
                                 {nw.image && (
                                   <img
                                     src={getSafeImageUrl(nw.image)}
-                                    alt={nw.title}
+                                    alt={toPlainText(nw.title)}
                                     loading="lazy"
                                     className="w-full h-32 rounded-xl object-cover bg-slate-800 mb-3"
                                     referrerPolicy="no-referrer"
@@ -767,11 +769,11 @@ export default function MatchDetailView({
                                   <span className="text-[11px] text-slate-400 font-mono">{relativeFaTime(nw.createdAt)}</span>
                                 </div>
                                 <h3 className="font-bold text-sm text-slate-100 group-hover:text-emerald-300 transition-colors leading-snug mb-2 line-clamp-2">
-                                  {nw.title}
+                                  <RichText inline text={nw.title} />
                                 </h3>
                                 {nw.summary && (
                                   <p className="text-xs text-slate-400 leading-relaxed line-clamp-3">
-                                    {nw.summary}
+                                    <RichText inline text={nw.summary} />
                                   </p>
                                 )}
                               </div>

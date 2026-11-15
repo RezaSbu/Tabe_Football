@@ -8,7 +8,12 @@ import { sortNewsNewestFirst } from "../shared/newsSort";
 import HazfiCupBracket from "./HazfiCupBracket";
 import TeamLogo from "./TeamLogo";
 import SeasonSwitcher, { defaultSeasonValue } from "./SeasonSwitcher";
+import PositionLeaders from "./PositionLeaders";
+import { buildPositionLeaders, PositionCandidate } from "../shared/positionLeaders";
+import { aggregateSeasonRows, AggregatedPlayer, toPositionCandidates } from "../shared/seasonAggregate";
 import { useSeasons, useSeasonData } from "../hooks/useSeasonData";
+import RichText from "./ui/RichText";
+import { toPlainText } from "../shared/richText";
 
 interface LeagueTablesProps {
   leagueKey?: "pro-league" | "league-1" | "league-2" | "hazfi-cup";
@@ -387,80 +392,59 @@ export default function LeagueTables({
   // only the NUMBERS are season-scoped (summed across every club row).
   // (An earlier revision labeled the most-played club and disagreed with
   // the server tables after mid-season transfers.)
-  const buildSeasonLeaders = (): StatsData => {
-    const useCup = leagueKey === "hazfi-cup";
-    const split = useCup ? "cupStats" : "leagueStats";
-    const wantLeague = useCup ? null : normalizeLeagueKey(leagueKey);
-    const pById = new Map<string, any>();
-    for (const p of players || []) {
-      if (p && p.id != null && !pById.has(String(p.id))) pById.set(String(p.id), p);
-    }
-    const currentClubOf = (pid: string): any | null => {
-      const p = pById.get(String(pid));
-      if (!p) return null;
-      if (!p.teamId && !p.teamName) return null;
-      const nm = String(p.teamName || "");
-      if (!nm || nm === "بازیکن آزاد" || nm === "بدون باشگاه") return null;
-      return resolveTeam(teams, p.teamId || p.teamName) || null;
-    };
-    const byId = new Map<string, any>();
-    for (const r of playerRows) {
-      if (!r || r.playerId == null) continue;
-      const s = r[split] || {};
-      const g = Number(s.goals) || 0, a = Number(s.assists) || 0, cs = Number(s.cleanSheets) || 0;
-      const rs = Number(s.ratingSum) || 0, rc = Number(s.ratingCount) || 0;
-      if (!useCup && g === 0 && a === 0 && cs === 0 && rc === 0) continue;
-      if (useCup && g === 0 && a === 0 && cs === 0) continue;
-      let agg = byId.get(String(r.playerId));
-      if (!agg) {
-        agg = { id: String(r.playerId), goals: 0, assists: 0, cleanSheets: 0, ratingSum: 0, ratingCount: 0 };
-        byId.set(String(r.playerId), agg);
-      }
-      agg.goals += g;
-      agg.assists += a;
-      agg.cleanSheets += cs;
-      agg.ratingSum += rs;
-      agg.ratingCount += rc;
-    }
-    const all: any[] = [];
-    for (const agg of byId.values()) {
-      const club = currentClubOf(agg.id);
-      if (useCup) {
-        if (agg.goals === 0 && agg.assists === 0 && agg.cleanSheets === 0) continue;
-      } else {
-        if (!club) continue;
-        if (normalizeLeagueKey(resolveTeamLeagueWithFallback(teams, club.id, club.name)) !== wantLeague) continue;
-        if (agg.goals === 0 && agg.assists === 0 && agg.cleanSheets === 0 && agg.ratingCount === 0) continue;
-      }
-      const p = pById.get(agg.id);
-      all.push({ ...agg, name: p?.name || "", team: club ? club.name : (p?.teamName || "") });
-    }
-    const posById = new Map<string, string>();
-    for (const p of players || []) {
-      if (p && p.id != null && !posById.has(String(p.id))) posById.set(String(p.id), p.position || "");
-    }
-    const withRank = (arr: any[], key: string, extra?: (a: any) => any) =>
-      arr
-        .filter((a: any) => Number(a[key]) > 0)
-        .sort((x: any, y: any) => Number(y[key]) - Number(x[key]))
-        .map((a: any, idx: number) => ({ rank: idx + 1, name: a.name, team: a.team, ...(extra ? extra(a) : {}) }));
-    const scorers = withRank(all, "goals", (a) => ({ goals: a.goals, penalties: 0 }));
-    const assists = withRank(all, "assists", (a) => ({ assists: a.assists }));
+  const useCup = leagueKey === "hazfi-cup";
+  const split = useCup ? "cupStats" : "leagueStats";
+  const wantLeague = useCup ? null : normalizeLeagueKey(leagueKey);
+  const seasonAggregates: AggregatedPlayer[] | null = seasonReady
+    ? aggregateSeasonRows({ rows: playerRows, players, teams, split, wantLeague })
+    : null;
+
+  const buildSeasonLeaders = (aggregates: AggregatedPlayer[]): StatsData => {
+    const withRank = (
+      rows: AggregatedPlayer[],
+      key: "goals" | "assists" | "cleanSheets",
+      extra?: (row: AggregatedPlayer) => any
+    ) =>
+      rows
+        .filter((row) => Number(row[key]) > 0)
+        .sort((a, b) => Number(b[key]) - Number(a[key]))
+        .map((row, index) => ({ rank: index + 1, name: row.name, team: row.team, ...(extra ? extra(row) : {}) }));
+    const scorers = withRank(aggregates, "goals", (row) => ({ goals: row.goals, penalties: 0 }));
+    const assists = withRank(aggregates, "assists", (row) => ({ assists: row.assists }));
     const cleansheets = withRank(
-      all.filter((a: any) => String(posById.get(a.id) || "").includes("دروازه")),
+      aggregates.filter((row) => row.position.includes("دروازه")),
       "cleanSheets",
-      (a) => ({ cleanSheets: a.cleanSheets })
+      (row) => ({ cleanSheets: row.cleanSheets })
     );
-    const ratings = all
-      .filter((a: any) => a.ratingCount > 0)
-      .map((a: any) => ({ ...a, rating: parseFloat((a.ratingSum / a.ratingCount).toFixed(1)) }))
-      .filter((a: any) => a.rating > 0)
-      .sort((a: any, b: any) => b.rating - a.rating)
-      .map((a: any, idx: number) => ({ rank: idx + 1, name: a.name, team: a.team, rating: a.rating }));
+    const ratings = aggregates
+      .filter((row) => row.ratingCount > 0)
+      .map((row) => ({ ...row, rating: parseFloat((row.ratingSum / row.ratingCount).toFixed(1)) }))
+      .filter((row) => row.rating > 0)
+      .sort((a, b) => b.rating - a.rating)
+      .map((row, index) => ({ rank: index + 1, name: row.name, team: row.team, rating: row.rating }));
     return { scorers, assists, cleansheets, ratings } as StatsData;
   };
 
-  const leagueStats = seasonReady ? buildSeasonLeaders() : getActiveStats();
+  const leagueStats = seasonAggregates ? buildSeasonLeaders(seasonAggregates) : getActiveStats();
+
+  // Per-position boards for this league. Season view reuses the aggregates
+  // built above; the fallback reads the server rating leaderboard (its
+  // min-5-rated-games rule already satisfies the gate) and attaches roles.
+  const positionLeaderCandidates: PositionCandidate[] = seasonAggregates
+    ? toPositionCandidates(seasonAggregates)
+    : (leagueStats.ratings || []).map((r: any) => {
+        const id = String(r.id ?? "");
+        const known = players.find((p) => String(p.id) === id);
+        return {
+          id,
+          name: r.name || known?.name || "",
+          team: r.team || known?.teamName || "",
+          position: known?.position || "",
+          rating: Number(r.rating) || 0,
+          matches: Number(r.matches) || 0,
+        };
+      });
+  const positionLeaders = buildPositionLeaders(positionLeaderCandidates);
 
   // Top players by average Sofascore rating - preferentially read from stats database table
   const topSofaPlayers = leagueStats.ratings && leagueStats.ratings.length > 0
@@ -884,56 +868,60 @@ export default function LeagueTables({
 
       {/* 2.3 TAB - INDIVIDUAL STATISTICS */}
       {subTab === "stats" && (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <div className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
 
-          {/* Scorers leadercard */}
-          <StatCard
-            title="گلزنان"
-            icon={<Flame className="h-5 w-5 text-red-500 animate-pulse" />}
-            valueColor="text-red-500"
-            items={leagueStats.scorers || []}
-            emptyText="جدول گلزنان به‌زودی اضافه می‌شود."
-            valueRenderer={(p: any) => `${p.goals} گل`}
-            onSelectPlayer={onSelectPlayer}
-            players={players}
-          />
+            {/* Scorers leadercard */}
+            <StatCard
+              title="گلزنان"
+              icon={<Flame className="h-5 w-5 text-red-500 animate-pulse" />}
+              valueColor="text-red-500"
+              items={leagueStats.scorers || []}
+              emptyText="جدول گلزنان به‌زودی اضافه می‌شود."
+              valueRenderer={(p: any) => `${p.goals} گل`}
+              onSelectPlayer={onSelectPlayer}
+              players={players}
+            />
 
-          {/* Assists leadercard */}
-          <StatCard
-            title="پاس گل"
-            icon={<Zap className="h-5 w-5 text-sky-400" />}
-            valueColor="text-sky-400"
-            items={leagueStats.assists || []}
-            emptyText="جدول پاس‌گلها به‌زودی آماده می‌شود."
-            valueRenderer={(p: any) => `${p.assists} پاس`}
-            onSelectPlayer={onSelectPlayer}
-            players={players}
-          />
+            {/* Assists leadercard */}
+            <StatCard
+              title="پاس گل"
+              icon={<Zap className="h-5 w-5 text-sky-400" />}
+              valueColor="text-sky-400"
+              items={leagueStats.assists || []}
+              emptyText="جدول پاس‌گلها به‌زودی آماده می‌شود."
+              valueRenderer={(p: any) => `${p.assists} پاس`}
+              onSelectPlayer={onSelectPlayer}
+              players={players}
+            />
 
-          {/* Cleansheets leadercard */}
-          <StatCard
-            title="کلین‌شیت"
-            icon={<Award className="h-5 w-5 text-amber-500" />}
-            valueColor="text-amber-550"
-            items={leagueStats.cleansheets || []}
-            emptyText="جدول کلین‌شیت‌ها آماده به رندر نیست."
-            valueRenderer={(p: any) => `${p.cleanSheets} کلین‌شیت`}
-            onSelectPlayer={onSelectPlayer}
-            players={players}
-          />
+            {/* Cleansheets leadercard */}
+            <StatCard
+              title="کلین‌شیت"
+              icon={<Award className="h-5 w-5 text-amber-500" />}
+              valueColor="text-amber-550"
+              items={leagueStats.cleansheets || []}
+              emptyText="جدول کلین‌شیت‌ها آماده به رندر نیست."
+              valueRenderer={(p: any) => `${p.cleanSheets} کلین‌شیت`}
+              onSelectPlayer={onSelectPlayer}
+              players={players}
+            />
 
-          {/* Ratings leadercard */}
-          <StatCard
-            title="میانگین نمره بازیکن"
-            icon={<Star className="h-5 w-5 text-emerald-400" />}
-            valueColor="text-emerald-400"
-            items={(leagueStats.ratings || []).filter((p: any) => p.rating > 0)}
-            emptyText="جدول نمرات به‌زودی اضافه می‌شود."
-            valueRenderer={(p: any) => `${Number(p.rating).toFixed(1)}`}
-            onSelectPlayer={onSelectPlayer}
-            players={players}
-          />
+            {/* Ratings leadercard */}
+            <StatCard
+              title="میانگین نمره بازیکن"
+              icon={<Star className="h-5 w-5 text-emerald-400" />}
+              valueColor="text-emerald-400"
+              items={(leagueStats.ratings || []).filter((p: any) => p.rating > 0)}
+              emptyText="جدول نمرات به‌زودی اضافه می‌شود."
+              valueRenderer={(p: any) => `${Number(p.rating).toFixed(1)}`}
+              onSelectPlayer={onSelectPlayer}
+              players={players}
+            />
 
+          </div>
+
+          <PositionLeaders groups={positionLeaders} onSelectPlayer={onSelectPlayer} />
         </div>
       )}
 
@@ -956,7 +944,7 @@ export default function LeagueTables({
                 >
                   <div className="relative aspect-video w-full bg-slate-950 overflow-hidden">
                     <img loading="lazy" decoding="async"                       src={item.image}
-                      alt={item.title}
+                      alt={toPlainText(item.title)}
                       referrerPolicy="no-referrer"
                       className="w-full h-full object-cover transition duration-500 group-hover:scale-104"
                     />
@@ -967,10 +955,10 @@ export default function LeagueTables({
                         <span># {config.badge.split(" ").slice(-1)[0]} داغ</span>
                       </h4>
                       <h3 className="font-black text-sm text-slate-100 group-hover:text-emerald-450 group-hover:text-emerald-400 transition leading-snug text-justify line-clamp-2">
-                        {item.title}
+                        <RichText inline text={item.title} />
                       </h3>
                       <p className="text-[11px] text-gray-400 leading-relaxed text-indigo-120 text-justify line-clamp-2">
-                        {item.summary}
+                        <RichText inline text={item.summary} />
                       </p>
                     </div>
                     <span className="text-[10px] text-emerald-400 font-extrabold block text-left">← مطالعه خبر و آمار مینیاتوری</span>

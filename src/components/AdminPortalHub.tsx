@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import TeamLogo from "./TeamLogo";
 import AdsManager from "./AdsManager";
+import RichTextEditor from "./ui/RichTextEditor";
+import { toPlainText } from "../shared/richText";
 import { NewsItem, TransferItem, ImageItem, ContactSubmission, LegionnaireItem, AdItem } from "../types";
 import { isWithinSchedule } from "./AdSlot";
 
@@ -412,6 +414,12 @@ export default function AdminPortalHub({
 
   const handleSaveNews = async (e: React.FormEvent) => {
     e.preventDefault();
+    // The title/summary/body are contentEditable surfaces, so the browser's
+    // `required` no longer applies — validate the visible text here.
+    if (!toPlainText(newsTitle).trim() || !toPlainText(newsSummary).trim() || !toPlainText(newsContent).trim()) {
+      alert("عنوان، خلاصه و مشروح خبر الزامی است.");
+      return;
+    }
     const payload = {
       title: newsTitle,
       summary: newsSummary,
@@ -732,11 +740,15 @@ export default function AdminPortalHub({
             <button
               onClick={() => {
                 setEditingId(null);
+                setNewsBaseVersion(undefined);
                 setNewsTitle("");
                 setNewsSummary("");
                 setNewsContent("");
                 setNewsCategory("pro-league");
                 setNewsImage("");
+                setNewsReadMore("");
+                setNewsReadMore2("");
+                setNewsReadMoreImages("");
                 setNewsTags("");
                 setShowForm("news");
               }}
@@ -750,8 +762,15 @@ export default function AdminPortalHub({
             <form onSubmit={handleSaveNews} className="bg-slate-900/40 border border-white/5 p-4 rounded-xl space-y-3">
               <div className="grid gap-3 md:grid-cols-3">
                 <div className="md:col-span-2">
-                  <label className="block text-[10px] text-gray-500 mb-1">تیتر خبر</label>
-                  <input type="text" value={newsTitle} onChange={e => setNewsTitle(e.target.value)} required className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" />
+                  <RichTextEditor
+                    label="تیتر خبر"
+                    value={newsTitle}
+                    onChange={setNewsTitle}
+                    inline
+                    required
+                    placeholder="تیتر خبر..."
+                    hint="می‌توانید بخشی از تیتر را پررنگ، کج، زیرخط یا رنگی کنید."
+                  />
                 </div>
                 <div>
                   <label className="block text-[10px] text-gray-500 mb-1">دسته‌بندی (لیگ مرتبط)</label>
@@ -767,13 +786,26 @@ export default function AdminPortalHub({
               </div>
 
               <div>
-                <label className="block text-[10px] text-gray-500 mb-1">خلاصه کوتاه خبر</label>
-                <input type="text" value={newsSummary} onChange={e => setNewsSummary(e.target.value)} required className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white" />
+                <RichTextEditor
+                  label="خلاصه کوتاه خبر"
+                  value={newsSummary}
+                  onChange={setNewsSummary}
+                  inline
+                  required
+                  placeholder="خلاصه کوتاه خبر..."
+                  hint="قالب‌بندی بخشی از خلاصه هم آزاد است."
+                />
               </div>
 
               <div>
-                <label className="block text-[10px] text-gray-500 mb-1">مشروح خبر (پشتیبانی از فرمت پاراگراف)</label>
-                <textarea rows={5} value={newsContent} onChange={e => setNewsContent(e.target.value)} required className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white resize-none" />
+                <RichTextEditor
+                  label="مشروح خبر"
+                  value={newsContent}
+                  onChange={setNewsContent}
+                  minHeight={150}
+                  required
+                  hint="پررنگ، کج، زیرخط و رنگ متن پشتیبانی می‌شود؛ متن ساده قبلی هم بدون تغییر نمایش داده می‌شود."
+                />
               </div>
 
               <div>
@@ -791,8 +823,13 @@ export default function AdminPortalHub({
                 <p className="text-[10px] text-gray-500 mb-3 leading-relaxed">ترتیب نمایش در صفحه خبر: <span className="text-emerald-400/80">متن بالای ادامه مطلب</span> ← <span className="text-emerald-400/80">تصویر(ها)</span> ← <span className="text-emerald-400/80">متن پایین ادامه مطلب</span></p>
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="md:col-span-2">
-                    <label className="block text-[10px] text-gray-500 mb-1">متن بالای ادامه مطلب (قسمت 1)</label>
-                    <textarea rows={3} value={newsReadMore} onChange={e => setNewsReadMore(e.target.value)} className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white resize-none" placeholder="متن بالای ادامه مطلب که ابتدا نمایش داده می‌شود..." />
+                    <RichTextEditor
+                      label="متن بالای ادامه مطلب (قسمت 1)"
+                      value={newsReadMore}
+                      onChange={setNewsReadMore}
+                      minHeight={90}
+                      placeholder="متن بالای ادامه مطلب که ابتدا نمایش داده می‌شود..."
+                    />
                   </div>
                   <div className="md:col-span-2">
                     <label className="block text-[10px] text-gray-500 mb-1">تصاویر ادامه مطلب (حداکثر 2 - با کاما جدا کنید)</label>
@@ -800,8 +837,13 @@ export default function AdminPortalHub({
                     <p className="text-[10px] text-gray-600 mt-1">1 عکس: بزرگ نمایش داده می‌شود | 2 عکس: کنار هم و منظم نمایش داده می‌شوند</p>
                   </div>
                   <div className="md:col-span-2">
-                    <label className="block text-[10px] text-gray-500 mb-1">متن پایین ادامه مطلب (قسمت 2)</label>
-                    <textarea rows={3} value={newsReadMore2} onChange={e => setNewsReadMore2(e.target.value)} className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white resize-none" placeholder="متن پایین ادامه مطلب که بعد از تصویرها نمایش داده می‌شود..." />
+                    <RichTextEditor
+                      label="متن پایین ادامه مطلب (قسمت 2)"
+                      value={newsReadMore2}
+                      onChange={setNewsReadMore2}
+                      minHeight={90}
+                      placeholder="متن پایین ادامه مطلب که بعد از تصویرها نمایش داده می‌شود..."
+                    />
                   </div>
                 </div>
               </div>
@@ -849,8 +891,8 @@ export default function AdminPortalHub({
                      n.category === "hazfi-cup" ? "جام حذفی" : 
                      n.category === "futsal" ? "فوتسال" : "سایر موضوعات"}
                   </span>
-                  <p className="font-extrabold text-xs text-white line-clamp-1">{n.title}</p>
-                  <p className="text-[10px] text-slate-400 line-clamp-2">{n.summary}</p>
+                  <p className="font-extrabold text-xs text-white line-clamp-1">{toPlainText(n.title)}</p>
+                  <p className="text-[10px] text-slate-400 line-clamp-2">{toPlainText(n.summary)}</p>
                 </div>
                 <div className="flex flex-col justify-between items-end flex-shrink-0">
                   <span className="text-[9px] text-slate-500 font-mono">{n.createdAt ? n.createdAt.split("T")[0] : "2 روز پیش"}</span>

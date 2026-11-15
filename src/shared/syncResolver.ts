@@ -78,8 +78,27 @@ export interface ResolverInput {
   matches: any[];
   players: any[];
   standings: Record<string, any[]>;
+  /** Teams, used only for the disciplinary points ledger (pointsAdjustment). */
+  teams?: any[];
   /** Season id the standings tables reflect (e.g. from data.currentSeason). */
   currentSeasonId?: string | null;
+}
+
+/**
+ * Normalized team name → points ledger (e.g. Malavan −2).
+ *
+ * Standings rows already include the deduction, but a table recomputed from
+ * matches alone does not — comparing the two used to report a phantom "10 vs
+ * 12" mismatch and a global heal would have restored the docked points.
+ */
+export function buildTeamPointsAdjustments(teams: any[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const team of teams || []) {
+    const delta = num(team?.pointsAdjustment);
+    const key = normName(team?.name);
+    if (key && delta) out[key] = delta;
+  }
+  return out;
 }
 
 /**
@@ -215,7 +234,12 @@ export interface StandingComputation {
 }
 
 /** Shared standings recompute — used by BOTH detect and heal. */
-export function computeStandingTable(leagueKey: string, matches: any[], scope: ScopeMode): StandingComputation {
+export function computeStandingTable(
+  leagueKey: string,
+  matches: any[],
+  scope: ScopeMode,
+  pointsAdjustments: Record<string, number> = {}
+): StandingComputation {
   const table: Record<string, Tally> = {};
   const seenNames = new Set<string>();
   let poolSize = 0;
@@ -237,6 +261,11 @@ export function computeStandingTable(leagueKey: string, matches: any[], scope: S
     const sa = num(m.scoreAway);
     addMatch(table[hn], sh, sa);
     addAway(table[an], sh, sa);
+  }
+  // Mirror the server's disciplinary ledger (stats.ts applies it once after
+  // match accumulation), so detect and heal both compare like with like.
+  for (const [name, delta] of Object.entries(pointsAdjustments)) {
+    if (delta && table[name]) table[name].points += delta;
   }
   return { table, seenNames, poolSize, autoSkipped };
 }
@@ -319,6 +348,9 @@ export function computeResolverFindings(input: ResolverInput): { findings: Resol
 
   // Season scope shared with heal paths (single resolution, no divergence).
   const { scope, label: scopeLabel, multiSeason } = resolveScope(matches, input.currentSeasonId);
+  const pointsAdjustments = scope.mode === "season" || !multiSeason
+    ? buildTeamPointsAdjustments(input.teams || [])
+    : {};
   const skippedAutoFinished = matches.filter((m) => m.status === "finished" && m.isAutoFinished === true).length;
   let autoExplained = 0;
 
@@ -326,7 +358,7 @@ export function computeResolverFindings(input: ResolverInput): { findings: Resol
   for (const leagueKey of RESOLVER_LEAGUES) {
     const rows: any[] = standings[leagueKey] || [];
     if (rows.length === 0) continue;
-    const { table } = computeStandingTable(leagueKey, matches, scope);
+    const { table } = computeStandingTable(leagueKey, matches, scope, pointsAdjustments);
     const lName = LEAGUE_FA[leagueKey] || leagueKey;
     for (const row of rows) {
       const n = normName(row.team);
@@ -468,8 +500,14 @@ export function computeResolverFindings(input: ResolverInput): { findings: Resol
 }
 
 /** Full corrected + ranked rows for one league — the ONLY standings repair path. */
-export function buildCorrectedStandingRows(leagueKey: string, rows: any[], matches: any[], scope: ScopeMode): any[] {
-  const { table } = computeStandingTable(leagueKey, matches, scope);
+export function buildCorrectedStandingRows(
+  leagueKey: string,
+  rows: any[],
+  matches: any[],
+  scope: ScopeMode,
+  pointsAdjustments: Record<string, number> = {}
+): any[] {
+  const { table } = computeStandingTable(leagueKey, matches, scope, pointsAdjustments);
   const corrected = (rows || []).map((row: any) => {
     const comp = table[normName(row.team)];
     // NAME_MISMATCH rows are never zeroed: keep them untouched for manual rename.

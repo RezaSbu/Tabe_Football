@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { TransferItem, NewsItem } from "../types";
 import { Shuffle, ArrowLeft, Calendar, Search, ArrowDownLeft, ArrowUpRight, Shield, Eye, Tag } from "lucide-react";
 import TeamLogo from "./TeamLogo";
+import ClubMovementsList from "./ClubMovementsList";
 import EmptyState from "./ui/EmptyState";
 import { formatStatNumber } from "../utils";
 
@@ -17,7 +18,7 @@ interface TransfersListProps {
 
 export default function TransfersList({ transfers, teamTransfersList = [], teams = [], onSelectNews, onSelectTransfer, initialSearchQuery = "", initialTransferTag = "" }: TransfersListProps) {
   const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
-  const [viewMode, setViewMode] = useState<"player" | "team">("team");
+  const [viewMode, setViewMode] = useState<"team" | "movements">("team");
   const [leagueFilter, setLeagueFilter] = useState<"all" | "pro-league" | "league-1" | "league-2">("all");
 
   React.useEffect(() => {
@@ -135,20 +136,10 @@ export default function TransfersList({ transfers, teamTransfersList = [], teams
           {/* ======================================================================
               [غیرفعال‌سازی موقت «نقل و انتقالات بازیکن‌محور» از سایت]
               طبق درخواست، نمایش بازیکن‌محور فعلاً حذف شده؛ دیتابیس و بک‌اند دست‌نخورده.
-              برای بازگردانی: مقدار پیش‌فرض viewMode را به "player" برگردانید و
-              بلوک «بازیکن‌محور» (دکمه زیر و بخش viewMode === "player") را از کامنت خارج کنید.
+              «جابه‌جایی‌های ثبت‌شده» از دفتر رسمی انتقال باشگاه‌ها می‌خواند و
+              هیچ ارتباطی با اخبار نقل و انتقالات (transfers) ندارد.
               ====================================================================== */}
           <div className="flex bg-[#0a0a0c] p-1 rounded-xl border border-white/5 select-none self-start">
-            {/* <button
-              onClick={() => setViewMode("player")}
-              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all duration-150 cursor-pointer ${
-                viewMode === "player"
-                  ? "bg-emerald-500 text-black shadow font-black"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              بازیکن‌محور
-            </button> */}
             <button
               onClick={() => setViewMode("team")}
               className={`px-3 py-1 rounded-lg text-xs font-bold transition-all duration-150 cursor-pointer ${
@@ -157,7 +148,17 @@ export default function TransfersList({ transfers, teamTransfersList = [], teams
                   : "text-slate-400 hover:text-white"
               }`}
             >
-              تیم‌محور
+              پیشخوان تیمی
+            </button>
+            <button
+              onClick={() => setViewMode("movements")}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all duration-150 cursor-pointer ${
+                viewMode === "movements"
+                  ? "bg-emerald-500 text-black shadow font-black"
+                  : "text-slate-400 hover:text-white"
+              }`}
+            >
+              جابه‌جایی‌های ثبت‌شده
             </button>
           </div>
         </div>
@@ -165,7 +166,7 @@ export default function TransfersList({ transfers, teamTransfersList = [], teams
         <div className="relative w-full sm:w-64">
           <input
             type="text"
-            placeholder={viewMode === "player" ? "جستجوی بازیکن یا تیم..." : "جستجوی تیم یا بازیکن..."}
+            placeholder={viewMode === "movements" ? "جستجوی بازیکن، مربی یا تیم..." : "جستجوی تیم یا بازیکن..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full rounded-xl bg-[#0a0a0c] px-3 py-1.5 pr-8 text-xs text-white placeholder-slate-500 border border-white/5 focus:outline-none focus:border-emerald-500"
@@ -420,6 +421,9 @@ export default function TransfersList({ transfers, teamTransfersList = [], teams
           )}
         </div>
       )}
+
+      {/* REAL, AUDITED CLUB MOVEMENTS — never mixed with Transfer News */}
+      {viewMode === "movements" && <ClubMovementsList searchQuery={searchQuery} />}
     </div>
   );
 }

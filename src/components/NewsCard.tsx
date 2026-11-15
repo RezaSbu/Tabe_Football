@@ -2,6 +2,8 @@ import React from "react";
 import { NewsItem } from "../types";
 import { Calendar, Eye, ArrowLeft, Tag } from "lucide-react";
 import { getSafeImageUrl, formatStatNumber } from "../utils";
+import RichText from "./ui/RichText";
+import { toPlainText } from "../shared/richText";
 
 interface NewsCardProps {
   newsItem: NewsItem;
@@ -45,7 +47,7 @@ export default function NewsCard({ newsItem, onClick, onTagClick }: NewsCardProp
             {getPersianCategory(newsItem.category)}
           </span>
           <img loading="lazy" decoding="async" src={getSafeImageUrl(newsItem.image)}
-            alt={newsItem.title}
+            alt={toPlainText(newsItem.title)}
             className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
             referrerPolicy="no-referrer"
           />
@@ -53,10 +55,10 @@ export default function NewsCard({ newsItem, onClick, onTagClick }: NewsCardProp
 
         <div className="p-4 space-y-2">
           <h3 className="font-extrabold text-white line-clamp-2 leading-snug group-hover:text-emerald-400 transition text-sm">
-            {newsItem.title}
+            <RichText inline text={newsItem.title} />
           </h3>
           <p className="text-slate-400 leading-relaxed line-clamp-2 text-justify text-[11px]">
-            {newsItem.summary}
+            <RichText inline text={newsItem.summary} />
           </p>
         </div>
       </div>

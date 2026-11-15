@@ -19,7 +19,7 @@ export default function Footer({ setActiveTab }: FooterProps) {
                 <img loading="eager" decoding="async" 
                   src="/logo.webp" 
                   alt="تب فوتبال" 
-                  className="h-full w-full object-cover"
+                  className="h-full w-full object-contain"
                   referrerPolicy="no-referrer"
                 />
               </div>

@@ -7,6 +7,8 @@ import { getSafeImageUrl, formatStatNumber, convertGregorianToShamsi } from "../
 import { EventIcon } from "../../matchcenter/EventIcon";
 import ShareButton from "../ui/ShareButton";
 import { ratingColor } from "./PlayerCharts";
+import RichText from "../ui/RichText";
+import { toPlainText } from "../../shared/richText";
 
 /* ---------- shared light card ---------- */
 export function SectionCard({ title, action, children, className = "" }: { title: string; action?: React.ReactNode; children: React.ReactNode; className?: string }) {
@@ -280,12 +282,12 @@ export function NewsList({ items, playerName, onSelectNews, onViewAll }: { items
           <li key={nw.id}>
             <button type="button" onClick={() => onSelectNews && onSelectNews(nw.id)} className="group flex w-full items-start gap-2.5 rounded-xl border border-white/5 bg-white/[0.03] p-2 text-right transition hover:border-emerald-500/40">
               {nw.image ? (
-                <img src={getSafeImageUrl(nw.image)} alt={nw.title} loading="lazy" className="h-14 w-14 shrink-0 rounded-lg bg-white/10 object-cover" referrerPolicy="no-referrer" />
+                <img src={getSafeImageUrl(nw.image)} alt={toPlainText(nw.title)} loading="lazy" className="h-14 w-14 shrink-0 rounded-lg bg-white/10 object-cover" referrerPolicy="no-referrer" />
               ) : (
                 <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-lg bg-white/10"><Newspaper className="h-5 w-5 text-slate-400" /></span>
               )}
               <span className="min-w-0 flex-1">
-                <span className="line-clamp-2 block text-xs font-bold leading-snug text-white group-hover:text-emerald-300">{nw.title}</span>
+                <span className="line-clamp-2 block text-xs font-bold leading-snug text-white group-hover:text-emerald-300"><RichText inline text={nw.title} /></span>
                 {nw.createdAt && <span className="mt-1 block font-mono text-[10px] text-slate-400">{formatStatNumber(convertGregorianToShamsi(String(nw.createdAt).slice(0, 10)))}</span>}
               </span>
             </button>

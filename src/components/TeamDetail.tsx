@@ -9,6 +9,8 @@ import TeamLogo from "./TeamLogo";
 import ShareButton from "./ui/ShareButton";
 import { getLeagueLabel } from "../shared/leagueLabel";
 import SeasonSwitcher, { defaultSeasonValue } from "./SeasonSwitcher";
+import RichText from "./ui/RichText";
+import { toPlainText } from "../shared/richText";
 
 interface TeamDetailProps {
   team: any;
@@ -413,7 +415,7 @@ export default function TeamDetail({
                               {nw.image ? (
                                 <img
                                   src={getSafeImageUrl(nw.image)}
-                                  alt={nw.title}
+                                  alt={toPlainText(nw.title)}
                                   loading="lazy"
                                   className="w-16 h-16 rounded-lg object-cover shrink-0 bg-slate-800"
                                   referrerPolicy="no-referrer"
@@ -423,11 +425,11 @@ export default function TeamDetail({
                               )}
                               <div className="min-w-0 flex-1">
                                 <h4 className="text-xs font-bold text-white leading-snug line-clamp-2 group-hover:text-emerald-400 transition">
-                                  {nw.title}
+                                  <RichText inline text={nw.title} />
                                 </h4>
                                 {nw.summary && (
                                   <p className="text-[10px] text-slate-500 line-clamp-2 mt-1 leading-relaxed">
-                                    {nw.summary}
+                                    <RichText inline text={nw.summary} />
                                   </p>
                                 )}
                               </div>

@@ -11,6 +11,8 @@ import CareerSection from "./CareerSection";
 import TeamLogo from "./TeamLogo";
 import { FormRing, PresenceStrip, SeasonResultsBars } from "./player/PlayerCharts";
 import { MiniStat } from "./player/PlayerWidgets";
+import RichText from "./ui/RichText";
+import { toPlainText } from "../shared/richText";
 
 interface CoachDetailProps {
   coach: any;
@@ -531,7 +533,7 @@ export default function CoachDetail({
                   {nw.image ? (
                     <img
                       src={getSafeImageUrl(nw.image)}
-                      alt={nw.title}
+                      alt={toPlainText(nw.title)}
                       loading="lazy"
                       className="w-14 h-14 rounded-lg object-cover shrink-0 bg-slate-800"
                       referrerPolicy="no-referrer"
@@ -541,13 +543,13 @@ export default function CoachDetail({
                   )}
                   <div className="min-w-0 flex-1">
                     <h4 className="text-xs font-bold text-white leading-snug line-clamp-2 group-hover:text-emerald-400 transition">
-                      {nw.title}
+                      <RichText inline text={nw.title} />
                     </h4>
                     {nw.createdAt && (
                       <span className="mt-1 block font-mono text-[10px] text-slate-500">{formatStatNumber(convertGregorianToShamsi(String(nw.createdAt).slice(0, 10)))}</span>
                     )}
                     {nw.summary && (
-                      <p className="text-[10px] text-slate-500 line-clamp-2 mt-1 leading-relaxed">{nw.summary}</p>
+                      <p className="text-[10px] text-slate-500 line-clamp-2 mt-1 leading-relaxed"><RichText inline text={nw.summary} /></p>
                     )}
                   </div>
                 </button>
