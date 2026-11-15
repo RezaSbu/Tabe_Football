@@ -1,9 +1,12 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Flame, Zap, Award, X, List, Star } from "lucide-react";
 import { StatsData } from "../types";
-import { resolveTeam, resolveTeamLeagueWithFallback, normalizeLeagueKey } from "../shared/teamMatch";
+import { normalizeLeagueKey } from "../shared/teamMatch";
 import SeasonSwitcher, { defaultSeasonValue } from "../components/SeasonSwitcher";
-import { useSeasons, useSeasonData } from "../hooks/useSeasonData";
+import PositionLeaders from "../components/PositionLeaders";
+import { buildPositionLeaders, PositionCandidate } from "../shared/positionLeaders";
+import { aggregateSeasonRows, AggregatedPlayer, toPositionCandidates } from "../shared/seasonAggregate";
+import { useSeasons, useSeasonData, useCareerPlayerRows } from "../hooks/useSeasonData";
 import { useSmartNavigate } from "../hooks/useSmartNavigate";
 
 interface StatsPageProps {
@@ -160,83 +163,71 @@ export default function StatsPage({
   const isCareerView = seasonId === "career" || !seasonId;
   const { playerRows, loading: seasonLoading } = useSeasonData(isCareerView ? null : seasonId);
 
-  const buildSeasonLeaders = (): StatsData | null => {
-    if (isCareerView || seasonLoading) return null;
-    const useCup = selectedLeagueFilterOnStats === "hazfi-cup";
-    const split = useCup ? "cupStats" : "leagueStats";
-    const wantLeague = useCup ? null : normalizeLeagueKey(selectedLeagueFilterOnStats);
-    // Single source of truth for the ratings rank: the server leaderboard
-    // (min-5-rated-games rule applied there). The homepage widget renders the
-    // very same array, so the two surfaces can never disagree. Local
-    // aggregation below covers scorers/assists/cleansheets only.
-    const serverRatings = ((stats || {})[useCup ? "hazfi-cup" : selectedLeagueFilterOnStats]?.ratings || []) as any[];
-    // Same convention as the server leaderboards: eligibility AND display
-    // club are the player's CURRENT club; only numbers are season-scoped.
-    const pById = new Map<string, any>();
-    for (const p of players || []) {
-      if (p && p.id != null && !pById.has(String(p.id))) pById.set(String(p.id), p);
-    }
-    const currentClubOf = (pid: string): any | null => {
-      const p = pById.get(String(pid));
-      if (!p) return null;
-      if (!p.teamId && !p.teamName) return null;
-      const nm = String(p.teamName || "");
-      if (!nm || nm === "بازیکن آزاد" || nm === "بدون باشگاه") return null;
-      return resolveTeam(teams, p.teamId || p.teamName) || null;
-    };
-    const byId = new Map<string, any>();
-    for (const r of playerRows) {
-      if (!r || r.playerId == null) continue;
-      const s = r[split] || {};
-      const g = Number(s.goals) || 0, a = Number(s.assists) || 0, cs = Number(s.cleanSheets) || 0;
-      const rs = Number(s.ratingSum) || 0, rc = Number(s.ratingCount) || 0;
-      if (g === 0 && a === 0 && cs === 0 && rc === 0) continue;
-      let agg = byId.get(String(r.playerId));
-      if (!agg) {
-        agg = { id: String(r.playerId), goals: 0, assists: 0, cleanSheets: 0, ratingSum: 0, ratingCount: 0 };
-        byId.set(String(r.playerId), agg);
-      }
-      agg.goals += g;
-      agg.assists += a;
-      agg.cleanSheets += cs;
-      agg.ratingSum += rs;
-      agg.ratingCount += rc;
-    }
-    const all: any[] = [];
-    for (const agg of byId.values()) {
-      const club = currentClubOf(agg.id);
-      if (useCup) {
-        if (agg.goals === 0 && agg.assists === 0 && agg.cleanSheets === 0) continue;
-      } else {
-        if (!club) continue;
-        if (normalizeLeagueKey(resolveTeamLeagueWithFallback(teams, club.id, club.name)) !== wantLeague) continue;
-        if (agg.goals === 0 && agg.assists === 0 && agg.cleanSheets === 0 && agg.ratingCount === 0) continue;
-      }
-      const p = pById.get(agg.id);
-      all.push({ ...agg, name: p?.name || "", team: club ? club.name : (p?.teamName || "") });
-    }
+  // Season view walks the picked season's rows; the career view lazily loads
+  // every season's rows so its per-position boards are true all-time numbers.
+  const { rows: careerRows, loading: careerLoading } = useCareerPlayerRows(isCareerView);
+
+  const useCup = selectedLeagueFilterOnStats === "hazfi-cup";
+  const split = useCup ? "cupStats" : "leagueStats";
+  const wantLeague = useCup ? null : normalizeLeagueKey(selectedLeagueFilterOnStats);
+
+  const seasonAggregates: AggregatedPlayer[] | null =
+    !isCareerView && !seasonLoading
+      ? aggregateSeasonRows({ rows: playerRows, players, teams, split, wantLeague })
+      : null;
+  const careerAggregates: AggregatedPlayer[] | null =
+    isCareerView && !careerLoading && careerRows.length > 0
+      ? aggregateSeasonRows({ rows: careerRows, players, teams, split, wantLeague })
+      : null;
+
+  // Scores/assists/clean sheets are aggregated locally from the same rows;
+  // ratings stay server-side (min-5-rated-games rule) so every surface agrees.
+  const buildSeasonLeaders = (aggregates: AggregatedPlayer[]): StatsData => {
+    const withRank = (
+      rows: AggregatedPlayer[],
+      key: "goals" | "assists" | "cleanSheets",
+      extra: (row: AggregatedPlayer) => any
+    ) =>
+      rows
+        .filter((row) => Number(row[key]) > 0)
+        .sort((a, b) => Number(b[key]) - Number(a[key]))
+        .map((row, index) => ({ rank: index + 1, id: row.id, name: row.name, team: row.team, ...extra(row) }));
+    return {
+      scorers: withRank(aggregates, "goals", (row) => ({ goals: row.goals, penalties: 0 })),
+      assists: withRank(aggregates, "assists", (row) => ({ assists: row.assists })),
+      cleansheets: withRank(
+        aggregates.filter((row) => row.position.includes("دروازه")),
+        "cleanSheets",
+        (row) => ({ cleanSheets: row.cleanSheets })
+      ),
+      ratings: ((stats || {})[useCup ? "hazfi-cup" : selectedLeagueFilterOnStats]?.ratings || []) as any[],
+    } as StatsData;
+  };
+
+  const seasonLeaders = seasonAggregates ? buildSeasonLeaders(seasonAggregates) : null;
+
+  // Per-position boards. Season rows first, then the all-season rows; the
+  // server leaderboard is only a defensive fallback (e.g. while career data is
+  // still loading) because its min-5-rated-games gate is stricter than ours.
+  const positionLeaderCandidates: PositionCandidate[] = (() => {
+    if (seasonAggregates) return toPositionCandidates(seasonAggregates);
+    if (careerAggregates) return toPositionCandidates(careerAggregates);
     const posById = new Map<string, string>();
     for (const p of players || []) {
       if (p && p.id != null && !posById.has(String(p.id))) posById.set(String(p.id), p.position || "");
     }
-    const withRank = (arr: any[], key: string, extra: (a: any) => any) =>
-      arr
-        .filter((a: any) => Number(a[key]) > 0)
-        .sort((x: any, y: any) => Number(y[key]) - Number(x[key]))
-        .map((a: any, idx: number) => ({ rank: idx + 1, id: a.id, name: a.name, team: a.team, ...extra(a) }));
-    return {
-      scorers: withRank(all, "goals", (a) => ({ goals: a.goals, penalties: 0 })),
-      assists: withRank(all, "assists", (a) => ({ assists: a.assists })),
-      cleansheets: withRank(
-        all.filter((a: any) => String(posById.get(a.id) || "").includes("دروازه")),
-        "cleanSheets",
-        (a) => ({ cleanSheets: a.cleanSheets })
-      ),
-      ratings: serverRatings,
-    } as StatsData;
-  };
+    const rows = ((stats || {})[selectedLeagueFilterOnStats]?.ratings || []) as any[];
+    return rows.map((r: any) => ({
+      id: String(r.id ?? ""),
+      name: r.name || "",
+      team: r.team || "",
+      position: posById.get(String(r.id ?? "")) || "",
+      rating: Number(r.rating) || 0,
+      matches: Number(r.matches) || 0,
+    }));
+  })();
+  const positionLeaders = buildPositionLeaders(positionLeaderCandidates);
 
-  const seasonLeaders = buildSeasonLeaders();
   // Current-season only: no archived seasons anymore.
   const activeStatsData = seasonLeaders || stats[selectedLeagueFilterOnStats] || null;
 
@@ -295,42 +286,51 @@ export default function StatsPage({
           آماری برای این فصل یا لیگ ثبت نگردیده است.
         </p>
       ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 items-start">
-          <StatColumn
-            title="گلزنان"
-            icon={<Flame className="h-5 w-5 text-red-500 animate-pulse" />}
-            valueColor="text-red-500"
-            items={activeStatsData.scorers || []}
-            valueRenderer={(p: any) =>
-              `${p.goals} گل${p.penalties > 0 ? ` (${p.penalties} پنالتی)` : ""}`
-            }
-            onSelectPlayer={(id) => navigate(`/player/${id}`)}
-          />
+        <div className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4 items-start">
+            <StatColumn
+              title="گلزنان"
+              icon={<Flame className="h-5 w-5 text-red-500 animate-pulse" />}
+              valueColor="text-red-500"
+              items={activeStatsData.scorers || []}
+              valueRenderer={(p: any) =>
+                `${p.goals} گل${p.penalties > 0 ? ` (${p.penalties} پنالتی)` : ""}`
+              }
+              onSelectPlayer={(id) => navigate(`/player/${id}`)}
+            />
 
-          <StatColumn
-            title="پاس گل"
-            icon={<Zap className="h-5 w-5 text-sky-400" />}
-            valueColor="text-sky-400"
-            items={activeStatsData.assists || []}
-            valueRenderer={(p: any) => `${p.assists} پاس`}
-            onSelectPlayer={(id) => navigate(`/player/${id}`)}
-          />
+            <StatColumn
+              title="پاس گل"
+              icon={<Zap className="h-5 w-5 text-sky-400" />}
+              valueColor="text-sky-400"
+              items={activeStatsData.assists || []}
+              valueRenderer={(p: any) => `${p.assists} پاس`}
+              onSelectPlayer={(id) => navigate(`/player/${id}`)}
+            />
 
-          <StatColumn
-            title="کلین‌شیت"
-            icon={<Award className="h-5 w-5 text-amber-500" />}
-            valueColor="text-amber-550"
-            items={activeStatsData.cleansheets || []}
-            valueRenderer={(p: any) => `${p.cleanSheets} کلین‌شیت`}
-            onSelectPlayer={(id) => navigate(`/player/${id}`)}
-          />
+            <StatColumn
+              title="کلین‌شیت"
+              icon={<Award className="h-5 w-5 text-amber-500" />}
+              valueColor="text-amber-550"
+              items={activeStatsData.cleansheets || []}
+              valueRenderer={(p: any) => `${p.cleanSheets} کلین‌شیت`}
+              onSelectPlayer={(id) => navigate(`/player/${id}`)}
+            />
 
-          <StatColumn
-            title="میانگین نمره بازیکن"
-            icon={<Star className="h-5 w-5 text-emerald-400" />}
-            valueColor="text-emerald-400"
-            items={(activeStatsData.ratings || []).filter((p: any) => p.rating > 0)}
-            valueRenderer={(p: any) => `${formatStatNumber(Number(p.rating).toFixed(1))}`}
+            <StatColumn
+              title="میانگین نمره بازیکن"
+              icon={<Star className="h-5 w-5 text-emerald-400" />}
+              valueColor="text-emerald-400"
+              items={(activeStatsData.ratings || []).filter((p: any) => p.rating > 0)}
+              valueRenderer={(p: any) => `${formatStatNumber(Number(p.rating).toFixed(1))}`}
+              onSelectPlayer={(id) => navigate(`/player/${id}`)}
+            />
+          </div>
+
+          {/* Per-position boards live here (and in each league's stats tab),
+              never in the compact home stats widget. */}
+          <PositionLeaders
+            groups={positionLeaders}
             onSelectPlayer={(id) => navigate(`/player/${id}`)}
           />
         </div>
