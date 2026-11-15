@@ -18,6 +18,7 @@ import { buildPlayerIdentityIndex } from "../shared/playerIdentity";
 import {
   computeResolverFindings,
   buildCorrectedStandingRows,
+  buildTeamPointsAdjustments,
   computePlayerTallies,
   isHealEligible,
   reasonFa,
@@ -78,7 +79,7 @@ export default function AdminDashboard({
     setIsScanning(true);
     try {
       const { findings, summary } = computeResolverFindings({
-        matches, players, standings, currentSeasonId: currentSeason,
+        matches, players, standings, teams, currentSeasonId: currentSeason,
       });
       setDiscrepancies(findings);
       setResolverSummary(summary);
@@ -94,8 +95,14 @@ export default function AdminDashboard({
   });
 
   const healLeague = async (leagueKey: string, eligibleOnly: boolean) => {
-    const { scope } = resolveScope(matches, currentSeason);
-    const rows = buildCorrectedStandingRows(leagueKey, standings[leagueKey] || [], matches, scope);
+    const { scope, multiSeason } = resolveScope(matches, currentSeason);
+    const rows = buildCorrectedStandingRows(
+      leagueKey,
+      standings[leagueKey] || [],
+      matches,
+      scope,
+      scope.mode === "season" || !multiSeason ? buildTeamPointsAdjustments(teams) : {}
+    );
     const ctxItems = discrepancies.filter(
       (d) => d.type === "standing" && d.id === leagueKey && (!eligibleOnly || isHealEligible(d))
     );

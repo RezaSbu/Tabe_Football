@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   computeResolverFindings,
   buildCorrectedStandingRows,
+  buildTeamPointsAdjustments,
   isHealEligible,
   normName,
   num,
@@ -137,6 +138,37 @@ describe("baseline-aware comparison (imported history is not an error)", () => {
     expect(g!.reason).toBe("REAL_MISMATCH");
     expect(g!.severity).toBe("medium");
     expect(isHealEligible(g!)).toBe(true);
+  });
+});
+
+describe("disciplinary points ledge (Malavan false-alarm regression)", () => {
+  const matches = [
+    M({ id: "mv1", league: "pro-league", teamHome: "ملوان", teamAway: "حریف", scoreHome: 2, scoreAway: 0 }),
+  ];
+  const standings = {
+    "pro-league": [{ team: "ملوان", played: 1, won: 1, drawn: 0, lost: 0, goalsFor: 2, goalsAgainst: 0, points: 1, rank: 1 }],
+  };
+  const teams = [{ name: "ملوان", pointsAdjustment: -2 }];
+
+  it("does not flag a row whose points already include the deduction", () => {
+    const { findings } = computeResolverFindings({ matches, players: [], standings, teams });
+    expect(findings.find((f) => f.field === "امتیاز")).toBeUndefined();
+  });
+
+  it("still flags the same row when the ledger is not supplied", () => {
+    const { findings } = computeResolverFindings({ matches, players: [], standings });
+    const points = findings.find((f) => f.field === "امتیاز");
+    expect(points).toBeDefined();
+    expect(points!.currentValue).toBe(1);
+    expect(points!.computedValue).toBe(3);
+  });
+
+  it("heal writes the deducted total, not the raw match total", () => {
+    const rows = buildCorrectedStandingRows(
+      "pro-league", standings["pro-league"], matches, { mode: "all" },
+      buildTeamPointsAdjustments(teams)
+    );
+    expect(rows[0].points).toBe(1);
   });
 });
 
