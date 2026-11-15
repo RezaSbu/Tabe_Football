@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   toEnglishDigits,
   formatStatNumber,
@@ -154,6 +154,20 @@ describe('getTodayShamsi', () => {
 });
 
 describe('computeDynamicAppletStats — live minute persistence', () => {
+  // Freeze the clock so the derived date/time never depends on when the suite
+  // runs. Without this, a run between 00:10 and 00:59 built a "10 minutes ago"
+  // kick-off at 00:xx and the old `|| 18` hour fallback read it as 18:xx.
+  const FROZEN_NOW = new Date(2026, 10, 15, 12, 0, 0);
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(FROZEN_NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   // Build a match whose start time is `pastMinutes` minutes ago (so elapsed
   // would normally drive the minute) and today's date/time.
   function liveMatch(pastMinutes: number, storedMinute?: string | null) {
@@ -184,6 +198,16 @@ describe('computeDynamicAppletStats — live minute persistence', () => {
   it('derives the minute from elapsed only when no stored minute exists', () => {
     const { processedMatches } = computeDynamicAppletStats([liveMatch(10, null)], [], [], {}, {});
     expect(parseInt(processedMatches[0].minutes, 10)).toBeGreaterThanOrEqual(1);
+  });
+
+  it('reads a midnight kick-off literally instead of defaulting it to 18:00', () => {
+    // Regression: `parseInt("00") || 18` treated 00:30 as 18:30, so the match
+    // looked like it had not started and kept the stored (empty) minute.
+    vi.setSystemTime(new Date(2026, 10, 15, 0, 45, 0));
+    const midnightMatch = { ...liveMatch(15, null), date: '2026-11-15', time: '00:30:00' };
+    const { processedMatches } = computeDynamicAppletStats([midnightMatch], [], [], {}, {});
+    expect(processedMatches[0].status).toBe('live');
+    expect(parseInt(processedMatches[0].minutes, 10)).toBe(15);
   });
 
   it('marks a live match with a stored minute as live', () => {

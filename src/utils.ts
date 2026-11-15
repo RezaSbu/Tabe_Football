@@ -306,10 +306,14 @@ export function computeDynamicAppletStats(
 
           const timeClean = toEnglishDigits(match.time || "18:00");
           const tParts = timeClean.split(":");
-          const hr = parseInt(tParts[0], 10) || 18;
-          const mn = parseInt(tParts[1], 10) || 0;
+          // A 00:xx kick-off is midnight, not a missing hour: only an
+          // unparsable hour should fall back to 18.
+          const hr = parseInt(tParts[0], 10);
+          const mn = parseInt(tParts[1], 10);
+          const safeHr = Number.isNaN(hr) ? 18 : hr;
+          const safeMn = Number.isNaN(mn) ? 0 : mn;
 
-          const matchDateObj = new Date(yr, mo, dy, hr, mn, 0, 0);
+          const matchDateObj = new Date(yr, mo, dy, safeHr, safeMn, 0, 0);
           const elapsedMs = now.getTime() - matchDateObj.getTime();
 
           if (elapsedMs < 0) {

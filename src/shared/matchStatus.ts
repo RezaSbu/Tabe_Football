@@ -42,9 +42,12 @@ function parseKickoffMs(date: unknown, time: unknown): number | null {
 
     const timeClean = toLatinDigits(String(time));
     const tParts = timeClean.split(":");
-    // Same quirk as the client: unparsable hour falls back to 18.
-    const hr = parseInt(tParts[0], 10) || 18;
-    const mn = parseInt(tParts[1], 10) || 0;
+    // Only an unparsable hour falls back to 18; 00:xx is midnight, not
+    // "missing" (the old `|| 18` shifted every midnight kick-off to 18:xx).
+    const hr = parseInt(tParts[0], 10);
+    const mn = parseInt(tParts[1], 10);
+    const safeHr = Number.isNaN(hr) ? 18 : hr;
+    const safeMn = Number.isNaN(mn) ? 0 : mn;
 
     // Interpret as Tehran wall time -> absolute instant. Date.UTC
     // normalizes any overflow from the offset subtraction.
