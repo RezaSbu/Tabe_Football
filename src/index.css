@@ -876,3 +876,48 @@ html.light .coach-hero .border-white\/20 { border-color: color-mix(in srgb, #fff
 html.light .coach-hero .bg-white\/5 { background-color: color-mix(in srgb, #ffffff 5%, transparent); }
 html.light .coach-hero .bg-white\/10 { background-color: color-mix(in srgb, #ffffff 10%, transparent); }
 html.light .coach-hero .bg-black\/20 { background-color: color-mix(in srgb, #000 20%, transparent); }
+
+/* ==========================================================================
+   [متن غنی اخبار] فاصله پاراگراف‌ها و placeholder ویرایشگر
+   بدنه خبر می‌تواند متن ساده (قدیمی) یا زیرمجموعه HTML قالب‌بندی‌شده باشد؛
+   این قوانین فقط برای همان زیرمجموعه است و روی بقیه صفحه اثری ندارد.
+   ========================================================================== */
+.rich-text p,
+.rich-text div {
+  margin: 0 0 0.65em;
+}
+.rich-text p:last-child,
+.rich-text div:last-child {
+  margin-bottom: 0;
+}
+.rich-text blockquote {
+  margin: 0.65em 0;
+  padding-inline-start: 0.9rem;
+  border-inline-start: 3px solid rgba(239, 68, 68, 0.55);
+}
+.rich-text ul,
+.rich-text ol {
+  margin: 0.65em 0;
+  padding-inline-start: 1.4rem;
+}
+.rich-text ul { list-style: disc; }
+.rich-text ol { list-style: decimal; }
+.rich-text mark {
+  background: rgba(245, 158, 11, 0.25);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+.rich-text-editor:empty::before {
+  content: attr(data-placeholder);
+  color: #64748b;
+  pointer-events: none;
+}
+.rich-text-editor p,
+.rich-text-editor div {
+  margin: 0 0 0.5em;
+}
+.rich-text-editor p:last-child,
+.rich-text-editor div:last-child {
+  margin-bottom: 0;
+}

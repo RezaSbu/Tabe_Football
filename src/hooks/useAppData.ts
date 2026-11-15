@@ -19,6 +19,7 @@ import {
 } from "../types";
 import { computeDynamicAppletStats, fetchCachedAppData, fetchLiteAppData, invalidateAppDataCache, isFreshPayload, nextPollDelayMs } from "../utils";
 import { playGoalSound, showSystemNotification } from "./useGoalSound";
+import { toPlainText } from "../shared/richText";
 
 export function useAppData() {
   const [activeTab, setActiveTab] = useState<string>("home");
@@ -585,8 +586,8 @@ export function useAppData() {
   };
 
   const filteredNewsList = news.filter((art) => {
-    const matchesSearch = art.title.toLowerCase().includes(newsSearch.toLowerCase()) ||
-                          art.summary.toLowerCase().includes(newsSearch.toLowerCase()) ||
+    const matchesSearch = toPlainText(art.title).toLowerCase().includes(newsSearch.toLowerCase()) ||
+                          toPlainText(art.summary).toLowerCase().includes(newsSearch.toLowerCase()) ||
                           art.tags.some(t => t.toLowerCase().includes(newsSearch.toLowerCase()));
     const matchesCat = newsCategoryFilter === "all" || art.category === newsCategoryFilter;
     return matchesSearch && matchesCat;

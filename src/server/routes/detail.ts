@@ -2,6 +2,7 @@ import express, { Express, Request, Response } from "express";
 import { loadDB } from "../state";
 import { recordView, VIEW_BOT_RE } from "../services/viewTracker";
 import { normalizePersianString } from "../utils/persian";
+import { toPlainText } from "../../shared/richText";
 import {
   buildPlayerIdentityIndex,
   isDuplicatePlayerName,
@@ -161,7 +162,7 @@ export function registerDetailRoutes(app: Express) {
       const teamNews = (db.news || [])
         .filter((n: any) => {
           if (!n || !item.name) return false;
-          const haystack = `${n.title || ""} ${n.summary || ""} ${n.content || ""} ${(n.tags || []).join(" ")}`;
+          const haystack = `${toPlainText(n.title)} ${toPlainText(n.summary)} ${toPlainText(n.content)} ${(n.tags || []).join(" ")}`;
           return normalizePersianString(haystack).includes(normTeamName);
         })
         .sort((a: any, b: any) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
@@ -412,7 +413,7 @@ export function registerDetailRoutes(app: Express) {
 
         // Coach: legacy combined behavior (text keywords + tags), unchanged.
         // Check name in title + summary + content
-        const haystack = normalizePersianString(`${n.title || ""} ${n.summary || ""} ${n.content || ""}`);
+        const haystack = normalizePersianString(`${toPlainText(n.title)} ${toPlainText(n.summary)} ${toPlainText(n.content)}`);
         const nameHit = normName && haystack.includes(normName);
         const teamHit = normTeamName && haystack.includes(normTeamName);
         // A duplicated name alone proves nothing: require the team to be mentioned too.

@@ -38,6 +38,7 @@ function validateAdPayload(body: any): { ok: boolean; error?: string } {
 import { detectConflict } from "../utils/versioning";
 import { recordAuthEvent, auditLog } from "../utils/audit";
 import { compareNewsNewestFirst } from "../../shared/newsSort";
+import { sanitizeNewsFields, toPlainText } from "../../shared/richText";
 import {
   generateToken,
   verifyToken,
@@ -398,8 +399,10 @@ export function registerMiscRoutes(app: Express) {
 
   app.post("/api/news", requirePermission("portal.news"), async (req, res) => {
     const currentDB = loadDB();
+    // Bodies may carry the admin editor's formatting markup: sanitize at the
+    // write boundary so the DB can never hold script/style payloads.
     const item = {
-      ...req.body,
+      ...sanitizeNewsFields(req.body),
       id: `news-${Date.now()}`,
       viewCount: 0,
       createdAt: new Date().toISOString()
@@ -418,7 +421,7 @@ export function registerMiscRoutes(app: Express) {
       if (detectConflict(existingNews, req.body.updatedAt)) {
         return res.status(409).json({ success: false, conflict: true, message: "این خبر پس از باز کردن فرم توسط شخص دیگری ویرایش شده است. لطفاً دوباره بارگذاری کنید.", current: existingNews });
       }
-      currentDB.news[index] = { ...existingNews, ...req.body, updatedAt: new Date().toISOString() };
+      currentDB.news[index] = { ...existingNews, ...sanitizeNewsFields(req.body), updatedAt: new Date().toISOString() };
       markTablesDirty("news");
       await saveDB();
       res.json({ success: true });
@@ -701,9 +704,9 @@ export function registerMiscRoutes(app: Express) {
         (item.tags || []).includes(category);
       if (!matchesCategory) return false;
       if (!q) return true;
-      return (item.title || "").toLowerCase().includes(q) ||
-        (item.summary || "").toLowerCase().includes(q) ||
-        (item.content || "").toLowerCase().includes(q) ||
+      return toPlainText(item.title).toLowerCase().includes(q) ||
+        toPlainText(item.summary).toLowerCase().includes(q) ||
+        toPlainText(item.content).toLowerCase().includes(q) ||
         (item.tags || []).some((t: any) => String(t || "").toLowerCase().includes(q));
     });
 

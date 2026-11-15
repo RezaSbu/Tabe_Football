@@ -12,6 +12,8 @@ import PositionLeaders from "./PositionLeaders";
 import { buildPositionLeaders, PositionCandidate } from "../shared/positionLeaders";
 import { aggregateSeasonRows, AggregatedPlayer, toPositionCandidates } from "../shared/seasonAggregate";
 import { useSeasons, useSeasonData } from "../hooks/useSeasonData";
+import RichText from "./ui/RichText";
+import { toPlainText } from "../shared/richText";
 
 interface LeagueTablesProps {
   leagueKey?: "pro-league" | "league-1" | "league-2" | "hazfi-cup";
@@ -942,7 +944,7 @@ export default function LeagueTables({
                 >
                   <div className="relative aspect-video w-full bg-slate-950 overflow-hidden">
                     <img loading="lazy" decoding="async"                       src={item.image}
-                      alt={item.title}
+                      alt={toPlainText(item.title)}
                       referrerPolicy="no-referrer"
                       className="w-full h-full object-cover transition duration-500 group-hover:scale-104"
                     />
@@ -953,10 +955,10 @@ export default function LeagueTables({
                         <span># {config.badge.split(" ").slice(-1)[0]} داغ</span>
                       </h4>
                       <h3 className="font-black text-sm text-slate-100 group-hover:text-emerald-450 group-hover:text-emerald-400 transition leading-snug text-justify line-clamp-2">
-                        {item.title}
+                        <RichText inline text={item.title} />
                       </h3>
                       <p className="text-[11px] text-gray-400 leading-relaxed text-indigo-120 text-justify line-clamp-2">
-                        {item.summary}
+                        <RichText inline text={item.summary} />
                       </p>
                     </div>
                     <span className="text-[10px] text-emerald-400 font-extrabold block text-left">← مطالعه خبر و آمار مینیاتوری</span>

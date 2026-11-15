@@ -13,6 +13,8 @@ import { SkeletonGrid, SkeletonList } from "../components/ui/Skeleton";
 import { AdItem } from "../types";
 import { formatStatNumber } from "../utils";
 import { sortNewsNewestFirst } from "../shared/newsSort";
+import RichText from "../components/ui/RichText";
+import { toPlainText } from "../shared/richText";
 
 interface HomePageProps {
   matches: any[];
@@ -133,8 +135,8 @@ export default function HomePage({
   // Newest-first is THE rule for latest-news surfaces (single shared
   // comparator with id tiebreak — the raw prop order is PG heap order).
   const filteredNewsList = sortNewsNewestFirst(news.filter((art) => {
-    const matchesSearch = art.title.toLowerCase().includes(newsSearch.toLowerCase()) ||
-      art.summary.toLowerCase().includes(newsSearch.toLowerCase()) ||
+    const matchesSearch = toPlainText(art.title).toLowerCase().includes(newsSearch.toLowerCase()) ||
+      toPlainText(art.summary).toLowerCase().includes(newsSearch.toLowerCase()) ||
       art.tags.some((t: string) => t.toLowerCase().includes(newsSearch.toLowerCase()));
     const matchesCat = newsCategoryFilter === "all" ||
       (newsCategoryFilter === "other" ? !mainCategories.includes(art.category) : art.category === newsCategoryFilter);
@@ -245,7 +247,7 @@ export default function HomePage({
                     >
                       <div className="sm:w-48 h-32 w-full shrink-0 overflow-hidden rounded-lg bg-gray-950 border border-white/10">
                         <img loading="lazy" decoding="async"                           src={getSafeImageUrl(art.image)}
-                          alt={art.title}
+                          alt={toPlainText(art.title)}
                           referrerPolicy="no-referrer"
                           className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                         />
@@ -261,8 +263,8 @@ export default function HomePage({
                             <span>•</span>
                             <span>{formatStatNumber(art.viewCount)} بازدید</span>
                           </div>
-                          <h3 className="font-extrabold text-sm text-white group-hover:text-red-400 transition leading-snug line-clamp-2">{art.title}</h3>
-                          <p className="mt-1.5 text-xs text-gray-400 line-clamp-2 leading-relaxed">{art.summary}</p>
+                          <h3 className="font-extrabold text-sm text-white group-hover:text-red-400 transition leading-snug line-clamp-2"><RichText inline text={art.title} /></h3>
+                          <p className="mt-1.5 text-xs text-gray-400 line-clamp-2 leading-relaxed"><RichText inline text={art.summary} /></p>
                         </div>
 
                         {art.tags && art.tags.length > 0 && (

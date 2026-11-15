@@ -8,6 +8,8 @@ import {
   User,
   Tag,
 } from "lucide-react";
+import RichText from "../components/ui/RichText";
+import { toPlainText } from "../shared/richText";
 
 interface ArticleDetailPageProps {
   article: any;
@@ -54,7 +56,7 @@ const ArticleDetailPage: React.FC<ArticleDetailPageProps> = ({
           {getPersianCategory(article.category)}
         </span>
         <h1 className="font-black text-xl sm:text-3xl text-white leading-snug sm:leading-normal">
-          {article.title}
+          <RichText inline text={article.title} />
         </h1>
 
         <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400 border-t border-b border-white/5 py-3">
@@ -84,18 +86,19 @@ const ArticleDetailPage: React.FC<ArticleDetailPageProps> = ({
       <div className="grid gap-6 md:grid-cols-12 items-start">
         <div className="md:col-span-8 space-y-4">
           <blockquote className="border-r-4 border-red-655 bg-[#0a0a0c]/55 p-4 rounded-l-xl text-gray-300 text-sm sm:text-base leading-loose text-justify shadow-inner">
-            {article.summary}
+            <RichText inline text={article.summary} />
           </blockquote>
 
-          <p className="text-gray-300 text-sm sm:text-base leading-loose whitespace-pre-line text-justify pl-2">
-            {article.content}
-          </p>
+          <RichText
+            text={article.content}
+            className="text-gray-300 text-sm sm:text-base leading-loose whitespace-pre-line text-justify pl-2"
+          />
         </div>
 
         <div className="md:col-span-4 space-y-4">
           <div className="overflow-hidden rounded-xl bg-gray-950 border border-white/5 shadow-lg sm:h-64 h-48 w-full">
             <img loading="lazy" decoding="async"               src={getSafeImageUrl(article.image)}
-              alt={article.title}
+              alt={toPlainText(article.title)}
               referrerPolicy="no-referrer"
               className="h-full w-full object-cover"
             />

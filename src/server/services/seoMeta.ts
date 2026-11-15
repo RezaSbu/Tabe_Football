@@ -13,6 +13,7 @@
 // title/description. What users see never changes: React hydrates over it.
 import fs from "fs";
 import path from "path";
+import { toPlainText } from "../../shared/richText";
 
 export const SITE_ORIGIN = "https://tabefotbal.ir";
 export const SITE_NAME = "تب فوتبال";
@@ -179,9 +180,10 @@ export function resolveDetailMeta(kind: DetailKind, id: string, db: any): SeoMet
   const canonical = `${SITE_ORIGIN}/${kind}/${id}`;
   switch (kind) {
     case "news": {
-      const description = item.summary || item.title || "";
+      const plainTitle = toPlainText(item.title) || "خبر";
+      const description = toPlainText(item.summary) || plainTitle;
       return {
-        title: `${item.title || "خبر"} | ${SITE_NAME}`,
+        title: `${plainTitle} | ${SITE_NAME}`,
         description,
         canonical,
         ogType: "article",
@@ -189,8 +191,8 @@ export function resolveDetailMeta(kind: DetailKind, id: string, db: any): SeoMet
         jsonLd: {
           "@context": "https://schema.org",
           "@type": "NewsArticle",
-          headline: item.title,
-          description: item.summary,
+          headline: plainTitle,
+          description,
           image: toAbsoluteUrl(item.image),
           datePublished: item.createdAt,
           dateModified: item.updatedAt || item.createdAt,

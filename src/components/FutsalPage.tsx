@@ -5,6 +5,8 @@ import { Trophy, Calendar, Users, Newspaper, Award, Star, Zap, Flame, BarChart3,
 import MatchCard from "./MatchCard";
 import TeamLogo from "./TeamLogo";
 import { convertGregorianToShamsi, formatStatNumber } from "../utils";
+import RichText from "./ui/RichText";
+import { toPlainText } from "../shared/richText";
 
 interface FutsalPageProps {
   standings: Record<string, StandingRow[]>;
@@ -648,7 +650,7 @@ export default function FutsalPage({
                   <div className="relative aspect-video w-full bg-slate-950 overflow-hidden">
                     <img loading="lazy" decoding="async" 
                       src={item.image}
-                      alt={item.title}
+                      alt={toPlainText(item.title)}
                       referrerPolicy="no-referrer"
                       className="w-full h-full object-cover transition duration-500 group-hover:scale-104"
                     />
@@ -658,11 +660,11 @@ export default function FutsalPage({
                       <h4 className="font-black text-xs text-red-400 flex items-center gap-1">
                         <span># فوتسال برتر</span>
                       </h4>
-                      <h3 className="font-black text-sm text-slate-100 group-hover:text-red-400 transition leading-snug text-justify">
-                        {item.title}
+                      <h3 className="font-black text-sm text-slate-100 group-hover:text-red-400 transition leading-snug text-justify line-clamp-2">
+                        <RichText inline text={item.title} />
                       </h3>
                       <p className="text-[11px] text-gray-400 leading-relaxed text-justify line-clamp-2">
-                        {item.summary}
+                        <RichText inline text={item.summary} />
                       </p>
                     </div>
                     <span className="text-[10px] text-emerald-400 font-extrabold block text-left">← مطالعه خبر و آنالیز داغ</span>
