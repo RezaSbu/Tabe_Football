@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   computeResolverFindings,
+  computePlayerTallies,
+  computePlayerTalliesBatch,
   buildCorrectedStandingRows,
   buildTeamPointsAdjustments,
   isHealEligible,
@@ -8,6 +10,7 @@ import {
   num,
   storedPlayerStats,
 } from "./syncResolver";
+import { buildPlayerIdentityIndex } from "./playerIdentity";
 
 const M = (over: any = {}) => ({
   id: "m1", status: "finished", league: "league-1",
@@ -322,5 +325,83 @@ describe("season awareness (future فصل‌بندی safety)", () => {
     const ario = findings.find((f) => f.name.includes("آریو") && f.field === "بازی‌ها");
     expect(ario).toBeDefined();
     expect(ario!.reason).toBe("STALE_TABLE");
+  });
+});
+
+describe("bulk tally engine (identical to the per-player recompute)", () => {
+  // Duplicate names, legacy name-in-an-id-field, assist events whose
+  // player2Name is set, scorer dedup, transfers (team name only) and
+  // auto-finished exclusion — the whole risk surface of the inverted loop.
+  const players = [
+    P({ id: "p1", name: "علی محمدی", teamName: "تیم الف" }),
+    P({ id: "p2", name: "علی محمدی", teamName: "تیم ب" }),
+    P({ id: "p3", name: "رضا کریمی", teamName: "تیم الف" }),
+    P({ id: "", name: "سعید موسوی", teamName: "تیم ب" }),
+    P({ id: "p5", name: "یاسر کاظمی", teamName: "تیم الف" }),
+  ];
+  const matches = [
+    M({
+      id: "m1", teamHome: "تیم الف", teamAway: "تیم ب", scoreHome: 2, scoreAway: 1,
+      events: [
+        { type: "goal", team: "home", playerId: "p3", playerName: "رضا کریمی", player2Id: "p1", player2Name: "علی محمدی" },
+        // Regression: player2Name is NON-empty and player2Id equals playerId.
+        // The legacy loop only skips the playerId branch here; the player2Id
+        // branch still credits one assist.
+        { type: "assist", team: "home", playerId: "p1", player2Id: "p1", playerName: "علی محمدی", player2Name: "علی محمدی" },
+        // Duplicate bare name on the away side -> p2 only (team-side proof).
+        { type: "goal", team: "away", playerId: "", playerName: "علی محمدی" },
+        // Legacy payload: a NAME inside an id-ish field.
+        { type: "goal", team: "home", playerId: "سعید موسوی", playerName: "" },
+      ],
+      scorersList: [
+        // Both already covered by events above -> dedup keeps the total stable.
+        { scorerId: "p3", scorerName: "رضا کریمی", goals: 1 },
+        { scorerId: "p2", scorerName: "علی محمدی", goals: 1 },
+        // No matching event -> counted once for goals and once for assists.
+        { scorerId: "p5", scorerName: "یاسر کاظمی", assistId: "p5", assistName: "یاسر کاظمی", goals: 1 },
+      ],
+    }),
+    M({ id: "m2", teamHome: "تیم ب", teamAway: "تیم الف", scoreHome: 0, scoreAway: 0 }),
+    // Auto-finished: its events must never count.
+    M({
+      id: "m3", teamHome: "تیم الف", teamAway: "تیم ب", isAutoFinished: true,
+      events: [{ type: "goal", team: "home", playerId: "p3", playerName: "رضا کریمی" }],
+    }),
+  ];
+
+  it("batch output equals computePlayerTallies for every player", () => {
+    const index = buildPlayerIdentityIndex(players);
+    const batch = computePlayerTalliesBatch(players, matches, index);
+    const legacy = players.map((p) => computePlayerTallies(p, matches, index));
+    expect(batch).toEqual(legacy);
+  });
+
+  it("counts an assist event even when player2Name is populated", () => {
+    const index = buildPlayerIdentityIndex(players);
+    const batch = computePlayerTalliesBatch(players, matches, index);
+    const p1 = batch[0];
+    expect(p1.assists).toBe(2); // event 1 (as player2) + event 2 (as player2)
+    expect(p1.goals).toBe(0);
+  });
+
+  it("keeps duplicate-name side proof and scorer dedup intact", () => {
+    const index = buildPlayerIdentityIndex(players);
+    const batch = computePlayerTalliesBatch(players, matches, index);
+    const p2 = batch[1];
+    const p3 = batch[2];
+    const p4 = batch[3];
+    const p5 = batch[4];
+    expect(p2.goals).toBe(1); // away-side event; the home-side one is p1's name twin
+    expect(p3.goals).toBe(1); // event goal, scorer row deduped
+    expect(p4.goals).toBe(1); // legacy name-in-id field
+    expect(p5.goals).toBe(1); // scorersList only
+    expect(p5.assists).toBe(1);
+  });
+
+  it("counts appearances per team and skips auto-finished matches", () => {
+    const index = buildPlayerIdentityIndex(players);
+    const batch = computePlayerTalliesBatch(players, matches, index);
+    // m1 + m2 (m3 is auto-finished): every player's team played both.
+    for (const t of batch) expect(t.matches).toBe(2);
   });
 });
