@@ -181,8 +181,28 @@ export default function AdminDashboard({
 
 
   useEffect(() => {
-    // Perform initial auto-scan
-    runSyncScanner();
+    // The reconciliation scan walks every match × player × standing row. Running
+    // it inside the commit phase froze the panel for the duration of the scan
+    // (and again on every poll refresh). Defer it to an idle slot so the tab
+    // paints first; the "اسکن مجدد ناهماهنگی‌ها" button stays as the explicit
+    // re-run path.
+    let cancelled = false;
+    const run = () => {
+      if (!cancelled) runSyncScanner();
+    };
+    const idle = (window as any).requestIdleCallback;
+    if (typeof idle === "function") {
+      const handle = idle(run, { timeout: 1500 });
+      return () => {
+        cancelled = true;
+        (window as any).cancelIdleCallback?.(handle);
+      };
+    }
+    const handle = window.setTimeout(run, 50);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(handle);
+    };
   }, [matches, teams, players, standings]);
 
   return (
