@@ -1,4 +1,4 @@
-import { buildPlayerIdentityIndex, isSamePlayer } from "./playerIdentity";
+import { buildPlayerIdentityIndex, isSamePlayer, normalizePlayerName, type PlayerIdentityIndex } from "./playerIdentity";
 
 /**
  * Autonomous Sync Resolver — shared detect/recompute engine.
@@ -281,46 +281,139 @@ function addAway(t: Tally, sh: number, sa: number): void {
 
 export interface PlayerTallies { goals: number; assists: number; matches: number; }
 
-/** Shared player recompute — used by BOTH detect and heal. */
-export function computePlayerTallies(player: any, matches: any[], identityIndex: any): PlayerTallies {
-  let goals = 0;
-  let assists = 0;
-  let played = 0;
-  const selfName = normName(player.teamName);
-  for (const m of matches || []) {
-    if (m.status !== "finished") continue;
-    if (m.isAutoFinished === true) continue;
-    const same = (ref: { id?: any; name?: any }, side: "home" | "away" | null) =>
-      isSamePlayer({ ...ref, side }, player, m, identityIndex, []);
-    if (selfName && (normName(m.teamHome) === selfName || normName(m.teamAway) === selfName)) {
-      played += 1;
+interface TallyBuckets {
+  byId: Map<string, number[]>;
+  byName: Map<string, number[]>;
+  byTeamName: Map<string, number[]>;
+}
+
+/**
+ * Pre-bucket the players being tallied so each match is replayed ONCE instead
+ * of once per player.
+ *
+ * The previous per-player implementation rescanned every finished match and
+ * every event for all ~1,600 players (~450k match visits, millions of
+ * `isSamePlayer` calls that re-normalize Persian names): ~20s of main-thread
+ * work on the production dataset, freezing the admin panel. Bucketing keeps
+ * the exact same matching rules but only applies `isSamePlayer` to the players
+ * an evidence row can possibly denote.
+ */
+function buildTallyBuckets(players: any[]): TallyBuckets {
+  const byId = new Map<string, number[]>();
+  const byName = new Map<string, number[]>();
+  const byTeamName = new Map<string, number[]>();
+  const push = (map: Map<string, number[]>, key: string, i: number) => {
+    if (!key) return;
+    const arr = map.get(key);
+    if (arr) arr.push(i);
+    else map.set(key, [i]);
+  };
+  (players || []).forEach((p, i) => {
+    if (!p) return;
+    if (p.id !== undefined && p.id !== null && p.id !== "") push(byId, String(p.id), i);
+    push(byName, normalizePlayerName(p.name), i);
+    push(byTeamName, normName(p.teamName), i);
+  });
+  return { byId, byName, byTeamName };
+}
+
+/**
+ * Recompute goals/assists/appearances for a whole player list in one pass.
+ *
+ * Semantics are identical to the former per-player
+ * `computePlayerTallies(player, matches, index)` loop — only the iteration
+ * order is inverted (match → candidate players). `isSamePlayer` is still the
+ * final judge, so duplicate-name + team-side proof rules are untouched.
+ */
+export function computePlayerTalliesBatch(
+  players: any[],
+  matches: any[],
+  identityIndex: PlayerIdentityIndex
+): PlayerTallies[] {
+  const list = players || [];
+  const tallies: PlayerTallies[] = list.map(() => ({ goals: 0, assists: 0, matches: 0 }));
+  if (list.length === 0) return tallies;
+  const buckets = buildTallyBuckets(list);
+
+  // Evidence -> the players it can possibly denote. A known player id is
+  // exact; otherwise the normalized name (from the id-ish field per the legacy
+  // rule, or from the name) narrows it to one bucket.
+  const resolve = (match: any, refId: unknown, refName: unknown, side: "home" | "away" | null): number[] => {
+    const id = refId !== undefined && refId !== null && refId !== "" ? String(refId) : "";
+    const candidates = id && identityIndex.ids.has(id)
+      ? buckets.byId.get(id)
+      : buckets.byName.get(normalizePlayerName(id || refName));
+    if (!candidates || candidates.length === 0) return [];
+    if (candidates.length === 1) {
+      const only = candidates[0];
+      return isSamePlayer({ id: refId, name: refName, side }, list[only], match, identityIndex, [])
+        ? candidates
+        : [];
     }
-    if (m.events && m.events.length > 0) {
-      for (const ev of m.events) {
-        if (!ev) continue;
-        if (ev.type === "goal" || ev.type === "penalty") {
-          if (same({ id: ev.playerId, name: ev.playerName }, ev.team)) goals += 1;
-          if (same({ id: ev.player2Id, name: ev.player2Name }, ev.team)) assists += 1;
-        } else if (ev.type === "assist") {
-          if (same({ id: ev.playerId, name: ev.playerName }, ev.team) && !ev.player2Name) assists += 1;
-          if (same({ id: ev.player2Id, name: ev.player2Name }, ev.team)) assists += 1;
+    return candidates.filter((i) =>
+      isSamePlayer({ id: refId, name: refName, side }, list[i], match, identityIndex, [])
+    );
+  };
+
+  for (const m of matches || []) {
+    if (!m || m.status !== "finished" || m.isAutoFinished === true) continue;
+
+    // Appearances are team-equality based (mirrors the old selfName check).
+    const homeName = normName(m.teamHome);
+    const awayName = normName(m.teamAway);
+    if (homeName) for (const i of buckets.byTeamName.get(homeName) || []) tallies[i].matches += 1;
+    if (awayName && awayName !== homeName) {
+      for (const i of buckets.byTeamName.get(awayName) || []) tallies[i].matches += 1;
+    }
+
+    const goalEventPlayers = new Set<number>();
+    const assistDupPlayers = new Set<number>();
+
+    for (const ev of m.events || []) {
+      if (!ev) continue;
+      if (ev.type === "goal" || ev.type === "penalty") {
+        for (const i of resolve(m, ev.playerId, ev.playerName, ev.team)) {
+          tallies[i].goals += 1;
+          goalEventPlayers.add(i);
+          assistDupPlayers.add(i);
+        }
+        for (const i of resolve(m, ev.player2Id, ev.player2Name, ev.team)) {
+          tallies[i].assists += 1;
+          assistDupPlayers.add(i);
+        }
+      } else if (ev.type === "assist") {
+        if (!ev.player2Name) {
+          for (const i of resolve(m, ev.playerId, ev.playerName, ev.team)) {
+            tallies[i].assists += 1;
+            assistDupPlayers.add(i);
+          }
+        } else {
+          for (const i of resolve(m, ev.playerId, ev.playerName, ev.team)) assistDupPlayers.add(i);
+        }
+        for (const i of resolve(m, ev.player2Id, ev.player2Name, ev.team)) {
+          tallies[i].assists += 1;
+          assistDupPlayers.add(i);
         }
       }
     }
-    const scorers = m.scorersList || [];
-    for (const sc of scorers) {
+
+    for (const sc of m.scorersList || []) {
       if (!sc) continue;
-      if (same({ id: sc.scorerId, name: sc.scorerName || sc.name }, null)) {
-        const dup = m.events && m.events.some((ev: any) => ev && (ev.type === "goal" || ev.type === "penalty") && same({ id: ev.playerId, name: ev.playerName }, ev.team));
-        if (!dup) goals += 1;
+      for (const i of resolve(m, sc.scorerId, sc.scorerName || sc.name, null)) {
+        if (!goalEventPlayers.has(i)) tallies[i].goals += 1;
       }
-      if (same({ id: sc.assistId, name: sc.assistName || sc.assist }, null)) {
-        const dup = m.events && m.events.some((ev: any) => ev && (ev.type === "goal" || ev.type === "assist") && (same({ id: ev.player2Id, name: ev.player2Name }, ev.team) || same({ id: ev.playerId, name: ev.playerName }, ev.team)));
-        if (!dup) assists += 1;
+      for (const i of resolve(m, sc.assistId, sc.assistName || sc.assist, null)) {
+        if (!assistDupPlayers.has(i)) tallies[i].assists += 1;
       }
     }
   }
-  return { goals, assists, matches: played };
+  return tallies;
+}
+
+/** Shared player recompute — used by BOTH detect and heal. */
+export function computePlayerTallies(player: any, matches: any[], identityIndex: any): PlayerTallies {
+  const [tally] = computePlayerTalliesBatch([player], matches, identityIndex as PlayerIdentityIndex);
+  return tally || { goals: 0, assists: 0, matches: 0 };
 }
 
 /** Stored truth for a player: seasonStats first, legacy top-level keys only as fallback. */
@@ -401,6 +494,7 @@ export function computeResolverFindings(input: ResolverInput): { findings: Resol
 
   // ---- 2. players ----
   const identityIndex = buildPlayerIdentityIndex(players);
+  const playerTallies = computePlayerTalliesBatch(players, matches, identityIndex);
   const autoByTeam = new Map<string, number>();
   for (const m of matches) {
     if (m.status !== "finished" || m.isAutoFinished !== true) continue;
@@ -408,10 +502,11 @@ export function computeResolverFindings(input: ResolverInput): { findings: Resol
       if (side) autoByTeam.set(side, (autoByTeam.get(side) || 0) + 1);
     }
   }
-  for (const p of players) {
+  for (let idx = 0; idx < players.length; idx++) {
+    const p = players[idx];
     const cur = storedPlayerStats(p);
     const base = storedBase(p);
-    const t = computePlayerTallies(p, matches, identityIndex);
+    const t = playerTallies[idx] || { goals: 0, assists: 0, matches: 0 };
     const check = (field: string, labelFa: string, c: number, v: number, b: number, sev: ResolverSeverity) => {
       if (c === v) return;
       if (b > 0 && c === v + b) { baselineExplained += 1; return; } // legitimate history
