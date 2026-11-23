@@ -26,6 +26,10 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        # Overridable so a deploy behind a blocked Docker Hub can build FROM a
+        # mirror (see the ARG note in the Dockerfile and the CD resolver).
+        NODE_IMAGE: ${NODE_IMAGE:-node:20-alpine}
     container_name: tabe-football-app
     restart: unless-stopped
     depends_on:

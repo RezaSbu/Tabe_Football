@@ -10,7 +10,15 @@ on:
 
 jobs:
   deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # The `branches:` filter above is not enough in practice: this repo has
+    # produced CD runs for `develop` CI completions (CD #109), and the deploy
+    # script always resets to origin/main — so a push to develop could deploy
+    # whatever main happens to be, without a merge. Require the completed CI
+    # run to be a push on main, explicitly.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
     # Overlapping deploys reset/prune/build on top of each other and fail
     # randomly — queue them instead.
@@ -26,6 +34,10 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          # Default is 10m. A cold deploy now includes a base-image pull from a
+          # mirror plus two npm installs and the Vite/esbuild build on a small
+          # VPS; timing out mid-script is not worth risking.
+          command_timeout: 30m
           script: |
             set -e
             cd /opt/tabe-football
@@ -33,6 +45,60 @@ jobs:
             git fetch origin
             git reset --hard origin/main
             bash scripts/backup.sh
+            # Docker Hub refuses Iranian datacenter IPs with HTTP 403 on the
+            # manifest HEAD request, which aborted deploy CD #109:
+            #   failed to resolve source metadata for docker.io/library/node:20-alpine
+            # Resolve a reachable base image up front instead of letting the
+            # build fail three times. Order: local copy, Iranian mirrors, then
+            # Docker Hub itself, so unblocked environments behave as before.
+            if docker image inspect node:20-alpine >/dev/null 2>&1; then
+              NODE_IMAGE=node:20-alpine
+              echo "[CD] base image node:20-alpine already local."
+            else
+              NODE_IMAGE=""
+              for candidate in \
+                docker.arvancloud.ir/library/node:20-alpine \
+                docker.iranserver.com/library/node:20-alpine \
+                focker.ir/library/node:20-alpine \
+                docker.arvancloud.ir/node:20-alpine \
+                mirror.gcr.io/library/node:20-alpine \
+                node:20-alpine; do
+                echo "[CD] trying base image $candidate"
+                if docker pull -q "$candidate" >/dev/null 2>&1; then
+                  NODE_IMAGE="$candidate"
+                  break
+                fi
+              done
+              if [ -z "$NODE_IMAGE" ]; then
+                echo "[CD] FATAL: node:20-alpine unreachable from Docker Hub and every mirror."
+                exit 1
+              fi
+              echo "[CD] building FROM $NODE_IMAGE"
+            fi
+            export NODE_IMAGE
+
+            # Runtime images are pulled by `docker compose up`, not by the build,
+            # so they need the same treatment when they are missing locally.
+            ensure_runtime_image() {
+              img="$1"; shift
+              if docker image inspect "$img" >/dev/null 2>&1; then return 0; fi
+              for candidate in "$@"; do
+                if docker pull -q "$candidate" >/dev/null 2>&1; then
+                  docker tag "$candidate" "$img"
+                  echo "[CD] $img <- $candidate"
+                  return 0
+                fi
+              done
+              return 1
+            }
+            ensure_runtime_image nginx:alpine \
+              docker.arvancloud.ir/library/nginx:alpine \
+              docker.iranserver.com/library/nginx:alpine \
+              || echo "[CD] WARN: nginx:alpine not obtainable; relying on the running container."
+            ensure_runtime_image postgres:16-alpine \
+              docker.arvancloud.ir/library/postgres:16-alpine \
+              docker.iranserver.com/library/postgres:16-alpine \
+              || echo "[CD] WARN: postgres:16-alpine not obtainable; relying on the running container."
             # NOTE: no `--no-cache` here on purpose. A full no-cache rebuild
             # re-downloads Alpine packages + npm on EVERY deploy, so any
             # transient mirror hiccup (e.g. Alpine CDN TLS errors) kills the
