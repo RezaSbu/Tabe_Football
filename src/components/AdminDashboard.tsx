@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { 
   ShieldAlert, 
   RotateCw, 
@@ -15,8 +15,8 @@ import {
 } from "lucide-react";
 import { MatchItem, StandingRow, PlayerItem, TeamItem } from "../types";
 import { buildPlayerIdentityIndex } from "../shared/playerIdentity";
+import { isScanStale, useSyncResolverScan } from "../hooks/useSyncResolverScan";
 import {
-  computeResolverFindings,
   buildCorrectedStandingRows,
   buildTeamPointsAdjustments,
   computePlayerTallies,
@@ -60,32 +60,27 @@ export default function AdminDashboard({
   onUpdatePlayer,
   onRefreshData
 }: AdminDashboardProps) {
-  const [discrepancies, setDiscrepancies] = useState<Discrepancy[]>([]);
-  const [resolverSummary, setResolverSummary] = useState<ResolverSummary | null>(null);
   const [confirmGlobal, setConfirmGlobal] = useState(false);
   const [healingId, setHealingId] = useState<string | null>(null);
   const [isResolverRunning, setIsResolverRunning] = useState(false);
   const [healStatus, setHealStatus] = useState<string | null>(null);
-  const [isScanning, setIsScanning] = useState(false);
 
   // High-level statistics
   const finishedGamesCount = matches.filter(m => m.status === "finished").length;
   const liveGamesCount = matches.filter(m => m.status === "live").length;
   const upcomingGamesCount = matches.filter(m => m.status === "not-started").length;
 
-  // Run the mismatch scanning scanner
+  // Scan state lives outside the component (survives tab switches). Nothing
+  // runs on mount: the dashboard must paint instantly for the common case.
+  const { scan, run: runScan, dropFindings } = useSyncResolverScan();
+  const scanInput = { matches, players, standings, teams, currentSeasonId: currentSeason };
+  const scanIsStale = isScanStale(scan, scanInput);
+  const discrepancies: Discrepancy[] = scan?.findings ?? [];
+  const resolverSummary: ResolverSummary | null = scan?.summary ?? null;
+
   // Run the mismatch scan — read-only, shared engine (same logic every heal path uses).
   const runSyncScanner = () => {
-    setIsScanning(true);
-    try {
-      const { findings, summary } = computeResolverFindings({
-        matches, players, standings, teams, currentSeasonId: currentSeason,
-      });
-      setDiscrepancies(findings);
-      setResolverSummary(summary);
-    } finally {
-      setIsScanning(false);
-    }
+    runScan(scanInput);
     setConfirmGlobal(false);
   };
 
@@ -141,6 +136,7 @@ export default function AdminDashboard({
         ? await healLeague(disc.id, false)
         : await healPlayer(disc.id, [disc.field], false);
       setHealStatus(ok ? "مورد تأییدشده اصلاح شد." : "اصلاح ناموفق بود.");
+      if (ok) dropFindings((d) => d.type === disc.type && d.id === disc.id && d.field === disc.field);
       onRefreshData();
     } catch {
       setHealStatus("خطا در اصلاح مورد.");
@@ -170,6 +166,7 @@ export default function AdminDashboard({
       const playerIds = Array.from(new Set(eligibleFindings.filter((d) => d.type === "player").map((d) => d.id)));
       for (const pid of playerIds) await healPlayer(pid, undefined, true);
       setHealStatus(`ترمیم سراسری انجام شد: ${eligibleFindings.length} مورد اصلاح، ${skippedFindings} مورد نیازمند بازبینی دستی ماند.`);
+      dropFindings(isHealEligible);
       onRefreshData();
     } catch {
       setHealStatus("خطا در تراز کردن اطلاعات.");
@@ -179,31 +176,6 @@ export default function AdminDashboard({
     }
   };
 
-
-  useEffect(() => {
-    // The reconciliation scan walks every match × player × standing row. Running
-    // it inside the commit phase froze the panel for the duration of the scan
-    // (and again on every poll refresh). Defer it to an idle slot so the tab
-    // paints first; the "اسکن مجدد ناهماهنگی‌ها" button stays as the explicit
-    // re-run path.
-    let cancelled = false;
-    const run = () => {
-      if (!cancelled) runSyncScanner();
-    };
-    const idle = (window as any).requestIdleCallback;
-    if (typeof idle === "function") {
-      const handle = idle(run, { timeout: 1500 });
-      return () => {
-        cancelled = true;
-        (window as any).cancelIdleCallback?.(handle);
-      };
-    }
-    const handle = window.setTimeout(run, 50);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(handle);
-    };
-  }, [matches, teams, players, standings]);
 
   return (
     <div className="space-y-6" dir="rtl">
@@ -294,10 +266,9 @@ export default function AdminDashboard({
 
           <button
             onClick={runSyncScanner}
-            disabled={isScanning}
-            className="flex items-center gap-1.5 border border-white/10 hover:border-white/20 bg-white/5 text-slate-300 font-bold text-xs px-4 py-2 rounded-xl cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-1.5 border border-white/10 hover:border-white/20 bg-white/5 text-slate-300 font-bold text-xs px-4 py-2 rounded-xl cursor-pointer"
           >
-            <RotateCw className={`h-4 w-4 ${isScanning ? "animate-spin" : ""}`} />
+            <RotateCw className="h-4 w-4" />
             <span>اسکن مجدد ناهماهنگی‌ها</span>
           </button>
         </div>
@@ -312,7 +283,32 @@ export default function AdminDashboard({
 
         {/* Scan Result */}
         <div className="mt-5">
-          {discrepancies.length === 0 ? (
+          {scan && scanIsStale && (
+            <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-amber-700/30 bg-amber-950/20 px-4 py-3">
+              <div className="flex items-center gap-2 text-[11px] font-bold text-amber-300">
+                <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+                <span>اطلاعات از زمان آخرین اسکن تغییر کرده است؛ این نتیجه ممکن است کهنه باشد.</span>
+              </div>
+              <button
+                onClick={runSyncScanner}
+                className="text-[10px] font-black px-3 py-1.5 rounded-lg border border-amber-700/40 bg-amber-950/40 text-amber-300 hover:bg-amber-900/40 transition cursor-pointer"
+              >
+                اسکن مجدد
+              </button>
+            </div>
+          )}
+          {!scan ? (
+            <div className="bg-slate-900/40 border border-white/10 p-5 rounded-xl flex items-start gap-3">
+              <Search className="h-8 w-8 text-slate-400 flex-shrink-0" />
+              <div>
+                <h4 className="font-extrabold text-sm text-white">هنوز اسکنی انجام نشده است</h4>
+                <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
+                  اسکن تطبیق به‌صورت خودکار اجرا نمی‌شود تا پیشخوان سریع باز شود. برای بررسی ناهماهنگی‌ها
+                  روی «اسکن مجدد ناهماهنگی‌ها» بزنید؛ نتیجه تا زمانی که داده‌ها تغییر نکنند در همین بخش می‌ماند.
+                </p>
+              </div>
+            </div>
+          ) : discrepancies.length === 0 ? (
             <div className="bg-emerald-950/10 border border-emerald-500/20 p-5 rounded-xl flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <CheckCircle className="h-8 w-8 text-emerald-400" />
