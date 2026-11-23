@@ -82,6 +82,140 @@ function validateUploadedFile(fileName: string, buffer: Buffer): string | null {
   return null;
 }
 
+// Shared validate → optimize → store pipeline for the JSON, raw and batch
+// upload routes. Returns the DB record only; the caller decides when to
+// persist, so a 20-file batch still saves once instead of 20 times.
+export async function storeUploadedImage(opts: {
+  fileName: string;
+  buffer: Buffer;
+  title?: string;
+  category?: string;
+  watermark?: boolean;
+  idSuffix?: string;
+}): Promise<{ ok: true; record: any } | { ok: false; status: number; message: string }> {
+  const { fileName, buffer, title, category, watermark } = opts;
+
+  if (buffer.length > MAX_FILE_BYTES) {
+    return { ok: false, status: 400, message: "حجم فایل بیش از حد مجاز است (حداکثر 8 مگابایت)." };
+  }
+
+  const validationError = validateUploadedFile(fileName, buffer);
+  if (validationError) return { ok: false, status: 400, message: validationError };
+
+  const safeCategory = sanitizeCategory(category || "");
+  const optimized = await optimizeImageToWebp(
+    buffer,
+    fileName,
+    mimeFromExt(path.extname(fileName).toLowerCase()),
+    { category: safeCategory, watermark }
+  );
+  const uploadBuffer = optimized.buffer;
+  const mimeType = optimized.mimeType;
+  const fileSize = uploadBuffer.length;
+  if (optimized.converted) {
+    logMessage("info", "general", `تبدیل خودکار تصویر به WebP انجام شد (${fileName} -> ${optimized.fileName}).`);
+  }
+  if (optimized.watermarked) {
+    logMessage("info", "general", `واترمارک تب فوتبال روی تصویر اعمال شد (${optimized.fileName}).`);
+  }
+
+  const cleanFileName = optimized.fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
+  const uniquePath = `${safeCategory}/${Date.now()}_${opts.idSuffix || randomSuffix()}_${cleanFileName}`;
+
+  const { error: uploadError } = await pgDb.storage
+    .from("media_assets")
+    .upload(uniquePath, uploadBuffer, { contentType: mimeType, upsert: true });
+
+  if (uploadError) {
+    logMessage("error", "general", `خطای آپلود در استوریج: ${uploadError.message}`);
+    return { ok: false, status: 500, message: `خطا در آپلود استوریج: ${uploadError.message}` };
+  }
+
+  const { data: { publicUrl } } = pgDb.storage
+    .from("media_assets")
+    .getPublicUrl(uniquePath);
+
+  return {
+    ok: true,
+    record: {
+      id: `media-${Date.now()}-${randomSuffix()}`,
+      title: title || cleanFileName,
+      file_name: cleanFileName,
+      file_path: uniquePath,
+      image_url: publicUrl,
+      file_size: fileSize,
+      mime_type: mimeType,
+      category: safeCategory,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    },
+  };
+}
+
+// Shared replace pipeline (JSON + raw routes): validate → optimize → overwrite
+// the existing storage path → optional cleanup of the old extension → patch
+// the DB record. The caller persists.
+async function replaceStoredImage(
+  item: any,
+  fileName: string,
+  buffer: Buffer
+): Promise<{ ok: true; record: any } | { ok: false; status: number; message: string }> {
+  if (buffer.length > MAX_FILE_BYTES) {
+    return { ok: false, status: 400, message: "حجم فایل بیش از حد مجاز است (حداکثر 8 مگابایت)." };
+  }
+
+  const validationError = validateUploadedFile(fileName, buffer);
+  if (validationError) return { ok: false, status: 400, message: validationError };
+
+  const optimized = await optimizeImageToWebp(
+    buffer,
+    fileName,
+    mimeFromExt(path.extname(fileName).toLowerCase()),
+    { category: sanitizeCategory(item.category || "") }
+  );
+  const uploadBuffer = optimized.buffer;
+  const mimeType = optimized.mimeType;
+  const fileSize = uploadBuffer.length;
+
+  const oldPath = item.file_path;
+  const oldExt = path.extname(oldPath).toLowerCase();
+  const basePath = oldExt ? oldPath.slice(0, -oldExt.length) : oldPath;
+  const newPath = mimeType === "image/webp" ? `${basePath}.webp` : oldPath;
+
+  const { error: uploadError } = await pgDb.storage
+    .from("media_assets")
+    .upload(newPath, uploadBuffer, { contentType: mimeType, upsert: true });
+
+  if (uploadError) {
+    logMessage("error", "general", `خطا در جایگزینی فایل در استوریج: ${uploadError.message}`);
+    return { ok: false, status: 500, message: `خطا در آپلود استوریج: ${uploadError.message}` };
+  }
+
+  if (newPath !== oldPath) {
+    const { error: removeError } = await pgDb.storage.from("media_assets").remove([oldPath]);
+    if (removeError) {
+      logMessage("warn", "general", `هشدار: حذف فایل قبلی ناموفق: ${removeError.message}`);
+    }
+  }
+
+  const { data: { publicUrl } } = pgDb.storage
+    .from("media_assets")
+    .getPublicUrl(newPath);
+
+  return {
+    ok: true,
+    record: {
+      ...item,
+      file_name: optimized.fileName,
+      file_path: newPath,
+      image_url: publicUrl,
+      file_size: fileSize,
+      mime_type: mimeType,
+      updated_at: new Date().toISOString(),
+    },
+  };
+}
+
 export function registerMediaRoutes(app: Express) {
   app.get("/api/media", (req, res) => {
     try {
@@ -130,77 +264,74 @@ export function registerMediaRoutes(app: Express) {
         return res.status(400).json({ success: false, message: "فایل و نام فایل الزامی است." });
       }
 
-      const buffer = Buffer.from(fileData, "base64");
-      const originalSize = buffer.length;
-
-      if (originalSize > MAX_FILE_BYTES) {
-        return res.status(400).json({ success: false, message: "حجم فایل بیش از حد مجاز است (حداکثر 8 مگابایت)." });
+      const result = await storeUploadedImage({
+        fileName,
+        buffer: Buffer.from(fileData, "base64"),
+        title,
+        category,
+        watermark,
+      });
+      if (!result.ok) {
+        return res.status(result.status).json({ success: false, message: result.message });
       }
-
-      const validationError = validateUploadedFile(fileName, buffer);
-      if (validationError) {
-        return res.status(400).json({ success: false, message: validationError });
-      }
-
-      const optimized = await optimizeImageToWebp(buffer, fileName, mimeFromExt(path.extname(fileName).toLowerCase()), { category, watermark });
-      const uploadBuffer = optimized.buffer;
-      const mimeType = optimized.mimeType;
-      const fileSize = uploadBuffer.length;
-      if (optimized.converted) {
-        logMessage("info", "general", `تبدیل خودکار تصویر به WebP انجام شد (${fileName} -> ${optimized.fileName}).`);
-      }
-      if (optimized.watermarked) {
-        logMessage("info", "general", `واترمارک تب فوتبال روی تصویر اعمال شد (${optimized.fileName}).`);
-      }
-
-      const cleanFileName = optimized.fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
-      const safeCategory = sanitizeCategory(category);
-      const uniquePath = `${safeCategory}/${Date.now()}_${randomSuffix()}_${cleanFileName}`;
-
-      logMessage("info", "general", `در حال آپلود فایل به فضای محلی: ${uniquePath}`);
-
-      const { data: uploadData, error: uploadError } = await pgDb.storage
-        .from("media_assets")
-        .upload(uniquePath, uploadBuffer, {
-          contentType: mimeType,
-          upsert: true
-        });
-
-      if (uploadError) {
-        logMessage("error", "general", `خطای آپلود در استوریج: ${uploadError.message}`);
-        return res.status(500).json({ success: false, message: `خطا در آپلود استوریج: ${uploadError.message}` });
-      }
-
-      const { data: { publicUrl } } = pgDb.storage
-        .from("media_assets")
-        .getPublicUrl(uniquePath);
 
       const currentDB = loadDB();
       if (!currentDB.media_files) currentDB.media_files = [];
-
-      const newRecord = {
-        id: `media-${Date.now()}-${randomSuffix()}`,
-        title: title || cleanFileName,
-        file_name: cleanFileName,
-        file_path: uniquePath,
-        image_url: publicUrl,
-        file_size: fileSize,
-        mime_type: mimeType,
-        category: safeCategory,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      };
-
-      currentDB.media_files.unshift(newRecord);
+      currentDB.media_files.unshift(result.record);
       markTablesDirty("mediaFiles");
       await saveDB();
 
-      res.json({ success: true, file: newRecord });
+      res.json({ success: true, file: result.record });
     } catch (error: any) {
       console.error("Error in POST /api/media/upload:", error);
       res.status(500).json({ success: false, message: "خطا در آپلود رسانه" });
     }
   });
+
+  // Binary upload path: the browser sends the File itself (Content-Type of the
+  // image, no base64, no JSON envelope). Base64 inflated every upload by 33%
+  // and `express.json` had to parse the whole string before the handler ran,
+  // which blocked the single Node thread on multi-MB bodies. Body is capped at
+  // MAX_FILE_BYTES by the raw parser, matching the JSON path's check.
+  app.post(
+    "/api/media/upload-raw",
+    requirePermission("media"),
+    express.raw({ type: () => true, limit: MAX_FILE_BYTES }),
+    async (req, res) => {
+      try {
+        const buffer = Buffer.isBuffer(req.body) ? req.body : null;
+        const fileName = String(req.query.fileName || "").trim();
+        if (!fileName || !buffer || buffer.length === 0) {
+          return res.status(400).json({ success: false, message: "فایل و نام فایل الزامی است." });
+        }
+
+        const result = await storeUploadedImage({
+          fileName,
+          buffer,
+          title: typeof req.query.title === "string" ? req.query.title : undefined,
+          category: typeof req.query.category === "string" ? req.query.category : undefined,
+          watermark: req.query.watermark === "1" || req.query.watermark === "true",
+        });
+        if (!result.ok) {
+          return res.status(result.status).json({ success: false, message: result.message });
+        }
+
+        const currentDB = loadDB();
+        if (!currentDB.media_files) currentDB.media_files = [];
+        currentDB.media_files.unshift(result.record);
+        markTablesDirty("mediaFiles");
+        await saveDB();
+
+        res.json({ success: true, file: result.record });
+      } catch (error: any) {
+        if (error?.type === "entity.too.large") {
+          return res.status(413).json({ success: false, message: "حجم فایل بیش از حد مجاز است (حداکثر 8 مگابایت)." });
+        }
+        console.error("Error in POST /api/media/upload-raw:", error);
+        res.status(500).json({ success: false, message: "خطا در آپلود رسانه" });
+      }
+    }
+  );
 
   app.post("/api/media/upload-multiple", requirePermission("media"), async (req, res) => {
     try {
@@ -212,7 +343,6 @@ export function registerMediaRoutes(app: Express) {
         return res.status(400).json({ success: false, message: `حداکثر ${MAX_UPLOAD_FILES} فایل در هر بار آپلود مجاز است.` });
       }
 
-      const safeCategory = sanitizeCategory(category);
       const currentDB = loadDB();
       if (!currentDB.media_files) currentDB.media_files = [];
 
@@ -227,59 +357,21 @@ export function registerMediaRoutes(app: Express) {
           continue;
         }
 
-        const buffer = Buffer.from(fileData, "base64");
-        const originalSize = buffer.length;
-
-        if (originalSize > MAX_FILE_BYTES) {
-          errors.push({ fileName, error: "حجم فایل بیش از حد مجاز است (حداکثر 8 مگابایت)." });
+        const result = await storeUploadedImage({
+          fileName,
+          buffer: Buffer.from(fileData, "base64"),
+          title,
+          category,
+          watermark,
+          idSuffix: `${index}-${randomSuffix()}`,
+        });
+        if (!result.ok) {
+          errors.push({ fileName, error: result.message });
           continue;
         }
 
-        const validationError = validateUploadedFile(fileName, buffer);
-        if (validationError) {
-          errors.push({ fileName, error: validationError });
-          continue;
-        }
-
-        const optimized = await optimizeImageToWebp(buffer, fileName, mimeFromExt(path.extname(fileName).toLowerCase()), { category, watermark });
-        const uploadBuffer = optimized.buffer;
-        const mimeType = optimized.mimeType;
-        const fileSize = uploadBuffer.length;
-
-        const cleanFileName = optimized.fileName.replace(/[^a-zA-Z0-9.-]/g, "_");
-        const uniquePath = `${safeCategory}/${Date.now()}_${randomSuffix()}_${cleanFileName}`;
-
-        const { data: uploadData, error: uploadError } = await pgDb.storage
-          .from("media_assets")
-          .upload(uniquePath, uploadBuffer, {
-            contentType: mimeType,
-            upsert: true
-          });
-
-        if (uploadError) {
-          errors.push({ fileName, error: `خطا در آپلود استوریج: ${uploadError.message}` });
-          continue;
-        }
-
-        const { data: { publicUrl } } = pgDb.storage
-          .from("media_assets")
-          .getPublicUrl(uniquePath);
-
-        const newRecord = {
-          id: `media-${Date.now()}-${index}-${randomSuffix()}`,
-          title: title || cleanFileName,
-          file_name: cleanFileName,
-          file_path: uniquePath,
-          image_url: publicUrl,
-          file_size: fileSize,
-          mime_type: mimeType,
-          category: safeCategory,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        };
-
-        currentDB.media_files.unshift(newRecord);
-        uploadedFiles.push(newRecord);
+        currentDB.media_files.unshift(result.record);
+        uploadedFiles.push(result.record);
         index++;
       }
 
@@ -376,68 +468,66 @@ export function registerMediaRoutes(app: Express) {
         return res.status(404).json({ success: false, message: "رکورد رسانه یافت نشد." });
       }
 
-      const item = currentDB.media_files[index];
-
-      const buffer = Buffer.from(fileData, "base64");
-
-      const validationError = validateUploadedFile(fileName, buffer);
-      if (validationError) {
-        return res.status(400).json({ success: false, message: validationError });
+      const result = await replaceStoredImage(
+        currentDB.media_files[index],
+        fileName,
+        Buffer.from(fileData, "base64")
+      );
+      if (!result.ok) {
+        return res.status(result.status).json({ success: false, message: result.message });
       }
 
-      const optimized = await optimizeImageToWebp(buffer, fileName, mimeFromExt(path.extname(fileName).toLowerCase()), { category: item.category });
-      const uploadBuffer = optimized.buffer;
-      const mimeType = optimized.mimeType;
-      const fileSize = uploadBuffer.length;
-
-      const oldPath = item.file_path;
-      const oldExt = path.extname(oldPath).toLowerCase();
-      const basePath = oldExt ? oldPath.slice(0, -oldExt.length) : oldPath;
-      const newPath = mimeType === "image/webp" ? `${basePath}.webp` : oldPath;
-
-      logMessage("info", "general", `در حال جایگزینی تصویر در استوریج: ${newPath}`);
-
-      const { error: uploadError } = await pgDb.storage
-        .from("media_assets")
-        .upload(newPath, uploadBuffer, {
-          contentType: mimeType,
-          upsert: true
-        });
-
-      if (uploadError) {
-        logMessage("error", "general", `خطا در جایگزینی فایل در استوریج: ${uploadError.message}`);
-        return res.status(500).json({ success: false, message: `خطا در آپلود استوریج: ${uploadError.message}` });
-      }
-
-      if (newPath !== oldPath) {
-        const { error: removeError } = await pgDb.storage.from("media_assets").remove([oldPath]);
-        if (removeError) {
-          logMessage("warn", "general", `هشدار: حذف فایل قبلی ناموفق: ${removeError.message}`);
-        }
-      }
-
-      const { data: { publicUrl } } = pgDb.storage
-        .from("media_assets")
-        .getPublicUrl(newPath);
-
-      currentDB.media_files[index] = {
-        ...item,
-        file_name: optimized.fileName,
-        file_path: newPath,
-        image_url: publicUrl,
-        file_size: fileSize,
-        mime_type: mimeType,
-        updated_at: new Date().toISOString()
-      };
-
+      currentDB.media_files[index] = result.record;
       markTablesDirty("mediaFiles");
       await saveDB();
-      res.json({ success: true, file: currentDB.media_files[index] });
+      res.json({ success: true, file: result.record });
     } catch (error: any) {
       console.error("Error in Replace POST /api/media/replace/:id:", error);
       res.status(500).json({ success: false, message: "خطا در جایگزینی تصویر" });
     }
   });
+
+  // Binary replacement: same pipeline, body is the image bytes (see
+  // /api/media/upload-raw for why base64/JSON is avoided).
+  app.post(
+    "/api/media/replace-raw/:id",
+    requirePermission("media"),
+    express.raw({ type: () => true, limit: MAX_FILE_BYTES }),
+    async (req, res) => {
+      try {
+        const { id } = req.params;
+        const buffer = Buffer.isBuffer(req.body) ? req.body : null;
+        const fileName = String(req.query.fileName || "").trim();
+        if (!buffer || buffer.length === 0 || !fileName) {
+          return res.status(400).json({ success: false, message: "فایل الزامی است." });
+        }
+
+        const currentDB = loadDB();
+        if (!currentDB.media_files) currentDB.media_files = [];
+
+        const index = currentDB.media_files.findIndex((item: any) => item.id === id);
+        if (index === -1) {
+          return res.status(404).json({ success: false, message: "رکورد رسانه یافت نشد." });
+        }
+
+        const result = await replaceStoredImage(currentDB.media_files[index], fileName, buffer);
+        if (!result.ok) {
+          return res.status(result.status).json({ success: false, message: result.message });
+        }
+
+        currentDB.media_files[index] = result.record;
+        markTablesDirty("mediaFiles");
+        await saveDB();
+        res.json({ success: true, file: result.record });
+      } catch (error: any) {
+        if (error?.type === "entity.too.large") {
+          return res.status(413).json({ success: false, message: "حجم فایل بیش از حد مجاز است (حداکثر 8 مگابایت)." });
+        }
+        console.error("Error in Replace POST /api/media/replace-raw/:id:", error);
+        res.status(500).json({ success: false, message: "خطا در جایگزینی تصویر" });
+      }
+    }
+  );
 
   app.post("/api/media/migrate", requirePermission("media"), async (req, res) => {
     try {

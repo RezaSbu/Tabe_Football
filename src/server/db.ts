@@ -292,15 +292,18 @@ class StorageBuilder {
   ): Promise<SupabaseResult> {
     try {
       const fullPath = path.join(this.baseDir, this.bucket, filePath);
-      console.log("[STORAGE] upload() fullPath:", fullPath, "buffer.length:", buffer.length);
-      ensureDirSync(path.dirname(fullPath));
+      await fs.promises.mkdir(path.dirname(fullPath), { recursive: true });
 
-      if (!options?.upsert && fs.existsSync(fullPath)) {
-        return { data: null, error: { message: "File already exists" } };
+      if (!options?.upsert) {
+        const exists = await fs.promises.access(fullPath).then(() => true, () => false);
+        if (exists) {
+          return { data: null, error: { message: "File already exists" } };
+        }
       }
 
-      fs.writeFileSync(fullPath, buffer);
-      console.log("[STORAGE] upload() writeFileSync SUCCESS, file exists:", fs.existsSync(fullPath));
+      // Async write: a multi-MB image used to block the only Node thread for
+      // the whole disk write (writeFileSync), freezing every concurrent request.
+      await fs.promises.writeFile(fullPath, buffer);
       return { data: { path: filePath }, error: null };
     } catch (err: any) {
       console.error("[STORAGE] upload() ERROR:", err.message);
@@ -317,9 +320,10 @@ class StorageBuilder {
     try {
       for (const p of paths) {
         const fullPath = path.join(this.baseDir, this.bucket, p);
-        if (fs.existsSync(fullPath)) {
-          fs.unlinkSync(fullPath);
-        }
+        // `force: true` ignores ENOENT, replacing the sync exists+unlink pair.
+        await fs.promises.unlink(fullPath).catch((err: any) => {
+          if (err?.code !== "ENOENT") throw err;
+        });
       }
       return { data: null, error: null };
     } catch (err: any) {
