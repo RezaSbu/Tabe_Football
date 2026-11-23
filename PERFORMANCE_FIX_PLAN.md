@@ -166,6 +166,12 @@ free -m; uptime
 > `Dockerfile` می‌دهد؛ `nginx:alpine` و `postgres:16-alpine` هم در صورت نبودن از
 > میرور با retag تأمین می‌شوند. اگر همه‌ی گزینه‌ها شکست بخورند، deploy با پیام
 > روشن متوقف می‌شود و سرویس فعلی آسیب نمی‌بیند.
+>
+> **درس گرفته‌شده از اولین استقرار موفق:** `/api/data` و HTML بعد از دیپلوی
+> `HIT` شدند، ولی `/assets/*` و `/fonts/*` نه — `serve-static` هدر
+> `Cache-Control: public, max-age=0` می‌دهد و nginx آن را عمر entry می‌گرفت
+> (RC-18). اصلاح `41cd6ac` است؛ اگر بعد از این استقرار هم assets `MISS` بود،
+> اولین چیزی که باید چک شود همین هدر upstream است، نه دسترسی پوشه‌ی کش.
 
 ```bash
 cd /opt/tabe-football
@@ -185,9 +191,12 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T nginx ls
 
 **تأیید بعد از استقرار:**
 ```bash
-# باید بعد از درخواست دوم HIT شود
+# هر کدام باید بعد از درخواست دوم HIT شود
 curl -sI https://tabefotbal.ir/api/data?lite=1 | grep -i x-cache-status
 curl -sI https://tabefotbal.ir/assets/<hash>.js | grep -i x-cache-status
+curl -sI https://tabefotbal.ir/fonts/Vazirmatn-arabic.woff2 | grep -i x-cache-status
+# assets باید یک هدر Cache-Control با max-age=31536000, immutable بدهد (نه max-age=0)
+curl -sI https://tabefotbal.ir/assets/<hash>.js | grep -i '^cache-control'
 # زمان‌ها در لاگ لبه
 docker compose exec -T nginx tail -n 50 /var/log/nginx/access.log
 ```
