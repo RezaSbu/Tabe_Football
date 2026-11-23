@@ -1,4 +1,4 @@
-import express, { Express, Request, Response } from "express";
+import express, { Express, Request, Response, NextFunction } from "express";
 import fs from "fs";
 import path from "path";
 import { db as pgDb, dbQuery, getUploadsDir } from "../db";
@@ -6,7 +6,7 @@ import { loadDB, setDb, getDataRevision, buildBulkEtag, isBulkFresh, buildLitePa
 import { logMessage, SYSTEM_LOGS } from "../utils/logger";
 import { dbLock } from "../utils/concurrency";
 import { fetchAndPopulateMemoryDB, saveDB, markTablesDirty } from "../services/database";
-import { BulkPayloadMemo } from "../services/bulkPayload";
+import { BulkPayloadMemo, acceptsGzip } from "../services/bulkPayload";
 import { requirePermission } from "../middleware/auth";
 
 // The bulk payload is re-serialized only when the data revision changes (or
@@ -65,7 +65,7 @@ export async function getStorageStats() {
 }
 
 export function registerSystemRoutes(app: Express) {
-  app.get("/api/data", (req: Request, res: Response) => {
+  app.get("/api/data", async (req: Request, res: Response, next: NextFunction) => {
     // داده‌ها از حافظه (منبع حقیقت) سرو می‌شوند؛ همگام‌سازی با PostgreSQL فقط در استارت سرور انجام می‌شود.
     // هر همگام‌سازی بلادرنگ در این اندپوینت باعث جایگزینی آبجکت درون‌حافظه (setDb) می‌شد و
     // آپلودهای هم‌زمانی را که قبل از saveDB رخ می‌دادند از بین می‌برد (باگ ثبت‌نشدن تصاویر).
@@ -89,12 +89,28 @@ export function registerSystemRoutes(app: Express) {
     // bump means "either variant may differ"). Skips the dropped tables and
     // trims news to the newest 60 — roughly a third of the full body.
     const shape = req.query.lite === "1" ? "lite" : "full";
-    const body = bulkPayloadMemo.get(getDataRevision(), shape, () => {
+    const revision = getDataRevision();
+    const build = () => {
       const { playerSeasonStats: _pss, coachSeasonStats: _css, teamSeasonStats: _tss, ...bulk } = loadDB() as any;
       void _pss; void _css; void _tss;
       return { status: "ok", ...(shape === "lite" ? buildLitePayload(bulk) : bulk) };
-    });
-    res.type("json").send(body);
+    };
+    // Compress once per revision here instead of letting nginx gzip every
+    // response: a cache HIT then costs a file copy rather than a full gzip of
+    // 28.7 MB on the (0.5 vCPU) nginx container. The weak ETag above stays
+    // valid for both codings, and `Vary: Accept-Encoding` is already sent.
+    try {
+      if (acceptsGzip(req.headers["accept-encoding"])) {
+        const gzipped = await bulkPayloadMemo.getGzipped(revision, shape, build);
+        res.setHeader("Content-Encoding", "gzip");
+        res.setHeader("Content-Length", String(gzipped.length));
+        res.type("json").send(gzipped);
+        return;
+      }
+      res.type("json").send(bulkPayloadMemo.get(revision, shape, build));
+    } catch (err) {
+      next(err);
+    }
   });
 
   app.get("/api/logs", requirePermission("diagnostics"), (req: Request, res: Response) => {
