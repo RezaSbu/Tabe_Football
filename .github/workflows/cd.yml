@@ -34,6 +34,10 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          # Default is 10m. A cold deploy now includes a base-image pull from a
+          # mirror plus two npm installs and the Vite/esbuild build on a small
+          # VPS; timing out mid-script is not worth risking.
+          command_timeout: 30m
           script: |
             set -e
             cd /opt/tabe-football
