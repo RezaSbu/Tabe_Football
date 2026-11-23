@@ -100,7 +100,24 @@ node -e "const fs=require('fs'),z=require('zlib');const raw=fs.readFileSync('api
 
 ---
 
-## ۷) اندازه‌گیری‌نشده‌ها (صریح)
+## ۷) اعتبارسنجی لبه در یک کانتینر موقت (بدون سرور تولید)
+
+پیکربندی nginx به‌صورت ایستا بازبینی نشد، بلکه اجرا شد:
+
+- **سینتکس:** همان `nginx/prod.conf` با یک گواهی خودامضا در مسیر `/etc/letsencrypt/live/tabefotbal.ir/` و نگاشت `app` به میزبان، داخل کانتینر `nginx:alpine` → `nginx: configuration file /etc/nginx/nginx.conf test is successful`. تنها هشدار `ssl_stapling` بود که از گواهی موقت می‌آید، نه از کانفیگ.
+- **هارنس کش:** یک upstream ساختگی با همان قرارداد `/api/data` (هدر `Cache-Control: no-cache`، `ETag: W/"rev-109"`، بدنه‌ی ۲۰۰KB و نسخه‌ی گزیپ‌شده) روی پورت ۳۹۹۹، و همان conf با همان پورت.
+
+| سناریو | نتیجه‌ی مشاهده‌شده |
+|---|---|
+| ۳ درخواست GET با `Accept-Encoding: gzip` داخل پنجره‌ی ۱۰ثانیه | `HIT` / `HIT` / `HIT` با `Content-Encoding: gzip`؛ صفر فراخوانی upstream |
+| پس از انقضای ۱۰ ثانیه | `STALE` (نسخه‌ی کهنه سرو + refresh پس‌زمینه) و دو `HIT` بعدی؛ فقط یک فراخوانی upstream |
+| `Accept-Encoding: identity` سپس تکرار | `MISS` سپس `HIT`، بدون `Content-Encoding` (هرگز بدنه‌ی گزیپ به کلاینت identity نرسید) |
+| درخواست gzip **بعد** از دو درخواست identity | `HIT` با `Content-Encoding: gzip` → variant‌ها کلید جدا دارند |
+| `/assets/*.js` دو بار | `MISS` سپس `HIT` |
+
+این یعنی دو ادعای اصلی گزارش (ذخیره‌نشدن کش به‌خاطر `Cache-Control` و مالکیت پوشه، و نبود تفکیک variant گزیپ) با اجرا تأیید شده‌اند. روی تولید پس از استقرار باید دقیقاً همین توالی دیده شود؛ تا آن زمان این «اعتبارسنجی محلی» است، نه اندازه‌گیری تولید.
+
+## ۸) اندازه‌گیری‌نشده‌ها (صریح)
 
 | مورد | دلیل | ابزار پیشنهادی |
 |---|---|---|

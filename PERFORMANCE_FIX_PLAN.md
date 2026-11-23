@@ -111,7 +111,7 @@ free -m; uptime
 | فایل | `nginx/prod.conf` |
 | تغییر | `upstream app_upstream { keepalive 32 }` + `Connection ""`؛ کش ۳۰ثانیه‌ای `location /` با bypass کوکی/Authorization؛ `log_format tabe_timed` و `access_log` |
 | چرا امن است | HTML لاگین‌شده با کوکی هرگز کش نمی‌شود؛ هدرهای امنیتی در location تکراری شده‌اند؛ `/api/`، `/uploads/`، `/assets/` و `/fonts/` مسیرهای جدا دارند |
-| تست | `tsc`/`vitest` (nginx در CI تست سینتکس ندارد)؛ توازن آکولاد و بازبینی دستی؛ روی سرور باید `nginx -t` اجرا شود |
+| تست | `nginx -t` روی همان فایل در یک کانتینر موقت با گواهی خودامضا: *test is successful*؛ به‌علاوه یک هارنس کش (upstream ساختگی) که در آن `/api/data` و `/assets/` واقعاً `MISS → HIT` شدند |
 | کامیت | `933e319` |
 | ریسک | اگر کوکی ادمین در مرورگری حذف/مسدود شود، می‌تواند پاسخ عمومی کش‌شده ببیند (همان رفتار سایت عمومی)؛ کش ۳۰ثانیه‌ای کوتاه است |
 
