@@ -35,7 +35,7 @@ free -m; uptime
 | فایل‌ها | `nginx/prod.conf`، `docker-compose.prod.yml`، `src/server/services/bulkPayload.ts` (جدید)، `src/server/routes/system.ts`، تست `bulk-payload-memo.test.ts` |
 | تغییر | `proxy_ignore_headers Cache-Control Expires` + `proxy_cache_background_update` + `proxy_cache_use_stale`؛ `chown` مسیر کش؛ memo بدنه‌ی `/api/data` بر اساس `revision|shape` |
 | چرا امن است | ETag مبتنی بر revision و مسیر 304 دست‌نخورده ماند؛ هدر `Cache-Control: no-cache` همچنان به مرورگر می‌رسد؛ کش فقط در لبه و ۱۰ ثانیه است |
-| تست | ۶ تست واحد memo (revision، lite/full، TTL، پاک‌سازی) + `tsc` |
+| تست | ۱۲ تست واحد memo (revision، lite/full، TTL، سقف حافظه، گزیپ) + `tsc` |
 | کامیت | `32b04fc`، `202bbb0` |
 | ریسک | اگر revision به‌درستی bump نشود، حداکثر ۱۰ ثانیه داده‌ی کهنه؛ شمارنده‌ی بازدید عمداً revision را bump نمی‌کند (مطابق طراحی فعلی) |
 
@@ -138,6 +138,20 @@ free -m; uptime
 | تست | ۲ تست: شکل واقعی خبر (۵۴۴۲×۱۱) و جدول‌های بسیار عریض |
 | کامیت | `500568b` |
 | ریسک | تراکنش طولانی‌تر برای جدول‌های بزرگ؛ عملاً همان بار قبلی است اما چند statement |
+
+---
+
+## فاز ۱۰ (افزوده) — فشرده‌سازی یک‌باره‌ی `/api/data`
+
+| مورد | جزئیات |
+|---|---|
+| فایل‌ها | `src/server/services/bulkPayload.ts`، `src/server/routes/system.ts`، `nginx/prod.conf`، تست `bulk-payload-memo.test.ts` |
+| چرا | کش لبه بدنه‌ی **فشرده‌نشده** را ذخیره می‌کند و `gzip` nginx روی هر ارسال (حتی HIT) اجرا می‌شود؛ یعنی HIT هم ۲۸٫۷MB را روی کانتینر ۰٫۵ vCPU فشرده می‌کرد |
+| تغییر | `getGzipped()` با `zlib.gzip` روی threadpool + dedupe درخواست‌های هم‌زمان؛ nginx فقط `Accept-Encoding: ""` یا `gzip` می‌فرستد و variant در `proxy_cache_key` است |
+| چرا امن است | `Vary: Accept-Encoding` و ETag ضعیف دست‌نخورده؛ کلاینتی که gzip نمی‌خواهد مسیر identity می‌گیرد؛ کد `gzip;q=0` رعایت می‌شود |
+| تست | ۶ تست واحد + ۵ تست HTTP روی مسیر واقعی (گزیپ/identity/`q=0`/lite/304) |
+| کامیت | `4b12305` |
+| ریسک | افزایش موقت حافظه (~۵MB بافر gzip برای full) در برابر کاهش شدید CPU لبه؛ سقف memo از ۴ به ۲ کاهش یافت تا خالص حافظه کمتر شود |
 
 ---
 
