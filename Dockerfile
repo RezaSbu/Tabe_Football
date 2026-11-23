@@ -1,7 +1,13 @@
 # ============================================
 # Stage 1: Build Frontend (Vite + React)
 # ============================================
-FROM node:20-alpine AS frontend-builder
+# Base image is a build arg so a deploy can point at a reachable mirror without
+# editing this file: Docker Hub answers Iranian datacenter IPs with 403, which
+# aborted CD #109 with "failed to resolve source metadata for node:20-alpine".
+# The default stays canonical for normal environments.
+ARG NODE_IMAGE=node:20-alpine
+
+FROM ${NODE_IMAGE} AS frontend-builder
 
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
@@ -20,7 +26,7 @@ RUN npm run build
 # ============================================
 # Stage 2: Build Backend (esbuild)
 # ============================================
-FROM node:20-alpine AS backend-builder
+FROM ${NODE_IMAGE} AS backend-builder
 
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
@@ -44,7 +50,7 @@ RUN npx esbuild src/server/index.ts \
 # ============================================
 # Stage 3: Production Runtime
 # ============================================
-FROM node:20-alpine AS runtime
+FROM ${NODE_IMAGE} AS runtime
 
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8

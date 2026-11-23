@@ -157,12 +157,25 @@ free -m; uptime
 
 ## چک‌لیست استقرار (بعد از تأیید)
 
+> **درس گرفته‌شده از CD #109:** اولین تلاش استقرار روی سرور با
+> `403 Forbidden` از Docker Hub هنگام resolve کردن `node:20-alpine` شکست خورد
+> (Docker Hub آی‌پی دیتاسنترهای ایران را مسدود می‌کند؛ `docker image prune` هم
+> ایمیج پایه‌ی کش‌شده را از قبل پاک کرده بود). کانتینرهای قبلی دست‌نخورده ماندند.
+> اکنون `cd.yml` قبل از build یک ایمیج پایه‌ی در دسترس پیدا می‌کند (نسخه‌ی محلی →
+> میرورهای ایرانی → Docker Hub) و آن را به‌صورت `--build-arg NODE_IMAGE=...` به
+> `Dockerfile` می‌دهد؛ `nginx:alpine` و `postgres:16-alpine` هم در صورت نبودن از
+> میرور با retag تأمین می‌شوند. اگر همه‌ی گزینه‌ها شکست بخورند، deploy با پیام
+> روشن متوقف می‌شود و سرویس فعلی آسیب نمی‌بیند.
+
 ```bash
 cd /opt/tabe-football
 bash scripts/backup.sh
 git fetch origin
 git checkout perf/audit-fixes && git pull --ff-only
 # یا merge به main و استقرار معمول CD
+
+# اگر Docker Hub در دسترس نبود (سرور ایران)، پایه‌ی build را از میرور بدهید:
+export NODE_IMAGE=${NODE_IMAGE:-docker.arvancloud.ir/library/node:20-alpine}
 
 docker compose -f docker-compose.yml -f docker-compose.prod.yml build app
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --force-recreate app nginx
