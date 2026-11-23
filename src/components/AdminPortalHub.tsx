@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { 
   FileText, 
   RefreshCw, 
@@ -22,6 +22,12 @@ import RichTextEditor from "./ui/RichTextEditor";
 import { toPlainText } from "../shared/richText";
 import { NewsItem, TransferItem, ImageItem, ContactSubmission, LegionnaireItem, AdItem } from "../types";
 import { isWithinSchedule } from "./AdSlot";
+import { formatStatNumber } from "../utils";
+
+// Only this many news rows are downloaded/rendered at a time. The news table
+// holds 5k+ full articles; rendering all of them put ~30k nodes in one scroll
+// box and made every keystroke re-filter the whole set.
+const NEWS_PAGE_SIZE = 20;
 
 interface AdminPortalHubProps {
   news: NewsItem[];
@@ -33,6 +39,7 @@ interface AdminPortalHubProps {
   ads?: AdItem[];
   onSaveAds?: (ads: AdItem[]) => void;
   onRefreshData: () => void;
+  onPatchNews?: (upsert: any | null, removeId?: string) => void;
   permissions?: string[];
 }
 
@@ -46,6 +53,7 @@ export default function AdminPortalHub({
   ads = [],
   onSaveAds,
   onRefreshData,
+  onPatchNews,
   permissions = []
 }: AdminPortalHubProps) {
   const [subTab, setSubTab] = useState<"news" | "transfers" | "teamTransfers" | "legionnaires" | "gallery" | "submissions" | "ads">("news");
@@ -151,10 +159,23 @@ export default function AdminPortalHub({
   const [imgTags, setImgTags] = useState("");
   const [showTagSuggest, setShowTagSuggest] = useState(false);
 
+  // NEWS LIST STATE (server-side paginated + searched)
+  const [newsPage, setNewsPage] = useState(1);
+  const [newsSearch, setNewsSearch] = useState("");
+  const [newsDebouncedSearch, setNewsDebouncedSearch] = useState("");
+  const [newsPageRows, setNewsPageRows] = useState<NewsItem[]>([]);
+  const [newsTotal, setNewsTotal] = useState(0);
+  const [newsTotalPages, setNewsTotalPages] = useState(1);
+  const [newsListLoading, setNewsListLoading] = useState(false);
+  const [newsRefreshTick, setNewsRefreshTick] = useState(0);
+  const [serverTags, setServerTags] = useState<string[] | null>(null);
+
   // All previously used news tags (dynamic: newly saved tags appear here
   // automatically on next load, so they get suggested in later sessions).
+  // Server-provided once the list is paginated (the current page no longer
+  // carries every tag); the prop-derived set stays as a fallback/merge.
   const allExistingTags = useMemo(() => {
-    const set = new Set<string>();
+    const set = new Set<string>(serverTags || []);
     for (const n of news || []) {
       for (const t of (n as any).tags || []) {
         const clean = String(t || "").trim();
@@ -162,7 +183,7 @@ export default function AdminPortalHub({
       }
     }
     return [...set].sort((a, b) => a.localeCompare(b, "fa"));
-  }, [news]);
+  }, [news, serverTags]);
 
   // Suggestions filtered by the token currently being typed (after last comma).
   const tagSuggestions = useMemo(() => {
@@ -175,6 +196,61 @@ export default function AdminPortalHub({
       .filter(t => !used.has(t) && (token === "" || t.includes(token)))
       .slice(0, 8);
   }, [newsTags, allExistingTags]);
+
+  // ---- Paginated news list (current page only; search is server-side) ----
+  // Debounce typing so a query change doesn't fire a request per keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setNewsDebouncedSearch(newsSearch.trim());
+      setNewsPage(1);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [newsSearch]);
+
+  useEffect(() => {
+    if (subTabForRender !== "news" || !canSeeSubTab("news")) return;
+    let cancelled = false;
+    const controller = new AbortController();
+    setNewsListLoading(true);
+    const params = new URLSearchParams({
+      page: String(newsPage),
+      limit: String(NEWS_PAGE_SIZE),
+      q: newsDebouncedSearch,
+    });
+    fetch(`/api/admin/news?${params.toString()}`, { signal: controller.signal })
+      .then(res => {
+        if (!res.ok) throw new Error("admin news fetch failed");
+        return res.json();
+      })
+      .then(data => {
+        if (cancelled || !data.success) return;
+        setNewsPageRows(Array.isArray(data.items) ? data.items : []);
+        setNewsTotal(Number(data.total) || 0);
+        setNewsTotalPages(Math.max(1, Number(data.totalPages) || 1));
+        if (Number(data.page) && Number(data.page) !== newsPage) setNewsPage(Number(data.page));
+      })
+      .catch(e => { if (e?.name !== "AbortError") {} })
+      .finally(() => { if (!cancelled) setNewsListLoading(false); });
+    return () => { cancelled = true; controller.abort(); };
+  }, [subTabForRender, newsPage, newsDebouncedSearch, newsRefreshTick, permissions]);
+
+  // Tag suggestions need the full tag vocabulary, which pagination no longer
+  // ships with each row. Fetched once per panel mount (cheap: strings only).
+  useEffect(() => {
+    if (subTabForRender !== "news" || !canSeeSubTab("news") || serverTags) return;
+    let cancelled = false;
+    fetch("/api/admin/news/tags")
+      .then(res => (res.ok ? res.json() : null))
+      .then(data => {
+        if (!cancelled && data?.success) {
+          setServerTags(Array.isArray(data.tags) ? data.tags : []);
+        }
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [subTabForRender, permissions, serverTags]);
+
+  const refreshNewsList = () => setNewsRefreshTick(t => t + 1);
 
   // AD FORM STATE
   const [adForm, setAdForm] = useState<AdItem | null>(null);
@@ -447,14 +523,21 @@ export default function AdminPortalHub({
       if (res.ok) {
         setShowForm(null);
         setEditingId(null);
-        onRefreshData();
+        // Phase-1 perf: patch the shared list from the saved row instead of
+        // re-downloading the whole dataset; the news list refreshes its own
+        // page and the next poll converges everything else.
+        const data = await res.json().catch(() => null);
+        onPatchNews?.(data?.item || null);
+        setServerTags(null);
+        refreshNewsList();
       } else if (res.status === 409) {
         const data = await res.json();
         const reload = window.confirm(`${data.message || "این خبر توسط شخص دیگری ویرایش شده است."}\nبرای بارگذاری اطلاعات جدید «تایید» را بزنید.`);
         if (reload) {
           setShowForm(null);
           setEditingId(null);
-          onRefreshData();
+          onPatchNews?.(data.current || null);
+          refreshNewsList();
         }
       } else {
         alert("خطا در ذخیره خبر.");
@@ -468,7 +551,10 @@ export default function AdminPortalHub({
     if (!window.confirm("آیا از حذف این خبر اطمینان دارید؟")) return;
     try {
       const res = await fetch(`/api/news/${id}`, { method: "DELETE" });
-      if (res.ok) onRefreshData();
+      if (res.ok) {
+        onPatchNews?.(null, id);
+        refreshNewsList();
+      }
     } catch {
       alert("خطا در اتصال به سرور.");
     }
@@ -880,8 +966,23 @@ export default function AdminPortalHub({
             </form>
           )}
 
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+            <input
+              type="search"
+              value={newsSearch}
+              onChange={e => setNewsSearch(e.target.value)}
+              placeholder="جستجو در عنوان، خلاصه یا برچسب خبر..."
+              className="w-full text-xs rounded bg-black border border-white/5 p-2 text-white"
+            />
+            <span className="text-[10px] text-slate-500 font-bold whitespace-nowrap self-center">
+              {newsListLoading
+                ? "در حال بارگذاری..."
+                : `${formatStatNumber(newsTotal)} خبر`}
+            </span>
+          </div>
+
           <div className="grid gap-3 md:grid-cols-2 max-h-[500px] overflow-y-auto">
-            {news.map(n => (
+            {newsPageRows.map(n => (
               <div key={n.id} className="p-3 bg-white/[0.01] border border-white/5 rounded-xl hover:bg-white/[0.03] transition flex justify-between gap-3">
                 <div className="space-y-1">
                   <span className="text-[10px] text-red-500 font-extrabold">
@@ -907,7 +1008,34 @@ export default function AdminPortalHub({
                 </div>
               </div>
             ))}
+            {!newsListLoading && newsPageRows.length === 0 && (
+              <p className="md:col-span-2 text-center text-xs text-slate-500 py-6">
+                خبری با این جستجو یافت نشد.
+              </p>
+            )}
           </div>
+
+          {newsTotalPages > 1 && (
+            <div className="flex flex-wrap items-center justify-center gap-1.5 pt-2" dir="rtl">
+              <button
+                onClick={() => setNewsPage(p => Math.max(1, p - 1))}
+                disabled={newsPage <= 1}
+                className="rounded-xl px-3 py-1.5 text-xs font-black bg-gray-950 text-gray-300 border border-white/5 hover:text-white disabled:opacity-40 disabled:cursor-default transition"
+              >
+                قبلی
+              </button>
+              <span className="text-[11px] text-slate-500 font-bold font-mono">
+                صفحه {formatStatNumber(newsPage)} از {formatStatNumber(newsTotalPages)}
+              </span>
+              <button
+                onClick={() => setNewsPage(p => Math.min(newsTotalPages, p + 1))}
+                disabled={newsPage >= newsTotalPages}
+                className="rounded-xl px-3 py-1.5 text-xs font-black bg-gray-950 text-gray-300 border border-white/5 hover:text-white disabled:opacity-40 disabled:cursor-default transition"
+              >
+                بعدی
+              </button>
+            </div>
+          )}
         </div>
       )}
 

@@ -37,6 +37,15 @@ services:
     volumes:
       - ./nginx/prod.conf:/etc/nginx/conf.d/default.conf:ro
       - ./public:/public:ro
+    # proxy_cache stores responses under /var/cache/nginx/tabe. In the official
+    # image that tree belongs to root while the workers run as `nginx`, so a
+    # non-writable cache dir fails silently: every response is served but never
+    # stored, and X-Cache-Status stays MISS forever (observed in production for
+    # both /api/data and /assets/). Own the dir before the master starts.
+    command:
+      - /bin/sh
+      - -c
+      - mkdir -p /var/cache/nginx/tabe && chown -R nginx:nginx /var/cache/nginx && exec nginx -g 'daemon off;'
     deploy:
       resources:
         limits:

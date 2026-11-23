@@ -46,7 +46,7 @@ export default function AdminMediaFiles() {
   const [uploadCategory, setUploadCategory] = useState("player_photo");
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [pendingUpload, setPendingUpload] = useState<{ title: string; category: string; files: { fileName: string; fileData: string }[] } | null>(null);
+  const [pendingUpload, setPendingUpload] = useState<{ title: string; category: string; files: File[] } | null>(null);
   const [showWatermarkModal, setShowWatermarkModal] = useState(false);
   
   // Edit States
@@ -117,37 +117,25 @@ export default function AdminMediaFiles() {
     setPage(1);
   };
 
-  // Convert file to base64
-  const toBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => {
-        const base64String = (reader.result as string).split(",")[1];
-        resolve(base64String);
-      };
-      reader.onerror = (error) => reject(error);
-    });
-  };
-
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (uploadFiles.length === 0) return;
-    setUploading(true);
-    try {
-      const filesPayload = await Promise.all(
-        uploadFiles.map(async (file) => ({
-          fileName: file.name,
-          fileData: await toBase64(file)
-        }))
-      );
-      setPendingUpload({ title: uploadTitle, category: uploadCategory, files: filesPayload });
-      setShowWatermarkModal(true);
-    } catch {
-      showToast("خطا در آماده‌سازی فایل‌ها.", "error");
-    } finally {
-      setUploading(false);
+    // Reject oversize files before sending anything; the server enforces the
+    // same 8MB cap on the raw body.
+    const MAX_FILE_BYTES = 8 * 1024 * 1024;
+    if (uploadFiles.length > 20) {
+      showToast("حداکثر ۲۰ فایل در هر بار آپلود مجاز است.", "error");
+      return;
     }
+    const tooBig = uploadFiles.filter(file => file.size > MAX_FILE_BYTES);
+    if (tooBig.length > 0) {
+      showToast(`حجم این فایل‌ها بیش از ۸ مگابایت است: ${tooBig.map(f => f.name).join("، ")}`, "error");
+      return;
+    }
+    // The File objects go straight to the raw upload endpoint; the old flow
+    // base64-encoded every file and put all of them in one JSON body.
+    setPendingUpload({ title: uploadTitle, category: uploadCategory, files: [...uploadFiles] });
+    setShowWatermarkModal(true);
   };
 
   const executeUpload = async (watermark: boolean) => {
@@ -157,37 +145,50 @@ export default function AdminMediaFiles() {
     setPendingUpload(null);
     setUploading(true);
     try {
-      const payload = {
-        title: upload.title,
-        category: upload.category,
-        watermark,
-        files: upload.files
-      };
+      const uploaded: any[] = [];
+      const errors: { fileName: string; error: string }[] = [];
 
-      const response = await fetch("/api/media/upload-multiple", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      const data = await response.json();
+      // Sequential so the 512MB box only holds one decoded image at a time.
+      for (const file of upload.files) {
+        const params = new URLSearchParams({
+          fileName: file.name,
+          title: upload.title,
+          category: upload.category,
+          watermark: watermark ? "1" : "0",
+        });
+        try {
+          const response = await fetch(`/api/media/upload-raw?${params.toString()}`, {
+            method: "POST",
+            headers: { "Content-Type": file.type || "application/octet-stream" },
+            body: file,
+          });
+          const data = await response.json().catch(() => null);
+          if (response.ok && data?.success && data.file) {
+            uploaded.push(data.file);
+          } else {
+            errors.push({ fileName: file.name, error: data?.message || "خطا در آپلود فایل" });
+          }
+        } catch {
+          errors.push({ fileName: file.name, error: "خطا در ارتباط با سرور" });
+        }
+      }
 
-      if (data.success) {
+      if (uploaded.length > 0) {
         setUploadTitle("");
         setUploadFiles([]);
         // Clear file input value
         const fileInput = document.getElementById("file-upload-input") as HTMLInputElement;
         if (fileInput) fileInput.value = "";
 
-        const okCount = (data.files || []).length;
-        const failCount = (data.errors || []).length;
+        const failCount = errors.length;
         showToast(
-          `آپلود انجام شد: ${okCount} تصویر با موفقیت بارگذاری شد.${failCount > 0 ? ` (${failCount} تصویر ناموفق)` : ""}`,
-          okCount > 0 ? "success" : "error"
+          `آپلود انجام شد: ${uploaded.length} تصویر با موفقیت بارگذاری شد.${failCount > 0 ? ` (${failCount} تصویر ناموفق)` : ""}`,
+          "success"
         );
         setPage(1);
         fetchMedia();
       } else {
-        showToast(data.message || "خطا در آپلود تصاویر.", "error");
+        showToast(errors[0]?.error || "خطا در آپلود تصاویر.", "error");
       }
     } catch (err) {
       console.error("Upload error:", err);
@@ -249,18 +250,19 @@ export default function AdminMediaFiles() {
     setReplacingId(id);
     setReplaceLoading(true);
     try {
-      const base64Data = await toBase64(file);
-      const response = await fetch(`/api/media/replace/${id}`, {
+      // Send the bytes directly instead of base64-in-JSON.
+      const params = new URLSearchParams({ fileName: file.name });
+      const response = await fetch(`/api/media/replace-raw/${id}?${params.toString()}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileData: base64Data, fileName: file.name })
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file
       });
-      const data = await response.json();
-      if (data.success) {
+      const data = await response.json().catch(() => null);
+      if (data?.success) {
         showToast("تصویر جدید با موفقیت جایگزین تصویر قبلی شد.", "success");
         fetchMedia();
       } else {
-        showToast(data.message || "خطا در جایگزینی تصویر در استوریج.", "error");
+        showToast(data?.message || "خطا در جایگزینی تصویر در استوریج.", "error");
       }
     } catch (err) {
       console.error("Replace image error:", err);

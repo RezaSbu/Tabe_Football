@@ -42,6 +42,13 @@ interface SupabaseResult {
   error: any;
 }
 
+// PostgreSQL allows at most 65535 bind parameters per statement. Keep a wide
+// margin and derive how many rows fit in one INSERT for a given column count.
+export const MAX_UPSERT_PARAMS = 30_000;
+export function upsertRowsPerChunk(columnCount: number): number {
+  return Math.max(1, Math.floor(MAX_UPSERT_PARAMS / Math.max(1, columnCount)));
+}
+
 class QueryBuilder {
   private table: string;
   private operation: "select" | "upsert" | "delete" = "select";
@@ -170,15 +177,8 @@ class QueryBuilder {
     return { data: result.rows, error: null };
   }
 
-  private async executeUpsert(): Promise<SupabaseResult> {
-    const items = Array.isArray(this.upsertData) ? this.upsertData : [this.upsertData];
-    if (items.length === 0) return { data: null, error: null };
-
-    // Use first item to determine columns
-    const firstItem = items[0];
-    const columns = Object.keys(firstItem);
+  private buildUpsertStatement(items: any[], columns: string[], conflictCols: string[]) {
     const colStr = columns.join(", ");
-
     const valueSets: string[] = [];
     const allParams: any[] = [];
     let paramIdx = 1 + this.paramOffset;
@@ -195,7 +195,6 @@ class QueryBuilder {
       }
     }
 
-    const conflictCols = this.getConflictColumns();
     const updateCols = columns
       .filter((c) => c !== conflictCols[0])
       .map((c) => `${c} = EXCLUDED.${c}`)
@@ -205,8 +204,48 @@ class QueryBuilder {
       ON CONFLICT (${conflictCols.join(", ")})
       DO UPDATE SET ${updateCols || `${columns[0]} = EXCLUDED.${columns[0]}`}`;
 
-    await pool.query(sql, allParams);
-    return { data: items, error: null };
+    return { sql, params: allParams };
+  }
+
+  private async executeUpsert(): Promise<SupabaseResult> {
+    const items = Array.isArray(this.upsertData) ? this.upsertData : [this.upsertData];
+    if (items.length === 0) return { data: null, error: null };
+
+    // Use first item to determine columns
+    const firstItem = items[0];
+    const columns = Object.keys(firstItem);
+    const conflictCols = this.getConflictColumns();
+
+    // PostgreSQL allows at most 65535 bind parameters per statement. The old
+    // single-statement upsert was already at 59,862 params for the news table
+    // (5442 rows x 11 columns), i.e. ~300 more news articles away from failing
+    // every save with "cannot insert more than 65535 parameters". Chunk rows
+    // well below the limit and keep the chunks in one transaction so a failed
+    // chunk cannot leave a half-written table.
+    const rowsPerChunk = upsertRowsPerChunk(columns.length);
+
+    if (items.length <= rowsPerChunk) {
+      const { sql, params } = this.buildUpsertStatement(items, columns, conflictCols);
+      await pool.query(sql, params);
+      return { data: items, error: null };
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      for (let start = 0; start < items.length; start += rowsPerChunk) {
+        const chunk = items.slice(start, start + rowsPerChunk);
+        const { sql, params } = this.buildUpsertStatement(chunk, columns, conflictCols);
+        await client.query(sql, params);
+      }
+      await client.query("COMMIT");
+      return { data: items, error: null };
+    } catch (err) {
+      try { await client.query("ROLLBACK"); } catch { /* connection already broken */ }
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   private async executeDelete(): Promise<SupabaseResult> {
@@ -292,15 +331,18 @@ class StorageBuilder {
   ): Promise<SupabaseResult> {
     try {
       const fullPath = path.join(this.baseDir, this.bucket, filePath);
-      console.log("[STORAGE] upload() fullPath:", fullPath, "buffer.length:", buffer.length);
-      ensureDirSync(path.dirname(fullPath));
+      await fs.promises.mkdir(path.dirname(fullPath), { recursive: true });
 
-      if (!options?.upsert && fs.existsSync(fullPath)) {
-        return { data: null, error: { message: "File already exists" } };
+      if (!options?.upsert) {
+        const exists = await fs.promises.access(fullPath).then(() => true, () => false);
+        if (exists) {
+          return { data: null, error: { message: "File already exists" } };
+        }
       }
 
-      fs.writeFileSync(fullPath, buffer);
-      console.log("[STORAGE] upload() writeFileSync SUCCESS, file exists:", fs.existsSync(fullPath));
+      // Async write: a multi-MB image used to block the only Node thread for
+      // the whole disk write (writeFileSync), freezing every concurrent request.
+      await fs.promises.writeFile(fullPath, buffer);
       return { data: { path: filePath }, error: null };
     } catch (err: any) {
       console.error("[STORAGE] upload() ERROR:", err.message);
@@ -317,9 +359,10 @@ class StorageBuilder {
     try {
       for (const p of paths) {
         const fullPath = path.join(this.baseDir, this.bucket, p);
-        if (fs.existsSync(fullPath)) {
-          fs.unlinkSync(fullPath);
-        }
+        // `force: true` ignores ENOENT, replacing the sync exists+unlink pair.
+        await fs.promises.unlink(fullPath).catch((err: any) => {
+          if (err?.code !== "ENOENT") throw err;
+        });
       }
       return { data: null, error: null };
     } catch (err: any) {

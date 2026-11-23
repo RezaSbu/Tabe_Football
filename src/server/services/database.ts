@@ -52,6 +52,36 @@ function isDirty(dirty: Set<DirtyTable | "all">, table: DirtyTable): boolean {
   return dirty.has("all") || dirty.has(table);
 }
 
+// Inputs of recalculateAndSyncDatabase(): standings, leaderboards, season
+// aggregates and the team base lines are all derived from these tables. A save
+// that touches none of them cannot change a single derived number, so the
+// recompute (plus the 9-table rewrite it forces) is pure waste — and it used to
+// run on every news/media/ads save, i.e. on the most frequent admin writes.
+const RECALC_INPUT_TABLES: ReadonlySet<DirtyTable> = new Set<DirtyTable>([
+  "teams",
+  "players",
+  "coaches",
+  "matches",
+  "standings",
+  "stats",
+  "playerSeasonStats",
+  "coachSeasonStats",
+  "teamSeasonStats",
+  "teamTransfersList",
+  "playerMovements",
+  "coachMovements",
+  "coachAppointments",
+  "lifecycleEvents",
+]);
+
+function dirtyNeedsRecalc(dirty: Set<DirtyTable | "all">): boolean {
+  if (dirty.has("all")) return true;
+  for (const t of dirty) {
+    if (RECALC_INPUT_TABLES.has(t as DirtyTable)) return true;
+  }
+  return false;
+}
+
 // Recalc is only needed when finished-match data changed. Structural writes
 // (future games, news, media, ads...) skip the ~46s full recompute.
 // skipRecalc=true is a caller assertion; the helper double-checks nothing
@@ -1773,18 +1803,23 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
     });
     data.matches = Array.from(matchIdMap.values());
 
-    runDatabaseMigrationsAndTransitions(data);
+    const transitionsChanged = runDatabaseMigrationsAndTransitions(data).changed;
     // Derived per-season aggregates only change inside recalc; skipRecalc
     // paths must not rewrite them (memory rows would just be restated).
     let recalcRan = false;
     if (options && options.skipRecalc) {
       logMessage("info", "database", "saveDB بدون بازمحاسبه آمار (تغییر غیر finished).");
-    } else {
+    } else if (transitionsChanged || dirtyNeedsRecalc(dirty)) {
       recalculateAndSyncDatabase();
       recalcRan = true;
       // Recalc rewrites these collections in memory: they must persist even
       // when the caller only marked its own table. (No "all" fallback.)
       markTablesDirty("teams", "players", "coaches", "matches", "standings", "stats", "playerSeasonStats", "coachSeasonStats", "teamSeasonStats");
+    } else {
+      // News/media/ads/CMS saves land here: nothing derived can change, so the
+      // whole recompute + 9-table rewrite is skipped. Wall-clock match
+      // transitions are covered by transitionsChanged above.
+      logMessage("info", "database", "saveDB: بازمحاسبه لازم نبود (هیچ جدول ورودی آمار تغییر نکرد).");
     }
     // Merge marks made during migrations/recalc into this save's working set.
     for (const t of consumeDirty()) dirty.add(t);

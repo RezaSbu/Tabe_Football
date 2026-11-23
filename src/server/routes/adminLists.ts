@@ -3,6 +3,7 @@ import { loadDB } from "../state";
 import { normalizePersianString } from "../utils/persian";
 import { requirePermission } from "../middleware/auth";
 import { getEffectiveStatus } from "../../shared/matchStatus";
+import { sortNewsNewestFirst } from "../../shared/newsSort";
 
 // Phase-3 perf: server-side paginated + filtered admin list endpoints.
 // The admin UI previously downloaded the whole 9.5MB /api/data payload and
@@ -26,7 +27,7 @@ function leagueMatches(m: any, league: string): boolean {
   return String(m.league) === league;
 }
 
-function paginate<T>(rows: T[], page: number, limit: number) {
+export function paginate<T>(rows: T[], page: number, limit: number) {
   const total = rows.length;
   const totalPages = Math.max(1, Math.ceil(total / limit));
   const safePage = Math.min(Math.max(page, 1), totalPages);
@@ -37,6 +38,41 @@ function paginate<T>(rows: T[], page: number, limit: number) {
     page: safePage,
     limit,
   };
+}
+
+// Pure filter/page rule behind GET /api/admin/news (unit-tested).
+export function searchAdminNews(
+  news: any[],
+  opts: { q?: string; category?: string; page?: number; limit?: number } = {}
+) {
+  const all = sortNewsNewestFirst(Array.isArray(news) ? news : []);
+  const q = normalizePersianString(String(opts.q || "").trim());
+  const category = String(opts.category || "all");
+  const filtered =
+    q || category !== "all"
+      ? all.filter((n: any) => {
+          if (category !== "all" && String(n.category || "") !== category) return false;
+          if (!q) return true;
+          const hay = normalizePersianString(
+            [n.title, n.summary, ...(Array.isArray(n.tags) ? n.tags : [])].join(" ")
+          );
+          return hay.includes(q);
+        })
+      : all;
+  const page = Math.max(opts.page || 1, 1);
+  const limit = Math.min(Math.max(opts.limit || 20, 1), 50);
+  return paginate(filtered, page, limit);
+}
+
+export function collectNewsTags(news: any[]): string[] {
+  const set = new Set<string>();
+  for (const n of Array.isArray(news) ? news : []) {
+    for (const t of Array.isArray(n?.tags) ? n.tags : []) {
+      const clean = String(t || "").trim();
+      if (clean) set.add(clean);
+    }
+  }
+  return [...set].sort((a, b) => a.localeCompare(b, "fa"));
 }
 
 // Slim match row for admin lists: no lineups/events/scorers payloads.
@@ -73,6 +109,25 @@ function slimMatch(m: any, nowMs: number) {
 }
 
 export function registerAdminListRoutes(app: Express) {
+  // Admin news list, paginated + searched server-side.
+  // The panel used to render every row of db.news (5k+ full articles, ~30k DOM
+  // nodes) inside one scroll box and redo it on every keystroke. Rows stay FULL
+  // news items so the edit form keeps receiving content/gallery/read_more.
+  app.get("/api/admin/news", requirePermission("portal.news"), (req: Request, res: Response) => {
+    const result = searchAdminNews(loadDB().news as any[], {
+      q: String(req.query.q || ""),
+      category: String(req.query.category || "all"),
+      page: parseInt(String(req.query.page)) || 1,
+      limit: parseInt(String(req.query.limit)) || 20,
+    });
+    res.json({ success: true, ...result });
+  });
+
+  // Every distinct news tag, so editor suggestions survive pagination.
+  app.get("/api/admin/news/tags", requirePermission("portal.news"), (_req: Request, res: Response) => {
+    res.json({ success: true, tags: collectNewsTags(loadDB().news as any[]) });
+  });
+
   app.get("/api/admin/matches", requirePermission("matches"), (req: Request, res: Response) => {
     const db = loadDB();
     const page = Math.max(parseInt(String(req.query.page)) || 1, 1);

@@ -614,6 +614,29 @@ export function useAppData() {
     });
   };
 
+  // Same idea for portal content: a news save/delete used to call
+  // adminRefreshData(), which dropped the client cache and re-downloaded the
+  // whole payload (~6.8MB) just to insert/remove one article. The admin news
+  // endpoint already re-reads its own page, and the next poll converges the
+  // rest, so patching the shared list here is enough.
+  const patchNews = (upsert: any | null, removeId?: string) => {
+    setNews((prev: NewsItem[]) => {
+      let next = prev || [];
+      if (removeId) {
+        next = next.filter((n: any) => String(n.id) !== String(removeId));
+      }
+      if (upsert && upsert.id) {
+        const idx = next.findIndex((n: any) => String(n.id) === String(upsert.id));
+        if (idx >= 0) {
+          next = next.map((n: any, i: number) => (i === idx ? { ...n, ...upsert } : n));
+        } else {
+          next = [{ ...upsert }, ...next];
+        }
+      }
+      return next;
+    });
+  };
+
   const findPlayerById = (id: string | null) => {
     if (!id) return null;
 
@@ -707,7 +730,7 @@ export function useAppData() {
     visibleNewsCount, setVisibleNewsCount,
     livescoreFilter, setLivescoreFilter,
     ads, setAds,
-    applyFetchedData, fetchData, fetchDataQuietly, adminRefreshData, patchMatches,
+    applyFetchedData, fetchData, fetchDataQuietly, adminRefreshData, patchMatches, patchNews,
     handleSelectLegionnaire,
     handlePredictionVote, handleToggleSubscription,
     handleUpdateStandings, handleUpdateStats,
