@@ -410,7 +410,7 @@ export function registerMiscRoutes(app: Express) {
     currentDB.news.unshift(item);
     markTablesDirty("news");
     await saveDB();
-    res.json({ success: true });
+    res.json({ success: true, item });
   });
 
   app.put("/api/news/:id", requirePermission("portal.news"), async (req, res) => {
@@ -421,10 +421,13 @@ export function registerMiscRoutes(app: Express) {
       if (detectConflict(existingNews, req.body.updatedAt)) {
         return res.status(409).json({ success: false, conflict: true, message: "این خبر پس از باز کردن فرم توسط شخص دیگری ویرایش شده است. لطفاً دوباره بارگذاری کنید.", current: existingNews });
       }
-      currentDB.news[index] = { ...existingNews, ...sanitizeNewsFields(req.body), updatedAt: new Date().toISOString() };
+      const updated = { ...existingNews, ...sanitizeNewsFields(req.body), updatedAt: new Date().toISOString() };
+      currentDB.news[index] = updated;
       markTablesDirty("news");
       await saveDB();
-      res.json({ success: true });
+      // Return the stored row so the panel can patch its list locally instead
+      // of re-downloading the whole dataset after every edit.
+      res.json({ success: true, item: updated });
     } else {
       res.status(404).send();
     }

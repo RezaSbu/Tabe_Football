@@ -64,6 +64,7 @@ interface AdminPanelProps {
   onLogin: (user: { username: string; role: string; label: string; permissions: string[] }) => void;
   onRefreshData: () => void;
   onPatchMatches?: (upsert: any | null, removeId?: string) => void;
+  onPatchNews?: (upsert: any | null, removeId?: string) => void;
   onLogout?: () => void;
   adminUser?: { username: string; role: string; label: string; permissions: string[] } | null;
 }
@@ -94,6 +95,7 @@ export default function AdminPanel({
   onLogin,
   onRefreshData,
   onPatchMatches,
+  onPatchNews,
   onLogout,
   adminUser
 }: AdminPanelProps) {
@@ -555,6 +557,7 @@ export default function AdminPanel({
             ads={ads}
             onSaveAds={onSaveAds}
             onRefreshData={onRefreshData}
+            onPatchNews={onPatchNews}
             permissions={permissions}
           />
         )}
