@@ -10,7 +10,15 @@ on:
 
 jobs:
   deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    # The `branches:` filter above is not enough in practice: this repo has
+    # produced CD runs for `develop` CI completions (CD #109), and the deploy
+    # script always resets to origin/main — so a push to develop could deploy
+    # whatever main happens to be, without a merge. Require the completed CI
+    # run to be a push on main, explicitly.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
     # Overlapping deploys reset/prune/build on top of each other and fail
     # randomly — queue them instead.
