@@ -6,7 +6,12 @@ import { loadDB, setDb, getDataRevision, buildBulkEtag, isBulkFresh, buildLitePa
 import { logMessage, SYSTEM_LOGS } from "../utils/logger";
 import { dbLock } from "../utils/concurrency";
 import { fetchAndPopulateMemoryDB, saveDB, markTablesDirty } from "../services/database";
+import { BulkPayloadMemo } from "../services/bulkPayload";
 import { requirePermission } from "../middleware/auth";
+
+// The bulk payload is re-serialized only when the data revision changes (or
+// after 10s, matching the edge cache window). See services/bulkPayload.ts.
+const bulkPayloadMemo = new BulkPayloadMemo(10_000);
 
 async function getDirectorySize(dir: string): Promise<number> {
   let total = 0;
@@ -83,10 +88,13 @@ export function registerSystemRoutes(app: Express) {
     // ?lite=1 serves the first-paint slice (same revision ETag: a revision
     // bump means "either variant may differ"). Skips the dropped tables and
     // trims news to the newest 60 — roughly a third of the full body.
-    const { playerSeasonStats: _pss, coachSeasonStats: _css, teamSeasonStats: _tss, ...bulk } = loadDB() as any;
-    void _pss; void _css; void _tss;
-    const body = req.query.lite === "1" ? buildLitePayload(bulk) : bulk;
-    res.json({ status: "ok", ...body });
+    const shape = req.query.lite === "1" ? "lite" : "full";
+    const body = bulkPayloadMemo.get(getDataRevision(), shape, () => {
+      const { playerSeasonStats: _pss, coachSeasonStats: _css, teamSeasonStats: _tss, ...bulk } = loadDB() as any;
+      void _pss; void _css; void _tss;
+      return { status: "ok", ...(shape === "lite" ? buildLitePayload(bulk) : bulk) };
+    });
+    res.type("json").send(body);
   });
 
   app.get("/api/logs", requirePermission("diagnostics"), (req: Request, res: Response) => {
