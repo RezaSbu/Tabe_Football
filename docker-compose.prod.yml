@@ -19,14 +19,24 @@ services:
         max-file: "3"
 
   app:
+    environment:
+      # V8 sizes its default heap from the cgroup when NODE_OPTIONS is absent:
+      # measured inside the live container on 2026-11-25 -> heap_size_limit
+      # 259 MB with memory.max 512 MB. The process then died 5 times with
+      # "Reached heap limit Allocation failed" at 248.8 -> 249.6 MB live after
+      # a full Mark-Compact, i.e. the app genuinely needed more than the cap.
+      # Pin the cap so it no longer depends on how the container is sized, and
+      # keep the heap below the cgroup limit so a regression surfaces as a
+      # diagnosable V8 abort instead of a silent SIGKILL.
+      NODE_OPTIONS: "--max-old-space-size=512"
     deploy:
       resources:
         limits:
           cpus: "1.0"
-          memory: 512M
+          memory: 1G
         reservations:
           cpus: "0.25"
-          memory: 256M
+          memory: 512M
     logging:
       driver: json-file
       options:
