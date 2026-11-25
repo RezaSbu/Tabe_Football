@@ -2,7 +2,11 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    # Phase branches were invisible to CI (only main/develop were listed), so a
+    # perf change could sit untested until it landed on develop. These patterns
+    # cost nothing: CD is gated on `head_branch == 'main'` and cannot fire from
+    # a branch push.
+    branches: [main, develop, "perf/**", "ops/**"]
   pull_request:
     branches: [main, develop]
 
