@@ -124,6 +124,20 @@ jobs:
             docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --force-recreate nginx
             docker compose -f docker-compose.yml -f docker-compose.prod.yml exec -T nginx nginx -t
             docker image prune -f
+            # Build cache is the single biggest disk consumer on this box:
+            # measured 21.44 GB total / 15.53 GB reclaimable when the volume was
+            # already 85% full. It only ever grew because CD removed dangling
+            # images but never touched the builder cache.
+            # Prune only under pressure, and keep 4 GB of recent layers so the
+            # next deploy does not pay a full cold rebuild over a slow link
+            # (mirror failures already forced a 3-attempt retry loop above).
+            df_pct=$(df --output=pcent / 2>/dev/null | tr -dc '0-9' || true)
+            if [ "${df_pct:-0}" -ge 75 ]; then
+              echo "[CD] root fs ${df_pct}% used — trimming build cache (keep 4GB)."
+              docker builder prune -f --keep-storage 4GB
+            else
+              echo "[CD] root fs ${df_pct:-0}% used — build cache left alone."
+            fi
             echo "[CD] waiting for app health..."
             for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
               if curl -sf http://127.0.0.1:3000/api/health > /dev/null 2>&1; then
