@@ -86,7 +86,11 @@ services:
       - ./uploads:/uploads:ro
       - ./public:/public:ro
     healthcheck:
-      test: ["CMD", "wget", "--no-check-certificate", "-qO-", "-U", "Mozilla/5.0 healthcheck", "https://127.0.0.1/"]
+      # Prod terminates TLS (nginx/prod.conf listens 443), the local stack does
+      # not (nginx/dev.conf listens 80 only). Probe https first so prod is still
+      # checked exactly as before, then fall back to plain http so the local
+      # container reports healthy instead of red for a config it never loads.
+      test: ["CMD-SHELL", "wget --no-check-certificate -qO- -U 'Mozilla/5.0 healthcheck' https://127.0.0.1/ || wget -qO- -U 'Mozilla/5.0 healthcheck' http://127.0.0.1/"]
       interval: 30s
       timeout: 5s
       retries: 3
