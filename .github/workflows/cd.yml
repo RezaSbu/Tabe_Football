@@ -131,10 +131,17 @@ jobs:
             # Prune only under pressure, and keep 4 GB of recent layers so the
             # next deploy does not pay a full cold rebuild over a slow link
             # (mirror failures already forced a 3-attempt retry loop above).
+            #
+            # Two commands on purpose: on this host (Docker 29, buildkit-only)
+            # `docker builder prune` reclaims 0 B — verified live on 2026-11-25,
+            # where the cache only shrank after `docker buildx prune`. The
+            # legacy call stays for hosts that still have a classic builder.
             df_pct=$(df --output=pcent / 2>/dev/null | tr -dc '0-9' || true)
             if [ "${df_pct:-0}" -ge 75 ]; then
               echo "[CD] root fs ${df_pct}% used — trimming build cache (keep 4GB)."
-              docker builder prune -f --keep-storage 4GB
+              docker builder prune -f --keep-storage 4GB || true
+              docker buildx prune -f --keep-storage 4GB || true
+              docker system df
             else
               echo "[CD] root fs ${df_pct:-0}% used — build cache left alone."
             fi
