@@ -60,7 +60,13 @@ services:
       resources:
         limits:
           cpus: "0.5"
-          memory: 256M
+          # Measured 2026-11-25: memory.current 234 MB against a 256 MB cap
+          # (91%), with 140 MB of that being page cache for the proxy cache
+          # files. The kernel can reclaim it, so this was never an OOM risk —
+          # but at 91% the worker spends its time evicting cache entries and
+          # re-reading them. Now that the cache may grow to 1 GB, give the
+          # container headroom so the cache stays warm.
+          memory: 384M
         reservations:
           cpus: "0.1"
           memory: 128M
