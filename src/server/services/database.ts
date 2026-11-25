@@ -57,11 +57,15 @@ function isDirty(dirty: Set<DirtyTable | "all">, table: DirtyTable): boolean {
 // that touches none of them cannot change a single derived number, so the
 // recompute (plus the 9-table rewrite it forces) is pure waste — and it used to
 // run on every news/media/ads save, i.e. on the most frequent admin writes.
+//
+// "matches" is intentionally NOT in this list. A whole row can be rewritten
+// (live score, scorers, lineups) without changing anything derived, because
+// recalc only reads matches that are finished and not auto-finished. Routes
+// report the distinction through markMatchChanged() below.
 const RECALC_INPUT_TABLES: ReadonlySet<DirtyTable> = new Set<DirtyTable>([
   "teams",
   "players",
   "coaches",
-  "matches",
   "standings",
   "stats",
   "playerSeasonStats",
@@ -82,17 +86,37 @@ function dirtyNeedsRecalc(dirty: Set<DirtyTable | "all">): boolean {
   return false;
 }
 
-// Recalc is only needed when finished-match data changed. Structural writes
-// (future games, news, media, ads...) skip the ~46s full recompute.
-// skipRecalc=true is a caller assertion; the helper double-checks nothing
-// finished was touched when the flag is absent.
+// Recalc reads exactly one slice of the fixture list:
+//     status === "finished" && !isAutoFinished        (stats.ts:900)
+// Every other match — scheduled, live, abandoned — is invisible to it, so
+// editing one cannot move a single derived number. The previous test also
+// compared score/date/teams for matches that were not counted, which is why
+// every live score edit paid for a full recompute: measured on the VPS
+// (2026-11-25) at 19.4s of blocked event loop, 200-300 times a day.
+//
+// The whole question is therefore "did this match move in or out of the
+// counted set?". A write to a match that is counted before OR after still
+// recomputes, so everything recalc can actually read stays covered; the
+// remaining risk is only in the conservative direction.
 export function matchTouchesFinishedStats(before: any, after: any): boolean {
-  const b = before || {};
-  const a = after || {};
-  if (b.status === "finished" || a.status === "finished") return true;
-  if ((b.archived_stats || a.archived_stats) && (b.status === "finished" || a.status === "finished")) return true;
-  const keys = ["scoreHome", "scoreAway", "scorersList", "events", "lineups", "league", "teamHomeId", "teamAwayId", "teamHome", "teamAway", "date", "isAutoFinished"];
-  return keys.some((k) => JSON.stringify(b[k]) !== JSON.stringify(a[k]));
+  const counted = (m: any): boolean => !!m && m.status === "finished" && !m.isAutoFinished;
+  return counted(before) || counted(after);
+}
+
+// Set when a match write can change derived tables; consumed by the next full
+// save. Not consumed by skipRecalc saves on purpose: those must not swallow a
+// pending invalidation.
+let matchRecalcRequested = false;
+
+/**
+ * Marks a match row for persistence and, only when it can change derived
+ * stats, schedules a recompute. Single entry point so no route has to
+ * re-derive the rule — the two halves used to drift apart (PUT /api/matches
+ * recomputed on every edit while its sibling route did not).
+ */
+export function markMatchChanged(before: any, after: any): void {
+  markTablesDirty("matches");
+  if (matchTouchesFinishedStats(before, after)) matchRecalcRequested = true;
 }
 
 // Season rows use id='season-<name>' (e.g. id='season-1405' for name='1405').
@@ -1808,9 +1832,14 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
     // paths must not rewrite them (memory rows would just be restated).
     let recalcRan = false;
     if (options && options.skipRecalc) {
+      // Do NOT consume matchRecalcRequested here: a skipRecalc save (e.g. the
+      // 60s view flush) must not swallow a pending derived-table invalidation.
+      // The next full save picks it up.
       logMessage("info", "database", "saveDB بدون بازمحاسبه آمار (تغییر غیر finished).");
-    } else if (transitionsChanged || dirtyNeedsRecalc(dirty)) {
+    } else if (transitionsChanged || matchRecalcRequested || dirtyNeedsRecalc(dirty)) {
       recalculateAndSyncDatabase();
+      // Cleared only after a successful recompute, so a throw retries next save.
+      matchRecalcRequested = false;
       recalcRan = true;
       // Recalc rewrites these collections in memory: they must persist even
       // when the caller only marked its own table. (No "all" fallback.)

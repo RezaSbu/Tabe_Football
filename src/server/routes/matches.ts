@@ -2,7 +2,7 @@ import express, { Express, Request, Response } from "express";
 import { db as pgDb } from "../db";
 import { loadDB } from "../state";
 import { logMessage } from "../utils/logger";
-import { saveDB, markTablesDirty, updateMatchInDb, matchTouchesFinishedStats, normalizeSeasonTag, stampMissingCoachIds } from "../services/database";
+import { saveDB, markTablesDirty, markMatchChanged, updateMatchInDb, normalizeSeasonTag, stampMissingCoachIds } from "../services/database";
 import { stripServerManaged, KNOWN_SPORTS } from "../utils/fields";
 import { detectConflict } from "../utils/versioning";
 import { requirePermission } from "../middleware/auth";
@@ -75,12 +75,8 @@ export function registerMatchRoutes(app: Express) {
       }
     }
 
-    markTablesDirty("matches");
-    await saveDB(
-      finalStatus === "finished"
-        ? undefined
-        : { skipRecalc: true, tables: ["matches"] }
-    );
+    markMatchChanged(undefined, item);
+    await saveDB();
     logMessage("info", "api", `بازی جدید ثبت شد: ${item.teamHome} - ${item.teamAway} در ${sport} (${finalStage})`);
     res.json({ success: true, match: item });
   });
@@ -99,11 +95,10 @@ export function registerMatchRoutes(app: Express) {
     const body = stripServerManaged(restBody);
     const success = updateMatchInDb(id, { ...body, updatedAt: new Date().toISOString() });
     if (success) {
-      const touched = matchTouchesFinishedStats(current, { ...current, ...body });
-      markTablesDirty("matches");
-      await saveDB(
-        touched ? undefined : { skipRecalc: true, tables: ["matches"] }
-      );
+      // `current` still points at the pre-update object: updateMatchInDb
+      // replaces the array entry instead of mutating it in place.
+      markMatchChanged(current, { ...current, ...body });
+      await saveDB();
       logMessage("info", "api", `بروزرسانی بازی با شناسه ${id} انجام شد.`);
       res.json({ success: true, match: findCurrentMatch(id) });
     } else {
@@ -140,12 +135,8 @@ export function registerMatchRoutes(app: Express) {
       console.error("PostgreSQL direct delete failed for match id", id, e);
     }
 
-    markTablesDirty("matches");
-    await saveDB(
-      (doomed && doomed.status === "finished")
-        ? undefined
-        : { skipRecalc: true, tables: ["matches"] }
-    );
+    markMatchChanged(doomed, undefined);
+    await saveDB();
     logMessage("info", "api", `حذف نهایی ورزشی: بازی با شناسه ${id} کلا پاکسازی گردید.`);
     res.json({ success: true });
   });
@@ -177,7 +168,7 @@ export function registerMatchRoutes(app: Express) {
     stampMissingCoachIds(item, currentDB);
 
     currentDB[`${sport}_${stage}`].unshift(item);
-    markTablesDirty("matches");
+    markMatchChanged(undefined, item);
     await saveDB();
     res.json({ success: true });
   });
@@ -195,7 +186,7 @@ export function registerMatchRoutes(app: Express) {
     const { updatedAt, ...restBody2 } = req.body;
     const success = updateMatchInDb(id, { ...stripServerManaged(restBody2), updatedAt: new Date().toISOString() });
     if (success) {
-      markTablesDirty("matches");
+      markMatchChanged(current, { ...current, ...stripServerManaged(restBody2) });
       await saveDB();
       res.json({ success: true });
     } else {
@@ -206,6 +197,14 @@ export function registerMatchRoutes(app: Express) {
   app.delete("/api/matches/:id", requirePermission("matches"), async (req: Request, res: Response) => {
     const { id } = req.params;
     const currentDB = loadDB();
+    // Snapshot before the row disappears: removing a finished match
+    // invalidates every derived table, removing a scheduled one invalidates
+    // nothing. Falls back to the flattened list for rows that only live there.
+    const doomed = findCurrentMatch(id)
+      || (Array.isArray(currentDB.matches)
+        ? currentDB.matches.find((m: any) => String(m.id) === String(id))
+        : null)
+      || null;
     
     const sports = ["football", "futsal"];
     const stages = ["Feature_Games", "Now_Games", "Finished_Games"];
@@ -223,7 +222,7 @@ export function registerMatchRoutes(app: Express) {
     }
 
     if (deleted) {
-      markTablesDirty("matches");
+      markMatchChanged(doomed, undefined);
       await saveDB();
       res.json({ success: true });
     } else {
