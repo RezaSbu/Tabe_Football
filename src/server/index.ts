@@ -8,7 +8,7 @@ import "./utils/envLoader";
 
 import { setupSecurityMiddleware } from "./middleware/security";
 import { centralAuthGuard } from "./middleware/auth";
-import { recordHttpRequest, cleanupOldVisits, cleanupOldAuditLogs, isDataSynced } from "./services/monitoring";
+import { recordHttpRequest, recordRoutePerf, startPerfSampling, cleanupOldVisits, cleanupOldAuditLogs, isDataSynced } from "./services/monitoring";
 
 import { loadDB, setDb } from "./state";
 import { dbLock } from "./utils/concurrency";
@@ -37,6 +37,14 @@ logMessage("info", "general", "پورتال فوتبال 360 در حال راه�
 const app = express();
 const PORT = 3000;
 
+// Requests that never matched a route (404s, admin typos, probes) must still be
+// visible in latency stats, but the raw path has unbounded cardinality: report
+// the first three segments and collapse the rest.
+function unmatchedApiRoute(pathname: string): string {
+  const parts = pathname.split("/").filter(Boolean);
+  return "/" + parts.slice(0, 3).join("/") + (parts.length > 3 ? "/*" : "");
+}
+
 app.set("trust proxy", 1);
 app.use(cookieParser());
 setupSecurityMiddleware(app);
@@ -44,7 +52,18 @@ app.use((req, res, next) => {
   const start = Date.now();
   res.on("finish", () => {
     if (req.path.startsWith("/api/")) {
-      recordHttpRequest({ at: start, method: req.method, path: req.path, status: res.statusCode, ms: Date.now() - start });
+      const ms = Date.now() - start;
+      // Report the route TEMPLATE, never the raw path: /api/matches/:id would
+      // otherwise create one bucket per match id and both the endpoint table
+      // and the new p50/p95/p99 map would drown in single-hit entries. The SPA
+      // catch-all ("*") matches unknown /api/ paths too, so it is labelled by
+      // its prefix instead of being lumped into one giant "*" bucket.
+      const matched = req.route?.path;
+      const route = matched && matched !== "*"
+        ? `${req.baseUrl || ""}${matched}`
+        : unmatchedApiRoute(req.path);
+      recordHttpRequest({ at: start, method: req.method, path: route, status: res.statusCode, ms });
+      recordRoutePerf(req.method, route, res.statusCode, ms);
     }
   });
   next();
@@ -98,6 +117,9 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 });
 
 async function startServer() {
+  // Starts the 60s heap/event-loop series before the boot recompute, so the
+  // first sample shows the boot spike instead of hiding it.
+  startPerfSampling();
   await migrateConstraints();
   await migrateSummaryColumn();
   await migrateHeroSlidesColumns();

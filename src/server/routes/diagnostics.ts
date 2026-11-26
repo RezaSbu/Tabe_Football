@@ -16,6 +16,7 @@ import {
   getVisitorStats,
   getAuditStats,
   getHttpStats,
+  getPerfMetrics,
   getRunningVersion,
   getCacheHealth
 } from "../services/monitoring";
@@ -230,6 +231,10 @@ export function registerDiagnosticsRoutes(app: Express) {
           nodeEnv: process.env.NODE_ENV || "development"
         },
         system,
+        // p50/p95/p99 per route + heap series + event loop delay. In-process,
+        // so it answers "which route is slow" and "is the loop starved",
+        // which nginx's access log cannot.
+        perf: getPerfMetrics(),
         postgres,
         media,
         visitors,

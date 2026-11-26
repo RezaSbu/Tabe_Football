@@ -1,6 +1,7 @@
 import os from "os";
 import fs from "fs";
 import path from "path";
+import { getHeapStatistics } from "v8";
 import { dbQuery, getUploadsDir } from "../db";
 import { loadDB } from "../state";
 import { AUTH_EVENTS } from "../utils/audit";
@@ -641,5 +642,222 @@ export function getCacheHealth() {
       standings: Object.keys(db.standings || {}).length,
       stats: Object.keys(db.stats || {}).length
     }
+  };
+}
+
+// ============================================
+// Performance: per-route latency + heap series + event-loop starvation
+// ============================================
+// Why this exists: the only latency evidence we had came from nginx's access
+// log, which lumps every route together and cannot say what blocked the process.
+// The rest of the roadmap needs two answers from inside the process:
+//   1. which route is slow, at p99 rather than on average?
+//   2. how long is the event loop starved, and how close is the heap to its cap?
+// Cost: one bounded Map entry per route template, a Float32Array per route, and
+// one 1s tick. Nothing is allocated per request except two ring writes.
+
+const ROUTE_WINDOW = 512;      // last N requests per route: exact percentiles
+const MAX_ROUTES = 250;        // bounded so a 404 storm cannot grow memory
+const OVERALL_WINDOW = 4096;   // last 4096 API requests, for the global p99
+
+interface RoutePerf {
+  window: Float32Array;
+  pos: number;
+  len: number;
+  requests: number;
+  errors: number;
+  maxMs: number;
+  lastAt: number;
+}
+
+function ringPush(buf: Float32Array, state: { pos: number; len: number }, value: number): void {
+  buf[state.pos] = value;
+  state.pos = (state.pos + 1) % buf.length;
+  if (state.len < buf.length) state.len += 1;
+}
+
+function ringValues(buf: Float32Array, state: { pos: number; len: number }): number[] {
+  const out: number[] = new Array(state.len);
+  for (let i = 0; i < state.len; i += 1) {
+    out[i] = buf[(state.pos - state.len + i + buf.length * 2) % buf.length];
+  }
+  return out;
+}
+
+// Nearest-rank: returns an actually observed duration, never an interpolation.
+// With a 512-request window, p99 is the 6th slowest request in that window,
+// which is the honest answer at this sample size.
+function percentile(sortedAsc: number[], q: number): number {
+  if (!sortedAsc.length) return 0;
+  const idx = Math.min(sortedAsc.length - 1, Math.max(0, Math.ceil(q * sortedAsc.length) - 1));
+  return sortedAsc[idx];
+}
+
+const routePerf = new Map<string, RoutePerf>();
+const overall = { buf: new Float32Array(OVERALL_WINDOW), pos: 0, len: 0 };
+
+export function recordRoutePerf(method: string, route: string, status: number, ms: number): void {
+  const key = `${method} ${route}`;
+  let entry = routePerf.get(key);
+  if (!entry) {
+    if (routePerf.size >= MAX_ROUTES) return;
+    entry = { window: new Float32Array(ROUTE_WINDOW), pos: 0, len: 0, requests: 0, errors: 0, maxMs: 0, lastAt: 0 };
+    routePerf.set(key, entry);
+  }
+  entry.requests += 1;
+  if (status >= 400) entry.errors += 1;
+  if (ms > entry.maxMs) entry.maxMs = ms;
+  entry.lastAt = Date.now();
+  ringPush(entry.window, entry, ms);
+  ringPush(overall.buf, overall, ms);
+}
+
+export function getRoutePerf() {
+  const routes = Array.from(routePerf.entries()).map(([route, s]) => {
+    const values = ringValues(s.window, s).sort((a, b) => a - b);
+    return {
+      route,
+      requests: s.requests,
+      errors: s.errors,
+      window: values.length,
+      p50: percentile(values, 0.5),
+      p95: percentile(values, 0.95),
+      p99: percentile(values, 0.99),
+      maxMs: s.maxMs,
+      lastAt: s.lastAt ? new Date(s.lastAt).toISOString() : null
+    };
+  });
+  routes.sort((a, b) => b.p99 - a.p99 || b.requests - a.requests);
+
+  const all = ringValues(overall.buf, overall).sort((a, b) => a - b);
+  return {
+    windowSize: ROUTE_WINDOW,
+    overall: {
+      requests: all.length,
+      p50: percentile(all, 0.5),
+      p95: percentile(all, 0.95),
+      p99: percentile(all, 0.99),
+      maxMs: all.length ? all[all.length - 1] : 0
+    },
+    routes
+  };
+}
+
+// ---------- 60s series: heap + starvation ----------
+const HEAP_SERIES_MAX = 1440; // 24h at one point per minute
+const SAMPLE_MS = 60_000;
+
+// A 1s tick is the cheapest reliable starvation probe: node re-arms an interval
+// when its callback finishes, so after a 20s blocking recompute the overdue tick
+// fires immediately and `gap - 1000` is exactly how long the loop was away.
+const STALL_TICK_MS = 1000;
+
+interface HeapSample {
+  at: number;
+  rss: number;
+  heapUsed: number;
+  heapTotal: number;
+  external: number;
+  arrayBuffers: number;
+  blockedMs: number;      // total loop-unavailable time in this minute
+  maxStallMs: number;     // worst single freeze a user felt
+}
+
+const heapSeries: HeapSample[] = [];
+let heapPeakUsed = 0;
+let peakBlockedMs = 0;
+let peakMaxStallMs = 0;
+let perfTimer: NodeJS.Timeout | null = null;
+let lastTickAt = 0;
+let windowStart = 0;
+let windowBlockedMs = 0;
+let windowMaxStallMs = 0;
+const lastWindow = { blockedMs: 0, maxStallMs: 0, intervalMs: SAMPLE_MS };
+
+function flushWindow(now: number): void {
+  const mem = process.memoryUsage();
+  if (mem.heapUsed > heapPeakUsed) heapPeakUsed = mem.heapUsed;
+  lastWindow.intervalMs = Math.max(1, now - windowStart);
+  lastWindow.blockedMs = windowBlockedMs;
+  lastWindow.maxStallMs = windowMaxStallMs;
+  if (windowBlockedMs > peakBlockedMs) peakBlockedMs = windowBlockedMs;
+  if (windowMaxStallMs > peakMaxStallMs) peakMaxStallMs = windowMaxStallMs;
+
+  heapSeries.push({
+    at: now,
+    rss: mem.rss,
+    heapUsed: mem.heapUsed,
+    heapTotal: mem.heapTotal,
+    external: mem.external,
+    arrayBuffers: mem.arrayBuffers || 0,
+    blockedMs: windowBlockedMs,
+    maxStallMs: windowMaxStallMs
+  });
+  if (heapSeries.length > HEAP_SERIES_MAX) heapSeries.shift();
+
+  windowStart = now;
+  windowBlockedMs = 0;
+  windowMaxStallMs = 0;
+}
+
+function perfTick(): void {
+  const now = Date.now();
+  const gap = lastTickAt ? now - lastTickAt : 0;
+  const stall = Math.max(0, gap - STALL_TICK_MS);
+  if (stall > 0) {
+    windowBlockedMs += stall;
+    if (stall > windowMaxStallMs) windowMaxStallMs = stall;
+  }
+  lastTickAt = now;
+  if (now - windowStart >= SAMPLE_MS) flushWindow(now);
+}
+
+export function startPerfSampling(): void {
+  if (perfTimer) return;
+  const now = Date.now();
+  lastTickAt = now;
+  windowStart = now;
+  flushWindow(now); // a point at uptime 0, so the first minute is never a hole
+  perfTimer = setInterval(perfTick, STALL_TICK_MS);
+  perfTimer.unref?.();
+}
+
+export function getPerfMetrics() {
+  const heap = getHeapStatistics();
+  const current = process.memoryUsage();
+  return {
+    uptimeSec: Math.round(process.uptime()),
+    heap: {
+      limitBytes: heap.heap_size_limit,
+      // Peak of the SAMPLED points (one per minute), not a true high-water
+      // mark: between samples `current` can legitimately be higher. Good enough
+      // for a leak slope, not for proving a single spike.
+      peakSampledBytes: heapPeakUsed,
+      current: {
+        rss: current.rss,
+        heapUsed: current.heapUsed,
+        heapTotal: current.heapTotal,
+        external: current.external,
+        arrayBuffers: current.arrayBuffers || 0
+      },
+      // Last 4 hours: enough to see a slope without shipping 24h of JSON.
+      seriesWindow: Math.min(heapSeries.length, 240),
+      seriesTotal: heapSeries.length,
+      series: heapSeries.slice(-240)
+    },
+    eventLoop: {
+      // Per-interval, reset every minute. blockedMs is total stall time in the
+      // last minute, maxStallMs the worst single freeze, share the fraction of
+      // wall-clock time the loop could not run.
+      lastInterval: {
+        blockedMs: lastWindow.blockedMs,
+        maxStallMs: lastWindow.maxStallMs,
+        share: Number((lastWindow.blockedMs / lastWindow.intervalMs).toFixed(4))
+      },
+      peakBlockedMs,
+      peakMaxStallMs,
+      tickMs: STALL_TICK_MS
+    },
+    routes: getRoutePerf()
   };
 }
