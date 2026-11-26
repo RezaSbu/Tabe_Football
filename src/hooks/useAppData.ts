@@ -17,7 +17,7 @@ import {
   LiveGoal,
   HeroSlideItem,
 } from "../types";
-import { computeDynamicAppletStats, fetchCachedAppData, fetchLiteAppData, invalidateAppDataCache, isFreshPayload, nextPollDelayMs } from "../utils";
+import { computeDynamicAppletStats, fetchCachedAppData, fetchLiteCachedAppData, invalidateAppDataCache, isFreshPayload, nextPollDelayMs } from "../utils";
 import { playGoalSound, showSystemNotification } from "./useGoalSound";
 import { toPlainText } from "../shared/richText";
 
@@ -65,6 +65,14 @@ export function useAppData() {
   const [dataError, setDataError] = useState<string | null>(null);
   const [activeArticle, setActiveArticle] = useState<NewsItem | null>(null);
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+  // Mirror of isAdminLoggedIn for async paths: a fetch started before the
+  // auth check resolved must not apply a public slice after the admin's full
+  // payload landed (that would truncate news back to 60 rows).
+  const adminRef = useRef(false);
+  const setAdminLoggedIn = (value: boolean) => {
+    adminRef.current = value;
+    setIsAdminLoggedIn(value);
+  };
   const [adminUser, setAdminUser] = useState<{ username: string; role: string; label: string; permissions: string[] } | null>(null);
   const [isScraping, setIsScraping] = useState(false);
   const [selectedLeagueFilterOnStats, setSelectedLeagueFilterOnStats] = useState("pro-league");
@@ -161,12 +169,16 @@ export function useAppData() {
     }
   };
 
-  // First-paint apply for the ?lite=1 slice. MERGE, not replace: only keys
-  // present in the slice touch state, so the dropped admin/archive tables
-  // keep their initial values until the full payload arrives right after.
-  // The compute inputs (matches/teams/players/standings/stats) all ride in
-  // the lite slice, so the first paint is fully derived, not placeholder.
+  // Apply for the ?lite=1 slice, which is now the public boot AND the public
+  // poll body. MERGE, not replace: a key that is absent from the slice (media
+  // library, finished-game archive, inbox, feature drafts) leaves its current
+  // value alone, so an admin session that already loaded the full shape never
+  // loses it to a poll. Every key the public pages read is present, so the
+  // first paint is fully derived, not placeholder.
   const applyLiteData = (data: any) => {
+    // Full is a superset; applying a 60-row news slice on top of it would only
+    // lose rows. Can happen when boot's lite fetch outlives the auth check.
+    if (adminRef.current) return;
     const statsResult = buildProcessedCore(data);
     setMatches(statsResult.processedMatches);
     setTeams(statsResult.processedTeams);
@@ -181,6 +193,7 @@ export function useAppData() {
     if (Array.isArray(data.teamTransfersList)) setTeamTransfersList(data.teamTransfersList);
     if (Array.isArray(data.legionnaires)) setLegionnaires(data.legionnaires);
     if (Array.isArray(data.images)) setImages(data.images);
+    if (data.predictions && typeof data.predictions === "object") setPredictions(data.predictions);
     if (Array.isArray(data.coaches)) {
       setCoaches(data.coaches);
       (window as any).db_coaches = data.coaches;
@@ -190,6 +203,10 @@ export function useAppData() {
     if (Array.isArray(data.selectedCombinations)) setSelectedCombinations(data.selectedCombinations);
     if (Array.isArray(data.heroSlides)) setHeroSlides(data.heroSlides);
     if (Array.isArray(data.ads)) setAds(data.ads);
+    if (data.weeklyPoll !== undefined) setWeeklyPoll(data.weeklyPoll || null);
+    if (Array.isArray(data.popularTeams)) setPopularTeams(data.popularTeams);
+    if (data.historicalData && typeof data.historicalData === "object") setHistoricalData(data.historicalData);
+    if (data.bracket !== undefined) setBracket(data.bracket || null);
     if (data.currentSeason) setCurrentSeason(data.currentSeason);
     if (typeof data.lastScraped === "string") setLastScraped(data.lastScraped);
 
@@ -201,34 +218,47 @@ export function useAppData() {
     }
   };
 
+  // The full payload (4.53MB gzip, measured 2026-11-26) is admin-only now:
+  // 70% of it is news bodies that only a detail page reads (and that page
+  // already fetches /api/detail/news/:id), plus the media library, the inbox
+  // and the archive, none of which a public page touches.
+  const fetchFullData = async (noStore = false): Promise<boolean> => {
+    const data = await fetchCachedAppData({ noStore });
+    if (data && data.status === "ok") {
+      setDataError(null);
+      if (isFreshPayload(data, lastAppliedRef.current)) {
+        lastAppliedRef.current = data;
+        applyFetchedData(data);
+      }
+      return true;
+    }
+    return false;
+  };
+
   const fetchData = async () => {
     try {
-      // Phase 1: lite slice (~1/3 of the body) for a fast first paint.
-      // Any lite failure falls through to the full fetch below.
-      let painted = false;
+      // An admin session needs the full shape (news bodies for the editor,
+      // media library, inbox, feature drafts). Everyone else gets the lite
+      // slice only — including on repeat calls, so a scrape/refresh never
+      // drags a public tab back onto the big body.
+      if (adminRef.current) {
+        if (!(await fetchFullData(true))) {
+          setDataError("دریافت اطلاعات ناموفق بود. اتصال اینترنت را بررسی کنید.");
+        }
+        return;
+      }
       try {
-        const lite = await fetchLiteAppData();
+        const lite = await fetchLiteCachedAppData();
         if (lite && lite.status === "ok") {
           lastAppliedRef.current = lite;
           applyLiteData(lite);
-          painted = true;
           setDataError(null);
-          setIsLoading(false);
+          return;
         }
       } catch {
-        // fall through to full payload
+        // fall through to the full payload, which is a strict superset
       }
-      // Phase 2: full payload completes the dropped tables + full news.
-      // Always runs (even after a lite paint) so admin/archive surfaces
-      // and the 10s poller converge on complete state.
-      const data = await fetchCachedAppData();
-      if (data && data.status === "ok") {
-        setDataError(null);
-        if (isFreshPayload(data, lastAppliedRef.current)) {
-          lastAppliedRef.current = data;
-          applyFetchedData(data);
-        }
-      } else if (!painted) {
+      if (!(await fetchFullData(true))) {
         setDataError("دریافت اطلاعات ناموفق بود. اتصال اینترنت را بررسی کنید.");
       }
     } catch (err) {
@@ -242,7 +272,7 @@ export function useAppData() {
   // بعد از هر تغییر ادمین، کش ۱۲۰ ثانیه‌ای باید باطل شود تا داده تازه لود شود.
   const adminRefreshData = async () => {
     invalidateAppDataCache();
-    await fetchData();
+    await fetchFullData(true);
   };
 
   // Reports success so the poller can back off on consecutive failures.
@@ -250,14 +280,18 @@ export function useAppData() {
   // null payloads and throws both count as failures.
   const fetchDataQuietly = async (): Promise<boolean> => {
     try {
-      const data = await fetchCachedAppData();
+      // Admin sessions poll the full shape (they may be editing); public
+      // sessions poll the lite slice, which carries every key the pages read.
+      const admin = adminRef.current;
+      const data = admin ? await fetchCachedAppData() : await fetchLiteCachedAppData();
       if (data && data.status === "ok") {
         // Skip the expensive apply on cache-identical payloads; the cheap
         // goal diff below still runs (no-op on identical timestamps).
         if (isFreshPayload(data, lastAppliedRef.current)) {
           lastAppliedRef.current = data;
           setDataError(null);
-          applyFetchedData(data);
+          if (admin) applyFetchedData(data);
+          else applyLiteData(data);
         }
 
         const newGoals = data.liveGoals || [];
@@ -319,16 +353,19 @@ export function useAppData() {
         // اگر بعد از شروع این درخواست، لاگین/لاگ‌اوت جدیدی رخ داده باشد، پاسخ قدیمی را نادیده بگیر
         if (startedAt < lastLoginAtRef.current) return;
         if (data.authenticated) {
-          setIsAdminLoggedIn(true);
+          setAdminLoggedIn(true);
           setAdminUser({
             username: data.username || "",
             role: data.role || "",
             label: data.label || "",
             permissions: data.permissions || []
           });
+          // Public boot only loads the lite slice; an admin session needs the
+          // full shape (news bodies, media library, inbox) so load it now.
+          void fetchFullData(true);
         } else {
           // توکن منقضی/نامعتبر است -> ادمین را به حالت لاگ‌اوت برگردان
-          setIsAdminLoggedIn(false);
+          setAdminLoggedIn(false);
           setAdminUser(null);
         }
       } catch {
@@ -511,8 +548,10 @@ export function useAppData() {
 
   const handleAdminLogin = (user: { username: string; role: string; label: string; permissions: string[] }) => {
     lastLoginAtRef.current = Date.now();
-    setIsAdminLoggedIn(true);
+    setAdminLoggedIn(true);
     setAdminUser(user);
+    // Boot was the lite slice; an admin session gets the full shape.
+    void fetchFullData(true);
   };
 
   const handleAdminLogout = async () => {
@@ -522,7 +561,7 @@ export function useAppData() {
     } catch {
       // Ignore
     }
-    setIsAdminLoggedIn(false);
+    setAdminLoggedIn(false);
     setAdminUser(null);
   };
 
@@ -716,7 +755,7 @@ export function useAppData() {
     activeGoalEvent, setActiveGoalEvent,
     weeklyPoll, popularTeams, historicalData, featureGames,
     isLoading, dataError, activeArticle, setActiveArticle,
-    isAdminLoggedIn, setIsAdminLoggedIn,
+    isAdminLoggedIn, setIsAdminLoggedIn: setAdminLoggedIn,
     adminUser, setAdminUser,
     isScraping, setIsScraping,
     selectedLeagueFilterOnStats, setSelectedLeagueFilterOnStats,

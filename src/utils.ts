@@ -31,17 +31,23 @@ let appDataCache: { data: any; ts: number } | null = null;
 let appDataInFlight: Promise<any> | null = null;
 
 /**
- * Fetches /api/data with a short in-memory cache (120s) + single-flight dedup.
- * Reduces redundant full downloads of the ~1MB dataset on every route change.
- * Uses browser cache ("default") so the server ETag can return 304 without body.
+ * Full /api/data payload (4.53MB gzip, measured 2026-11-26) with a 120s
+ * in-memory cache and single-flight dedup. Admin-only now: public boot and
+ * polling use fetchLiteCachedAppData (723KB), which carries every key the
+ * public pages read.
+ *
+ * `noStore` is for admin refreshes — the browser is allowed a short max-age on
+ * this body, and "I just saved, show me the result" is exactly when that copy
+ * is wrong. (The edge cache ignores Cache-Control entirely; this only governs
+ * the browser.)
  */
-export const fetchCachedAppData = (): Promise<any> => {
+export const fetchCachedAppData = (opts?: { noStore?: boolean }): Promise<any> => {
   const now = Date.now();
-  if (appDataCache && now - appDataCache.ts < APP_DATA_TTL_MS) {
+  if (!opts?.noStore && appDataCache && now - appDataCache.ts < APP_DATA_TTL_MS) {
     return Promise.resolve(appDataCache.data);
   }
   if (appDataInFlight) return appDataInFlight;
-  appDataInFlight = fetch("/api/data")
+  appDataInFlight = fetch("/api/data", opts?.noStore ? { cache: "no-store" } : undefined)
     .then((r) => (r.ok ? r.json() : null))
     .then((data) => {
       if (data) appDataCache = { data, ts: Date.now() };
@@ -53,14 +59,33 @@ export const fetchCachedAppData = (): Promise<any> => {
   return appDataInFlight;
 };
 
+let liteCache: { data: any; ts: number } | null = null;
+let liteInFlight: Promise<any> | null = null;
+
 /**
- * One-shot fetch of the first-paint slice (/api/data?lite=1): every table the
- * home first paint reads, minus the heavy admin/archive tables, news trimmed
- * to the newest 60. Deliberately NOT stored in the 120s full-payload cache —
- * boot-only (and manual retry); the poller keeps using the full shape.
+ * Public boot + poll slice: same 120s cache as the full payload, on a body
+ * 6.5x smaller (723,668 B vs 4,749,306 B on the wire, measured 2026-11-26).
+ *
+ * Boot used to fetch BOTH this slice and the full payload (5.22MB per visit),
+ * and the poller pulled the full payload every cycle, even though 70% of that
+ * body is news text only a detail page reads — and NewsDetailPage fetches the
+ * body from /api/detail/news/:id anyway. The slice carries every key the
+ * public appliers read (see applyLiteData and bulk-lite.test.ts).
  */
-export const fetchLiteAppData = (): Promise<any> => {
-  return fetch("/api/data?lite=1").then((r) => (r.ok ? r.json() : null));
+export const fetchLiteCachedAppData = (): Promise<any> => {
+  const now = Date.now();
+  if (liteCache && now - liteCache.ts < APP_DATA_TTL_MS) return Promise.resolve(liteCache.data);
+  if (liteInFlight) return liteInFlight;
+  liteInFlight = fetch("/api/data?lite=1")
+    .then((r) => (r.ok ? r.json() : null))
+    .then((data) => {
+      if (data) liteCache = { data, ts: Date.now() };
+      return data;
+    })
+    .finally(() => {
+      liteInFlight = null;
+    });
+  return liteInFlight;
 };
 
 /**
@@ -82,6 +107,8 @@ export const nextPollDelayMs = (baseMs: number, consecutiveFailures: number): nu
 export const invalidateAppDataCache = (): void => {
   appDataCache = null;
   appDataInFlight = null;
+  liteCache = null;
+  liteInFlight = null;
 };
 
 /**

@@ -25,6 +25,19 @@ const fullDb = () => ({
   ads: [{ id: "a1" }],
   coaches: [],
   liveGoals: [],
+  // Keys the public applier (applyLiteData) reads. If one of these ever falls
+  // into LITE_DROPPED_TABLES, public pages silently lose that surface.
+  predictions: { m1: { a: 1 } },
+  weeklyPoll: { question: "q", options: [] },
+  popularTeams: [{ name: "t" }],
+  historicalData: { 1405: {} },
+  bracket: { round1: [] },
+  selectedCombinations: [{ id: "c1" }],
+  images: [{ id: "i1" }],
+  coachMovements: [],
+  coachAppointments: [],
+  currentSeason: "1405",
+  lastScraped: "2026-01-01T00:00:00.000Z",
   media_files: [{ id: "huge" }],
   football_Finished_Games: [{ id: "arch" }],
   futsal_Finished_Games: [],
@@ -63,6 +76,9 @@ describe("buildLitePayload", () => {
   it("keeps every first-paint table by reference", () => {
     const db = fullDb();
     const lite = buildLitePayload(db);
+    // Mirrors the keys applyLiteData reads (src/hooks/useAppData.ts). The
+    // public boot and the public poll both apply this slice, so a key that
+    // disappears here breaks a page with no other symptom.
     for (const k of [
       "matches",
       "teams",
@@ -75,9 +91,20 @@ describe("buildLitePayload", () => {
       "ads",
       "coaches",
       "liveGoals",
+      "predictions",
+      "weeklyPoll",
+      "popularTeams",
+      "historicalData",
+      "bracket",
+      "selectedCombinations",
+      "images",
+      "coachMovements",
+      "coachAppointments",
     ]) {
-      expect(lite[k]).toBe(db[k as keyof typeof db]);
+      expect(lite[k], `key ${k}`).toBe(db[k as keyof typeof db]);
     }
+    expect(lite.currentSeason).toBe(db.currentSeason);
+    expect(lite.lastScraped).toBe(db.lastScraped);
   });
 
   it(`trims news to the newest ${LITE_NEWS_LIMIT} with bodies intact`, () => {
