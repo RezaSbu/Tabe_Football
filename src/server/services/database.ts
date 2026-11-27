@@ -1,4 +1,5 @@
-import { db as pgDb } from "../db";
+import { createHash } from "crypto";
+import { db as pgDb, dbQuery } from "../db";
 import { loadDB, setDb, getInitialDatabase, bumpDataRevision } from "../state";
 import { logMessage } from "../utils/logger";
 import { dbLock } from "../utils/concurrency";
@@ -1786,6 +1787,58 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
   }
 }
 
+// ---------- incremental news persistence ----------
+// news is the biggest table in the dataset (5,105 rows locally) and every save
+// used to restate all of it plus a `DELETE ... NOT IN (every id)`. Measured on
+// the local stack: one CMS create + edit + delete = 15,316 row updates, ~1s of
+// DB latency per save. Only rows whose serialized form actually changed need
+// writing, so remember the fingerprint of what the DB already holds.
+//
+// An empty map means "unknown" (fresh process): the next save writes every row
+// once and fills it, which is exactly the old behaviour and therefore safe.
+const persistedNewsHashes = new Map<string, string>();
+
+function newsFingerprint(row: any): string {
+  // The id is the map key, not content: normalise it so a numeric id in memory
+  // and the text id stored in PostgreSQL do not look like an edit.
+  return createHash("sha1").update(JSON.stringify({ ...row, id: String(row.id) })).digest("hex");
+}
+
+// Pure diff used by persistNewsRows (unit-tested): what must be written and
+// what must be deleted, given the fingerprints of the last successful write.
+export function diffNewsRows(
+  formatted: any[],
+  previous: Map<string, string>
+): { changed: any[]; removed: string[]; next: Map<string, string> } {
+  const currentIds = new Set(formatted.map((r) => String(r.id)));
+  const next = new Map<string, string>();
+  const changed: any[] = [];
+  for (const row of formatted) {
+    const id = String(row.id);
+    const fp = newsFingerprint(row);
+    next.set(id, fp);
+    if (previous.get(id) !== fp) changed.push(row);
+  }
+  const removed = [...previous.keys()].filter((id) => !currentIds.has(id));
+  return { changed, removed, next };
+}
+
+async function persistNewsRows(formatted: any[]): Promise<void> {
+  const { changed, removed, next } = diffNewsRows(formatted, persistedNewsHashes);
+
+  if (changed.length > 0) {
+    const res: any = await pgDb.from("news").upsert(changed);
+    if (res && res.error) throw new Error(res.error.message || String(res.error));
+  }
+  if (removed.length > 0) {
+    await dbQuery("DELETE FROM news WHERE id = ANY($1::text[])", [removed]);
+  }
+  // Only after both statements succeeded: a failure must leave the old
+  // fingerprints in place so the next save retries the same rows.
+  persistedNewsHashes.clear();
+  for (const [id, fp] of next) persistedNewsHashes.set(id, fp);
+}
+
 export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<DirtyTable | "all"> }): Promise<void> {
   if (!memoryBootstrapped) {
     const msg = "saveDB refused: memory was never bootstrapped from PostgreSQL (fetch failed).";
@@ -1869,11 +1922,11 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
         view_count: n.viewCount || 0,
         created_at: n.createdAt
       }));
-      promises.push(pgDb.from('news').upsert(formattedNews));
-      
-      const newsIds = data.news.map((x: any) => x.id);
-      promises.push(pgDb.from('news').delete().not('id', 'in', `(${newsIds.join(',')})`));
+      promises.push(persistNewsRows(formattedNews));
     } else if (need("news") && data.news) {
+      // Empty table: drop every row and forget the fingerprints so the next
+      // non-empty save writes the whole table again.
+      persistedNewsHashes.clear();
       promises.push(pgDb.from('news').delete().neq('id', ''));
     }
 
