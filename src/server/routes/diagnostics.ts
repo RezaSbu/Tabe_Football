@@ -7,7 +7,7 @@ import { pool } from "../db";
 import { logMessage } from "../utils/logger";
 import { auditLog } from "../utils/audit";
 import { requirePermission } from "../middleware/auth";
-import { saveDB, markTablesDirty } from "../services/database";
+import { saveDB, markTablesDirty, pendingSaveWaiters } from "../services/database";
 import { flushViewCountsNow } from "../services/viewTracker";
 import {
   getSystemMetrics,
@@ -234,7 +234,7 @@ export function registerDiagnosticsRoutes(app: Express) {
         // p50/p95/p99 per route + heap series + event loop delay. In-process,
         // so it answers "which route is slow" and "is the loop starved",
         // which nginx's access log cannot.
-        perf: getPerfMetrics(),
+        perf: { ...getPerfMetrics(), saveQueueWaiters: pendingSaveWaiters() },
         postgres,
         media,
         visitors,

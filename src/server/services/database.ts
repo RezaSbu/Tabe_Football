@@ -1877,12 +1877,17 @@ async function clearDiffedTable(table: DiffedTable): Promise<void> {
   if (res && res.error) throw new Error(res.error.message || String(res.error));
 }
 
-export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<DirtyTable | "all"> }): Promise<void> {
-  if (!memoryBootstrapped) {
-    const msg = "saveDB refused: memory was never bootstrapped from PostgreSQL (fetch failed).";
-    logMessage("error", "database", msg);
-    throw new Error(msg);
-  }
+export interface SaveOptions {
+  skipRecalc?: boolean;
+  tables?: Array<DirtyTable | "all">;
+}
+
+// One save at a time (dbLock) used to mean one save per caller: during a long
+// recalc every waiting request queued its own full save behind it. Callers that
+// arrive while a save is running now share a single trailing save instead. The
+// dirty marks are global, so that trailing save covers every waiter at once,
+// and a caller only resolves after a save that read its marks has finished.
+function runSave(options?: SaveOptions): Promise<void> {
   return dbLock.acquire(async () => {
   const data = loadDB();
   try {
@@ -2628,6 +2633,123 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
     throw err;
   }
   });
+}
+
+// One save at a time (dbLock) used to mean one save per caller: during a long
+// recalc every waiting request queued its own full save behind it. Callers that
+// arrive while a save is running now share a single trailing save instead. The
+// dirty marks are global, so that trailing save covers every waiter at once,
+// and a caller only resolves after a save that read its marks has finished.
+interface PendingSave {
+  promise: Promise<void>;
+  resolve: () => void;
+  reject: (err: any) => void;
+  tables: Set<DirtyTable | "all">;
+  /** true only while every waiter asked to skip the recalculation. */
+  allSkipRecalc: boolean;
+  waiters: number;
+  enqueuedAt: number;
+}
+
+export interface SaveQueue {
+  save(options?: SaveOptions): Promise<void>;
+  /** Callers currently waiting for the one shared follow-up save. */
+  pendingWaiters(): number;
+}
+
+export function createSaveQueue(
+  run: (options?: SaveOptions) => Promise<void>,
+  onCoalesced?: (waiters: number, waitedMs: number) => void
+): SaveQueue {
+  let activeSave: Promise<void> | null = null;
+  let pendingSave: PendingSave | null = null;
+
+  const start = (runner: () => Promise<void>) => {
+    const started = runner();
+    activeSave = started;
+    const settle = () => {
+      if (activeSave === started) activeSave = null;
+    };
+    started.then(settle, settle);
+    return started;
+  };
+
+  return {
+    pendingWaiters: () => pendingSave?.waiters ?? 0,
+    save(options?: SaveOptions): Promise<void> {
+      if (!activeSave && !pendingSave) return start(() => run(options));
+
+      if (pendingSave) {
+        const batch = pendingSave;
+        batch.waiters += 1;
+        if (!options || options.skipRecalc !== true) batch.allSkipRecalc = false;
+        for (const t of options?.tables || []) batch.tables.add(t);
+        return batch.promise;
+      }
+
+      // A save is running: create the one follow-up save everyone else shares.
+      let resolve!: () => void;
+      let reject!: (err: any) => void;
+      const promise = new Promise<void>((res, rej) => {
+        resolve = res;
+        reject = rej;
+      });
+      const batch: PendingSave = {
+        promise,
+        resolve,
+        reject,
+        tables: new Set(options?.tables || []),
+        allSkipRecalc: options ? options.skipRecalc === true : false,
+        waiters: 1,
+        enqueuedAt: Date.now(),
+      };
+      pendingSave = batch;
+
+      const startTrailingSave = () => {
+        // Callers that arrive from now on belong to the next save, not this one.
+        if (pendingSave === batch) pendingSave = null;
+        const waited = Date.now() - batch.enqueuedAt;
+        if (onCoalesced) onCoalesced(batch.waiters, waited);
+        const started = start(() =>
+          run({
+            skipRecalc: batch.allSkipRecalc ? true : undefined,
+            tables: batch.tables.size > 0 ? [...batch.tables] : undefined,
+          })
+        );
+        started.then(batch.resolve, batch.reject);
+      };
+
+      const running = activeSave;
+      if (running) running.then(startTrailingSave, startTrailingSave);
+      else startTrailingSave();
+
+      return promise;
+    },
+  };
+}
+
+const saveQueue = createSaveQueue(runSave, (waiters, waitedMs) => {
+  // Observability for the queue: only worth a line when people actually waited.
+  if (waiters > 1 && waitedMs > 2000) {
+    logMessage(
+      "info",
+      "database",
+      `ذخیره‌سازی بعدی ${waiters} درخواست را پوشش می‌دهد (انتظار ${waitedMs} میلی‌ثانیه برای پایان ذخیره قبلی).`
+    );
+  }
+});
+
+export function saveDB(options?: SaveOptions): Promise<void> {
+  if (!memoryBootstrapped) {
+    const msg = "saveDB refused: memory was never bootstrapped from PostgreSQL (fetch failed).";
+    logMessage("error", "database", msg);
+    return Promise.reject(new Error(msg));
+  }
+  return saveQueue.save(options);
+}
+
+export function pendingSaveWaiters(): number {
+  return saveQueue.pendingWaiters();
 }
 
 // Fills missing match-embedded coach ids from the CURRENT mapping.
