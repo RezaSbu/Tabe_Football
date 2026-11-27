@@ -1,4 +1,6 @@
-import { saveDB, markTablesDirty, type DirtyTable } from "./database";
+import { saveDB, type DirtyTable } from "./database";
+import { dbQuery } from "../db";
+import { dbLock } from "../utils/concurrency";
 import { loadDB } from "../state";
 import { logMessage } from "../utils/logger";
 import { VIEW_MULTIPLIER } from "../config";
@@ -60,6 +62,45 @@ function findViewItem(db: any, table: string, id: string): any {
   }
 }
 
+// Only these tables actually have a persisted view_count column (verified
+// against information_schema, 2026-11-27). Teams/players/coaches/matches do
+// not: a view there used to mark the whole table dirty, which rewrote every
+// row of a 1,620-row table on the next flush and still lost the counter at
+// restart. They stay in memory only and are no longer written.
+export const VIEW_COUNT_TABLES: readonly DirtyTable[] = ["news", "transfers", "legionnaires", "images"];
+
+export interface CounterRow {
+  table: DirtyTable;
+  id: string;
+  count: number;
+}
+
+// One UPDATE per table instead of a full upsert + DELETE NOT IN. Two article
+// views used to restate all 5,105 news rows (measured: n_tup_upd +5,105);
+// this touches exactly the rows that changed.
+export function buildViewCounterUpdates(rows: CounterRow[]): Array<{ table: DirtyTable; sql: string; params: any[] }> {
+  const allowed = new Set(VIEW_COUNT_TABLES);
+  const byTable = new Map<DirtyTable, CounterRow[]>();
+  for (const row of rows) {
+    if (!allowed.has(row.table)) continue;
+    const list = byTable.get(row.table);
+    if (list) list.push(row);
+    else byTable.set(row.table, [row]);
+  }
+  const out: Array<{ table: DirtyTable; sql: string; params: any[] }> = [];
+  for (const [table, list] of byTable) {
+    out.push({
+      table,
+      // Table name comes from the whitelist above, never from a request.
+      sql: `UPDATE ${table} AS t SET view_count = v.cnt
+              FROM (SELECT unnest($1::text[]) AS id, unnest($2::int[]) AS cnt) AS v
+             WHERE t.id = v.id`,
+      params: [list.map((r) => String(r.id)), list.map((r) => r.count)],
+    });
+  }
+  return out;
+}
+
 // Applies every pending visit (count x VIEW_MULTIPLIER) and persists the
 // counters. Idempotent: an empty bucket is a no-op. Also used by the
 // admin flush endpoint and tests.
@@ -72,20 +113,39 @@ export async function flushViewCountsNow(): Promise<{ applied: number }> {
   pendingViews.clear();
   if (entries.length === 0) return { applied: 0 };
   const db = loadDB();
-  const tables = new Set<DirtyTable>();
+  const counters: CounterRow[] = [];
+  const memoryOnly = new Set<DirtyTable>();
   let applied = 0;
   for (const [key, count] of entries) {
     const sep = key.indexOf(":");
     const table = key.slice(0, sep);
     const id = key.slice(sep + 1);
     const item = findViewItem(db, table, id);
-    if (item) {
-      item.viewCount = (item.viewCount || 0) + count * VIEW_MULTIPLIER;
-      applied += count;
-      tables.add(table as DirtyTable);
+    if (!item) continue;
+    item.viewCount = (item.viewCount || 0) + count * VIEW_MULTIPLIER;
+    applied += count;
+    const known = table as DirtyTable;
+    if (VIEW_COUNT_TABLES.includes(known)) counters.push({ table: known, id, count: item.viewCount });
+    else memoryOnly.add(known);
+  }
+  if (counters.length > 0) {
+    const statements = buildViewCounterUpdates(counters);
+    try {
+      // Serialised with saveDB: a full-table upsert taken from an older
+      // in-memory snapshot must not overwrite a newer counter.
+      await dbLock.acquire(async () => {
+        for (const s of statements) await dbQuery(s.sql, s.params);
+      });
+    } catch (e: any) {
+      // Durability fallback: let the periodic save restate the whole table.
+      const tables = [...new Set(counters.map((c) => c.table))];
+      logMessage("error", "database", "خطا در ذخیره شمارنده بازدید؛ بازگشت به ذخیره کامل", e?.message || e);
+      markViewDirty(...tables);
     }
   }
-  if (tables.size > 0) markViewDirty(...tables);
+  if (memoryOnly.size > 0) {
+    logMessage("info", "database", `بازدید ${[...memoryOnly].join("، ")} ستون ذخیره‌سازی ندارد؛ فقط در حافظه ثبت شد.`);
+  }
   return { applied };
 }
 
