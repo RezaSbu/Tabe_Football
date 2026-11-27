@@ -1787,26 +1787,31 @@ export async function fetchAndPopulateMemoryDB(): Promise<void> {
   }
 }
 
-// ---------- incremental news persistence ----------
-// news is the biggest table in the dataset (5,105 rows locally) and every save
-// used to restate all of it plus a `DELETE ... NOT IN (every id)`. Measured on
-// the local stack: one CMS create + edit + delete = 15,316 row updates, ~1s of
-// DB latency per save. Only rows whose serialized form actually changed need
-// writing, so remember the fingerprint of what the DB already holds.
+// ---------- incremental persistence ----------
+// Every full-table save used to restate the whole table plus a
+// `DELETE ... NOT IN (every id)`. Measured on the local stack: one CMS news
+// create + edit + delete = 15,316 row updates, and a single player edit rewrote
+// 1,620 players + 71 coaches + 338 matches + 62 teams. Only rows whose
+// serialized form actually changed need writing, so remember a fingerprint of
+// what the database already holds for each id.
 //
 // An empty map means "unknown" (fresh process): the next save writes every row
 // once and fills it, which is exactly the old behaviour and therefore safe.
-const persistedNewsHashes = new Map<string, string>();
+type DiffedTable =
+  | "news" | "teams" | "players" | "coaches" | "matches" | "transfers"
+  | "legionnaires" | "images" | "ads" | "media_files" | "submissions";
 
-function newsFingerprint(row: any): string {
+const persistedRowHashes = new Map<DiffedTable, Map<string, string>>();
+
+function rowFingerprint(row: any): string {
   // The id is the map key, not content: normalise it so a numeric id in memory
   // and the text id stored in PostgreSQL do not look like an edit.
   return createHash("sha1").update(JSON.stringify({ ...row, id: String(row.id) })).digest("hex");
 }
 
-// Pure diff used by persistNewsRows (unit-tested): what must be written and
-// what must be deleted, given the fingerprints of the last successful write.
-export function diffNewsRows(
+// Pure diff (unit-tested): what must be written and what must be deleted,
+// given the fingerprints of the last successful write.
+export function diffRows(
   formatted: any[],
   previous: Map<string, string>
 ): { changed: any[]; removed: string[]; next: Map<string, string> } {
@@ -1815,7 +1820,7 @@ export function diffNewsRows(
   const changed: any[] = [];
   for (const row of formatted) {
     const id = String(row.id);
-    const fp = newsFingerprint(row);
+    const fp = rowFingerprint(row);
     next.set(id, fp);
     if (previous.get(id) !== fp) changed.push(row);
   }
@@ -1823,20 +1828,29 @@ export function diffNewsRows(
   return { changed, removed, next };
 }
 
-async function persistNewsRows(formatted: any[]): Promise<void> {
-  const { changed, removed, next } = diffNewsRows(formatted, persistedNewsHashes);
+async function persistRowDiffs(table: DiffedTable, formatted: any[]): Promise<void> {
+  const previous = persistedRowHashes.get(table) ?? new Map<string, string>();
+  const { changed, removed, next } = diffRows(formatted, previous);
 
   if (changed.length > 0) {
-    const res: any = await pgDb.from("news").upsert(changed);
+    const res: any = await pgDb.from(table).upsert(changed);
     if (res && res.error) throw new Error(res.error.message || String(res.error));
   }
   if (removed.length > 0) {
-    await dbQuery("DELETE FROM news WHERE id = ANY($1::text[])", [removed]);
+    // Table name is a compile-time union, never request input.
+    await dbQuery(`DELETE FROM ${table} WHERE id = ANY($1::text[])`, [removed]);
   }
   // Only after both statements succeeded: a failure must leave the old
   // fingerprints in place so the next save retries the same rows.
-  persistedNewsHashes.clear();
-  for (const [id, fp] of next) persistedNewsHashes.set(id, fp);
+  persistedRowHashes.set(table, next);
+}
+
+// An emptied collection means "delete everything"; dropping the fingerprints
+// keeps the next non-empty save from skipping rows it thinks are still stored.
+async function clearDiffedTable(table: DiffedTable): Promise<void> {
+  persistedRowHashes.delete(table);
+  const res: any = await pgDb.from(table).delete().neq("id", "");
+  if (res && res.error) throw new Error(res.error.message || String(res.error));
 }
 
 export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<DirtyTable | "all"> }): Promise<void> {
@@ -1852,6 +1866,9 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
     if (options && options.tables) {
       for (const t of options.tables) dirty.add(t);
     }
+    // A forced "all" save is the repair path (diagnostics ?refresh=true): it
+    // must restate every row, so drop the diff baselines first.
+    if (dirty.has("all")) persistedRowHashes.clear();
     const need = (t: DirtyTable) => !fetchFailedTables.has(t) && isDirty(dirty, t);
     const allStagedMatches: any[] = [];
     const sports = ["football", "futsal"];
@@ -1922,12 +1939,9 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
         view_count: n.viewCount || 0,
         created_at: n.createdAt
       }));
-      promises.push(persistNewsRows(formattedNews));
+      promises.push(persistRowDiffs("news", formattedNews));
     } else if (need("news") && data.news) {
-      // Empty table: drop every row and forget the fingerprints so the next
-      // non-empty save writes the whole table again.
-      persistedNewsHashes.clear();
-      promises.push(pgDb.from('news').delete().neq('id', ''));
+      promises.push(clearDiffedTable("news"));
     }
 
     const teamIdSet = new Set<string>((data.teams || []).map((t: any) => t.id));
@@ -1964,13 +1978,9 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
         };
       });
 
-      const teamResults = pgDb.from('teams').upsert(formattedTeams);
-      promises.push(teamResults);
-
-      const teamIds = data.teams.map((x: any) => x.id);
-      promises.push(pgDb.from('teams').delete().not('id', 'in', `(${teamIds.join(',')})`));
+      promises.push(persistRowDiffs("teams", formattedTeams));
     } else if (need("teams") && data.teams) {
-      promises.push(pgDb.from('teams').delete().neq('id', ''));
+      promises.push(clearDiffedTable("teams"));
     }
 
     if (need("players") && data.players && data.players.length > 0) {
@@ -2009,12 +2019,9 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
         height: p.height || null,
         is_retired: p.isRetired === true
       }));
-      promises.push(pgDb.from('players').upsert(formattedPlayers));
-
-      const playerIds = data.players.map((x: any) => x.id);
-      promises.push(pgDb.from('players').delete().not('id', 'in', `(${playerIds.join(',')})`));
+      promises.push(persistRowDiffs("players", formattedPlayers));
     } else if (need("players") && data.players) {
-      promises.push(pgDb.from('players').delete().neq('id', ''));
+      promises.push(clearDiffedTable("players"));
     }
 
     if (need("coaches") && data.coaches && data.coaches.length > 0) {
@@ -2043,12 +2050,9 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
         is_retired: c.isRetired === true,
         recent_form: c.recentForm || []
       }));
-      promises.push(pgDb.from('coaches').upsert(formattedCoaches));
-
-      const coachIds = data.coaches.map((x: any) => x.id);
-      promises.push(pgDb.from('coaches').delete().not('id', 'in', `(${coachIds.join(',')})`));
+      promises.push(persistRowDiffs("coaches", formattedCoaches));
     } else if (need("coaches") && data.coaches) {
-      promises.push(pgDb.from('coaches').delete().neq('id', ''));
+      promises.push(clearDiffedTable("coaches"));
     }
 
     if (need("matches") && data.matches && data.matches.length > 0) {
@@ -2117,12 +2121,9 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
           })()
         };
       });
-      promises.push(pgDb.from('matches').upsert(formattedMatches));
-
-      const matchIds = data.matches.map((x: any) => x.id);
-      promises.push(pgDb.from('matches').delete().not('id', 'in', `(${matchIds.join(',')})`));
+      promises.push(persistRowDiffs("matches", formattedMatches));
     } else if (need("matches") && data.matches) {
-      promises.push(pgDb.from('matches').delete().neq('id', ''));
+      promises.push(clearDiffedTable("matches"));
     }
 
     if (need("transfers") && data.transfers && data.transfers.length > 0) {
@@ -2142,12 +2143,9 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
         created_at: t.createdAt || t.created_at || new Date().toISOString(),
         tags: t.tags || []
       }));
-      promises.push(pgDb.from('transfers').upsert(formattedTransfers));
-
-      const transferIds = data.transfers.map((x: any) => x.id);
-      promises.push(pgDb.from('transfers').delete().not('id', 'in', `(${transferIds.join(',')})`));
+      promises.push(persistRowDiffs("transfers", formattedTransfers));
     } else if (need("transfers") && data.transfers) {
-      promises.push(pgDb.from('transfers').delete().neq('id', ''));
+      promises.push(clearDiffedTable("transfers"));
     }
 
     if (need("legionnaires") && data.legionnaires && data.legionnaires.length > 0) {
@@ -2165,12 +2163,9 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
         created_at: l.createdAt || l.created_at || new Date().toISOString(),
         tags: l.tags || []
       }));
-      promises.push(pgDb.from('legionnaires').upsert(formattedLegionnaires));
-
-      const legionId = data.legionnaires.map((x: any) => x.id);
-      promises.push(pgDb.from('legionnaires').delete().not('id', 'in', `(${legionId.join(',')})`));
+      promises.push(persistRowDiffs("legionnaires", formattedLegionnaires));
     } else if (need("legionnaires") && data.legionnaires) {
-      promises.push(pgDb.from('legionnaires').delete().neq('id', ''));
+      promises.push(clearDiffedTable("legionnaires"));
     }
 
     if (need("images") && data.images && data.images.length > 0) {
@@ -2186,12 +2181,9 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
         photographer: img.photographer || null,
         photos: Array.isArray(img.photos) ? img.photos : []
       }));
-      promises.push(pgDb.from('images').upsert(formattedImages));
-
-      const imgIds = data.images.map((x: any) => x.id);
-      promises.push(pgDb.from('images').delete().not('id', 'in', `(${imgIds.join(',')})`));
+      promises.push(persistRowDiffs("images", formattedImages));
     } else if (need("images") && data.images) {
-      promises.push(pgDb.from('images').delete().neq('id', ''));
+      promises.push(clearDiffedTable("images"));
     }
 
     if (need("standings") && data.standings) {
@@ -2428,12 +2420,9 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
         view_count: a.viewCount || 0,
         click_count: a.clickCount || 0
       }));
-      promises.push(pgDb.from('ads').upsert(formattedAds));
-
-      const adIds = data.ads.map((x: any) => x.id);
-      promises.push(pgDb.from('ads').delete().not('id', 'in', `(${adIds.join(',')})`));
+      promises.push(persistRowDiffs("ads", formattedAds));
     } else if (need("ads") && data.ads) {
-      promises.push(pgDb.from('ads').delete().neq('id', ''));
+      promises.push(clearDiffedTable("ads"));
     }
 
     if (need("bracket") && data.bracket) {
@@ -2581,12 +2570,9 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
         is_read: sub.isRead || false,
         created_at: sub.createdAt
       }));
-      promises.push(pgDb.from('submissions').upsert(formattedSubs));
-
-      const subIds = data.submissions.map((x: any) => x.id);
-      promises.push(pgDb.from('submissions').delete().not('id', 'in', `(${subIds.join(',')})`));
+      promises.push(persistRowDiffs("submissions", formattedSubs));
     } else if (need("submissions") && data.submissions) {
-      promises.push(pgDb.from('submissions').delete().neq('id', ''));
+      promises.push(clearDiffedTable("submissions"));
     }
 
     if (need("mediaFiles") && data.media_files && data.media_files.length > 0) {
@@ -2603,33 +2589,9 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
         created_at: mf.created_at || new Date().toISOString(),
         updated_at: mf.updated_at || new Date().toISOString()
       }));
-      promises.push(
-        pgDb.from('media_files')
-          .upsert(formattedMedia)
-          .then(res => {
-            if (res.error) {
-              logMessage("warn", "database", "جدول رسانه‌ها در PostgreSQL یافت نشد یا خطا دارد مپ نهایی صورت پذیرفت اما کش محلی اولویت بالاتری دارد.");
-            }
-            return res;
-          })
-      );
-
-      const mfIds = data.media_files.map((x: any) => x.id);
-      promises.push(
-        Promise.resolve(
-          pgDb.from('media_files')
-            .delete()
-            .not('id', 'in', `(${mfIds.join(',')})`)
-        ).catch(e => null)
-      );
+      promises.push(persistRowDiffs("media_files", formattedMedia));
     } else if (need("mediaFiles") && data.media_files) {
-      promises.push(
-        Promise.resolve(
-          pgDb.from('media_files')
-            .delete()
-            .neq('id', '')
-        ).catch(e => null)
-      );
+      promises.push(clearDiffedTable("media_files"));
     }
 
     const results = await Promise.all(promises);
