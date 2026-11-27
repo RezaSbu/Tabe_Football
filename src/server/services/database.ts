@@ -1845,6 +1845,30 @@ async function persistRowDiffs(table: DiffedTable, formatted: any[]): Promise<vo
   persistedRowHashes.set(table, next);
 }
 
+// Derived season aggregates are recomputed as a complete set, so a per-row
+// diff cannot spot removed buckets on a fresh process. A whole-set hash is the
+// safe equivalent: identical bytes mean no write at all, anything else keeps
+// the full delete + insert (which also drops stale rows).
+const persistedSetHashes = new Map<string, string>();
+
+async function replaceDerivedTable(table: string, rows: any[], warnLabel: string): Promise<void> {
+  const hash = createHash("sha1").update(JSON.stringify(rows)).digest("hex");
+  if (persistedSetHashes.get(table) === hash) return;
+  const del = await pgDb.from(table).delete();
+  if (del.error) {
+    logMessage("warn", "database", warnLabel, del.error);
+    return;
+  }
+  if (rows.length > 0) {
+    const res = await pgDb.from(table).upsert(rows);
+    if (res.error) {
+      logMessage("warn", "database", warnLabel, res.error);
+      return;
+    }
+  }
+  persistedSetHashes.set(table, hash);
+}
+
 // An emptied collection means "delete everything"; dropping the fingerprints
 // keeps the next non-empty save from skipping rows it thinks are still stored.
 async function clearDiffedTable(table: DiffedTable): Promise<void> {
@@ -1868,7 +1892,10 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
     }
     // A forced "all" save is the repair path (diagnostics ?refresh=true): it
     // must restate every row, so drop the diff baselines first.
-    if (dirty.has("all")) persistedRowHashes.clear();
+    if (dirty.has("all")) {
+      persistedRowHashes.clear();
+      persistedSetHashes.clear();
+    }
     const need = (t: DirtyTable) => !fetchFailedTables.has(t) && isDirty(dirty, t);
     const allStagedMatches: any[] = [];
     const sports = ["football", "futsal"];
@@ -2301,13 +2328,7 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
         cup_stats: r.cupStats || null,
         created_at: r.createdAt || new Date().toISOString()
       }));
-      promises.push((async () => {
-        const del = await pgDb.from('player_season_stats').delete();
-        if (del.error) { logMessage("warn", "database", "خطا در پاک‌سازی آمار فصلی بازیکنان", del.error); return; }
-        if (rows.length === 0) return;
-        const res = await pgDb.from('player_season_stats').upsert(rows);
-        if (res.error) logMessage("warn", "database", "خطا در ذخیره آمار فصلی بازیکنان", res.error);
-      })());
+      promises.push(replaceDerivedTable("player_season_stats", rows, "خطا در ذخیره آمار فصلی بازیکنان"));
     }
 
     if (recalcRan && Array.isArray(data.coachSeasonStats)) {
@@ -2327,13 +2348,7 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
         win_rate: r.winRate ?? 0,
         created_at: r.createdAt || new Date().toISOString()
       }));
-      promises.push((async () => {
-        const del = await pgDb.from('coach_season_stats').delete();
-        if (del.error) { logMessage("warn", "database", "خطا در پاک‌سازی آمار فصلی مربیان", del.error); return; }
-        if (rows.length === 0) return;
-        const res = await pgDb.from('coach_season_stats').upsert(rows);
-        if (res.error) logMessage("warn", "database", "خطا در ذخیره آمار فصلی مربیان", res.error);
-      })());
+      promises.push(replaceDerivedTable("coach_season_stats", rows, "خطا در ذخیره آمار فصلی مربیان"));
     }
 
     if (recalcRan && Array.isArray(data.teamSeasonStats)) {
@@ -2352,13 +2367,7 @@ export async function saveDB(options?: { skipRecalc?: boolean; tables?: Array<Di
         rank: r.rank ?? null,
         created_at: r.createdAt || new Date().toISOString()
       }));
-      promises.push((async () => {
-        const del = await pgDb.from('team_season_stats').delete();
-        if (del.error) { logMessage("warn", "database", "خطا در پاک‌سازی آمار فصلی تیم‌ها", del.error); return; }
-        if (rows.length === 0) return;
-        const res = await pgDb.from('team_season_stats').upsert(rows);
-        if (res.error) logMessage("warn", "database", "خطا در ذخیره آمار فصلی تیم‌ها", res.error);
-      })());
+      promises.push(replaceDerivedTable("team_season_stats", rows, "خطا در ذخیره آمار فصلی تیم‌ها"));
     }
 
     if (need("teamTransfersList") && data.teamTransfersList && data.teamTransfersList.length > 0) {

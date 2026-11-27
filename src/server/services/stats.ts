@@ -1783,11 +1783,20 @@ export function recalculateAndSyncDatabase(): void {
   // Flatten buckets to the durable memory arrays (persisted by saveDB).
   const finSplit = (s: SeasonSplit) => ({ matches: s.matches, goals: s.goals, assists: s.assists, cleanSheets: s.cleanSheets, yellowCards: s.yellowCards, redCards: s.redCards, minutes: s.minutes, mvps: s.mvps, ratingSum: s.ratingSum, ratingCount: s.ratingCount, averageRating: s.averageRating });
   const nowIso = new Date().toISOString();
+  // created_at must not move on every recalculation: a stable value keeps the
+  // persisted row byte-identical when nothing else changed, which is what the
+  // save path uses to skip rewriting the derived season tables.
+  const createdAtById = (rows: any[] | undefined) =>
+    new Map<string, string>((rows || []).map((r: any) => [String(r.id), r.createdAt]));
+  const pssCreatedAt = createdAtById(db.playerSeasonStats);
+  const cssCreatedAt = createdAtById(db.coachSeasonStats);
+  const tssCreatedAt = createdAtById(db.teamSeasonStats);
   db.playerSeasonStats = [...playerSeasonBuckets.values()].map((b) => {
     const rSum = b.league.ratingSum + b.cup.ratingSum;
     const rCount = b.league.ratingCount + b.cup.ratingCount;
+    const id = bucketId("pss", b.playerId, b.seasonId, b.clubId);
     return {
-      id: bucketId("pss", b.playerId, b.seasonId, b.clubId),
+      id,
       playerId: b.playerId,
       season: b.seasonTag,
       seasonId: b.seasonId,
@@ -1804,33 +1813,37 @@ export function recalculateAndSyncDatabase(): void {
       ratings: { count: rCount, sum: parseFloat(rSum.toFixed(1)) },
       leagueStats: finSplit(b.league),
       cupStats: finSplit(b.cup),
-      createdAt: nowIso
+      createdAt: pssCreatedAt.get(id) || nowIso
     };
   });
-  db.coachSeasonStats = [...coachSeasonBuckets.values()].map((b) => ({
-    id: bucketId("css", b.coachId, b.seasonId, b.teamId),
-    coachId: b.coachId,
-    season: b.seasonTag,
-    seasonId: b.seasonId,
-    teamId: b.teamId,
-    teamName: b.teamName,
-    matches: b.matches,
-    wins: b.wins,
-    draws: b.draws,
-    losses: b.losses,
-    goalsFor: b.goalsFor,
-    goalsAgainst: b.goalsAgainst,
-    winRate: b.matches > 0 ? parseFloat(((b.wins / b.matches) * 100).toFixed(1)) : 0,
-    createdAt: nowIso
-  }));
+  db.coachSeasonStats = [...coachSeasonBuckets.values()].map((b) => {
+    const id = bucketId("css", b.coachId, b.seasonId, b.teamId);
+    return {
+      id,
+      coachId: b.coachId,
+      season: b.seasonTag,
+      seasonId: b.seasonId,
+      teamId: b.teamId,
+      teamName: b.teamName,
+      matches: b.matches,
+      wins: b.wins,
+      draws: b.draws,
+      losses: b.losses,
+      goalsFor: b.goalsFor,
+      goalsAgainst: b.goalsAgainst,
+      winRate: b.matches > 0 ? parseFloat(((b.wins / b.matches) * 100).toFixed(1)) : 0,
+      createdAt: cssCreatedAt.get(id) || nowIso
+    };
+  });
   db.teamSeasonStats = [...teamSeasonBuckets.values()].map((b) => {
     // The current season's archived row must show the same deducted total as
     // the live table; older seasons keep the points they were played with.
     const teamRow = (db.teams || []).find((t: any) => String(t.id) === String(b.teamId));
     const adjustment = (teamRow && parseInt(String(teamRow.pointsAdjustment)) || 0);
     const isCurrentSeason = !!currentSeasonId && String(b.seasonId) === String(currentSeasonId);
+    const id = `tss-${b.teamId}~${b.seasonId || "noseason"}`;
     return {
-      id: `tss-${b.teamId}~${b.seasonId || "noseason"}`,
+      id,
       teamId: b.teamId,
       teamName: b.teamName,
       season: b.seasonTag,
@@ -1843,7 +1856,7 @@ export function recalculateAndSyncDatabase(): void {
       goalsAgainst: b.goalsAgainst,
       points: b.points + (isCurrentSeason ? adjustment : 0),
       rank: null,
-      createdAt: nowIso
+      createdAt: tssCreatedAt.get(id) || nowIso
     };
   });
 
