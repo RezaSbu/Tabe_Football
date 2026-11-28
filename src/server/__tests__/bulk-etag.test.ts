@@ -16,8 +16,10 @@ describe("bulk ETag revision", () => {
     expect(getDataRevision()).toBe(before + 2);
   });
 
-  it("builds a weak validator scoped to the revision", () => {
-    expect(buildBulkEtag(7)).toBe('W/"rev-7"');
+  it("builds a weak validator scoped to the revision and the process", () => {
+    const etag = buildBulkEtag(7);
+    expect(etag).toMatch(/^W\/"rev-7-[a-z0-9]+"$/);
+    expect(buildBulkEtag(7)).toBe(etag);
     expect(buildBulkEtag(7)).not.toBe(buildBulkEtag(8));
   });
 });

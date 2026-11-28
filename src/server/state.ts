@@ -36,8 +36,18 @@ export function bumpDataRevision(): number {
   return dataRevision;
 }
 
+const BOOT_ID = Math.random().toString(36).slice(2, 10);
+
 export function buildBulkEtag(revision: number): string {
-  return `W/"rev-${revision}"`;
+  // A process can restart without the revision moving (it starts at 0 and is
+  // bumped by boot work), so `rev-N` alone can collide with the previous
+  // process. That collision is not harmless: nginx revalidates with
+  // proxy_cache_revalidate and the app answers 304, so the edge keeps serving
+  // the body from BEFORE the deploy until the next revision bump — this was
+  // observed locally as a stale payload surviving a rebuild. The per-boot id
+  // makes every restart a new validator; returning visitors then get one full
+  // body and the current data.
+  return `W/"rev-${revision}-${BOOT_ID}"`;
 }
 
 // Pure If-None-Match decision for the /api/data 304 path (unit-tested).
