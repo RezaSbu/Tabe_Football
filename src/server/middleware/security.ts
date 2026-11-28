@@ -78,7 +78,21 @@ export function setupSecurityMiddleware(app: express.Application) {
   const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 200,
-    skip: (req) => hasValidToken(req) || req.path === "/api/visit",
+    // Reads are already rate-limited per IP at the edge (limit_req 20r/s,
+    // burst 50), and they are exactly what a normal visitor repeats. Counting
+    // them here turned one shared address into 429s for everyone behind it:
+    // Iranian mobile carriers put many users on one CGNAT IP, and the app is
+    // not reachable from the internet anyway (prod publishes only nginx).
+    // Writes, auth and contact keep their own budgets below.
+    skip: (req) =>
+      req.method === "GET" ||
+      req.method === "HEAD" ||
+      hasValidToken(req) ||
+      // originalUrl, not req.path: inside `app.use("/api/", ...)` Express has
+      // already stripped the mount prefix, so req.path is "/visit" and the old
+      // check never matched. Every page view POSTs /api/visit, so those were
+      // silently eating the 200-request budget.
+      (req.originalUrl || "").split("?")[0] === "/api/visit",
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: "تعداد درخواست‌ها بیش از حد مجاز است. لطفاً بعداً تلاش کنید." }
