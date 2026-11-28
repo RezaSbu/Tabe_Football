@@ -117,8 +117,10 @@ export default function NewsSlider({ news, transfers = [], heroSlides = [], legi
   }, [sliderArticles.length]);
 
   if (sliderArticles.length === 0) {
+    // Same box as the real slide (h-[280px] sm:h-[380px]) so the rest of the
+    // page does not move when the first articles arrive.
     return (
-      <div className="h-64 flex items-center justify-center rounded-2xl bg-gray-900 border border-gray-800 text-gray-500">
+      <div className="h-[280px] sm:h-[380px] flex items-center justify-center rounded-2xl bg-gray-900 border border-gray-800 text-gray-500">
         در حال بارگذاری اسلایدر اخبار...
       </div>
     );

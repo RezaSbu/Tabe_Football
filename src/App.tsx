@@ -367,7 +367,14 @@ export default function App() {
 
       <Navbar activeTab={d.activeTab} setActiveTab={d.handleTabChangeSubmit} />
 
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+      <main
+        className="mx-auto max-w-7xl px-4 py-6 sm:px-6"
+        // While the first payload is in flight the page has almost no height,
+        // so the footer sits inside the viewport and is pushed down when the
+        // data lands (measured 0.25 CLS on every cold load). Reserving one
+        // viewport keeps the footer below the fold until the content exists.
+        style={d.isLoading ? { minHeight: "var(--app-min-h, 100vh)" } : undefined}
+      >
         <Routes>
           <Route path="/news/:id" element={
             <Suspense fallback={loadingFallback}><NewsDetailPage /></Suspense>

@@ -9,7 +9,6 @@ import TeamOfTheWeekWidgetLight from "../components/TeamOfTheWeekWidgetLight";
 import MatchWeekWidget from "../components/MatchWeekWidget";
 import useLightTheme from "../hooks/useLightTheme";
 import AdSlot, { isAdActive } from "../components/AdSlot";
-import { SkeletonGrid, SkeletonList } from "../components/ui/Skeleton";
 import { AdItem } from "../types";
 import { formatStatNumber } from "../utils";
 import { sortNewsNewestFirst } from "../shared/newsSort";
@@ -46,6 +45,7 @@ interface HomePageProps {
   onSelectCoach?: (id: string) => void;
   ads: AdItem[];
   onSelectTransfer?: (transferId: string) => void;
+  /** Kept for callers; the page no longer swaps in a skeleton (it caused CLS). */
   isLoading?: boolean;
   dataError?: string | null;
   onRetryData?: () => void;
@@ -92,7 +92,6 @@ export default function HomePage({
   onSelectTransfer,
   stats,
   setSelectedLeagueFilterOnStats,
-  isLoading = false,
   dataError = null,
   onRetryData,
 }: HomePageProps) {
@@ -164,23 +163,11 @@ export default function HomePage({
             </div>
           );
         }
-        // First load with no data yet: skeleton mirroring the home layout
-        // (hero + main/sidebar grid) instead of an empty page.
-        if (isLoading && isEmpty) {
-          return (
-            <>
-              <div className="skeleton-shimmer h-56 rounded-2xl" aria-hidden="true" />
-              <div className="grid gap-6 lg:grid-cols-12">
-                <div className="lg:col-span-8">
-                  <SkeletonGrid count={4} imageHeight="h-40" />
-                </div>
-                <div className="lg:col-span-4">
-                  <SkeletonList count={8} />
-                </div>
-              </div>
-            </>
-          );
-        }
+        // No skeleton branch: the real layout renders on the first paint and
+        // each section reserves the height of its loaded self (the slider has
+        // its own same-size placeholder), so the payload landing fills the page
+        // instead of replacing it. A separate skeleton that was shorter than
+        // the real page moved the footer by 0.25 CLS on every cold load.
         return null;
       })()}
       <div className="grid gap-6 lg:grid-cols-12" id="home-dashboard-layout font-sans">
