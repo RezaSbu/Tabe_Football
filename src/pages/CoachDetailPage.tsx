@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { ArrowRight, Loader2 } from "lucide-react";
 import CoachDetail from "../components/CoachDetail";
-import { fetchCachedAppData } from "../utils";
+import { fetchLiteCachedAppData } from "../utils";
 import { useSmartNavigate } from "../hooks/useSmartNavigate";
 
 export default function CoachDetailPage() {
@@ -38,7 +38,7 @@ export default function CoachDetailPage() {
       .catch(() => setError(true))
       .finally(() => setLoading(false));
 
-    fetchCachedAppData()
+    fetchLiteCachedAppData()
       .then(d => {
         if (d && d.status === "ok") {
           setAllMatches(d.matches || []);

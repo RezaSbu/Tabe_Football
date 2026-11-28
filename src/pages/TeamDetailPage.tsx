@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { ArrowRight, Loader2 } from "lucide-react";
 import TeamDetail from "../components/TeamDetail";
-import { getSafeImageUrl, fetchCachedAppData } from "../utils";
+import { getSafeImageUrl, fetchLiteCachedAppData } from "../utils";
 import { useSmartNavigate } from "../hooks/useSmartNavigate";
 
 export default function TeamDetailPage() {
@@ -40,7 +40,7 @@ export default function TeamDetailPage() {
       .catch(() => setError(true))
       .finally(() => setLoading(false));
 
-    fetchCachedAppData()
+    fetchLiteCachedAppData()
       .then(d => {
         if (d && d.status === "ok") {
           setAllMatches(d.matches || []);

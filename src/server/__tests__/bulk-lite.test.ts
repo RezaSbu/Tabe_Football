@@ -73,16 +73,15 @@ describe("buildLitePayload", () => {
     }
   });
 
-  it("keeps every first-paint table by reference", () => {
+  it("keeps every first-paint table (players/matches are projected, see below)", () => {
     const db = fullDb();
     const lite = buildLitePayload(db);
     // Mirrors the keys applyLiteData reads (src/hooks/useAppData.ts). The
     // public boot and the public poll both apply this slice, so a key that
-    // disappears here breaks a page with no other symptom.
+    // disappears here breaks a page with no other symptom. `players` and
+    // `matches` are projected copies, asserted separately.
     for (const k of [
-      "matches",
       "teams",
-      "players",
       "standings",
       "stats",
       "transfers",
@@ -105,6 +104,37 @@ describe("buildLitePayload", () => {
     }
     expect(lite.currentSeason).toBe(db.currentSeason);
     expect(lite.lastScraped).toBe(db.lastScraped);
+  });
+
+  it("drops player.ratingsHistory but keeps every other player field", () => {
+    const db = fullDb();
+    db.players = [
+      { id: "p1", name: "one", seasonStats: { goals: 1 }, ratingsHistory: [{ matchId: "m1" }] },
+      { id: "p2", name: "two" },
+    ] as any;
+    const lite = buildLitePayload(db);
+    expect(lite.players).toHaveLength(2);
+    expect(lite.players[0]).not.toHaveProperty("ratingsHistory");
+    expect(lite.players[0]).toMatchObject({ id: "p1", name: "one", seasonStats: { goals: 1 } });
+    // The full payload keeps it: the player profile reads the field itself.
+    expect((db.players[0] as any).ratingsHistory).toEqual([{ matchId: "m1" }]);
+    // A player without the field is returned as-is.
+    expect(lite.players[1]).toBe(db.players[1]);
+  });
+
+  it("drops match lineups/events but keeps the rest plus hasLineups", () => {
+    const db = fullDb();
+    db.matches = [
+      { id: "m1", scoreHome: 2, lineups: { home: [{ id: "a" }], away: [] }, events: [{ type: "goal" }] },
+      { id: "m2", scoreHome: 0, lineups: { home: [], away: [] }, events: [] },
+    ] as any;
+    const lite = buildLitePayload(db);
+    expect(lite.matches[0]).not.toHaveProperty("lineups");
+    expect(lite.matches[0]).not.toHaveProperty("events");
+    expect(lite.matches[0]).toMatchObject({ id: "m1", scoreHome: 2, hasLineups: true });
+    expect(lite.matches[1]).toMatchObject({ id: "m2", hasLineups: false });
+    // Detail pages read the real XI from /api/detail/match/:id.
+    expect((db.matches[0] as any).lineups.home).toEqual([{ id: "a" }]);
   });
 
   it(`trims news to the newest ${LITE_NEWS_LIMIT} with bodies intact`, () => {

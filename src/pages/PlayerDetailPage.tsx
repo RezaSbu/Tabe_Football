@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { ArrowRight, Loader2 } from "lucide-react";
 import PlayerDetail from "../components/PlayerDetail";
-import { getSafeImageUrl, fetchCachedAppData } from "../utils";
+import { getSafeImageUrl, fetchLiteCachedAppData } from "../utils";
 import { resolveTeam } from "../shared/teamMatch";
 import { useSmartNavigate } from "../hooks/useSmartNavigate";
 
@@ -41,7 +41,7 @@ export default function PlayerDetailPage() {
       .catch(() => setError(true))
       .finally(() => setLoading(false));
 
-    fetchCachedAppData()
+    fetchLiteCachedAppData()
       .then(d => {
         if (d && d.status === "ok") {
           setAllTeams(d.teams || []);

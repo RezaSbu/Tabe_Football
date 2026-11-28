@@ -91,6 +91,32 @@ export default function MarketCompare({ a, b, onClose }: { a: any; b: any; onClo
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  // The public lite payload no longer carries player.ratingsHistory (it was
+  // 1.95MB of the 6.09MB boot body and only this dialog and the player
+  // profile read it; the profile fetches /api/detail/player/:id itself).
+  // The dialog fetches just the two compared players on open.
+  const [hist, setHist] = React.useState<{ a: any[]; b: any[] }>({
+    a: a.ratingsHistory || [],
+    b: b.ratingsHistory || [],
+  });
+  React.useEffect(() => {
+    if ((a.ratingsHistory || []).length || (b.ratingsHistory || []).length) return;
+    let cancelled = false;
+    const load = (p: any) =>
+      fetch(`/api/detail/player/${p.id}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => (j?.success ? j.data : null))
+        .catch(() => null);
+    Promise.all([load(a), load(b)]).then(([pa, pb]) => {
+      if (cancelled) return;
+      setHist({ a: pa?.ratingsHistory || [], b: pb?.ratingsHistory || [] });
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [a.id, b.id, a.ratingsHistory, b.ratingsHistory]);
+
   const num = (v: any): number | null => {
     const n = Number(v);
     return Number.isFinite(n) && n !== 0 ? n : v === 0 ? 0 : null;
@@ -173,7 +199,7 @@ export default function MarketCompare({ a, b, onClose }: { a: any; b: any; onClo
         </div>
 
         <div className="mt-4">
-          <DualRatings aHist={a.ratingsHistory || []} bHist={b.ratingsHistory || []} />
+          <DualRatings aHist={hist.a} bHist={hist.b} />
         </div>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import MatchPitch from "../matchcenter/MatchPitch";
 import { enrichMatchForPitch } from "../matchcenter/toPitchPlayer";
 import { matchGroupTabs } from "../shared/matchGroup";
@@ -24,6 +24,15 @@ function matchInTab(m: any, tab: WeekLeagueTab, teams: any[]): boolean {
   if (tab === "pro-league" || tab === "league-1") return m.league === tab;
   if (m.league !== "league-2") return false;
   return matchGroupTabs(m, teams).includes(tab === "league-2-a" ? "a" : "b");
+}
+
+// The public lite payload carries `hasLineups` instead of the full XI; admin
+// sessions still receive the full payload, so both shapes must work.
+function hasRegisteredXI(m: any): boolean {
+  return (
+    (m?.lineups?.home?.length || 0) + (m?.lineups?.away?.length || 0) > 0 ||
+    !!m?.hasLineups
+  );
 }
 
 interface MatchWeekWidgetProps {
@@ -78,7 +87,7 @@ export default function MatchWeekWidget({
   // empty on first paint. An explicit user pick always wins.
   const defaultMatchId = useMemo(() => {
     if (weekMatches.length === 0) return null;
-    const withXI = weekMatches.filter(m => (m.lineups?.home || []).length > 0 || (m.lineups?.away || []).length > 0);
+    const withXI = weekMatches.filter(hasRegisteredXI);
     const pick = withXI.length > 0 ? withXI[withXI.length - 1] : weekMatches[weekMatches.length - 1];
     return String(pick.id);
   }, [weekMatches]);
@@ -86,13 +95,50 @@ export default function MatchWeekWidget({
   const effectiveMatchId = matchId && weekMatches.some(m => String(m.id) === String(matchId)) ? matchId : defaultMatchId;
 
   const activeMatch = weekMatches.find(m => String(m.id) === String(effectiveMatchId)) || null;
-  const pitch = useMemo(
-    () => (activeMatch ? enrichMatchForPitch(activeMatch, players, coaches, { movements, appointments, teams }) : null),
+
+  // The public payload omits lineups/events (they are ~26% of the boot body
+  // and only a detail surface needs them), so the pitch fetches just the
+  // selected match. Admin sessions already have lineups inline.
+  const [matchDetail, setMatchDetail] = useState<any>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const activeMatchId = activeMatch ? String(activeMatch.id) : null;
+  useEffect(() => {
+    if (!activeMatch || activeMatch.lineups) {
+      setMatchDetail(null);
+      setDetailLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setDetailLoading(true);
+    setMatchDetail(null);
+    fetch(`/api/detail/match/${activeMatch.id}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (cancelled) return;
+        setMatchDetail(j?.success ? j.data?.match || null : null);
+      })
+      .catch(() => {
+        if (!cancelled) setMatchDetail(null);
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeMatch?.id, activeMatch?.lineups, activeMatch?.events, activeMatch?.mvpId, players, coaches, movements, appointments, teams]
+  }, [activeMatchId, activeMatch?.lineups]);
+
+  const pitchMatch = matchDetail && String(matchDetail.id) === activeMatchId
+    ? { ...activeMatch, ...matchDetail }
+    : activeMatch;
+  const pitch = useMemo(
+    () => (pitchMatch ? enrichMatchForPitch(pitchMatch, players, coaches, { movements, appointments, teams }) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pitchMatch, players, coaches, movements, appointments, teams]
   );
-  const hasLineups = !!activeMatch && (
-    (activeMatch.lineups?.home || []).length > 0 || (activeMatch.lineups?.away || []).length > 0
+  const hasLineups = !!pitchMatch && (
+    (pitchMatch.lineups?.home || []).length > 0 || (pitchMatch.lineups?.away || []).length > 0
   );
 
   const pickLeague = (key: WeekLeagueTab) => {
@@ -185,7 +231,7 @@ export default function MatchWeekWidget({
               <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
                 {weekMatches.map(m => {
                   const active = String(m.id) === String(effectiveMatchId);
-                  const hasXI = (m.lineups?.home || []).length > 0 || (m.lineups?.away || []).length > 0;
+                  const hasXI = hasRegisteredXI(m);
                   return (
                     <button
                       key={m.id}
@@ -261,12 +307,14 @@ export default function MatchWeekWidget({
                   awayName={activeMatch.teamAway}
                   homeLogo={activeMatch.teamHomeLogo}
                   awayLogo={activeMatch.teamAwayLogo}
-                  formationHome={activeMatch.lineups?.formationHome}
-                  formationAway={activeMatch.lineups?.formationAway}
+                  formationHome={pitchMatch.lineups?.formationHome}
+                  formationAway={pitchMatch.lineups?.formationAway}
                   onSelectPlayer={onSelectPlayer}
                   coaches={pitch.coaches}
                   onSelectCoach={onSelectCoach}
                 />
+              ) : detailLoading ? (
+                <p className="text-[11px] text-slate-500 text-center py-4">در حال بارگذاری ترکیب...</p>
               ) : (
                 <p className="text-[11px] text-slate-500 text-center py-4">برای این بازی ترکیبی ثبت نشده است.</p>
               )}

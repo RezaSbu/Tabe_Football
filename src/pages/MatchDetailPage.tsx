@@ -3,7 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { ArrowRight, Loader2 } from "lucide-react";
 import MatchDetailView from "../components/MatchDetailView";
-import { computeDynamicAppletStats, fetchCachedAppData } from "../utils";
+import { computeDynamicAppletStats, fetchLiteCachedAppData } from "../utils";
 import { useSmartNavigate } from "../hooks/useSmartNavigate";
 
 export default function MatchDetailPage() {
@@ -56,7 +56,7 @@ export default function MatchDetailPage() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchCachedAppData()
+    fetchLiteCachedAppData()
       .then(d => {
         if (cancelled) return;
         setAllMatches(d.matches || []);

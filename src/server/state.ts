@@ -88,6 +88,33 @@ export function buildLitePayload(db: any): any {
   }
   const news = Array.isArray(src.news) ? src.news : [];
   lite.news = sortNewsNewestFirst(news).slice(0, LITE_NEWS_LIMIT);
+  // Two fields are only ever read on a detail surface that already fetches
+  // the entity itself, yet they were 55% of the public body (measured
+  // 2026-11-27: ratingsHistory 1.95MB of 6.09MB raw, lineups+events 1.6MB):
+  //  - player.ratingsHistory: PlayerDetailPage reads it from
+  //    /api/detail/player/:id; the only other reader is the two-player
+  //    comparison dialog, which now fetches those two players on open.
+  //  - match.lineups / match.events: MatchDetailPage reads them from
+  //    /api/detail/match/:id; the home pitch widget fetches the one match it
+  //    shows. `hasLineups` keeps its "this match has a XI" indicator working.
+  lite.players = Array.isArray(src.players)
+    ? src.players.map((p: any) => {
+        if (!p || typeof p !== "object" || !("ratingsHistory" in p)) return p;
+        const { ratingsHistory, ...rest } = p;
+        return rest;
+      })
+    : src.players;
+  lite.matches = Array.isArray(src.matches)
+    ? src.matches.map((m: any) => {
+        if (!m || typeof m !== "object") return m;
+        const { lineups, events, ...rest } = m;
+        return {
+          ...rest,
+          hasLineups:
+            (lineups?.home?.length || 0) + (lineups?.away?.length || 0) > 0,
+        };
+      })
+    : src.matches;
   return lite;
 }
 
