@@ -24,19 +24,34 @@ function hasValidToken(req: express.Request): boolean {
 }
 
 export function setupSecurityMiddleware(app: express.Application) {
-  app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginEmbedderPolicy: false,
+      // nginx used to send its own copies of these (the browser then saw
+      // "SAMEORIGIN, SAMEORIGIN" and two different Referrer-Policy values).
+      // The app is now the single source for proxied responses, so keep the
+      // values the edge used to send instead of helmet's shorter defaults.
+      strictTransportSecurity: { maxAge: 31536000, includeSubDomains: true },
+      referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+      // X-XSS-Protection stays at helmet's "0": the old edge value
+      // "1; mode=block" is deprecated and can introduce XSS in old IE.
+    })
+  );
   app.use((req, res, next) => {
     const origin = typeof req.headers.origin === "string" ? req.headers.origin : null;
+    // Only answer CORS for an origin that is explicitly allowed. The old code
+    // also echoed CORS_ORIGINS[0] on EVERY response, and .env ships
+    // CORS_ORIGIN=http://localhost:3000, so production advertised a dev origin
+    // to every browser and paid ~40 bytes per response for it.
     if (origin && CORS_ORIGINS.includes(origin)) {
       res.header("Access-Control-Allow-Origin", origin);
       res.header("Vary", "Origin");
-    } else if (CORS_ORIGINS.length > 0) {
-      res.header("Access-Control-Allow-Origin", CORS_ORIGINS[0]);
-    } else {
-      res.header("Access-Control-Allow-Origin", "null");
+      res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+      res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
     }
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    // nginx no longer sets this on proxied responses (see nginx/prod.conf).
+    res.header("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
     if (req.method === "OPTIONS") return res.sendStatus(204);
     next();
   });
