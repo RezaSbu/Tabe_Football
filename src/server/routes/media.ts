@@ -24,6 +24,59 @@ function randomSuffix(): string {
   return Math.random().toString(36).slice(2, 8);
 }
 
+/**
+ * [امنیتی] SSRF guard for /api/image-proxy, shared by the requested URL and
+ * every redirect hop. Node's fetch follows redirects by default, so a public
+ * host could answer `302 Location: http://169.254.169.254/latest/meta-data/`
+ * and the old code would fetch it after validating only the first URL.
+ * Returns a human-readable reason when the target must not be fetched.
+ */
+export function imageProxyBlockReason(target: URL): string | null {
+  if (!["http:", "https:"].includes(target.protocol)) {
+    return "Only HTTP/HTTPS URLs are allowed";
+  }
+  const blockedHosts = ["localhost", "127.0.0.1", "0.0.0.0", "169.254.169.254", "169.254.169.253", "[::1]", "metadata.google.internal"];
+  if (blockedHosts.includes(target.hostname)) {
+    return "Access to internal/private addresses is forbidden";
+  }
+  // Block private-range literals (10/8, 172.16/12, 192.168/16, 169.254/16,
+  // fc00::/7, fe80::/10) and decimal/octal/hex IP obfuscations.
+  const hostLower = target.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  const numericIp = (() => {
+    if (/^[0-9]+$/.test(hostLower)) {
+      const n = Number(hostLower);
+      if (!Number.isSafeInteger(n) || n < 0 || n > 0xffffffff) return null;
+      return [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255];
+    }
+    const parts = hostLower.split(".");
+    if (parts.length === 4) {
+      const nums = parts.map((p) => {
+        if (/^0x[0-9a-f]+$/i.test(p)) return parseInt(p, 16);
+        if (/^0[0-9]+$/.test(p)) return parseInt(p, 8);
+        if (/^[0-9]+$/.test(p)) return parseInt(p, 10);
+        return NaN;
+      });
+      if (nums.every((x) => Number.isInteger(x) && x >= 0 && x <= 255)) return nums as number[];
+    }
+    return null;
+  })();
+  const isPrivateV4 = numericIp != null && (
+    numericIp[0] === 10 ||
+    numericIp[0] === 127 ||
+    (numericIp[0] === 172 && numericIp[1] >= 16 && numericIp[1] <= 31) ||
+    (numericIp[0] === 192 && numericIp[1] === 168) ||
+    (numericIp[0] === 169 && numericIp[1] === 254) ||
+    numericIp[0] === 0
+  );
+  const isPrivateV6 = hostLower.includes(":") && (
+    hostLower.startsWith("fc") || hostLower.startsWith("fd") || hostLower.startsWith("fe80")
+  );
+  if (isPrivateV4 || isPrivateV6) {
+    return "Access to internal/private addresses is forbidden";
+  }
+  return null;
+}
+
 function mimeFromExt(ext: string): string {
   if (ext === ".png") return "image/png";
   if (ext === ".gif") return "image/gif";
@@ -806,62 +859,54 @@ export function registerMediaRoutes(app: Express) {
     } catch {
       return res.status(400).send("Invalid URL format");
     }
-    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-      return res.status(400).send("Only HTTP/HTTPS URLs are allowed");
-    }
-    const blockedHosts = ["localhost", "127.0.0.1", "0.0.0.0", "169.254.169.254", "169.254.169.253", "[::1]", "metadata.google.internal"];
-    if (blockedHosts.includes(parsedUrl.hostname)) {
-      return res.status(403).send("Access to internal/private addresses is forbidden");
-    }
-    // Block private-range literals (10/8, 172.16/12, 192.168/16, 169.254/16,
-    // fc00::/7, fe80::/10) and decimal/octal/hex IP obfuscations.
-    const hostLower = parsedUrl.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-    const numericIp = (() => {
-      if (/^[0-9]+$/.test(hostLower)) {
-        const n = Number(hostLower);
-        if (!Number.isSafeInteger(n) || n < 0 || n > 0xffffffff) return null;
-        return [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255];
-      }
-      const parts = hostLower.split(".");
-      if (parts.length === 4) {
-        const nums = parts.map((p) => {
-          if (/^0x[0-9a-f]+$/i.test(p)) return parseInt(p, 16);
-          if (/^0[0-9]+$/.test(p)) return parseInt(p, 8);
-          if (/^[0-9]+$/.test(p)) return parseInt(p, 10);
-          return NaN;
-        });
-        if (nums.every((x) => Number.isInteger(x) && x >= 0 && x <= 255)) return nums as number[];
-      }
-      return null;
-    })();
-    const isPrivateV4 = numericIp != null && (
-      numericIp[0] === 10 ||
-      numericIp[0] === 127 ||
-      (numericIp[0] === 172 && numericIp[1] >= 16 && numericIp[1] <= 31) ||
-      (numericIp[0] === 192 && numericIp[1] === 168) ||
-      (numericIp[0] === 169 && numericIp[1] === 254) ||
-      numericIp[0] === 0
-    );
-    const isPrivateV6 = hostLower.includes(":") && (
-      hostLower.startsWith("fc") || hostLower.startsWith("fd") || hostLower.startsWith("fe80")
-    );
-    if (isPrivateV4 || isPrivateV6) {
-      return res.status(403).send("Access to internal/private addresses is forbidden");
+    const initialBlock = imageProxyBlockReason(parsedUrl);
+    if (initialBlock) {
+      return res.status(initialBlock.startsWith("Only") ? 400 : 403).send(initialBlock);
     }
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 10000);
       let fetchResponse: Awaited<ReturnType<typeof fetch>>;
       try {
-        fetchResponse = await fetch(parsedUrl.toString(), {
+        // Manual redirects so every hop is checked by the same SSRF guard.
+        let currentUrl = parsedUrl;
+        fetchResponse = await fetch(currentUrl.toString(), {
           headers: {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
             "Referer": "https://www.varzesh3.com/"
           },
+          redirect: "manual",
           signal: controller.signal,
         });
+        for (let hop = 0; hop < 3 && fetchResponse.status >= 300 && fetchResponse.status < 400; hop++) {
+          const location = fetchResponse.headers.get("location");
+          if (!location) break;
+          try { await fetchResponse.body?.cancel(); } catch { /* already gone */ }
+          let nextUrl: URL;
+          try {
+            nextUrl = new URL(location, currentUrl);
+          } catch {
+            return res.status(502).send("Invalid redirect target");
+          }
+          const hopBlock = imageProxyBlockReason(nextUrl);
+          if (hopBlock) {
+            return res.status(403).send(hopBlock);
+          }
+          currentUrl = nextUrl;
+          fetchResponse = await fetch(currentUrl.toString(), {
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+              "Referer": "https://www.varzesh3.com/"
+            },
+            redirect: "manual",
+            signal: controller.signal,
+          });
+        }
       } finally {
         clearTimeout(timeout);
+      }
+      if (fetchResponse.status >= 300 && fetchResponse.status < 400) {
+        return res.status(502).send("Too many redirects");
       }
       if (!fetchResponse.ok) {
         return res.status(fetchResponse.status).send("Failed to retrieve image through proxy connection.");
