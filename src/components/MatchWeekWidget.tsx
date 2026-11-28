@@ -129,12 +129,12 @@ export default function MatchWeekWidget({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeMatchId, activeMatch?.lineups]);
 
-  const pitchMatch = matchDetail && String(matchDetail.id) === activeMatchId
-    ? { ...activeMatch, ...matchDetail }
-    : activeMatch;
+  const pitchMatch = useMemo(
+    () => (matchDetail && String(matchDetail.id) === activeMatchId ? { ...activeMatch, ...matchDetail } : activeMatch),
+    [activeMatch, matchDetail, activeMatchId]
+  );
   const pitch = useMemo(
     () => (pitchMatch ? enrichMatchForPitch(pitchMatch, players, coaches, { movements, appointments, teams }) : null),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [pitchMatch, players, coaches, movements, appointments, teams]
   );
   const hasLineups = !!pitchMatch && (
