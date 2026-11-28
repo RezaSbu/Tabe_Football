@@ -82,6 +82,27 @@ describe("optimizeImageToWebp - Watermark", () => {
     expect(meta.height).toBe(800);
   });
 
+  it("caps category widths to the rendered box (player/coach 640, logo 512)", async () => {
+    const big = await makeTestPng(1600, 1200);
+    const player = await optimizeImageToWebp(big, "p.png", "image/png", { category: "player_photo" });
+    expect((await sharp(player.buffer).metadata()).width).toBe(640);
+
+    const coach = await optimizeImageToWebp(big, "c.png", "image/png", { category: "coach_photo" });
+    expect((await sharp(coach.buffer).metadata()).width).toBe(640);
+
+    const logo = await optimizeImageToWebp(big, "l.png", "image/png", { category: "team_logo" });
+    expect((await sharp(logo.buffer).metadata()).width).toBe(512);
+  });
+
+  it("keeps full width for content categories and honours an explicit maxWidth", async () => {
+    const big = await makeTestPng(1600, 1200);
+    const news = await optimizeImageToWebp(big, "n.png", "image/png", { category: "news_image" });
+    expect((await sharp(news.buffer).metadata()).width).toBe(1600);
+
+    const forced = await optimizeImageToWebp(big, "f.png", "image/png", { category: "player_photo", maxWidth: 1200 });
+    expect((await sharp(forced.buffer).metadata()).width).toBe(1200);
+  });
+
   it("leaves svg and animated gifs untouched", async () => {
     const svg = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><rect width="100" height="100" fill="#f00"/></svg>');
     const svgResult = await optimizeImageToWebp(svg, "logo.svg", "image/svg+xml", { category: "news_image" });

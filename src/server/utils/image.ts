@@ -3,7 +3,24 @@ import fs from "fs";
 import path from "path";
 
 export const IMAGE_MAX_WIDTH = 1600;
-export const WEBP_QUALITY = 90;
+// 90 kept ~330KB for a 1376px photo that is rendered in a 176px box; 84 is
+// visually identical at these sizes and ~20% smaller at the same width.
+export const WEBP_QUALITY = 84;
+
+// Largest box each category is actually rendered in, times ~3 for high-DPR
+// screens. The library had 554MB of player photos stored at up to 1600px for a
+// 176x208px hero (measured: 331KB -> 66KB for the same file at 640/q84), so a
+// single global width is the wrong shape. Unknown categories keep 1600.
+const CATEGORY_MAX_WIDTH: Record<string, number> = {
+  player_photo: 640,
+  coach_photo: 640,
+  team_logo: 512,
+  news_image: 1600,
+  match_photo: 1600,
+  stadium_photo: 1600,
+  general: 1600,
+  ad_banner: 1600,
+};
 
 // دسته‌هایی که هویت خودشان را دارند و نباید واترمارک شوند
 const NO_WATERMARK_CATEGORIES = new Set(["team_logo", "ad_banner"]);
@@ -96,7 +113,11 @@ export async function optimizeImageToWebp(
   mimeType: string,
   options?: OptimizeOptions
 ): Promise<OptimizeResult> {
-  const maxWidth = options?.maxWidth || IMAGE_MAX_WIDTH;
+  const category = String(options?.category || "").trim().toLowerCase();
+  const maxWidth =
+    options?.maxWidth ||
+    CATEGORY_MAX_WIDTH[category] ||
+    IMAGE_MAX_WIDTH;
 
   let meta: Metadata;
   try {
@@ -129,7 +150,6 @@ export async function optimizeImageToWebp(
       .webp({ quality: WEBP_QUALITY, alphaQuality: 100 })
       .toBuffer();
 
-    const category = String(options?.category || "").trim().toLowerCase();
     // تصمیم واترمارک: true = همیشه اعمال شود، false = هرگز، undefined = رفتار قدیمی (مستثنی دسته و حداقل عرض)
     const watermarkFlag = options?.watermark;
     let shouldWatermark: boolean;
